@@ -27,6 +27,8 @@ public struct AIEditReport: Hashable, Sendable {
     public var transitions: Int = 0
     public var musicAdded: Bool = false
 
+    public init() {}
+
     public var summary: String {
         var parts: [String] = []
         if silenceCuts > 0 { parts.append("\(silenceCuts) jump cuts") }

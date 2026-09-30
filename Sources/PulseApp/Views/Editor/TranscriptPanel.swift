@@ -125,7 +125,7 @@ struct TranscriptPanel: View {
                 .padding(.horizontal, 10)
                 .padding(.bottom, 20)
             }
-            .onChange(of: currentWord) { word in
+            .onChange(of: currentWord) { _, word in
                 guard playback.isPlaying, let word, let sentence = sentences.last(where: { $0.firstWord <= word }) else { return }
                 withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(sentence.firstWord, anchor: .center) }
             }

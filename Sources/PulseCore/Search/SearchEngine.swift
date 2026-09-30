@@ -40,6 +40,20 @@ public struct SearchResult: Hashable, Identifiable, Sendable {
     public var timelineID: UUID?
     public var candidateID: UUID?
     public var score: Double
+
+    public init(id: String, kind: SearchResultKind, title: String, subtitle: String, time: Seconds? = nil, projectID: UUID? = nil,
+                assetID: UUID? = nil, timelineID: UUID? = nil, candidateID: UUID? = nil, score: Double) {
+        self.id = id
+        self.kind = kind
+        self.title = title
+        self.subtitle = subtitle
+        self.time = time
+        self.projectID = projectID
+        self.assetID = assetID
+        self.timelineID = timelineID
+        self.candidateID = candidateID
+        self.score = score
+    }
 }
 
 /// Global search across projects, clips, media, transcripts, captions, markers and timelines.

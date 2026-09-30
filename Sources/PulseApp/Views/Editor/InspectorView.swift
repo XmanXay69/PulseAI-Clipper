@@ -43,6 +43,7 @@ struct InspectorView: View {
 }
 
 /// Bindings that route through the undoable edit pipeline.
+@MainActor
 struct ClipBindings {
     let session: ProjectSession
     let clipID: UUID

@@ -167,7 +167,7 @@ struct GlobalSearchView: View {
                     .font(.system(size: 16))
                     .focused($focused)
                     .onSubmit { if rows.indices.contains(highlighted) { open(rows[highlighted]) } }
-                    .onChange(of: query) { _ in highlighted = 0 }
+                    .onChange(of: query) { _, _ in highlighted = 0 }
                 if !query.isEmpty {
                     Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }
                         .buttonStyle(.plain).foregroundStyle(Theme.textTertiary)
@@ -202,7 +202,7 @@ struct GlobalSearchView: View {
                         }
                         .padding(6)
                     }
-                    .onChange(of: highlighted) { i in proxy.scrollTo(i) }
+                    .onChange(of: highlighted) { _, i in proxy.scrollTo(i) }
                 }
                 .frame(maxHeight: 420)
             }

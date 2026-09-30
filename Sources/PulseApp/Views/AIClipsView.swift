@@ -287,8 +287,8 @@ struct CandidateDetailPanel: View {
         }
         .background(Theme.panel)
         .onAppear(perform: load)
-        .onChange(of: candidate.id) { _ in load() }
-        .onChange(of: candidate.range) { _ in load() }
+        .onChange(of: candidate.id) { load() }
+        .onChange(of: candidate.range) { load() }
         .onDisappear { player.pause() }
     }
 
