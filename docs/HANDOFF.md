@@ -46,27 +46,42 @@ Key files to know:
 
 ## Phase status
 
-- [x] Phase 0 — repository bootstrap, CI (build, unit tests, engine end-to-end test, UI screenshots)
-- [x] Phase 1 — core foundation: models, project system, autosave/backups/recovery, app shell ✅ (app compile in CI ⏳ — see below)
-- [x] Phase 2 — video engine: import, probe, thumbnails, waveforms, proxies, composition, playback, export (verified by engine test)
+- [x] Phase 0 — repository bootstrap, CI (build, unit + engine tests, whisper test, UI screenshots, `.app` bundle)
+- [x] Phase 1 — core foundation: models, project system, autosave/backups/recovery, app shell
+- [x] Phase 2 — video engine: import, probe, thumbnails, waveforms, proxies, composition, playback, export
 - [x] Phase 3 — AI: audio/visual analysis, transcription, clip candidates, scoring, titles, hooks
 - [x] Phase 4 — short-form: layouts, facecam, reframing, captions, safe areas, punch-ins
-- [x] Phase 5 — pro editing: timeline ops, inspector, keyframes, color/LUT, effects, transitions, text, transcript editing
+- [x] Phase 5 — pro editing: timeline ops, inspector, keyframes, color/LUT, effects, true cross-dissolves, text, transcript editing, audio enhance
 - [x] Phase 6 — AI auto edit: one-click short, Make More Entertaining, silence/filler removal, strip AI edits
 - [x] Phase 7 — export: presets, batch queue, progress/cancel, hardware encoders
 
-✅ = implemented in code. "Verified" means exercised by CI tests. The SwiftUI app has only been verified
-by compiling + automated screenshots on CI, not by a human clicking through it yet.
+### What CI actually verifies on every push (macOS 15 runner)
+
+- 89+ unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
+  captions, layouts, export settings, audio DSP, …).
+- **Engine end-to-end:** generate a 75 s gameplay+facecam stream → probe → analyze (audio + Vision faces) →
+  AI clip candidates → one-click 9:16 short (split-screen, captions, normalized dialogue audio) → rendered
+  stills → exported H.264 MP4 → landscape re-layout → two-sided cross-dissolve.
+- **Real speech-to-text:** macOS `say` → whisper.cpp (tiny.en) → word-timed transcript
+  (“No way, that was the craziest clutch I have ever seen. Let's go.”).
+- **The app itself:** launches, builds the sample project, visits every section, screenshots them, grabs a
+  live viewer frame, opens ⌘F search, and exports the short through the app's export queue (≈8.8 MB MP4).
+- **Release bundle:** `scripts/build-app.sh` builds, icons, ad-hoc signs and zips `PULSE.app` on `[app]` commits.
+
+Not verified by CI: a human clicking through with real long recordings, Apple Speech (needs a permission
+prompt), cloud AI providers with live keys.
 
 ## Honest gaps (architecture only / not yet implemented)
 
-- **Audio enhance** is implemented (`PulseCore/Audio/AudioDSP.swift` + `PulseEngine/Audio/AudioEnhancer.swift`): high-pass, 3-band EQ, voice shaping, compressor, pan, BS.1770 loudness normalize to −14 LUFS and a look-ahead limiter, rendered to a cached file per clip range. *Noise reduction* is a downward expander (quiets the floor between words); it is not spectral denoising — a future upgrade could use vDSP FFT spectral subtraction or an ML denoiser.
-- **Compound clips, multicam, screen capture**: data model hooks exist, no UI/engine yet.
-- **Cross-dissolve** between A/B clips renders as a fade-in over the lower layer (not a true two-sided dissolve).
-- **Speaker diarization**: transcripts carry speaker IDs from imported files; there is no local diarization model.
-- **Cloud AI** (Claude / OpenAI-compatible) is optional and only used for titles/captions copy; untested against live keys in CI.
-- **Music/SFX library**: uses media you import (role = Music / Sound Effect); no bundled library.
+- **Noise reduction** is a downward expander (quiets the floor between words), not spectral denoising.
+  Upgrade path: vDSP FFT spectral subtraction or an ML denoiser inside `AudioEnhanceChain`.
+- **Compound clips, multicam, screen capture**: data-model hooks only, no UI/engine yet.
+- **Speaker diarization**: transcripts keep speaker IDs from imported files; there is no local diarization model.
+- **Cloud AI** (Claude / OpenAI-compatible) is optional, used only for titles/captions copy; untested with live keys.
+- **Music/SFX library**: uses media you import (role = Music / Sound Effect); nothing is bundled.
 - Dynamic layouts (switching layout mid-clip) are done by splitting segments, not keyframed layout morphs.
+- Cross-dissolves need media handles; at the very start/end of a recording they fall back to a fade over lower tracks.
+- Audio crossfades under video dissolves are not automatic (use fades on the audio clips).
 
 ## CI tricks (for the next Claude session)
 
@@ -79,7 +94,8 @@ by compiling + automated screenshots on CI, not by a human clicking through it y
 
 ## Next steps
 
-1. Get the `PulseApp` target compiling in CI (first push of the full app — fix errors from `get_job_logs`).
-2. Review the `ui-*` screenshots from CI and polish layout/visual issues.
-3. Build the `.app` via `[app]` commit, then test by hand on a Mac: import a real long video, analyze, create shorts, export.
-4. Fill the honest gaps above, starting with audio enhance (AVAudioUnitEQ / dynamics processor in the export mix).
+1. Download `PULSE-app` from the latest green CI run (Actions → run → Artifacts) or run `./scripts/build-app.sh`,
+   then try it by hand with a real long recording: import → Analyze & Find Clips → Open in Editor → Export.
+2. Report anything confusing or broken; the CI screenshot loop (`--ui-snapshots`) makes UI fixes quick to verify.
+3. Candidates for the next build phase: spectral noise reduction, audio crossfades for dissolves, compound
+   clips, multicam switching UI, screen/webcam capture (ScreenCaptureKit + AVCaptureSession).
