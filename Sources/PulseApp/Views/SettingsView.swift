@@ -406,9 +406,65 @@ struct TranscriptionSettings: View {
                 pathField($app.settings.ai.whisperModelPath, placeholder: WhisperCppTranscriber.locateModel()?.path ?? "ggml-base.en.bin", directory: false)
             }
         }
+        SettingsGroup("Whisper models", footnote: "Models are downloaded once from the official whisper.cpp repository on Hugging Face into ~/Library/Application Support/PULSE/Models. Only the model is downloaded — your audio never leaves this Mac.") {
+            ForEach(WhisperModelInfo.catalog) { model in
+                WhisperModelRow(model: model)
+            }
+        }
         SettingsGroup("Import instead") {
             Text("Already have captions? Import an SRT or VTT file on the Import page and PULSE will use it as the transcript — no transcription needed.")
                 .font(.pulseCaption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+struct WhisperModelRow: View {
+    @EnvironmentObject var app: AppModel
+    let model: WhisperModelInfo
+    @State private var installed = false
+
+    var downloadJob: BackgroundJob? {
+        app.jobs.running.first { $0.title == "Download \(model.name)" }
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(model.name).font(.pulseBody).foregroundStyle(Theme.textPrimary)
+                    if app.settings.ai.whisperModelPath == model.localURL.path { TagChip(text: "In use", color: Theme.success) }
+                }
+                Text("\(model.sizeMB >= 1000 ? String(format: "%.1f GB", Double(model.sizeMB) / 1000) : "\(model.sizeMB) MB") · \(model.note)")
+                    .font(.pulseCaption).foregroundStyle(Theme.textTertiary)
+            }
+            Spacer()
+            if let job = downloadJob {
+                ThinProgressBar(progress: job.progress, color: Theme.info).frame(width: 90, height: 4)
+                Button("Cancel") { job.cancel() }.buttonStyle(.pulse(.ghost, compact: true))
+            } else if installed {
+                if app.settings.ai.whisperModelPath != model.localURL.path {
+                    Button("Use") { app.settings.ai.whisperModelPath = model.localURL.path }
+                        .buttonStyle(.pulse(.secondary, compact: true))
+                }
+                Button { NSWorkspace.shared.activateFileViewerSelecting([model.localURL]) } label: { Image(systemName: "folder") }
+                    .buttonStyle(.pulse(.ghost, compact: true))
+            } else {
+                Button("Download") { download() }.buttonStyle(.pulse(.secondary, compact: true))
+            }
+        }
+        .onAppear { installed = model.isInstalled }
+    }
+
+    func download() {
+        let model = self.model
+        app.jobs.start("Download \(model.name)", kind: .transcription) { job in
+            job.detail = "\(model.sizeMB) MB"
+            let url = try await WhisperModelDownloader.download(model, progress: { p in
+                Task { @MainActor in job.progress = p }
+            }, isCancelled: job.isCancelledCheck)
+            app.settings.ai.whisperModelPath = url.path
+            installed = true
+            app.toast("\(model.name) model ready for transcription")
         }
     }
 }

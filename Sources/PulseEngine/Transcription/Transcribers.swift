@@ -248,6 +248,27 @@ public enum TranscriptionEngineFactory {
         }
     }
 
+    /// Engines to try in order. Automatic tries Apple Speech first and falls back to whisper.cpp
+    /// (e.g. when the on-device speech model isn't downloaded).
+    public static func candidates(settings: AISettings) -> [TranscriptionProvider] {
+        let whisper: WhisperCppTranscriber? = {
+            guard let exe = WhisperCppTranscriber.locateExecutable(preferred: settings.whisperExecutablePath),
+                  let model = WhisperCppTranscriber.locateModel(preferred: settings.whisperModelPath) else { return nil }
+            return WhisperCppTranscriber(executable: exe, model: model)
+        }()
+        switch settings.transcriptionEngine {
+        case .whisperCpp:
+            return whisper.map { [$0] } ?? []
+        case .appleOnDevice:
+            return [AppleSpeechTranscriber()]
+        case .automatic:
+            var list: [TranscriptionProvider] = []
+            if AppleSpeechTranscriber.hasUsageDescription { list.append(AppleSpeechTranscriber()) }
+            if let whisper { list.append(whisper) }
+            return list
+        }
+    }
+
     public static func availabilitySummary(settings: AISettings) -> String {
         var parts: [String] = []
         parts.append(AppleSpeechTranscriber.hasUsageDescription ? "Apple Speech: available" : "Apple Speech: needs app bundle")

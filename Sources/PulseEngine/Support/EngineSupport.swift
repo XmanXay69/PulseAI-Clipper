@@ -41,6 +41,7 @@ public enum EngineError: Error, LocalizedError {
     case exportFailed(String)
     case cancelled
     case readerFailed(String)
+    case downloadFailed(String)
 
     public var errorDescription: String? {
         switch self {
@@ -67,6 +68,8 @@ public enum EngineError: Error, LocalizedError {
             return "Transcription failed: \(detail). Clips can still be found from audio energy; you can also import an SRT/VTT transcript."
         case .exportFailed(let detail):
             return "Export failed: \(detail)"
+        case .downloadFailed(let detail):
+            return "Download failed — \(detail). Check your internet connection and try again."
         case .cancelled:
             return "Cancelled."
         case .readerFailed(let detail):

@@ -77,18 +77,28 @@ public struct AnalysisPipeline: Sendable {
         var transcript = options.importedTranscript
         if transcript != nil { processing["transcript"] = .local }
         if needsTranscription, let wavURL {
-            if let engine = TranscriptionEngineFactory.make(settings: options.ai) {
+            let engines = TranscriptionEngineFactory.candidates(settings: options.ai)
+            if !engines.isEmpty {
                 let base = completed
-                let label = "Transcribing (\(engine.displayName))"
-                report(label, 0, base, speechWeight)
-                do {
-                    let language = options.ai.transcriptionLanguage
-                    transcript = try await engine.transcribe(audioURL: wavURL, language: language) { p in
-                        report(label, p, base, speechWeight)
+                var failures: [String] = []
+                for engine in engines where transcript == nil {
+                    let label = "Transcribing (\(engine.displayName))"
+                    report(label, 0, base, speechWeight)
+                    do {
+                        let language = options.ai.transcriptionLanguage
+                        transcript = try await engine.transcribe(audioURL: wavURL, language: language) { p in
+                            report(label, p, base, speechWeight)
+                        }
+                        processing["transcript"] = engine.location
+                    } catch {
+                        if isCancelled() { throw EngineError.cancelled }
+                        failures.append("\(engine.displayName): \((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)")
                     }
-                    processing["transcript"] = engine.location
-                } catch {
-                    warnings.append((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+                }
+                if transcript == nil {
+                    warnings.append(contentsOf: failures)
+                } else if !failures.isEmpty {
+                    warnings.append("Used a fallback transcription engine. " + failures.joined(separator: " "))
                 }
             } else {
                 warnings.append("No speech-to-text engine is available. Run the PULSE app bundle for Apple Speech, or install whisper.cpp (`brew install whisper-cpp`) and a model. Clips will be found from audio energy only.")
