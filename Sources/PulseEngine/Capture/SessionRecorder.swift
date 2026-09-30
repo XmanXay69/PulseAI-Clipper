@@ -124,7 +124,7 @@ public final class SessionRecorder: NSObject, @unchecked Sendable {
         } catch {
             throw CaptureError.screenPermission
         }
-        let ownBundle = Bundle.main.bundleIdentifier
+        let ownPID = ProcessInfo.processInfo.processIdentifier
         var list: [CaptureSource] = content.displays.enumerated().map { index, display in
             let scale = NSScreenScale.for(displayID: display.displayID)
             return CaptureSource(id: "display-\(display.displayID)", kind: .display, title: index == 0 ? "Main Display" : "Display \(index + 1)",
@@ -133,7 +133,7 @@ public final class SessionRecorder: NSObject, @unchecked Sendable {
         }
         let windows = content.windows.filter { w in
             w.isOnScreen && w.frame.width >= 200 && w.frame.height >= 150 && (w.title?.isEmpty == false)
-                && w.owningApplication?.bundleIdentifier != ownBundle && w.windowLayer == 0
+                && w.owningApplication?.processID != ownPID && w.windowLayer == 0
         }
         list += windows.prefix(40).map { w in
             CaptureSource(id: "window-\(w.windowID)", kind: .window, title: w.title ?? "Window",
@@ -287,7 +287,8 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecke
         switch options.source.kind {
         case .display:
             guard let display = content.displays.first(where: { $0.displayID == options.source.displayID }) else { throw CaptureError.sourceUnavailable }
-            let own = options.excludeSelf ? content.applications.filter { $0.bundleIdentifier == Bundle.main.bundleIdentifier } : []
+            let pid = ProcessInfo.processInfo.processIdentifier
+            let own = options.excludeSelf ? content.applications.filter { $0.processID == pid } : []
             filter = SCContentFilter(display: display, excludingApplications: own, exceptingWindows: [])
             let scale = NSScreenScale.for(displayID: display.displayID)
             width = Int(Double(display.width) * scale)
@@ -371,6 +372,9 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecke
     }
 
     func stop() async throws -> (url: URL, hostStart: Seconds, duration: Seconds) {
+        // ScreenCaptureKit only delivers frames when the screen changes, so the recording ends when
+        // Stop was pressed, not at the last changed frame.
+        let stopTime = CMTime(seconds: hostSeconds(), preferredTimescale: 600)
         try? await stream.stopCapture()
         let (first, last, failure): (CMTime?, CMTime, Error?) = queue.sync { (firstVideoPTS, lastVideoPTS, self.failure) }
         guard let first else {
@@ -382,10 +386,11 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecke
             videoInput.markAsFinished()
             audioInput?.markAsFinished()
         }
-        writer.endSession(atSourceTime: last)
+        let end = CMTimeMaximum(last, stopTime)
+        writer.endSession(atSourceTime: end)
         await writer.finishWriting()
         if writer.status == .failed { throw CaptureError.writerFailed(writer.error?.localizedDescription ?? "unknown error") }
-        return (url, first.seconds, (last - first).seconds)
+        return (url, first.seconds, (end - first).seconds)
     }
 
     // SCStreamOutput (called on `queue`).

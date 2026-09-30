@@ -76,7 +76,12 @@ prompt), cloud AI providers with live keys.
 - **Noise reduction** is classic spectral subtraction (STFT + learned noise profile) plus a gentle expander —
   great for steady hiss/fans/hum, not for non-stationary noise (keyboard clicks, other voices). Upgrade path:
   an ML denoiser (e.g. an RNNoise-style model via Core ML) inside `AudioEnhanceChain`.
-- **Compound clips, multicam, screen capture**: data-model hooks only, no UI/engine yet.
+- **Compound clips**: not implemented (nested timelines).
+- **Multicam** works for synced sessions (imported multi-camera recordings via audio sync, or PULSE recordings):
+  Angles panel, 1–9 live cuts, Inspector switching, AI active-speaker switching (needs one mic per angle;
+  otherwise it falls back to the wide shot). No multi-angle split-screen grid layouts yet.
+- **Screen capture** (ScreenCaptureKit) is verified on CI with a real display; webcam/mic capture can't be
+  tested on CI (no devices) — test on your Mac. Pause/resume isn't supported; stop and record again.
 - **Speaker diarization**: transcripts keep speaker IDs from imported files; there is no local diarization model.
 - **Cloud AI** (Claude / OpenAI-compatible) is optional, used only for titles/captions copy; untested with live keys.
 - **Music/SFX library**: uses media you import (role = Music / Sound Effect); nothing is bundled.
@@ -100,5 +105,5 @@ prompt), cloud AI providers with live keys.
 1. Download `PULSE-app` from the latest green CI run (Actions → run → Artifacts) or run `./scripts/build-app.sh`,
    then try it by hand with a real long recording: import → Analyze & Find Clips → Open in Editor → Export.
 2. Report anything confusing or broken; the CI screenshot loop (`--ui-snapshots`) makes UI fixes quick to verify.
-3. Candidates for the next build phase: compound clips, multicam switching UI, screen/webcam capture
-   (ScreenCaptureKit + AVCaptureSession), local speaker diarization, ML denoiser, bundled music/SFX library.
+3. Candidates for the next build phase: compound clips, multicam grid layouts, recording pause/resume,
+   local speaker diarization, ML denoiser, bundled music/SFX library.

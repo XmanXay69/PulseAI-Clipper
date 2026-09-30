@@ -269,7 +269,7 @@ final class EngineSmokeTests: XCTestCase {
         let screen = try XCTUnwrap(result.files.first { $0.role == .gameplay })
         let meta = try await MediaProbe.probe(screen.url)
         XCTAssertTrue(meta.hasVideo)
-        XCTAssertGreaterThan(meta.duration, 0.5)
+        XCTAssertGreaterThan(meta.duration, 2.0, "a static screen still records until Stop")
         print("screen capture:", screen.url.lastPathComponent, meta.width, "x", meta.height, String(format: "%.1fs", meta.duration))
     }
 
