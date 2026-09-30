@@ -101,6 +101,12 @@ public enum CompositionBuilder {
             var clip: TimelineClip
             var content: RenderLayerContent
             var trackOpacity: Double
+            /// When set, the layer is only visible in this window (dissolve handles).
+            var window: TimeRange? = nil
+            /// Draw order tweak within a track (handles sit just below the clip they blend with).
+            var orderBias: Double = 0
+
+            var span: TimeRange { window ?? clip.timelineRange }
         }
         var placed: [PlacedLayer] = []
         for (ti, track) in timeline.tracks.enumerated() where track.kind == .video || track.kind == .text {
@@ -142,24 +148,88 @@ public enum CompositionBuilder {
                     placed.append(PlacedLayer(trackIndex: ti, clip: clip, content: .video(trackID: compTrack.trackID, sourceSize: size, orientation: orientation), trackOpacity: 1))
                 }
             }
+
+            // True cross-dissolves between adjacent clips: the neighbour keeps playing into its media
+            // handle on a helper track underneath, so both pictures move during the blend. Without a
+            // handle (clip already at the end/start of its media) the clip fades over what's below.
+            let ordered = track.clips.filter { $0.isEnabled && $0.duration > 0.001 }.sorted { $0.start < $1.start }
+            var handleTrack: AVMutableCompositionTrack?
+            var handleTrackEnd = -Double.infinity
+            for (a, b) in zip(ordered, ordered.dropFirst()) where abs(a.end - b.start) < 0.02 {
+                guard case .media(let aID) = a.content, case .media(let bID) = b.content,
+                      let aAsset = assets[aID], let bAsset = assets[bID], aAsset.kind == .video, bAsset.kind == .video,
+                      let aURL = url(for: aAsset), let bURL = url(for: bAsset) else { continue }
+                struct Handle { var clip: TimelineClip; var url: URL; var source: TimeRange; var window: TimeRange }
+                var handles: [Handle] = []
+                if let t = b.transitionIn, t.kind == .crossDissolve, t.duration > 0 {
+                    // Incoming clip B dissolves in: A continues past its out point.
+                    let d = min(t.duration, b.duration)
+                    let handle = d * a.speed
+                    if a.sourceOut + handle <= aAsset.metadata.duration + 0.001 {
+                        var ghost = a
+                        ghost.sourceDuration += handle
+                        ghost.transitionIn = nil
+                        ghost.transitionOut = nil
+                        handles.append(Handle(clip: ghost, url: aURL, source: TimeRange(start: a.sourceOut, duration: handle), window: TimeRange(start: b.start, duration: d)))
+                    }
+                }
+                if let t = a.transitionOut, t.kind == .crossDissolve, t.duration > 0 {
+                    // Outgoing clip A dissolves out: B starts early from before its in point.
+                    let d = min(t.duration, a.duration)
+                    let handle = d * b.speed
+                    if b.sourceIn - handle >= -0.001 {
+                        var ghost = b
+                        ghost.start -= d
+                        ghost.sourceIn = max(0, b.sourceIn - handle)
+                        ghost.sourceDuration += handle
+                        ghost.transitionIn = nil
+                        ghost.transitionOut = nil
+                        handles.append(Handle(clip: ghost, url: bURL, source: TimeRange(start: ghost.sourceIn, duration: handle), window: TimeRange(start: a.end - d, duration: d)))
+                    }
+                }
+                for handle in handles.sorted(by: { $0.window.start < $1.window.start }) where handle.window.start >= handleTrackEnd - 1e-6 {
+                    let av = avAsset(handle.url)
+                    guard let source = try await av.loadTracks(withMediaType: .video).first else { continue }
+                    let (naturalSize, transform) = try await source.load(.naturalSize, .preferredTransform)
+                    let orientation = CGImagePropertyOrientation(transform: transform)
+                    let size = orientation.swapsDimensions ? Size2(Double(naturalSize.height), Double(naturalSize.width)) : Size2(Double(naturalSize.width), Double(naturalSize.height))
+                    if handleTrack == nil {
+                        handleTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+                    }
+                    guard let handleTrack else { continue }
+                    let range = CMTimeRange(start: .seconds(handle.source.start), duration: .seconds(handle.source.duration))
+                    let at = CMTime.seconds(handle.window.start)
+                    do {
+                        try handleTrack.insertTimeRange(range, of: source, at: at)
+                        if abs(handle.clip.speed - 1) > 0.001 {
+                            handleTrack.scaleTimeRange(CMTimeRange(start: at, duration: range.duration), toDuration: .seconds(handle.window.duration))
+                        }
+                    } catch {
+                        continue
+                    }
+                    handleTrackEnd = handle.window.end
+                    placed.append(PlacedLayer(trackIndex: ti, clip: handle.clip, content: .video(trackID: handleTrack.trackID, sourceSize: size, orientation: orientation),
+                                              trackOpacity: 1, window: handle.window, orderBias: -0.5))
+                }
+            }
         }
 
         // Instructions: split the timeline wherever the set of visible layers changes.
         var boundaries = Set<Double>([0, duration])
         for layer in placed {
-            boundaries.insert(max(0, min(layer.clip.start, duration)))
-            boundaries.insert(max(0, min(layer.clip.end, duration)))
+            boundaries.insert(max(0, min(layer.span.start, duration)))
+            boundaries.insert(max(0, min(layer.span.end, duration)))
         }
         let sorted = boundaries.sorted()
         // Text tracks draw above video tracks; within a kind, later tracks draw on top.
-        func order(_ layer: PlacedLayer) -> Int {
-            let kindRank = timeline.tracks[layer.trackIndex].kind == .text ? 1000 : 0
-            return kindRank + layer.trackIndex
+        func order(_ layer: PlacedLayer) -> Double {
+            let kindRank = timeline.tracks[layer.trackIndex].kind == .text ? 1000.0 : 0
+            return kindRank + Double(layer.trackIndex) + layer.orderBias
         }
         var instructions: [PulseCompositionInstruction] = []
         for (a, b) in zip(sorted, sorted.dropFirst()) where b - a > 1e-6 {
             let mid = (a + b) / 2
-            let active = placed.filter { $0.clip.start <= mid && $0.clip.end > mid }.sorted { order($0) < order($1) }
+            let active = placed.filter { $0.span.start <= mid && $0.span.end > mid }.sorted { order($0) < order($1) }
             let layers = active.map { RenderLayer(content: $0.content, clip: $0.clip, trackOpacity: $0.trackOpacity) }
             let range = CMTimeRange(start: .seconds(a), end: .seconds(b))
             instructions.append(PulseCompositionInstruction(timeRange: range, layers: layers, scene: scene))

@@ -146,8 +146,8 @@ final class EngineSmokeTests: XCTestCase {
         XCTAssertTrue(built.missingAssetIDs.isEmpty)
         // One-click shorts normalize dialogue, so the audio must come from the enhance renders.
         var enhancedSegments = 0
-        for track in try await built.composition.loadTracks(withMediaType: .audio) {
-            for segment in try await track.load(.segments) where segment.sourceURL?.lastPathComponent.hasPrefix("enh-") == true {
+        for track in built.composition.tracks where track.mediaType == .audio {
+            for segment in track.segments where segment.sourceURL?.lastPathComponent.hasPrefix("enh-") == true {
                 enhancedSegments += 1
             }
         }
@@ -187,6 +187,29 @@ final class EngineSmokeTests: XCTestCase {
         let landscapeFrame = try await gl.image(at: .seconds(1)).image
         XCTAssertEqual(landscapeFrame.width, 1920)
         Self.writePNG(landscapeFrame, name: "landscape-facecam-corner.png")
+
+        // 8. True cross-dissolve: during the blend both clips are on screen and moving.
+        var dissolve = Timeline.empty(name: "Dissolve", canvas: .landscape1080)
+        let videoTrack = dissolve.tracks.first { $0.kind == .video }!.id
+        let clipA = TimelineClip(name: "A", content: .media(assetID: asset.id), start: 0, sourceIn: 10, sourceDuration: 3)
+        let clipB = TimelineClip(name: "B", content: .media(assetID: asset.id), start: 3, sourceIn: 40, sourceDuration: 3,
+                                 transitionIn: ClipTransition(kind: .crossDissolve, duration: 1))
+        try dissolve.insert(clipA, onTrack: videoTrack)
+        try dissolve.insert(clipB, onTrack: videoTrack)
+        let builtDissolve = try await CompositionBuilder.build(timeline: dissolve, assets: [asset.id: asset])
+        let during = builtDissolve.videoComposition.instructions
+            .compactMap { $0 as? PulseCompositionInstruction }
+            .first { $0.timeRange.containsTime(.seconds(3.5)) }
+        let videoTrackIDs = Set(during?.layers.compactMap { layer -> CMPersistentTrackID? in
+            if case .video(let trackID, _, _) = layer.content { return trackID }
+            return nil
+        } ?? [])
+        XCTAssertEqual(videoTrackIDs.count, 2, "clip A's handle and clip B should both render during the dissolve")
+        let gd = AVAssetImageGenerator(asset: builtDissolve.composition)
+        gd.videoComposition = builtDissolve.videoComposition
+        gd.requestedTimeToleranceBefore = .zero
+        gd.requestedTimeToleranceAfter = .zero
+        Self.writePNG(try await gd.image(at: .seconds(3.5)).image, name: "dissolve-mid.png")
     }
 
     func testPlaybackItemBuildsForTextOnlyTimeline() async throws {
