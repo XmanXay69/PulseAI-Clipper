@@ -36,6 +36,7 @@ jobs:
             spm-${{ runner.os }}-${{ hashFiles('Package.swift') }}-
 
       - name: Build
+        id: build
         run: |
           set +e
           swift build --build-tests 2>&1 | tee build.log
@@ -58,7 +59,7 @@ jobs:
           exit $status
 
       - name: UI snapshots
-        if: always()
+        if: ${{ always() && steps.build.outcome == 'success' }}
         run: |
           if [ ! -x .build/debug/PULSE ]; then echo "PULSE executable not built"; exit 0; fi
           mkdir -p build/ui

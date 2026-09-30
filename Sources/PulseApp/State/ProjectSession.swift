@@ -182,7 +182,7 @@ final class ProjectSession: ObservableObject, Identifiable {
     }
 
     func open(timelineID: UUID, at time: Seconds? = nil, section: SidebarSection = .editor) {
-        let switching = document.activeTimelineID != timelineID
+        let switching = selectedTimelineID != timelineID
         selectedTimelineID = timelineID
         selectedClipIDs = []
         document.activeTimelineID = timelineID
