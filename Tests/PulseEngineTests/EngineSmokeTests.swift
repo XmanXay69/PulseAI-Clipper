@@ -144,6 +144,14 @@ final class EngineSmokeTests: XCTestCase {
         // 5. Render a still through the compositor pipeline (fast visual check).
         let built = try await CompositionBuilder.build(timeline: short, assets: [asset.id: asset])
         XCTAssertTrue(built.missingAssetIDs.isEmpty)
+        // One-click shorts normalize dialogue, so the audio must come from the enhance renders.
+        var enhancedSegments = 0
+        for track in try await built.composition.loadTracks(withMediaType: .audio) {
+            for segment in try await track.load(.segments) where segment.sourceURL?.lastPathComponent.hasPrefix("enh-") == true {
+                enhancedSegments += 1
+            }
+        }
+        XCTAssertGreaterThan(enhancedSegments, 0, "expected enhanced (normalized) audio in the short")
         let generatorStill = AVAssetImageGenerator(asset: built.composition)
         generatorStill.videoComposition = built.videoComposition
         generatorStill.requestedTimeToleranceBefore = .zero

@@ -113,6 +113,32 @@ enum UISnapshotter {
                 capture(app: app, name: String(format: "%02d-%@", n + 2, section.rawValue), to: directory)
                 if section == .editor { await captureViewerFrame(app: app, name: String(format: "%02d-%@-viewer-frame", n + 2, section.rawValue), to: directory) }
             }
+            // Global search sheet.
+            app.showGlobalSearch = true
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            capture(app: app, name: "12-search", to: directory)
+            app.showGlobalSearch = false
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            // Export through the app's queue — the same path as the Export button.
+            if let session = app.session, let timeline = session.activeTimeline {
+                let settings = ExportSettings(preset: .tiktok, outputDirectory: directory.path)
+                app.exports.enqueue(timelines: [timeline], document: session.document, settings: settings)
+                app.section = .exports
+                var exportWait = 0.0
+                while app.exports.jobs.contains(where: { !$0.status.isFinished }) && exportWait < 180 {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    exportWait += 0.5
+                }
+                try? await Task.sleep(nanoseconds: 800_000_000)
+                capture(app: app, name: "13-export-queue", to: directory)
+                for job in app.exports.jobs {
+                    FileHandle.standardError.write(Data("UI-EXPORT \(job.timelineName): \(job.status)\n".utf8))
+                    if case .completed(let path) = job.status {
+                        let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?.int64Value ?? 0
+                        FileHandle.standardError.write(Data("UI-EXPORT file \((path as NSString).lastPathComponent) \(size) bytes\n".utf8))
+                    }
+                }
+            }
             NSApp.terminate(nil)
         }
     }
