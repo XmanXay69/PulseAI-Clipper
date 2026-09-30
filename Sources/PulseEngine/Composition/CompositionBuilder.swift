@@ -195,28 +195,39 @@ public enum CompositionBuilder {
                 guard case .media(let assetID) = clip.content, let asset = assets[assetID] else { continue }
                 guard let fileURL = url(for: asset) else { missing.insert(assetID); continue }
                 let av = avAsset(fileURL)
-                guard var source = try await av.loadTracks(withMediaType: .audio).first else { continue }
-                var sourceRange = CMTimeRange(start: .seconds(clip.sourceIn), duration: .seconds(clip.sourceDuration))
-                // Enhance chain: swap in the cached processed render of exactly this range.
-                if clip.audio.needsEnhanceRender, let cacheDirectory = options.enhanceCacheDirectory,
-                   let enhancedURL = try? await AudioEnhancer.shared.render(sourceURL: fileURL, range: clip.sourceRange, settings: clip.audio, cacheDirectory: cacheDirectory),
-                   let enhancedTrack = try? await AVURLAsset(url: enhancedURL).loadTracks(withMediaType: .audio).first {
-                    source = enhancedTrack
-                    sourceRange = CMTimeRange(start: .zero, duration: .seconds(clip.sourceDuration))
-                }
+                guard let source = try await av.loadTracks(withMediaType: .audio).first else { continue }
                 if compTrack == nil {
                     compTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
                 }
                 guard let compTrack else { continue }
                 let at = CMTime.seconds(clip.start)
-                do {
-                    try compTrack.insertTimeRange(sourceRange, of: source, at: at)
-                    if abs(clip.speed - 1) > 0.001 {
-                        compTrack.scaleTimeRange(CMTimeRange(start: at, duration: sourceRange.duration), toDuration: .seconds(clip.duration))
+                var insertedDuration: CMTime?
+                // Enhance chain: use the cached processed render of exactly this range. Decoding can
+                // end a few samples short, so clamp to what was rendered; on any problem fall back
+                // to the original audio rather than failing the whole composition.
+                if clip.audio.needsEnhanceRender, let cacheDirectory = options.enhanceCacheDirectory,
+                   let enhancedURL = try? await AudioEnhancer.shared.render(sourceURL: fileURL, range: clip.sourceRange, settings: clip.audio, cacheDirectory: cacheDirectory),
+                   let enhancedTrack = try? await AVURLAsset(url: enhancedURL).loadTracks(withMediaType: .audio).first,
+                   let available = try? await enhancedTrack.load(.timeRange) {
+                    let duration = CMTimeMinimum(CMTime.seconds(clip.sourceDuration), available.duration)
+                    if duration.secondsValue > 0.01,
+                       (try? compTrack.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: enhancedTrack, at: at)) != nil {
+                        insertedDuration = duration
                     }
-                } catch {
-                    missing.insert(assetID)
-                    continue
+                }
+                if insertedDuration == nil {
+                    let sourceRange = CMTimeRange(start: .seconds(clip.sourceIn), duration: .seconds(clip.sourceDuration))
+                    do {
+                        try compTrack.insertTimeRange(sourceRange, of: source, at: at)
+                        insertedDuration = sourceRange.duration
+                    } catch {
+                        missing.insert(assetID)
+                        continue
+                    }
+                }
+                if let insertedDuration, abs(clip.speed - 1) > 0.001 {
+                    compTrack.scaleTimeRange(CMTimeRange(start: at, duration: insertedDuration),
+                                             toDuration: .seconds(insertedDuration.secondsValue / clip.speed))
                 }
                 ramps.append(contentsOf: gainAutomation(for: clip, trackGain: trackGain, dialogue: dialogue))
             }
