@@ -4,8 +4,13 @@ import XCTest
 final class ShortFormTests: XCTestCase {
     func captionTimeline() -> Timeline {
         var t = Fixtures.simpleTimeline(clipDuration: 10) // source 100…110
-        let words = (0..<16).map { i in
-            CaptionWord(text: i == 5 ? "insane!" : (i == 9 ? "fuck" : "word\(i)"), start: 100 + Double(i) * 0.5, end: 100 + Double(i) * 0.5 + 0.4)
+        var words: [CaptionWord] = []
+        for i in 0..<16 {
+            var text = "word\(i)"
+            if i == 5 { text = "insane!" }
+            if i == 9 { text = "fuck" }
+            let start: Double = 100 + Double(i) * 0.5
+            words.append(CaptionWord(text: text, start: start, end: start + 0.4))
         }
         var style = CaptionStyle.bold
         style.maxWordsPerPage = 3
