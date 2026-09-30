@@ -81,8 +81,10 @@ prompt), cloud AI providers with live keys.
 - **Cloud AI** (Claude / OpenAI-compatible) is optional, used only for titles/captions copy; untested with live keys.
 - **Music/SFX library**: uses media you import (role = Music / Sound Effect); nothing is bundled.
 - Dynamic layouts (switching layout mid-clip) are done by splitting segments, not keyframed layout morphs.
-- Cross-dissolves need media handles; at the very start/end of a recording they fall back to a fade over lower tracks.
-- Audio crossfades under video dissolves are not automatic (use fades on the audio clips).
+- Cross-dissolves (video + linked audio crossfade) need media handles; at the very start/end of a recording they
+  fall back to a fade over lower tracks.
+- whisper.cpp itself must be installed with Homebrew (`brew install whisper-cpp`); models download in-app
+  (Settings → Transcription). The `.app` bundle can use Apple's on-device speech instead.
 
 ## CI tricks (for the next Claude session)
 
@@ -98,5 +100,5 @@ prompt), cloud AI providers with live keys.
 1. Download `PULSE-app` from the latest green CI run (Actions → run → Artifacts) or run `./scripts/build-app.sh`,
    then try it by hand with a real long recording: import → Analyze & Find Clips → Open in Editor → Export.
 2. Report anything confusing or broken; the CI screenshot loop (`--ui-snapshots`) makes UI fixes quick to verify.
-3. Candidates for the next build phase: spectral noise reduction, audio crossfades for dissolves, compound
-   clips, multicam switching UI, screen/webcam capture (ScreenCaptureKit + AVCaptureSession).
+3. Candidates for the next build phase: compound clips, multicam switching UI, screen/webcam capture
+   (ScreenCaptureKit + AVCaptureSession), local speaker diarization, ML denoiser, bundled music/SFX library.

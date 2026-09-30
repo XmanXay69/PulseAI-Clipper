@@ -17,7 +17,9 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
   *Remove All AI Edits* command strips them out again.
 - **Pro editor.** Multi-track timeline with trim, move, blade, ripple, snapping, a magnetic timeline,
   linked A/V, speed and markers. The inspector covers transform, crop, keyframes, text, audio, color,
-  LUTs, effects and transitions.
+  LUTs, effects and transitions (true cross-dissolves with audio crossfades).
+- **Audio Enhance.** Voice preset, spectral noise reduction, EQ, compressor, pan, −14 LUFS loudness
+  normalization and a limiter, rendered locally and non-destructively.
 - **Text-based editing.** Delete words in the transcript to cut them from the video, and restore them
   any time.
 - **Export.** TikTok, YouTube Shorts and Reels presets, hardware H.264/HEVC or ProRes, and a batch
@@ -46,8 +48,9 @@ generates a 75-second gameplay + facecam clip locally and runs the whole pipelin
 ### Transcription
 
 - **Apple on-device speech** needs the app bundle (`./scripts/build-app.sh`).
-- **whisper.cpp:** run `brew install whisper-cpp` and put a ggml model, for example `ggml-base.en.bin`,
-  in `~/Library/Application Support/PULSE/Models`.
+- **whisper.cpp:** run `brew install whisper-cpp`, then download a model in Settings → Transcription
+  (or drop a ggml model into `~/Library/Application Support/PULSE/Models`). Automatic mode falls back
+  to whisper.cpp when Apple Speech isn't available.
 - **Or import** an SRT or VTT file.
 
 ## Project layout
