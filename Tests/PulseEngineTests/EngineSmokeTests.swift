@@ -70,6 +70,36 @@ final class EngineSmokeTests: XCTestCase {
         XCTAssertNotEqual(other, output)
     }
 
+    /// Real speech-to-text: macOS `say` speaks a sentence, whisper.cpp transcribes it with word timings.
+    /// Runs when CI (or you) installs whisper.cpp and sets PULSE_WHISPER_MODEL to a ggml model path.
+    func testWhisperTranscriptionOfSynthesizedSpeech() async throws {
+        guard let modelPath = ProcessInfo.processInfo.environment["PULSE_WHISPER_MODEL"], FileManager.default.fileExists(atPath: modelPath),
+              let executable = WhisperCppTranscriber.locateExecutable() else {
+            throw XCTSkip("whisper.cpp or PULSE_WHISPER_MODEL not available")
+        }
+        let dir = Self.workDir.appendingPathComponent("whisper-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let wav = dir.appendingPathComponent("speech.wav")
+        let say = Process()
+        say.executableURL = URL(fileURLWithPath: "/usr/bin/say")
+        say.arguments = ["-o", wav.path, "--file-format=WAVE", "--data-format=LEI16@16000",
+                         "No way, that was the craziest clutch I have ever seen. Let's go!"]
+        try say.run()
+        say.waitUntilExit()
+        XCTAssertEqual(say.terminationStatus, 0)
+
+        let transcriber = WhisperCppTranscriber(executable: executable, model: URL(fileURLWithPath: modelPath))
+        let transcript = try await transcriber.transcribe(audioURL: wav, language: "en-US", progress: { _ in })
+        let text = transcript.fullText.lowercased()
+        print("whisper transcript:", transcript.fullText)
+        XCTAssertTrue(text.contains("clutch") || text.contains("craziest"), "unexpected transcript: \(transcript.fullText)")
+        XCTAssertGreaterThan(transcript.words.count, 6)
+        for (a, b) in zip(transcript.words, transcript.words.dropFirst()) {
+            XCTAssertLessThanOrEqual(a.start, b.start + 0.01, "word timings must be ordered")
+        }
+        XCTAssertLessThan(transcript.words.last?.end ?? 99, 10)
+    }
+
     func testEndToEndDemoPipeline() async throws {
         try FileManager.default.createDirectory(at: Self.workDir, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: Self.snapshotDir, withIntermediateDirectories: true)

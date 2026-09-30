@@ -35,6 +35,22 @@ jobs:
           restore-keys: |
             spm-${{ runner.os }}-${{ hashFiles('Package.swift') }}-
 
+      - name: Cache whisper model
+        uses: actions/cache@v4
+        with:
+          path: .models
+          key: whisper-ggml-tiny-en-v1
+
+      - name: Install whisper.cpp (transcription test)
+        continue-on-error: true
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install whisper-cpp >/dev/null 2>&1 || brew install whisper-cpp
+          mkdir -p .models
+          if [ ! -f .models/ggml-tiny.en.bin ]; then
+            curl -fsSL -o .models/ggml-tiny.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
+          fi
+          ls -la .models /opt/homebrew/bin/whisper* || true
+
       - name: Build
         id: build
         run: |
@@ -48,6 +64,8 @@ jobs:
           exit $status
 
       - name: Test
+        env:
+          PULSE_WHISPER_MODEL: ${{ github.workspace }}/.models/ggml-tiny.en.bin
         run: |
           set +e
           swift test --skip-build 2>&1 | tee test.log
