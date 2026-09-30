@@ -139,6 +139,34 @@ enum UISnapshotter {
                     }
                 }
             }
+            // Record sheet (shows the permission card on machines without Screen Recording access).
+            app.showRecordSheet = true
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            capture(app: app, name: "14-record-sheet", to: directory)
+            app.showRecordSheet = false
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            // Multicam: turn the sample into a two-angle session and open the Angles panel.
+            if let session = app.session, var camB = session.document.primaryAsset {
+                let group = UUID()
+                let mainID = camB.id
+                camB.id = UUID()
+                camB.name = "PULSE Demo Stream (Cam B)"
+                camB.role = .camera
+                camB.syncGroupID = group
+                camB.syncOffset = -12
+                session.edit("Snapshot Multicam") { doc in
+                    doc.updateAsset(id: mainID) { $0.syncGroupID = group; $0.role = .camera }
+                    doc.media.append(camB)
+                }
+                if let multicam = session.multicamGroups.first {
+                    session.createMulticamEdit(groupID: multicam.id, auto: false)
+                    try? await Task.sleep(nanoseconds: 2_500_000_000)
+                    session.playback.seek(to: 20)
+                    session.cutToAngle(1)
+                    try? await Task.sleep(nanoseconds: 2_500_000_000)
+                    capture(app: app, name: "15-multicam-angles", to: directory)
+                }
+            }
             NSApp.terminate(nil)
         }
     }
