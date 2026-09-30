@@ -58,12 +58,12 @@ public struct EngagementSignals: Sendable {
     public var excitement: [Float]
 
     public func index(at time: Seconds) -> Int {
-        Int((time / step).rounded(.down)).clamped(0, max(count - 1, 0))
+        Int((time / step).rounded(.down)).clamped(0, Swift.max(count - 1, 0))
     }
 
     public func indices(in range: TimeRange) -> ClosedRange<Int> {
         let a = index(at: range.start)
-        let b = max(a, index(at: range.end - step / 2))
+        let b = Swift.max(a, index(at: range.end - step / 2))
         return a...b
     }
 

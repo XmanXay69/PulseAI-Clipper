@@ -224,8 +224,11 @@ public enum TranscriptParser {
                         if let c = current { words.append(c) }
                         current = TranscriptWord(text: piece, start: tStart, end: tEnd, confidence: p)
                     } else {
-                        current?.text += piece
-                        current?.end = max(current?.end ?? tEnd, tEnd)
+                        if var word = current {
+                            word.text += piece
+                            word.end = max(word.end, tEnd)
+                            current = word
+                        }
                     }
                 }
                 if let c = current { words.append(c) }
