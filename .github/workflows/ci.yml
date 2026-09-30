@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      bundle:
+        description: "Also build the PULSE.app bundle artifact"
+        type: boolean
+        default: true
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Test (macOS)
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Cache SwiftPM build
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: spm-${{ runner.os }}-${{ hashFiles('Package.swift') }}-${{ github.sha }}
+          restore-keys: |
+            spm-${{ runner.os }}-${{ hashFiles('Package.swift') }}-
+
+      - name: Build
+        run: |
+          set +e
+          swift build --build-tests 2>&1 | tee build.log
+          status=${PIPESTATUS[0]}
+          if [ $status -ne 0 ]; then
+            echo "================ COMPILER ERRORS ================"
+            grep -E "error:" build.log | sort -u | head -200
+          fi
+          exit $status
+
+      - name: Test
+        run: |
+          set +e
+          swift test --skip-build 2>&1 | tee test.log
+          status=${PIPESTATUS[0]}
+          if [ $status -ne 0 ]; then
+            echo "================ TEST FAILURES ================"
+            grep -E "error:|failed|Fatal|crash" test.log | head -200
+          fi
+          exit $status
+
+      - name: Build PULSE.app
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.bundle || contains(github.event.head_commit.message, '[app]') }}
+        run: ./scripts/build-app.sh
+
+      - name: Upload PULSE.app
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.bundle || contains(github.event.head_commit.message, '[app]') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: PULSE-app
+          path: build/PULSE.zip
+          if-no-files-found: ignore
+
+      - name: Upload logs & snapshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-output
+          path: |
+            *.log
+            build/snapshots/*.png
+          if-no-files-found: ignore

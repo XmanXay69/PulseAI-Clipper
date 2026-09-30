@@ -1,0 +1,14 @@
+.DS_Store
+/.build
+/build
+/.swiftpm
+/Packages
+xcuserdata/
+DerivedData/
+*.xcuserstate
+*.log
+*.pulse/
+# Local model weights
+*.bin
+*.gguf
+.env
