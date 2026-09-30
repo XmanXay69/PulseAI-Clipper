@@ -277,7 +277,8 @@ public enum CompositionBuilder {
                 // to the original audio rather than failing the whole composition.
                 if clip.audio.needsEnhanceRender, let cacheDirectory = options.enhanceCacheDirectory,
                    let enhancedURL = try? await AudioEnhancer.shared.render(sourceURL: fileURL, range: clip.sourceRange, settings: clip.audio, cacheDirectory: cacheDirectory),
-                   let enhancedTrack = try? await AVURLAsset(url: enhancedURL).loadTracks(withMediaType: .audio).first,
+                   // Tracks only weakly reference their asset, so keep it in the builder's cache.
+                   let enhancedTrack = try? await avAsset(enhancedURL).loadTracks(withMediaType: .audio).first,
                    let available = try? await enhancedTrack.load(.timeRange) {
                     let duration = CMTimeMinimum(CMTime.seconds(clip.sourceDuration), available.duration)
                     if duration.secondsValue > 0.01,
