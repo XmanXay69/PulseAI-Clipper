@@ -56,9 +56,52 @@ final class DiarizationTests: XCTestCase {
         }
     }
 
+    /// Fingerprint-like vectors: 24 spectral values driven by a few shared factors plus noise, pitch
+    /// repeated four times, pitch spread and voicing (the shape `SpeakerDiarization` produces).
+    func voice(count: Int, pitch: Float = 0, timbre: [Float] = [], seed: UInt64) -> [[Float]] {
+        var rng = SeededGenerator(seed: seed)
+        func gauss() -> Float {
+            let u = max(Float.random(in: 0..<1, using: &rng), 1e-7), v = Float.random(in: 0..<1, using: &rng)
+            return (-2 * log(u)).squareRoot() * cos(2 * .pi * v)
+        }
+        var loadingRNG = SeededGenerator(seed: 42)
+        let loadings = (0..<4).map { _ in (0..<24).map { _ in Float.random(in: -1...1, using: &loadingRNG) } }
+        var result: [[Float]] = []
+        for _ in 0..<count {
+            let factors = [gauss(), gauss(), gauss(), gauss()]
+            var v: [Float] = []
+            for d in 0..<24 {
+                var x = 0.8 * gauss()
+                for f in 0..<4 { x += 0.6 * factors[f] * loadings[f][d] }
+                v.append(x + (d < timbre.count ? timbre[d] : 0))
+            }
+            let p = pitch + 0.1 * gauss()
+            result.append(v + [p, p, p, p, 0.05 * gauss(), 0.1 * gauss()])
+        }
+        return result
+    }
+
     func testOneVoiceStaysOneSpeaker() {
-        let labels = SpeakerClustering.cluster(prints(centres: [[1, 2, 3, 4]], labels: Array(repeating: 0, count: 60), spread: 1))
-        XCTAssertEqual(Set(labels).count, 1)
+        // Flat noise in a few dimensions: k-means always finds "clusters"; they must not count.
+        let flat = SpeakerClustering.estimate(prints(centres: [[1, 2, 3, 4]], labels: Array(repeating: 0, count: 60), spread: 1))
+        XCTAssertEqual(flat.speakers, 1, "\(flat.trials)")
+        // One voice with natural variation, short and long recordings.
+        for (n, seed) in [(20, 1), (60, 2), (300, 3)] as [(Int, UInt64)] {
+            let result = SpeakerClustering.estimate(voice(count: n, seed: seed))
+            XCTAssertEqual(result.speakers, 1, "\(n) segments: \(result.trials)")
+        }
+    }
+
+    func testTwoRealisticVoices() {
+        let timbre: [Float] = [1.2, -1.0, 0.8, -1.4, 1.1, -0.9, 1.3, -1.2, 0.9, -1.1, 1.0, -0.8]
+        let a = voice(count: 50, seed: 11), b = voice(count: 50, pitch: 0.7, timbre: timbre, seed: 12)
+        // Interleave turns so order doesn't give it away.
+        var fingerprints: [[Float]] = [], truth: [Int] = []
+        for i in 0..<50 { fingerprints += [a[i], b[i]]; truth += [0, 1] }
+        let result = SpeakerClustering.estimate(fingerprints)
+        XCTAssertEqual(result.speakers, 2, "\(result.trials)")
+        let agree = zip(result.labels, truth).filter { $0 == $1 }.count
+        XCTAssertGreaterThan(Double(max(agree, truth.count - agree)) / Double(truth.count), 0.95)
     }
 
     func testFixedSpeakerCount() {

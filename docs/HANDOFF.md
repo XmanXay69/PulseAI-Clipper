@@ -33,8 +33,8 @@ open build/PULSE.app
 
 | Module | What it is |
 |---|---|
-| `PulseCore` (pure Swift, 76 unit tests) | Timeline model + all edit ops (split, ripple, trim, speed, link, text-based delete/restore), snapshot undo/redo, `.pulse` project packages (autosave, rotating backups, versions, crash recovery), transcripts (SRT/VTT/whisper.cpp/OpenAI JSON), filler words, silence detection, audio sync, engagement model + AI clip generation (HOOK→CONTEXT→PAYOFF→END, AI Potential), titles/hooks, captions (8 presets, paging, word timing, emphasis, safe areas), streamer layouts + facecam detection, AI reframing, punch-ins, one-click short builder, "Make More Entertaining", templates, export presets/queue, AI provider abstraction + privacy policy (Local / Claude / OpenAI-compatible), settings, global search |
-| `PulseEngine` (AVFoundation, Vision, Speech, Core Image/Metal, SQLite) | Media probing/import, thumbnails, waveforms, proxies, audio analysis, Vision face detection, Apple Speech + whisper.cpp transcription, composition builder + custom `AVVideoCompositing` compositor (layouts, masks, crops, keyframes, captions, text, color, LUTs, effects, transitions), AVAssetWriter export (H.264/HEVC hardware, ProRes), playback controller, demo media generator, SQLite library index with FTS5 transcript search |
+| `PulseCore` (pure Swift, 106 unit tests) | Timeline model + all edit ops (split, ripple, trim, speed, link, text-based delete/restore), snapshot undo/redo, `.pulse` project packages (autosave, rotating backups, versions, crash recovery), transcripts (SRT/VTT/whisper.cpp/OpenAI JSON), filler words, silence detection, audio sync, engagement model + AI clip generation (HOOK→CONTEXT→PAYOFF→END, AI Potential), titles/hooks, captions (8 presets, paging, word timing, emphasis, safe areas), streamer layouts + facecam detection, AI reframing, punch-ins, one-click short builder, "Make More Entertaining", templates, export presets/queue, AI provider abstraction + privacy policy (Local / Claude / OpenAI-compatible), settings, global search, multicam (sync groups, angle cuts, AI switching, grid layouts), compound clips (nested timelines), speaker diarization (segmenting, PCA + k-means clustering with a reference-based speaker count, labels) |
+| `PulseEngine` (AVFoundation, Vision, Speech, Core Image/Metal, SQLite) | Media probing/import, thumbnails, waveforms, proxies, audio analysis, Vision face detection, Apple Speech + whisper.cpp transcription, composition builder + custom `AVVideoCompositing` compositor (layouts, masks, crops, keyframes, captions, text, color, LUTs, effects, transitions), AVAssetWriter export (H.264/HEVC hardware, ProRes), playback controller, demo media generator, SQLite library index with FTS5 transcript search, ScreenCaptureKit + camera/mic session recorder (pause/resume), audio enhance chain, local speaker voiceprints (MFCC + pitch via vDSP) |
 | `PulseApp` (SwiftUI) | Sidebar app: Home, Projects, Import, AI Clips, Editor (viewer, timeline, inspector, transcript), Captions, Media, Templates, Exports, Settings; onboarding, recovery, ⌘F global search, background jobs, toasts, keyboard shortcuts |
 
 Key files to know:
@@ -54,16 +54,23 @@ Key files to know:
 - [x] Phase 5 — pro editing: timeline ops, inspector, keyframes, color/LUT, effects, true cross-dissolves, text, transcript editing, audio enhance
 - [x] Phase 6 — AI auto edit: one-click short, Make More Entertaining, silence/filler removal, strip AI edits
 - [x] Phase 7 — export: presets, batch queue, progress/cancel, hardware encoders
+- [x] Phase 8 — capture + multicam: screen/window + system audio + webcam + mic recording with pause/resume,
+      synced sessions, Angles panel, live 1–9 cuts, AI active-speaker switching, grid layouts (2-up, 3-up, 2×2, featured)
+- [x] Phase 9 — compound clips (nest/open/break apart, rendered and exported) and local speaker diarization
 
 ### What CI actually verifies on every push (macOS 15 runner)
 
-- 89+ unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
+- 114 unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
   captions, layouts, export settings, audio DSP, …).
 - **Engine end-to-end:** generate a 75 s gameplay+facecam stream → probe → analyze (audio + Vision faces) →
   AI clip candidates → one-click 9:16 short (split-screen, captions, normalized dialogue audio) → rendered
-  stills → exported H.264 MP4 → landscape re-layout → two-sided cross-dissolve.
+  stills → exported H.264 MP4 → landscape re-layout → two-sided cross-dissolve → multicam edit → 2-up grid render → compound clip render.
 - **Real speech-to-text:** macOS `say` → whisper.cpp (tiny.en) → word-timed transcript
   (“No way, that was the craziest clutch I have ever seen. Let's go.”).
+- **Screen recording:** ScreenCaptureKit records the runner's display with a pause in the middle; the file
+  length excludes the pause.
+- **Speaker diarization:** two different `say` voices alternating in one recording are separated into two
+  speakers from the audio alone.
 - **The app itself:** launches, builds the sample project, visits every section, screenshots them, grabs a
   live viewer frame, opens ⌘F search, and exports the short through the app's export queue (≈8.8 MB MP4).
 - **Release bundle:** `scripts/build-app.sh` builds, icons, ad-hoc signs and zips `PULSE.app` on `[app]` commits.
@@ -76,13 +83,23 @@ prompt), cloud AI providers with live keys.
 - **Noise reduction** is classic spectral subtraction (STFT + learned noise profile) plus a gentle expander —
   great for steady hiss/fans/hum, not for non-stationary noise (keyboard clicks, other voices). Upgrade path:
   an ML denoiser (e.g. an RNNoise-style model via Core ML) inside `AudioEnhanceChain`.
-- **Compound clips**: not implemented (nested timelines).
+- **Compound clips** (⌥G to nest, double-click to open, ⇧⌘G to break apart) render and export; they can't be
+  retimed (speed) or reframed per nested clip from the parent, and effects on the compound apply to the
+  flattened result.
 - **Multicam** works for synced sessions (imported multi-camera recordings via audio sync, or PULSE recordings):
-  Angles panel, 1–9 live cuts, Inspector switching, AI active-speaker switching (needs one mic per angle;
-  otherwise it falls back to the wide shot). No multi-angle split-screen grid layouts yet.
-- **Screen capture** (ScreenCaptureKit) is verified on CI with a real display; webcam/mic capture can't be
-  tested on CI (no devices) — test on your Mac. Pause/resume isn't supported; stop and record again.
-- **Speaker diarization**: transcripts keep speaker IDs from imported files; there is no local diarization model.
+  Angles panel, 1–9 live cuts, Inspector switching, grid shots (2-up / 3-up / 2×2 / featured, on "Grid N"
+  tracks), AI active-speaker switching with a 2-up grid on crosstalk (needs one mic per angle; otherwise it
+  falls back to the wide shot).
+- **Screen capture** (ScreenCaptureKit, pause/resume) is verified on CI with a real display; webcam/mic capture
+  can't be tested on CI (no devices) — test on your Mac.
+- **Speaker diarization** is classic signal processing, not a neural model: per-segment voiceprints (MFCC
+  means/spreads + pitch), reduced to principal components and clustered with k-means. The speaker count is
+  chosen by comparing cluster separation with the same k-means run on structureless data of the same spread
+  (gap-statistic style), so one voice stays one speaker; it is deliberately conservative. It separates clearly
+  different voices (e.g. male/female, different mics) well; two similar voices on one mic, heavy overlap or
+  loud music will mislabel. Fix-ups are in the Transcript panel (Speakers menu: re-detect with a fixed count,
+  rename, merge). Multicam sessions with one mic per person use mic loudness instead, which is much more
+  reliable. Upgrade path: a speaker-embedding model (ECAPA/x-vector) via Core ML in `SpeakerDiarization.voiceprints`.
 - **Cloud AI** (Claude / OpenAI-compatible) is optional, used only for titles/captions copy; untested with live keys.
 - **Music/SFX library**: uses media you import (role = Music / Sound Effect); nothing is bundled.
 - Dynamic layouts (switching layout mid-clip) are done by splitting segments, not keyframed layout morphs.
@@ -105,5 +122,5 @@ prompt), cloud AI providers with live keys.
 1. Download `PULSE-app` from the latest green CI run (Actions → run → Artifacts) or run `./scripts/build-app.sh`,
    then try it by hand with a real long recording: import → Analyze & Find Clips → Open in Editor → Export.
 2. Report anything confusing or broken; the CI screenshot loop (`--ui-snapshots`) makes UI fixes quick to verify.
-3. Candidates for the next build phase: compound clips, multicam grid layouts, recording pause/resume,
-   local speaker diarization, ML denoiser, bundled music/SFX library.
+3. Candidates for the next build phase: ML denoiser and speaker-embedding model (Core ML), bundled
+   music/SFX library, keyframed layout morphs, per-speaker caption styling.

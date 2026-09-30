@@ -20,10 +20,13 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
   LUTs, effects and transitions (true cross-dissolves with audio crossfades).
 - **Audio Enhance.** Voice preset, spectral noise reduction, EQ, compressor, pan, −14 LUFS loudness
   normalization and a limiter, rendered locally and non-destructively.
-- **Record.** Screen or window + system audio + webcam + mic (⇧⌘R), saved as synced files; shorts use
-  the webcam as the facecam and your mic for captions.
+- **Record.** Screen or window + system audio + webcam + mic (⇧⌘R, pause with ⇧⌘P), saved as synced
+  files; shorts use the webcam as the facecam and your mic for captions.
 - **Multicam.** Synced cameras (or screen + webcam) in an Angles panel: press 1–9 while playing to cut,
-  or let AI cut to whoever is talking.
+  put 2–4 angles on screen at once (2-up, 3-up, 2×2, featured), or let AI cut to whoever is talking.
+- **Compound clips.** Nest a selection into one clip (⌥G), open it to edit inside, break it apart again.
+- **Speakers.** Transcripts are split into speakers locally (voice clustering, or one mic per person in
+  multicam sessions); rename or merge speakers in the Transcript panel.
 - **Text-based editing.** Delete words in the transcript to cut them from the video, and restore them
   any time.
 - **Export.** TikTok, YouTube Shorts and Reels presets, hardware H.264/HEVC or ProRes, and a batch

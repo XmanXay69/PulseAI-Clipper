@@ -92,6 +92,10 @@ final class EngineSmokeTests: XCTestCase {
             (male, "I was down to one health point with three players left and somehow I pulled it off."),
             (female, "That is incredible, the clip already has thousands of views on every platform."),
             (male, "I still can't believe it, my hands were shaking for about ten minutes afterwards."),
+            (female, "So what is next for you, are you going to keep streaming the same game this season?"),
+            (male, "Probably, the community has been amazing and there is a tournament coming up next month."),
+            (female, "Well good luck with that, and thanks again for joining us today."),
+            (male, "Thank you, it was a lot of fun, see everybody in the next stream."),
         ]
         let dir = Self.workDir.appendingPathComponent("diarize-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -134,6 +138,13 @@ final class EngineSmokeTests: XCTestCase {
         }
         let transcript = Transcript(words: words, source: .demo)
         let result = try await SpeakerDiarization.diarize(transcript, audioURL: combined)
+        // The evidence behind the speaker count (printed for the CI log).
+        let segments = SpeechSegmenter.segments(from: transcript)
+        let prints = try await SpeakerDiarization.voiceprints(url: combined, ranges: segments.map(\.range)).compactMap { $0 }
+        for trial in SpeakerClustering.estimate(prints).trials {
+            print(String(format: "diarization trial: %d speakers, separation %.2f vs reference %.2f (needs %.2f), %d segments",
+                         trial.speakers, trial.separation, trial.reference, trial.threshold, prints.count))
+        }
         XCTAssertEqual(result.speakerIDs.count, 2, "found \(result.speakerIDs.count) speakers")
         // Map each detected speaker to the voice it mostly covers, then score every word.
         var votes: [Int: [String: Int]] = [:]

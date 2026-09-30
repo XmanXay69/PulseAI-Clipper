@@ -36,6 +36,12 @@ public enum SpeechSegmenter {
 }
 
 /// Groups voice fingerprints into speakers.
+///
+/// Fingerprints are z-scored and reduced to their main principal components (where differences between
+/// voices show up), then clustered with k-means. The speaker count is chosen by comparing each k's cluster
+/// separation with what the same k-means finds in flat, structureless data of the same spread and size
+/// (the idea behind the gap statistic). A split has to be clearly better than that to count, so one voice
+/// with natural variation stays one speaker.
 public enum SpeakerClustering {
     /// Z-scores each dimension so pitch and spectral shape weigh alike.
     public static func standardized(_ vectors: [[Float]]) -> [[Float]] {
@@ -48,22 +54,85 @@ public enum SpeakerClustering {
         return vectors.map { v in (0..<dims).map { (v[$0] - mean[$0]) / sd[$0] } }
     }
 
-    static func distance(_ a: [Float], _ b: [Float]) -> Float {
+    /// Projects points onto their top `count` principal components, with each component's variance.
+    public static func principalComponents(_ points: [[Float]], count: Int) -> (points: [[Float]], variances: [Float]) {
+        guard let dims = points.first?.count, dims > 0, points.count > 1 else { return (points, []) }
+        let n = Double(points.count)
+        var mean = [Double](repeating: 0, count: dims)
+        for p in points { for d in 0..<dims { mean[d] += Double(p[d]) } }
+        for d in 0..<dims { mean[d] /= n }
+        var covariance = [[Double]](repeating: [Double](repeating: 0, count: dims), count: dims)
+        for p in points {
+            for i in 0..<dims {
+                let a = Double(p[i]) - mean[i]
+                for j in i..<dims { covariance[i][j] += a * (Double(p[j]) - mean[j]) }
+            }
+        }
+        for i in 0..<dims { for j in i..<dims { covariance[i][j] /= n; covariance[j][i] = covariance[i][j] } }
+        let (values, vectors) = symmetricEigen(covariance)
+        let components = Array(values.indices.sorted { values[$0] > values[$1] }.prefix(max(1, min(count, dims))))
+        let projected: [[Float]] = points.map { p in
+            components.map { c in
+                var s = 0.0
+                for d in 0..<dims { s += (Double(p[d]) - mean[d]) * vectors[d][c] }
+                return Float(s)
+            }
+        }
+        return (projected, components.map { Float(max(values[$0], 0)) })
+    }
+
+    /// Eigenvalues and eigenvectors of a small symmetric matrix (cyclic Jacobi rotations). Column `c` of
+    /// `vectors` belongs to `values[c]`.
+    static func symmetricEigen(_ matrix: [[Double]]) -> (values: [Double], vectors: [[Double]]) {
+        let n = matrix.count
+        var a = matrix
+        var v = (0..<n).map { i in (0..<n).map { j in i == j ? 1.0 : 0.0 } }
+        for _ in 0..<60 {
+            var off = 0.0
+            for i in 0..<n { for j in (i + 1)..<n { off += a[i][j] * a[i][j] } }
+            if off < 1e-18 { break }
+            for p in 0..<n {
+                for q in (p + 1)..<n where abs(a[p][q]) > 1e-15 {
+                    let theta = (a[q][q] - a[p][p]) / (2 * a[p][q])
+                    let t = (theta >= 0 ? 1.0 : -1.0) / (abs(theta) + (theta * theta + 1).squareRoot())
+                    let c = 1 / (t * t + 1).squareRoot(), s = t * c
+                    for k in 0..<n {
+                        let kp = a[k][p], kq = a[k][q]
+                        a[k][p] = c * kp - s * kq
+                        a[k][q] = s * kp + c * kq
+                    }
+                    for k in 0..<n {
+                        let pk = a[p][k], qk = a[q][k]
+                        a[p][k] = c * pk - s * qk
+                        a[q][k] = s * pk + c * qk
+                    }
+                    for k in 0..<n {
+                        let kp = v[k][p], kq = v[k][q]
+                        v[k][p] = c * kp - s * kq
+                        v[k][q] = s * kp + c * kq
+                    }
+                }
+            }
+        }
+        return ((0..<n).map { a[$0][$0] }, v)
+    }
+
+    static func squaredDistance(_ a: [Float], _ b: [Float]) -> Float {
         var s: Float = 0
         for i in a.indices { let d = a[i] - b[i]; s += d * d }
-        return s.squareRoot()
+        return s
     }
 
     /// k-means with deterministic k-means++ seeding (several restarts, best inertia wins).
     public static func kMeans(_ points: [[Float]], k: Int, iterations: Int = 40, restarts: Int = 6) -> (labels: [Int], inertia: Float) {
-        guard k > 1, points.count > k else { return (Array(repeating: 0, count: points.count), 0) }
+        guard k > 1, points.count > k, let dims = points.first?.count else { return (Array(repeating: 0, count: points.count), 0) }
         var best: (labels: [Int], inertia: Float) = ([], .infinity)
         var rng = SeededGenerator(seed: 0xD1A5)
         for _ in 0..<restarts {
             // k-means++ seeding.
             var centers = [points[Int.random(in: 0..<points.count, using: &rng)]]
             while centers.count < k {
-                let d2 = points.map { p in centers.map { distance(p, $0) }.min()!.squared }
+                let d2 = points.map { p in centers.map { squaredDistance(p, $0) }.min()! }
                 let total = d2.reduce(0, +)
                 guard total > 0 else { break }
                 var pick = Float.random(in: 0..<total, using: &rng)
@@ -75,79 +144,126 @@ public enum SpeakerClustering {
                 centers.append(points[index])
             }
             guard centers.count == k else { continue }
-            var labels = [Int](repeating: 0, count: points.count)
+            var labels = [Int](repeating: -1, count: points.count)
             for _ in 0..<iterations {
                 var changed = false
                 for (i, p) in points.enumerated() {
-                    let nearest = centers.indices.min { distance(p, centers[$0]) < distance(p, centers[$1]) }!
+                    var nearest = 0
+                    var nearestDistance = Float.infinity
+                    for c in 0..<k {
+                        let d = squaredDistance(p, centers[c])
+                        if d < nearestDistance { nearestDistance = d; nearest = c }
+                    }
                     if nearest != labels[i] { labels[i] = nearest; changed = true }
                 }
-                let dims = points[0].count
-                for c in 0..<k {
-                    let members = points.indices.filter { labels[$0] == c }
-                    guard !members.isEmpty else { continue }
-                    var center = [Float](repeating: 0, count: dims)
-                    for m in members { for d in 0..<dims { center[d] += points[m][d] } }
-                    centers[c] = center.map { $0 / Float(members.count) }
+                var sums = [[Float]](repeating: [Float](repeating: 0, count: dims), count: k)
+                var counts = [Int](repeating: 0, count: k)
+                for (i, p) in points.enumerated() {
+                    counts[labels[i]] += 1
+                    for d in 0..<dims { sums[labels[i]][d] += p[d] }
                 }
+                for c in 0..<k where counts[c] > 0 { centers[c] = sums[c].map { $0 / Float(counts[c]) } }
                 if !changed { break }
             }
-            let inertia = points.indices.reduce(Float(0)) { $0 + distance(points[$1], centers[labels[$1]]).squared }
+            let inertia = points.indices.reduce(Float(0)) { $0 + squaredDistance(points[$1], centers[labels[$1]]) }
             if inertia < best.inertia { best = (labels, inertia) }
         }
         return best.inertia.isFinite ? best : (Array(repeating: 0, count: points.count), 0)
     }
 
-    /// Mean silhouette (−1…1): how well each point sits in its cluster vs the nearest other one.
-    public static func silhouette(_ points: [[Float]], labels: [Int]) -> Float {
-        let clusters = Set(labels)
-        guard clusters.count > 1 else { return 0 }
-        var total: Float = 0
-        for (i, p) in points.enumerated() {
-            var sums: [Int: (Float, Int)] = [:]
-            for (j, q) in points.enumerated() where j != i {
-                let d = distance(p, q)
-                let e = sums[labels[j]] ?? (0, 0)
-                sums[labels[j]] = (e.0 + d, e.1 + 1)
-            }
-            guard let own = sums[labels[i]], own.1 > 0 else { continue }
-            let a = own.0 / Float(own.1)
-            let b = sums.filter { $0.key != labels[i] && $0.value.1 > 0 }.map { $0.value.0 / Float($0.value.1) }.min() ?? a
-            total += (b - a) / max(a, b, 1e-6)
+    /// How clearly the two closest clusters are apart: centroid distance over the pooled spread along the
+    /// line joining them. Cutting one Gaussian blob in two scores about 2.7 and one flat blob about 3.5;
+    /// distinct voices score well above that.
+    public static func separation(_ points: [[Float]], labels: [Int], k: Int) -> Float {
+        guard k > 1, let dims = points.first?.count else { return 0 }
+        var members = [[Int]](repeating: [], count: k)
+        for (i, l) in labels.enumerated() where l >= 0 && l < k { members[l].append(i) }
+        let centers: [[Float]] = members.map { m in
+            var c = [Float](repeating: 0, count: dims)
+            for i in m { for d in 0..<dims { c[d] += points[i][d] } }
+            return c.map { $0 / Float(max(m.count, 1)) }
         }
-        return total / Float(points.count)
+        var closest = Float.infinity
+        for a in 0..<k {
+            for b in (a + 1)..<k {
+                let dof = members[a].count + members[b].count - 2
+                guard dof > 0 else { continue }
+                let axis = (0..<dims).map { centers[b][$0] - centers[a][$0] }
+                let length = axis.reduce(Float(0)) { $0 + $1 * $1 }.squareRoot()
+                guard length > 0 else { return 0 }
+                var spread: Float = 0
+                for (group, center) in [(members[a], centers[a]), (members[b], centers[b])] {
+                    for i in group {
+                        var along: Float = 0
+                        for d in 0..<dims { along += (points[i][d] - center[d]) * axis[d] }
+                        along /= length
+                        spread += along * along
+                    }
+                }
+                closest = min(closest, length / max((spread / Float(dof)).squareRoot(), 1e-6))
+            }
+        }
+        return closest.isFinite ? closest : 0
     }
 
-    /// Speaker label per fingerprint. `speakerCount` nil = estimate (1…maxSpeakers) by silhouette;
-    /// a single voice is assumed when no split is clearly better.
-    public static func cluster(_ vectors: [[Float]], speakerCount: Int? = nil, maxSpeakers: Int = 6, minimumSilhouette: Float = 0.18) -> [Int] {
-        guard vectors.count >= 2 else { return Array(repeating: 0, count: vectors.count) }
-        let points = standardized(vectors)
+    /// One candidate speaker count and how its clusters compare with structureless data.
+    public struct Trial: Hashable, Sendable {
+        public var speakers: Int
+        public var separation: Float
+        public var reference: Float
+        public var threshold: Float
+    }
+
+    public struct Result: Sendable {
+        public var labels: [Int]
+        public var trials: [Trial]
+        public var speakers: Int { Set(labels).count }
+    }
+
+    /// Speaker label per fingerprint. `speakerCount` nil = estimate (1…maxSpeakers).
+    public static func cluster(_ vectors: [[Float]], speakerCount: Int? = nil, maxSpeakers: Int = 6) -> [Int] {
+        estimate(vectors, speakerCount: speakerCount, maxSpeakers: maxSpeakers).labels
+    }
+
+    /// Labels plus the evidence for the chosen speaker count. `minimumGain` is how much better than
+    /// structureless data a split must separate (0.15 = 15%, and at least two standard deviations).
+    public static func estimate(_ vectors: [[Float]], speakerCount: Int? = nil, maxSpeakers: Int = 6, minimumGain: Float = 0.15) -> Result {
+        let n = vectors.count
+        let single = Result(labels: Array(repeating: 0, count: n), trials: [])
+        guard n >= 2 else { return single }
+        let (points, variances) = principalComponents(standardized(vectors), count: max(2, min(8, n / 8)))
+        guard variances.reduce(0, +) > 1e-9 else { return single }
         if let k = speakerCount {
-            return k <= 1 ? Array(repeating: 0, count: points.count) : kMeans(points, k: min(k, points.count - 1)).labels
+            return k <= 1 ? single : Result(labels: kMeans(points, k: min(k, n - 1)).labels, trials: [])
         }
-        var bestLabels = Array(repeating: 0, count: points.count)
-        var bestScore = minimumSilhouette
-        // Silhouette is O(n²); estimate the count on a sample for long recordings.
-        let sampleStride = max(1, points.count / 400)
-        let sampleIndices = Array(stride(from: 0, to: points.count, by: sampleStride))
-        for k in 2...max(2, min(maxSpeakers, points.count - 1)) {
+        var result = single
+        var bestRatio: Float = 0
+        let references = n < 100 ? 10 : 4
+        let referenceSize = min(n, 600)
+        var rng = SeededGenerator(seed: 0x5EED)
+        for k in stride(from: 2, through: min(maxSpeakers, n / 3), by: 1) {
             let labels = kMeans(points, k: k).labels
             // Tiny clusters are noise, not people.
-            let sizes = (0..<k).map { c in labels.filter { $0 == c }.count }
-            guard sizes.min()! >= max(2, points.count / 40) else { continue }
-            let score = silhouette(sampleIndices.map { points[$0] }, labels: sampleIndices.map { labels[$0] })
-            if score > bestScore + 0.02 {
-                bestScore = score
-                bestLabels = labels
+            let sizes = (0..<k).map { c in labels.lazy.filter { $0 == c }.count }
+            guard sizes.min()! >= max(2, n / 40) else { continue }
+            let observed = separation(points, labels: labels, k: k)
+            // The same procedure on flat data with the same spread per component.
+            let null: [Float] = (0..<references).map { _ in
+                let flat = (0..<referenceSize).map { _ in variances.map { Float.random(in: -1...1, using: &rng) * (3 * $0).squareRoot() } }
+                return separation(flat, labels: kMeans(flat, k: k).labels, k: k)
+            }
+            let mean = null.reduce(0, +) / Float(null.count)
+            let sd = (null.reduce(Float(0)) { $0 + ($1 - mean) * ($1 - mean) } / Float(null.count)).squareRoot()
+            let threshold = max(mean * (1 + minimumGain), mean + 2 * sd)
+            result.trials.append(Trial(speakers: k, separation: observed, reference: mean, threshold: threshold))
+            let ratio = observed / max(mean, 1e-6)
+            if observed > threshold, ratio > bestRatio {
+                bestRatio = ratio
+                result.labels = labels
             }
         }
-        return bestLabels
+        return result
     }
-}
-
-private extension Float {
-    var squared: Float { self * self }
 }
 
 /// Puts speaker labels onto transcript words.
