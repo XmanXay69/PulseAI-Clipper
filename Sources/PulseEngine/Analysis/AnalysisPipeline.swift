@@ -12,13 +12,61 @@ public struct AnalysisPipeline: Sendable {
         public var ai: AISettings
         /// A transcript the user imported (SRT/VTT) — skips speech-to-text.
         public var importedTranscript: Transcript?
+        /// Where the voice is when it was recorded separately (screen recording + mic/webcam file).
+        public var voiceSource: VoiceSource?
 
-        public init(transcribe: Bool = true, detectFaces: Bool = true, ai: AISettings = AISettings(), importedTranscript: Transcript? = nil) {
+        public init(transcribe: Bool = true, detectFaces: Bool = true, ai: AISettings = AISettings(), importedTranscript: Transcript? = nil,
+                    voiceSource: VoiceSource? = nil) {
             self.transcribe = transcribe
             self.detectFaces = detectFaces
             self.ai = ai
             self.importedTranscript = importedTranscript
+            self.voiceSource = voiceSource
         }
+    }
+
+    /// A companion recording carrying the speech. `delta` maps times: voiceTime = mainTime + delta.
+    public struct VoiceSource: Sendable {
+        public var url: URL
+        public var delta: Seconds
+
+        public init(url: URL, delta: Seconds) {
+            self.url = url
+            self.delta = delta
+        }
+
+        public init(main: MediaAsset, voice: MediaAsset) {
+            self.init(url: MediaAccess.resolve(voice), delta: main.syncOffset - voice.syncOffset)
+        }
+    }
+
+    /// Shifts a per-hop series from voice time into main time (pads with silence).
+    static func shift(_ values: [Float], hops: Int, count: Int, fill: Float) -> [Float] {
+        (0..<count).map { i in
+            let j = i + hops
+            return j >= 0 && j < values.count ? values[j] : fill
+        }
+    }
+
+    static func shift(_ features: AudioFeatureSeries, delta: Seconds, duration: Seconds) -> AudioFeatureSeries {
+        let hops = Int((delta / features.hop).rounded())
+        let count = max(1, Int((duration / features.hop).rounded()))
+        return AudioFeatureSeries(hop: features.hop,
+                                  rmsDB: shift(features.rmsDB.values, hops: hops, count: count, fill: -100),
+                                  peakDB: shift(features.peakDB.values, hops: hops, count: count, fill: -100),
+                                  zeroCrossingRate: shift(features.zeroCrossingRate.values, hops: hops, count: count, fill: 0),
+                                  spectralFlux: shift(features.spectralFlux.values, hops: hops, count: count, fill: 0))
+    }
+
+    static func shift(_ transcript: Transcript, delta: Seconds, duration: Seconds) -> Transcript {
+        var t = transcript
+        t.words = transcript.words.compactMap { w in
+            var word = w
+            word.start -= delta
+            word.end -= delta
+            return word.end > 0 && word.start < duration ? word : nil
+        }
+        return t
     }
 
     public struct Output: Sendable {
@@ -39,9 +87,12 @@ public struct AnalysisPipeline: Sendable {
         var warnings: [String] = []
         var processing: [String: ProcessingLocation] = [:]
         let meta = asset.metadata
-        let needsTranscription = options.transcribe && options.importedTranscript == nil && meta.hasAudio
+        // Speech and loudness come from the separate voice recording when there is one.
+        let audioURL = options.voiceSource?.url ?? url
+        let hasAudio = options.voiceSource != nil || meta.hasAudio
+        let needsTranscription = options.transcribe && options.importedTranscript == nil && hasAudio
         // Stage weights for overall progress.
-        let audioWeight = meta.hasAudio ? 0.2 : 0
+        let audioWeight = hasAudio ? 0.2 : 0
         let speechWeight = needsTranscription ? 0.55 : 0
         let videoWeight = meta.hasVideo ? 0.25 : 0
         let totalWeight = max(audioWeight + speechWeight + videoWeight, 0.001)
@@ -53,14 +104,17 @@ public struct AnalysisPipeline: Sendable {
         // 1. Audio.
         var audioFeatures: AudioFeatureSeries?
         var wavURL: URL?
-        if meta.hasAudio {
+        if hasAudio {
             let wavTarget = needsTranscription ? cacheDirectory.appendingPathComponent("\(asset.id.uuidString)-16k.wav") : nil
             let base = completed
             do {
-                let result = try await AudioAnalyzer().analyze(url: url, writeWAVTo: wavTarget, progress: { p in
+                let result = try await AudioAnalyzer().analyze(url: audioURL, writeWAVTo: wavTarget, progress: { p in
                     report("Analyzing audio", p.fraction, base, audioWeight)
                 }, isCancelled: isCancelled)
                 audioFeatures = result.features
+                if let voice = options.voiceSource {
+                    audioFeatures = Self.shift(result.features, delta: voice.delta, duration: meta.duration)
+                }
                 wavURL = result.wavURL
                 processing["audio"] = .local
             } catch EngineError.cancelled {
@@ -86,9 +140,10 @@ public struct AnalysisPipeline: Sendable {
                     report(label, 0, base, speechWeight)
                     do {
                         let language = options.ai.transcriptionLanguage
-                        transcript = try await engine.transcribe(audioURL: wavURL, language: language) { p in
+                        let heard = try await engine.transcribe(audioURL: wavURL, language: language) { p in
                             report(label, p, base, speechWeight)
                         }
+                        transcript = options.voiceSource.map { Self.shift(heard, delta: $0.delta, duration: meta.duration) } ?? heard
                         processing["transcript"] = engine.location
                     } catch {
                         if isCancelled() { throw EngineError.cancelled }

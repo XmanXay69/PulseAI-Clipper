@@ -90,13 +90,28 @@ public struct ShortBuildInput: Sendable {
     /// User SFX library (role .soundEffect) — used only when options.soundEffects is on.
     public var soundEffects: [MediaAsset]
     public var music: MediaAsset?
+    /// Separate facecam recording of the same session (screen recording + webcam file).
+    public var companionWebcam: MediaAsset?
+    /// Separate microphone (or webcam-with-mic) recording that carries the voice.
+    public var companionVoice: MediaAsset?
+    /// Face position inside the companion webcam, when analyzed.
+    public var companionFaceCenter: Vec2?
 
-    public init(candidate: ClipCandidate, asset: MediaAsset, analysis: MediaAnalysis?, soundEffects: [MediaAsset] = [], music: MediaAsset? = nil) {
+    public init(candidate: ClipCandidate, asset: MediaAsset, analysis: MediaAnalysis?, soundEffects: [MediaAsset] = [], music: MediaAsset? = nil,
+                companionWebcam: MediaAsset? = nil, companionVoice: MediaAsset? = nil, companionFaceCenter: Vec2? = nil) {
         self.candidate = candidate
         self.asset = asset
         self.analysis = analysis
         self.soundEffects = soundEffects
         self.music = music
+        self.companionWebcam = companionWebcam
+        self.companionVoice = companionVoice
+        self.companionFaceCenter = companionFaceCenter
+    }
+
+    /// Source time in `companion` that matches `time` in the main asset (both synced to one session clock).
+    func companionTime(_ time: Seconds, _ companion: MediaAsset) -> Seconds {
+        time + asset.syncOffset - companion.syncOffset
     }
 }
 
@@ -135,15 +150,53 @@ public enum ShortBuilder {
         audio.audio.normalize = options.normalizeAudio
         audio.audio.voiceEnhance = options.voiceEnhance
         if options.voiceEnhance { audio.audio.noiseReduction = 0.4 }
-        if asset.metadata.hasAudio || asset.kind == .audio || asset.metadata.audioTrackCount > 0 {
+        let mainHasAudio = asset.metadata.hasAudio || asset.kind == .audio || asset.metadata.audioTrackCount > 0
+        if let voice = input.companionVoice, voice.metadata.hasAudio,
+           let voiceClip = companionClip(voice, input: input, candidate: candidate, group: group, role: .microphone) {
+            // The voice comes from its own recording; the main file's sound (game audio) sits underneath.
+            var dialogue = voiceClip
+            dialogue.name = "\(voice.name) (voice)"
+            dialogue.audio.normalize = options.normalizeAudio
+            dialogue.audio.voiceEnhance = options.voiceEnhance
+            if options.voiceEnhance { dialogue.audio.noiseReduction = 0.4 }
+            timeline.tracks[2].clips = [dialogue]
+            if mainHasAudio {
+                var game = audio
+                game.name = "\(asset.name) (game audio)"
+                game.role = .gameplay
+                game.audio.normalize = false
+                game.audio.voiceEnhance = false
+                game.audio.noiseReduction = 0
+                game.audio.volume = AnimatedDouble(0.5)
+                game.audio.duckUnderDialogue = true
+                var gameTrack = Track(kind: .audio, name: "A4 Game Audio")
+                gameTrack.clips = [game]
+                timeline.tracks.append(gameTrack)
+            }
+        } else if mainHasAudio {
             timeline.tracks[2].clips = [audio]
         }
 
         // Layout.
-        let context = LayoutContext(analysis: analysis, sourceSize: asset.metadata.size.isEmpty ? Size2(1920, 1080) : asset.metadata.size)
+        var context = LayoutContext(analysis: analysis, sourceSize: asset.metadata.size.isEmpty ? Size2(1920, 1080) : asset.metadata.size)
+        var companionCam: TimelineClip?
+        if let cam = input.companionWebcam, cam.metadata.hasVideo,
+           let clip = companionClip(cam, input: input, candidate: candidate, group: group, role: .webcam) {
+            companionCam = clip
+            context.webcamSourceSize = cam.metadata.size.isEmpty ? Size2(1280, 720) : cam.metadata.size
+            context.webcamFaceCenter = input.companionFaceCenter
+            context.webcamRegion = .full
+        }
         let hasWebcam = context.webcamRegion != nil
-        let layout = options.layout ?? LayoutEngine.recommendedLayout(for: profile, hasWebcam: hasWebcam)
-        if layout.usesWebcam && hasWebcam {
+        var layout = options.layout ?? LayoutEngine.recommendedLayout(for: companionCam != nil ? .gameplayWithFacecam : profile, hasWebcam: hasWebcam)
+        if companionCam != nil && layout == .dynamic { layout = .splitScreen }
+        if let companionCam, layout.usesWebcam {
+            var camTrack = Track(kind: .video, name: "V2 Facecam")
+            var cam = companionCam
+            cam.name = "Facecam"
+            camTrack.clips = [cam]
+            timeline.tracks.insert(camTrack, at: 1)
+        } else if layout.usesWebcam && hasWebcam {
             LayoutEngine.ensureWebcamLayer(in: &timeline, assetID: asset.id)
         }
         LayoutEngine.apply(layout == .dynamic ? .splitScreen : layout, to: &timeline, context: context)
@@ -238,6 +291,17 @@ public enum ShortBuilder {
 
         timeline.modifiedAt = Date()
         return timeline
+    }
+
+    /// A clip of a companion recording covering the candidate, linked to the main clips.
+    static func companionClip(_ companion: MediaAsset, input: ShortBuildInput, candidate: ClipCandidate, group: UUID, role: MediaRole) -> TimelineClip? {
+        let start = input.companionTime(candidate.range.start, companion)
+        let end = input.companionTime(candidate.range.end, companion)
+        let clippedStart = max(0, start)
+        let clippedEnd = companion.metadata.duration > 0 ? min(end, companion.metadata.duration) : end
+        guard clippedEnd - clippedStart > 0.1 else { return nil }
+        return TimelineClip(name: companion.name, content: .media(assetID: companion.id), start: clippedStart - start,
+                            sourceIn: clippedStart, sourceDuration: clippedEnd - clippedStart, linkGroup: group, role: role, aiGenerated: true)
     }
 
     static func pickSoundEffect(_ library: [MediaAsset], preferring keywords: [String]) -> MediaAsset? {

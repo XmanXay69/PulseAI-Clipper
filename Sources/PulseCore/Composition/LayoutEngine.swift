@@ -49,13 +49,17 @@ public struct LayoutContext: Sendable {
     public var faceCenter: Vec2?
     /// Separate webcam recording size, when the webcam is its own file.
     public var webcamSourceSize: Size2?
+    /// Face position inside the separate webcam recording.
+    public var webcamFaceCenter: Vec2?
     public var profile: ContentProfile
 
-    public init(sourceSize: Size2, webcamRegion: NormRect? = nil, faceCenter: Vec2? = nil, webcamSourceSize: Size2? = nil, profile: ContentProfile = .unknown) {
+    public init(sourceSize: Size2, webcamRegion: NormRect? = nil, faceCenter: Vec2? = nil, webcamSourceSize: Size2? = nil,
+                webcamFaceCenter: Vec2? = nil, profile: ContentProfile = .unknown) {
         self.sourceSize = sourceSize
         self.webcamRegion = webcamRegion
         self.faceCenter = faceCenter
         self.webcamSourceSize = webcamSourceSize
+        self.webcamFaceCenter = webcamFaceCenter
         self.profile = profile
     }
 
@@ -175,7 +179,7 @@ public enum LayoutEngine {
                         continue
                     }
                     let slotAspect = slot.pixelAspect(in: canvas.size)
-                    let face = context.webcamSourceSize == nil ? context.faceCenter : nil
+                    let face = context.webcamSourceSize == nil ? context.faceCenter : context.webcamFaceCenter
                     let crop = Self.crop(aspect: slotAspect, inside: region.insetBy(dx: region.width * 0.02, dy: region.height * 0.02), frameSize: webcamSource, focus: face)
                     let placement = LayerGeometry.placement(fillingSlot: slot, cropAspect: slotAspect, canvasSize: canvas.size)
                     clip.transform.crop = crop
@@ -192,7 +196,9 @@ public enum LayoutEngine {
                     if effectivePreset == .fullFrame, context.profile == .talkingHead || context.profile == .podcast, let face = context.faceCenter {
                         crop = NormRect.crop(aspect: slotAspect, frameSize: context.sourceSize, focus: Vec2(face.x, 0.5))
                     } else {
-                        crop = WebcamEstimator.gameplayRegion(frameSize: context.sourceSize, webcam: effectivePreset == .splitScreen || effectivePreset == .facecamDominant ? webcamRegion : nil, targetAspect: slotAspect)
+                        // Only carve the facecam out of the gameplay when it's inside the same file.
+                        let inFrameWebcam = context.webcamSourceSize == nil ? webcamRegion : nil
+                        crop = WebcamEstimator.gameplayRegion(frameSize: context.sourceSize, webcam: effectivePreset == .splitScreen || effectivePreset == .facecamDominant ? inFrameWebcam : nil, targetAspect: slotAspect)
                     }
                     let placement = LayerGeometry.placement(fillingSlot: slot, cropAspect: slotAspect, canvasSize: canvas.size)
                     clip.transform.crop = crop

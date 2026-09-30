@@ -578,7 +578,12 @@ extension Timeline {
     @discardableResult
     public mutating func removeSourceRanges(_ sourceRanges: [TimeRange], assetID: UUID, reason: RemovedSection.Reason,
                                             texts: [String?]? = nil, aiGenerated: Bool = false) -> Seconds {
-        let affectedTracks = Set(tracks.filter { t in t.clips.contains { $0.assetID == assetID } && !t.isLocked }.map(\.id))
+        // Tracks holding the asset, plus tracks with clips linked to it (a separate facecam or mic
+        // recording of the same moment) so everything stays in sync.
+        let linkedGroups = Set(tracks.flatMap(\.clips).filter { $0.assetID == assetID }.compactMap(\.linkGroup))
+        let affectedTracks = Set(tracks.filter { t in
+            !t.isLocked && t.clips.contains { $0.assetID == assetID || ($0.linkGroup.map(linkedGroups.contains) ?? false) }
+        }.map(\.id))
         guard !affectedTracks.isEmpty else { return 0 }
         var timelineCuts: [TimeRange] = []
         for range in sourceRanges.merged() {
