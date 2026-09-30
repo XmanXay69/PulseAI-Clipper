@@ -411,6 +411,19 @@ struct TranscriptionSettings: View {
                 WhisperModelRow(model: model)
             }
         }
+        SettingsGroup("Speakers", footnote: "Speaker detection runs on this Mac after transcription. With one microphone per person (a multi-camera podcast), use Detect Speakers in the transcript — the loudest mic decides, which is the most reliable.") {
+            SettingsRow("Detect who's talking", detail: "Labels the transcript by speaker; you can rename or merge speakers later.") {
+                Toggle("", isOn: $app.settings.ai.detectSpeakers).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
+            }
+            SettingsRow("Number of speakers") {
+                Picker("", selection: $app.settings.ai.speakerCount) {
+                    Text("Automatic").tag(0)
+                    ForEach(1...6, id: \.self) { Text("\($0)").tag($0) }
+                }
+                .labelsHidden().frame(width: 140)
+                .disabled(!app.settings.ai.detectSpeakers)
+            }
+        }
         SettingsGroup("Import instead") {
             Text("Already have captions? Import an SRT or VTT file on the Import page and PULSE will use it as the transcript — no transcription needed.")
                 .font(.pulseCaption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)

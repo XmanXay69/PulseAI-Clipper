@@ -70,6 +70,88 @@ final class EngineSmokeTests: XCTestCase {
         XCTAssertNotEqual(other, output)
     }
 
+    /// Two synthesized voices take turns; diarization must find two speakers and who said what.
+    func testSpeakerDiarizationOfTwoVoices() async throws {
+        let list = Process()
+        list.executableURL = URL(fileURLWithPath: "/usr/bin/say")
+        list.arguments = ["-v", "?"]
+        let pipe = Pipe()
+        list.standardOutput = pipe
+        try list.run()
+        list.waitUntilExit()
+        let voices = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        func has(_ name: String) -> Bool { voices.split(separator: "\n").contains { $0.hasPrefix(name + " ") } }
+        guard let female = ["Samantha", "Karen", "Moira", "Tessa", "Victoria"].first(where: has),
+              let male = ["Fred", "Daniel", "Alex", "Ralph", "Aaron"].first(where: has) else {
+            throw XCTSkip("no pair of system voices available")
+        }
+        let lines = [
+            (female, "Welcome back to the show, today we are talking about the best moments from last night's stream."),
+            (male, "Thanks for having me, honestly that final round was the craziest thing I have ever played."),
+            (female, "Walk me through it, because from the chat it looked like you had no chance at all."),
+            (male, "I was down to one health point with three players left and somehow I pulled it off."),
+            (female, "That is incredible, the clip already has thousands of views on every platform."),
+            (male, "I still can't believe it, my hands were shaking for about ten minutes afterwards."),
+        ]
+        let dir = Self.workDir.appendingPathComponent("diarize-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let rate = 16_000.0
+        let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: rate, channels: 1, interleaved: false)!
+        var samples: [Float] = []
+        var turns: [(range: TimeRange, voice: String)] = []
+        for (i, line) in lines.enumerated() {
+            let url = dir.appendingPathComponent("line\(i).wav")
+            let say = Process()
+            say.executableURL = URL(fileURLWithPath: "/usr/bin/say")
+            say.arguments = ["-v", line.0, "-o", url.path, "--file-format=WAVE", "--data-format=LEF32@16000", line.1]
+            try say.run()
+            say.waitUntilExit()
+            guard say.terminationStatus == 0 else { throw XCTSkip("say failed for \(line.0)") }
+            let file = try AVAudioFile(forReading: url)
+            let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length))!
+            try file.read(into: buffer)
+            let start = Double(samples.count) / rate
+            samples += Array(UnsafeBufferPointer(start: buffer.floatChannelData![0], count: Int(buffer.frameLength)))
+            turns.append((TimeRange(start: start, end: Double(samples.count) / rate), line.0))
+            samples += [Float](repeating: 0, count: Int(0.6 * rate))
+        }
+        let combined = dir.appendingPathComponent("conversation.wav")
+        do {
+            let out = try AVAudioFile(forWriting: combined, settings: format.settings, commonFormat: .pcmFormatFloat32, interleaved: false)
+            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count))!
+            buffer.frameLength = AVAudioFrameCount(samples.count)
+            samples.withUnsafeBufferPointer { buffer.floatChannelData![0].update(from: $0.baseAddress!, count: samples.count) }
+            try out.write(from: buffer)
+        }
+        // Word timings: evenly spread through each turn (the test is about voices, not ASR).
+        var words: [TranscriptWord] = []
+        for turn in turns {
+            var t = turn.range.start + 0.15
+            while t + 0.3 < turn.range.end - 0.1 {
+                words.append(TranscriptWord(text: "w", start: t, end: t + 0.28))
+                t += 0.34
+            }
+        }
+        let transcript = Transcript(words: words, source: .demo)
+        let result = try await SpeakerDiarization.diarize(transcript, audioURL: combined)
+        XCTAssertEqual(result.speakerIDs.count, 2, "found \(result.speakerIDs.count) speakers")
+        // Map each detected speaker to the voice it mostly covers, then score every word.
+        var votes: [Int: [String: Int]] = [:]
+        for (w, word) in result.words.enumerated() {
+            guard let s = word.speaker, let turn = turns.first(where: { $0.range.contains(transcript.words[w].start) }) else { continue }
+            votes[s, default: [:]][turn.voice, default: 0] += 1
+        }
+        let voiceOf = votes.mapValues { $0.max { $0.value < $1.value }!.key }
+        let correct = result.words.enumerated().filter { w, word in
+            guard let s = word.speaker, let turn = turns.first(where: { $0.range.contains(transcript.words[w].start) }) else { return false }
+            return voiceOf[s] == turn.voice
+        }.count
+        let accuracy = Double(correct) / Double(result.words.count)
+        print(String(format: "diarization: %@ vs %@, %d speakers, %.0f%% of words correct", female, male, result.speakerIDs.count, accuracy * 100))
+        XCTAssertGreaterThan(accuracy, 0.85)
+        XCTAssertNotEqual(voiceOf[0], voiceOf[1], "the two speakers are different voices")
+    }
+
     /// Real speech-to-text: macOS `say` speaks a sentence, whisper.cpp transcribes it with word timings.
     /// Runs when CI (or you) installs whisper.cpp and sets PULSE_WHISPER_MODEL to a ggml model path.
     func testWhisperTranscriptionOfSynthesizedSpeech() async throws {

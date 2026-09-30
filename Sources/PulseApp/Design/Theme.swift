@@ -41,6 +41,12 @@ enum Theme {
     static let textClip = Color(hex: 0x9B6BFF)
     static let compoundClip = Color(hex: 0xC2873A)
 
+    /// Stable, distinct color per speaker.
+    static func speakerColor(_ id: Int) -> Color {
+        let palette: [UInt32] = [0x35C8FF, 0xFFB020, 0x3DDC97, 0xFF6FA8, 0xB08CFF, 0xFF8A3D]
+        return Color(hex: palette[abs(id) % palette.count])
+    }
+
     static let radiusSmall: CGFloat = 4
     static let radius: CGFloat = 6
     static let radiusLarge: CGFloat = 10

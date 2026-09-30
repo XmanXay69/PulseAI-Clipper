@@ -44,6 +44,10 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var aiSoundEffects: Bool = false
     public var aiMusic: Bool = false
     public var aiFraming: Bool = true
+    /// Label who is talking after transcription (local diarization).
+    public var detectSpeakers: Bool = true
+    /// 0 = estimate the number of speakers.
+    public var speakerCount: Int = 0
     public var processingPolicy: AIProcessingPolicy = .preferLocal
     public var transcriptionEngine: TranscriptionEngineChoice = .automatic
     public var transcriptionLanguage: String = "en-US"
@@ -80,6 +84,8 @@ public struct AISettings: Codable, Hashable, Sendable {
         aiSoundEffects = c.decode(Bool.self, forKey: .aiSoundEffects, default: d.aiSoundEffects)
         aiMusic = c.decode(Bool.self, forKey: .aiMusic, default: d.aiMusic)
         aiFraming = c.decode(Bool.self, forKey: .aiFraming, default: d.aiFraming)
+        detectSpeakers = c.decode(Bool.self, forKey: .detectSpeakers, default: d.detectSpeakers)
+        speakerCount = c.decode(Int.self, forKey: .speakerCount, default: d.speakerCount)
         processingPolicy = c.decode(AIProcessingPolicy.self, forKey: .processingPolicy, default: d.processingPolicy)
         transcriptionEngine = c.decode(TranscriptionEngineChoice.self, forKey: .transcriptionEngine, default: d.transcriptionEngine)
         transcriptionLanguage = c.decode(String.self, forKey: .transcriptionLanguage, default: d.transcriptionLanguage)

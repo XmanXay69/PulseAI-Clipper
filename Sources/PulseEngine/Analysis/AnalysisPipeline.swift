@@ -158,6 +158,20 @@ public struct AnalysisPipeline: Sendable {
             } else {
                 warnings.append("No speech-to-text engine is available. Run the PULSE app bundle for Apple Speech, or install whisper.cpp (`brew install whisper-cpp`) and a model. Clips will be found from audio energy only.")
             }
+            // Who's talking — reuses the 16 kHz audio written for transcription (voice-file time).
+            if options.ai.detectSpeakers, let heard = transcript, heard.words.count >= 30, heard.speakerIDs.count < 2 {
+                report("Detecting speakers", 0, completed + speechWeight * 0.95, 0)
+                do {
+                    transcript = try await SpeakerDiarization.diarize(heard, audioURL: wavURL, delta: options.voiceSource?.delta ?? 0,
+                                                                      speakerCount: options.ai.speakerCount > 0 ? options.ai.speakerCount : nil,
+                                                                      isCancelled: isCancelled)
+                    processing["speakers"] = .local
+                } catch EngineError.cancelled {
+                    throw EngineError.cancelled
+                } catch {
+                    warnings.append("Speaker detection failed: \(error.localizedDescription)")
+                }
+            }
             completed += speechWeight
             try? FileManager.default.removeItem(at: wavURL)
         }

@@ -72,6 +72,7 @@ struct TranscriptPanel: View {
                     .toggleStyle(.button).controlSize(.small).help("Highlight filler words")
                 Toggle(isOn: $wholeRecording) { Image(systemName: "text.justify") }
                     .toggleStyle(.button).controlSize(.small).help("Show the whole recording, not just this clip")
+                if let assetID { speakersMenu(assetID: assetID) }
             }
             .padding(8)
             if let transcript, let assetID {
@@ -103,7 +104,7 @@ struct TranscriptPanel: View {
                             HStack(spacing: 6) {
                                 Text(Timecode.short(sentence.start)).font(.pulseMono).foregroundStyle(Theme.textTertiary)
                                 if let name = transcript.speakerName(sentence.speaker), transcript.speakerIDs.count > 1 {
-                                    Text(name).font(.pulseMicro).foregroundStyle(Theme.info)
+                                    Text(name).font(.pulseMicro.weight(.semibold)).foregroundStyle(Theme.speakerColor(sentence.speaker ?? 0))
                                 }
                             }
                             FlowLayout {
@@ -191,6 +192,38 @@ struct TranscriptPanel: View {
         .padding(.vertical, 6)
         .background(Theme.panelRaised)
         .onDeleteCommand { session.deleteTranscriptRange(range, assetID: assetID, text: text); self.selection = nil }
+    }
+
+    /// Speakers: detect (auto or a fixed count), rename, merge.
+    func speakersMenu(assetID: UUID) -> some View {
+        let ids = transcript?.speakerIDs ?? []
+        return Menu {
+            Section("Detect Speakers") {
+                Button("Automatic") { session.detectSpeakers(assetID: assetID) }
+                ForEach(2...5, id: \.self) { n in
+                    Button("\(n) speakers") { session.detectSpeakers(assetID: assetID, count: n) }
+                }
+            }
+            if ids.count > 1 {
+                Section("Speakers") {
+                    ForEach(ids, id: \.self) { id in
+                        Menu(transcript?.speakerName(id) ?? "Speaker \(id + 1)") {
+                            Button("Rename…") { renameSpeaker(id, assetID: assetID) }
+                            ForEach(ids.filter { $0 != id }, id: \.self) { other in
+                                Button("Merge into \(transcript?.speakerName(other) ?? "Speaker \(other + 1)")") {
+                                    session.mergeSpeaker(id, into: other, assetID: assetID)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } label: {
+            Label(ids.count > 1 ? "\(ids.count)" : "", systemImage: "person.2.wave.2")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help(ids.count > 1 ? "\(ids.count) speakers — detect again, rename or merge" : "Detect who's talking")
     }
 
     func renameSpeaker(_ id: Int, assetID: UUID) {
