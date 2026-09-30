@@ -24,8 +24,8 @@ public enum TrackKind: String, Codable, CaseIterable, Sendable {
     /// Whether a clip with the given content may live on this track kind.
     public func accepts(_ content: ClipContent) -> Bool {
         switch (self, content) {
-        case (.video, .media), (.video, .solid): return true
-        case (.audio, .media): return true
+        case (.video, .media), (.video, .solid), (.video, .compound): return true
+        case (.audio, .media), (.audio, .compound): return true
         case (.text, .text): return true
         default: return false
         }
