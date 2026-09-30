@@ -42,6 +42,8 @@ public enum CompositionBuilder {
         public var showSafeArea: SafeAreaPlatform?
         /// Where rendered "Enhance" audio is cached; nil disables the enhance chain.
         public var enhanceCacheDirectory: URL?
+        /// Nested timelines of compound clips (`ProjectDocument.compounds`).
+        public var compounds: [UUID: Timeline] = [:]
 
         public init(renderSize: CGSize? = nil, useProxies: Bool = false, includeCaptions: Bool = true, showSafeArea: SafeAreaPlatform? = nil,
                     enhanceCacheDirectory: URL? = PulseDirectories.cache("Enhanced Audio")) {
@@ -106,9 +108,89 @@ public enum CompositionBuilder {
             /// Draw order tweak within a track (handles sit just below the clip they blend with).
             var orderBias: Double = 0
 
+            /// Layers inside a compound clip (drawn as one group).
+            var children: [PlacedLayer] = []
+            /// Draw order inside a compound (nested track kind + index).
+            var childRank: Double? = nil
+
             var span: TimeRange { window ?? clip.timelineRange }
         }
         var placed: [PlacedLayer] = []
+
+        // Compound clips: nested video clips get their own composition tracks; nested audio is
+        // collected and mixed with the parent's audio tracks below.
+        var nestedAudio: [(key: String, clip: TimelineClip)] = []
+        func loadVideoSource(_ fileURL: URL) async throws -> (AVAssetTrack, Size2, CGImagePropertyOrientation)? {
+            guard let source = try await avAsset(fileURL).loadTracks(withMediaType: .video).first else { return nil }
+            let (naturalSize, transform) = try await source.load(.naturalSize, .preferredTransform)
+            let orientation = CGImagePropertyOrientation(transform: transform)
+            let size = orientation.swapsDimensions ? Size2(Double(naturalSize.height), Double(naturalSize.width)) : Size2(Double(naturalSize.width), Double(naturalSize.height))
+            return (source, size, orientation)
+        }
+        func compoundAudio(_ compound: TimelineClip, depth: Int, visited: Set<UUID>) {
+            guard let id = compound.content.compoundID, depth < CompoundEditor.maximumDepth, !visited.contains(id),
+                  let nested = options.compounds[id], !compound.audio.isMuted else { return }
+            let gain = compound.audio.volume.value(at: 0) * pow(10, compound.audio.gainDB / 20)
+            guard gain > 0.0001 else { return }
+            for piece in CompoundEditor.flatten(compound, nested: nested) {
+                if piece.clip.content.compoundID != nil {
+                    compoundAudio(piece.clip, depth: depth + 1, visited: visited.union([id]))
+                } else if piece.trackKind == .audio, piece.clip.content.assetID != nil {
+                    var c = piece.clip
+                    c.audio.gainDB += 20 * log10(gain)
+                    nestedAudio.append(("\(compound.id)-\(piece.trackIndex)", c))
+                }
+            }
+        }
+        func compoundLayer(_ compound: TimelineClip, trackIndex: Int, depth: Int, visited: Set<UUID>) async throws -> PlacedLayer? {
+            guard let id = compound.content.compoundID, depth < CompoundEditor.maximumDepth, !visited.contains(id),
+                  let nested = options.compounds[id] else { return nil }
+            var children: [PlacedLayer] = []
+            var nestedTracks: [Int: AVMutableCompositionTrack] = [:]
+            for piece in CompoundEditor.flatten(compound, nested: nested) where piece.trackKind != .audio {
+                let rank = (piece.trackKind == .text ? 1000.0 : 0) + Double(piece.trackIndex)
+                let child = piece.clip
+                switch child.content {
+                case .text(let element):
+                    children.append(PlacedLayer(trackIndex: trackIndex, clip: child, content: .text(element), trackOpacity: 1, childRank: rank))
+                case .solid(let color):
+                    children.append(PlacedLayer(trackIndex: trackIndex, clip: child, content: .solid(color), trackOpacity: 1, childRank: rank))
+                case .compound:
+                    if var inner = try await compoundLayer(child, trackIndex: trackIndex, depth: depth + 1, visited: visited.union([id])) {
+                        inner.childRank = rank
+                        children.append(inner)
+                    }
+                case .media(let assetID):
+                    guard let asset = assets[assetID] else { missing.insert(assetID); continue }
+                    guard let fileURL = url(for: asset) else { missing.insert(assetID); continue }
+                    if asset.kind == .image {
+                        children.append(PlacedLayer(trackIndex: trackIndex, clip: child, content: .image(url: fileURL, size: asset.metadata.size), trackOpacity: 1, childRank: rank))
+                        continue
+                    }
+                    guard let loaded = try await loadVideoSource(fileURL) else { continue }
+                    let (source, size, orientation) = loaded
+                    if nestedTracks[piece.trackIndex] == nil {
+                        nestedTracks[piece.trackIndex] = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+                    }
+                    guard let track = nestedTracks[piece.trackIndex] else { continue }
+                    let sourceRange = CMTimeRange(start: .seconds(child.sourceIn), duration: .seconds(child.sourceDuration))
+                    let at = CMTime.seconds(child.start)
+                    do {
+                        try track.insertTimeRange(sourceRange, of: source, at: at)
+                        if abs(child.speed - 1) > 0.001 {
+                            track.scaleTimeRange(CMTimeRange(start: at, duration: sourceRange.duration), toDuration: .seconds(child.duration))
+                        }
+                    } catch {
+                        missing.insert(assetID)
+                        continue
+                    }
+                    children.append(PlacedLayer(trackIndex: trackIndex, clip: child, content: .video(trackID: track.trackID, sourceSize: size, orientation: orientation),
+                                                trackOpacity: 1, childRank: rank))
+                }
+            }
+            return PlacedLayer(trackIndex: trackIndex, clip: compound, content: .group([]), trackOpacity: 1, children: children)
+        }
+
         for (ti, track) in timeline.tracks.enumerated() where track.kind == .video || track.kind == .text {
             guard !track.isHidden else { continue }
             var compTrack: AVMutableCompositionTrack?
@@ -118,6 +200,9 @@ public enum CompositionBuilder {
                     placed.append(PlacedLayer(trackIndex: ti, clip: clip, content: .text(element), trackOpacity: 1))
                 case .solid(let color):
                     placed.append(PlacedLayer(trackIndex: ti, clip: clip, content: .solid(color), trackOpacity: 1))
+                case .compound:
+                    if let layer = try await compoundLayer(clip, trackIndex: ti, depth: 0, visited: []) { placed.append(layer) }
+                    compoundAudio(clip, depth: 0, visited: [])
                 case .media(let assetID):
                     guard let asset = assets[assetID] else { missing.insert(assetID); continue }
                     guard let fileURL = url(for: asset) else { missing.insert(assetID); continue }
@@ -216,21 +301,33 @@ public enum CompositionBuilder {
 
         // Instructions: split the timeline wherever the set of visible layers changes.
         var boundaries = Set<Double>([0, duration])
-        for layer in placed {
-            boundaries.insert(max(0, min(layer.span.start, duration)))
-            boundaries.insert(max(0, min(layer.span.end, duration)))
+        func addBoundaries(_ layers: [PlacedLayer]) {
+            for layer in layers {
+                boundaries.insert(max(0, min(layer.span.start, duration)))
+                boundaries.insert(max(0, min(layer.span.end, duration)))
+                addBoundaries(layer.children)
+            }
         }
+        addBoundaries(placed)
         let sorted = boundaries.sorted()
         // Text tracks draw above video tracks; within a kind, later tracks draw on top.
         func order(_ layer: PlacedLayer) -> Double {
+            if let rank = layer.childRank { return rank + layer.orderBias }
             let kindRank = timeline.tracks[layer.trackIndex].kind == .text ? 1000.0 : 0
             return kindRank + Double(layer.trackIndex) + layer.orderBias
+        }
+        func renderLayers(_ layers: [PlacedLayer], at mid: Double) -> [RenderLayer] {
+            layers.filter { $0.span.start <= mid && $0.span.end > mid }.sorted { order($0) < order($1) }.map { layer in
+                if case .group = layer.content {
+                    return RenderLayer(content: .group(renderLayers(layer.children, at: mid)), clip: layer.clip, trackOpacity: layer.trackOpacity)
+                }
+                return RenderLayer(content: layer.content, clip: layer.clip, trackOpacity: layer.trackOpacity)
+            }
         }
         var instructions: [PulseCompositionInstruction] = []
         for (a, b) in zip(sorted, sorted.dropFirst()) where b - a > 1e-6 {
             let mid = (a + b) / 2
-            let active = placed.filter { $0.span.start <= mid && $0.span.end > mid }.sorted { order($0) < order($1) }
-            let layers = active.map { RenderLayer(content: $0.content, clip: $0.clip, trackOpacity: $0.trackOpacity) }
+            let layers = renderLayers(placed, at: mid)
             let range = CMTimeRange(start: .seconds(a), end: .seconds(b))
             instructions.append(PulseCompositionInstruction(timeRange: range, layers: layers, scene: scene))
         }
@@ -258,7 +355,19 @@ public enum CompositionBuilder {
         let anySolo = timeline.tracks.contains { $0.kind == .audio && $0.isSolo }
         let dialogue = DuckingPlanner.dialogueRanges(in: timeline)
         let allClips = timeline.allClips
-        for track in timeline.tracks where track.kind == .audio {
+        for track in timeline.tracks where track.kind == .audio && !track.isMuted {
+            for clip in track.clips where clip.isEnabled && clip.content.compoundID != nil {
+                compoundAudio(clip, depth: 0, visited: [])
+            }
+        }
+        var audioTracks = timeline.tracks.filter { $0.kind == .audio }
+        let nestedKeys = nestedAudio.reduce(into: [String]()) { keys, item in if !keys.contains(item.key) { keys.append(item.key) } }
+        for key in nestedKeys {
+            var track = Track(kind: .audio, name: "Compound audio")
+            track.clips = nestedAudio.filter { $0.key == key }.map(\.clip).sorted { $0.start < $1.start }
+            audioTracks.append(track)
+        }
+        for track in audioTracks {
             let trackGain = (track.isMuted || (anySolo && !track.isSolo)) ? 0 : track.volume
             let crossfades = Self.audioCrossfades(on: track, allClips: allClips, assets: assets)
             var compTrack: AVMutableCompositionTrack?

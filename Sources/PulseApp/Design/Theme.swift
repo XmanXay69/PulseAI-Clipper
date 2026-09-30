@@ -39,6 +39,7 @@ enum Theme {
     static let musicClip = Color(hex: 0xD08B2E)
     static let sfxClip = Color(hex: 0xC4508C)
     static let textClip = Color(hex: 0x9B6BFF)
+    static let compoundClip = Color(hex: 0xC2873A)
 
     static let radiusSmall: CGFloat = 4
     static let radius: CGFloat = 6
@@ -57,6 +58,7 @@ enum Theme {
         switch clip.content {
         case .text: return textClip
         case .solid: return Color(hex: 0x555A66)
+        case .compound: return compoundClip
         case .media:
             switch clip.role {
             case .webcam: return webcamClip

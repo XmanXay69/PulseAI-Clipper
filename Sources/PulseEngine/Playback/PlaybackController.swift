@@ -44,7 +44,8 @@ public final class PlaybackController: ObservableObject {
     }
 
     /// Rebuilds the composition for `timeline`. Rapid successive calls (slider drags) are coalesced.
-    public func load(timeline: Timeline, assets: [UUID: MediaAsset], useProxies: Bool, safeArea: SafeAreaPlatform? = nil, debounce: Double = 0.08) {
+    public func load(timeline: Timeline, assets: [UUID: MediaAsset], compounds: [UUID: Timeline] = [:], useProxies: Bool,
+                     safeArea: SafeAreaPlatform? = nil, debounce: Double = 0.08) {
         buildTask?.cancel()
         buildGeneration += 1
         let generation = buildGeneration
@@ -55,7 +56,7 @@ public final class PlaybackController: ObservableObject {
             if Task.isCancelled { return }
             do {
                 let built = try await CompositionBuilder.build(timeline: timeline, assets: assets,
-                                                               options: .init(useProxies: useProxies, showSafeArea: safeArea))
+                                                               options: Self.options(useProxies: useProxies, safeArea: safeArea, compounds: compounds))
                 guard let self, !Task.isCancelled, generation == self.buildGeneration else { return }
                 self.install(built)
             } catch {
@@ -64,6 +65,12 @@ public final class PlaybackController: ObservableObject {
                 self.isBuilding = false
             }
         }
+    }
+
+    nonisolated static func options(useProxies: Bool, safeArea: SafeAreaPlatform?, compounds: [UUID: Timeline]) -> CompositionBuilder.Options {
+        var options = CompositionBuilder.Options(useProxies: useProxies, showSafeArea: safeArea)
+        options.compounds = compounds
+        return options
     }
 
     private func install(_ built: BuiltComposition) {

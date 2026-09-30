@@ -126,6 +126,21 @@ struct ClipInspector: View {
                 transformSection(showCrop: false)
             case .solid:
                 transformSection(showCrop: false)
+            case .compound(let nestedID):
+                InspectorSection("Compound Clip") {
+                    KeyValueRow(key: "Contains", value: "\(session.document.timeline(id: nestedID)?.allClips.count ?? 0) clips")
+                    HStack {
+                        Button { session.openCompound(clipID: clip.id) } label: { Label("Open", systemImage: "square.stack.3d.up") }
+                            .buttonStyle(.pulse(.secondary, compact: true))
+                        Button { session.breakApartCompound(clipID: clip.id) } label: { Label("Break Apart", systemImage: "square.stack.3d.down.right") }
+                            .buttonStyle(.pulse(.ghost, compact: true))
+                    }
+                }
+                transformSection(showCrop: true)
+                styleSection
+                ColorInspector(session: session, clip: clip, b: b)
+                EffectsInspector(session: session, clip: clip)
+                transitionsSection
             case .media(let assetID):
                 if track.kind == .audio {
                     AudioInspector(session: session, clip: clip, b: b)

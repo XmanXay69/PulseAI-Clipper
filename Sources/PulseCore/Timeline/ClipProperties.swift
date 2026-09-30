@@ -462,11 +462,21 @@ public enum ClipContent: Codable, Hashable, Sendable {
     case media(assetID: UUID)
     case text(TextElement)
     case solid(RGBAColor)
+    /// A nested timeline (compound clip) stored in `ProjectDocument.compounds`.
+    case compound(timelineID: UUID)
 
     public var assetID: UUID? {
         if case .media(let id) = self { return id }
         return nil
     }
+
+    public var compoundID: UUID? {
+        if case .compound(let id) = self { return id }
+        return nil
+    }
+
+    /// Has a source time line that can't go below zero (media and compound clips).
+    public var hasSourceTime: Bool { assetID != nil || compoundID != nil }
 
     public var textElement: TextElement? {
         if case .text(let element) = self { return element }

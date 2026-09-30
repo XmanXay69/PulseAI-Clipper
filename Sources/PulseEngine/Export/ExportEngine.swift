@@ -8,12 +8,13 @@ import VideoToolbox
 public final class ExportEngine: @unchecked Sendable {
     public init() {}
 
-    public func export(timeline: Timeline, assets: [UUID: MediaAsset], settings: ExportSettings, to destination: URL,
+    public func export(timeline: Timeline, assets: [UUID: MediaAsset], compounds: [UUID: Timeline] = [:], settings: ExportSettings, to destination: URL,
                        progress: @escaping @Sendable (Double) -> Void, isCancelled: @escaping @Sendable () -> Bool = { false }) async throws {
         let size = settings.outputSize(for: timeline.canvas)
         let renderSize = CGSize(width: size.width, height: size.height)
-        let built = try await CompositionBuilder.build(timeline: timeline, assets: assets,
-                                                       options: .init(renderSize: renderSize, useProxies: false, includeCaptions: settings.burnInCaptions))
+        var buildOptions = CompositionBuilder.Options(renderSize: renderSize, useProxies: false, includeCaptions: settings.burnInCaptions)
+        buildOptions.compounds = compounds
+        let built = try await CompositionBuilder.build(timeline: timeline, assets: assets, options: buildOptions)
         if !built.missingAssetIDs.isEmpty {
             let names = built.missingAssetIDs.compactMap { assets[$0]?.name }.joined(separator: ", ")
             throw EngineError.exportFailed("media is offline (\(names)). Reconnect the files and try again.")

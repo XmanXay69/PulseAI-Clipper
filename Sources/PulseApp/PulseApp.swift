@@ -106,6 +106,14 @@ struct PulseCommands: Commands {
             Button("Ripple Delete In → Out") { app.session?.rippleDeleteInOut() }.keyboardShortcut(.delete, modifiers: [.command, .option])
             Divider()
             Button("Add Text") { app.session?.addText() }.keyboardShortcut("t", modifiers: [.command, .option])
+            Divider()
+            Button("New Compound Clip") { app.session?.createCompoundClip() }
+                .keyboardShortcut("g", modifiers: [.option])
+                .disabled(app.session?.selectedClipIDs.isEmpty ?? true)
+            Button("Break Apart Compound Clip") { app.session?.breakApartCompound() }
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+            Button("Exit Compound Clip") { app.session?.exitCompound() }
+                .disabled(!(app.session?.isInsideCompound ?? false))
             Button("Add Marker") { app.session?.addMarker() }
             Divider()
             Button("Make More Entertaining") { app.session?.makeMoreEntertaining() }.keyboardShortcut("e", modifiers: [.command, .option])

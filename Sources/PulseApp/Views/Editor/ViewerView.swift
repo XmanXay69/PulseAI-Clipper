@@ -111,7 +111,21 @@ struct ViewerView: View {
 
     var viewerHeader: some View {
         HStack(spacing: 8) {
-            if let t = session.activeTimeline {
+            if session.isInsideCompound {
+                Button { session.exitCompound() } label: { Image(systemName: "chevron.left") }
+                    .buttonStyle(.pulse(.ghost, compact: true))
+                    .help("Back to the parent timeline")
+                let crumbs = session.compoundBreadcrumb
+                ForEach(Array(crumbs.enumerated()), id: \.offset) { index, crumb in
+                    if index > 0 { Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Theme.textTertiary) }
+                    if index < crumbs.count - 1 {
+                        Button(crumb.name) { session.exitCompound(toLevel: index) }
+                            .buttonStyle(.plain).font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    } else {
+                        Label(crumb.name, systemImage: "square.stack.3d.up.fill").font(.pulseHeadline).foregroundStyle(Theme.compoundClip)
+                    }
+                }
+            } else if let t = session.activeTimeline {
                 Menu {
                     ForEach(session.document.timelines) { timeline in
                         Button(timeline.name) { session.open(timelineID: timeline.id) }
@@ -245,6 +259,10 @@ struct CanvasHandlesOverlay: View {
             return CGRect(x: (cx - w / 2) * k, y: (cy - h / 2) * k, width: w * k, height: h * k)
         case .solid:
             return nil
+        case .compound:
+            let g = LayerGeometry.resolve(clip.transform, at: local, sourceSize: canvas, canvasSize: canvas)
+            let f = g.frame
+            return CGRect(x: f.x * k, y: f.y * k, width: f.width * k, height: f.height * k)
         }
     }
 

@@ -13,6 +13,7 @@ final class ExportQueueController: ObservableObject {
     private struct Payload {
         var timeline: Timeline
         var assets: [UUID: MediaAsset]
+        var compounds: [UUID: Timeline]
     }
 
     private var payloads: [UUID: Payload] = [:]
@@ -26,7 +27,7 @@ final class ExportQueueController: ObservableObject {
         let assets = Dictionary(uniqueKeysWithValues: document.media.map { ($0.id, $0) })
         for timeline in timelines {
             let job = ExportJob(projectID: document.id, projectName: document.name, timelineID: timeline.id, timelineName: timeline.name, settings: settings)
-            payloads[job.id] = Payload(timeline: timeline, assets: assets)
+            payloads[job.id] = Payload(timeline: timeline, assets: assets, compounds: document.compoundsByID)
             jobs.append(job)
         }
         startIfNeeded()
@@ -100,7 +101,7 @@ final class ExportQueueController: ObservableObject {
                 let filename = job.settings.filename(project: job.projectName, clip: job.timelineName, index: index + 1)
                 let url = ExportSettings.uniqueURL(directory: directory, filename: filename) { FileManager.default.fileExists(atPath: $0.path) }
                 let jobID = job.id
-                try await ExportEngine().export(timeline: payload.timeline, assets: payload.assets, settings: job.settings, to: url, progress: { p in
+                try await ExportEngine().export(timeline: payload.timeline, assets: payload.assets, compounds: payload.compounds, settings: job.settings, to: url, progress: { p in
                     Task { @MainActor [weak self] in
                         self?.update(jobID) { $0.status = .rendering(progress: p) }
                     }

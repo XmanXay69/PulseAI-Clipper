@@ -34,6 +34,8 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
     public var media: [MediaAsset]
     public var folders: [MediaFolder]
     public var timelines: [Timeline]
+    /// Nested timelines referenced by compound clips (not listed as shorts).
+    public var compounds: [Timeline]
     public var candidates: [ClipCandidate]
     public var templates: [ClipTemplate]
     public var exportSettings: ExportSettings
@@ -57,6 +59,7 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
         self.media = []
         self.folders = []
         self.timelines = []
+        self.compounds = []
         self.candidates = []
         self.templates = []
         self.exportSettings = ExportSettings()
@@ -80,6 +83,7 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
         media = c.decode([MediaAsset].self, forKey: .media, default: [])
         folders = c.decode([MediaFolder].self, forKey: .folders, default: [])
         timelines = c.decode([Timeline].self, forKey: .timelines, default: [])
+        compounds = c.decode([Timeline].self, forKey: .compounds, default: [])
         candidates = c.decode([ClipCandidate].self, forKey: .candidates, default: [])
         templates = c.decode([ClipTemplate].self, forKey: .templates, default: [])
         exportSettings = c.decode(ExportSettings.self, forKey: .exportSettings, default: ExportSettings())
@@ -97,7 +101,12 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
 
     public func asset(id: UUID) -> MediaAsset? { media.first { $0.id == id } }
 
-    public func timeline(id: UUID) -> Timeline? { timelines.first { $0.id == id } }
+    /// A short/edit or a compound clip's nested timeline.
+    public func timeline(id: UUID) -> Timeline? { timelines.first { $0.id == id } ?? compounds.first { $0.id == id } }
+
+    public func isCompound(_ id: UUID) -> Bool { compounds.contains { $0.id == id } }
+
+    public var compoundsByID: [UUID: Timeline] { Dictionary(compounds.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a }) }
 
     public var primaryAsset: MediaAsset? {
         primaryAssetID.flatMap { asset(id: $0) } ?? media.first { $0.kind == .video } ?? media.first
@@ -128,10 +137,27 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
     }
 
     public mutating func updateTimeline(id: UUID, _ body: (inout Timeline) -> Void) {
-        guard let i = timelines.firstIndex(where: { $0.id == id }) else { return }
-        body(&timelines[i])
-        timelines[i].modifiedAt = Date()
+        if let i = timelines.firstIndex(where: { $0.id == id }) {
+            body(&timelines[i])
+            timelines[i].modifiedAt = Date()
+        } else if let i = compounds.firstIndex(where: { $0.id == id }) {
+            body(&compounds[i])
+            compounds[i].modifiedAt = Date()
+        } else {
+            return
+        }
         touch()
+    }
+
+    /// Throwing variant used by the editor for undoable edits of any timeline, nested or not.
+    public mutating func editTimeline(id: UUID, _ body: (inout Timeline) throws -> Void) rethrows {
+        if let i = timelines.firstIndex(where: { $0.id == id }) {
+            try body(&timelines[i])
+            timelines[i].modifiedAt = Date()
+        } else if let i = compounds.firstIndex(where: { $0.id == id }) {
+            try body(&compounds[i])
+            compounds[i].modifiedAt = Date()
+        }
     }
 
     public mutating func updateAsset(id: UUID, _ body: (inout MediaAsset) -> Void) {

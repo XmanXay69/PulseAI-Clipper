@@ -133,7 +133,7 @@ public struct TimelineClip: Codable, Hashable, Identifiable, Sendable {
 
     public var isVisual: Bool {
         switch content {
-        case .media, .solid, .text: return true
+        case .media, .solid, .text, .compound: return true
         }
     }
 }

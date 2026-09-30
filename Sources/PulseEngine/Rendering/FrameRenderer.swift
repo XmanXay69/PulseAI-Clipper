@@ -56,6 +56,17 @@ public final class FrameRenderer: @unchecked Sendable {
             var image = CIImage(cvPixelBuffer: buffer).oriented(orientation)
             image = image.transformed(by: CGAffineTransform(translationX: -image.extent.minX, y: -image.extent.minY))
             return place(image, clip: clip, local: local, scene: scene, trackOpacity: layer.trackOpacity)
+        case .group(let children):
+            // Render the compound's contents on a transparent canvas, then place that picture
+            // with the compound clip's own transform, crop, style, color and opacity.
+            let bounds = CGRect(origin: .zero, size: scene.renderSize)
+            var flat = CIImage(color: .clear).cropped(to: bounds)
+            for child in children {
+                if let image = renderLayer(child, at: time, scene: scene, source: source) {
+                    flat = image.composited(over: flat)
+                }
+            }
+            return place(flat.cropped(to: bounds), clip: clip, local: local, scene: scene, trackOpacity: layer.trackOpacity)
         case .image(let url, _):
             guard let image = cachedImage(url) else { return nil }
             return place(image, clip: clip, local: local, scene: scene, trackOpacity: layer.trackOpacity)

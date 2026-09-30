@@ -347,6 +347,9 @@ struct TimelineClipView: View {
         .onHover { hovering = $0 }
         .gesture(moveGesture, including: track.isLocked ? .none : .all)
         .simultaneousGesture(SpatialTapGesture().onEnded { value in select(atX: value.location.x) })
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
+            if clip.content.compoundID != nil { session.openCompound(clipID: clip.id) }
+        })
         .contextMenu { contextMenu }
         .help(helpText)
     }
@@ -355,7 +358,7 @@ struct TimelineClipView: View {
         switch clip.content {
         case .text(let e): return e.text
         case .solid: return "Color"
-        case .media: return clip.name
+        case .media, .compound: return clip.name
         }
     }
 
@@ -380,6 +383,17 @@ struct TimelineClipView: View {
             LinearGradient(colors: [color.opacity(0.5), color.opacity(0.25)], startPoint: .top, endPoint: .bottom)
         case .solid(let c):
             Color(c)
+        case .compound:
+            ZStack(alignment: .leading) {
+                LinearGradient(colors: [color.opacity(0.55), color.opacity(0.3)], startPoint: .top, endPoint: .bottom)
+                HStack(spacing: 4) {
+                    Image(systemName: "square.stack.3d.up.fill").font(.system(size: 11))
+                    Text("Compound").font(.system(size: 9, weight: .semibold))
+                }
+                .foregroundStyle(.white.opacity(0.75))
+                .padding(.leading, 6)
+                .padding(.top, 12)
+            }
         }
     }
 
@@ -442,6 +456,7 @@ struct TimelineClipView: View {
                     .onEnded { _ in
                         let id = clip.id
                         let mediaDuration = clip.assetID.flatMap { session.document.asset(id: $0)?.metadata.duration }
+                            ?? clip.content.compoundID.flatMap { session.document.timeline(id: $0)?.duration }
                         if leading {
                             let newStart = clip.start + Double(trimLeading / pps)
                             session.editTimeline("Trim Start") { try $0.trimStart(clipID: id, to: newStart) }
@@ -511,6 +526,16 @@ struct TimelineClipView: View {
         Button("Delete") { session.selectedClipIDs = [clip.id]; session.deleteSelection(ripple: false) }
         Button("Ripple Delete") { session.selectedClipIDs = [clip.id]; session.deleteSelection(ripple: true) }
         Button("Duplicate") { session.selectedClipIDs = [clip.id]; session.duplicateSelection() }
+        Divider()
+        if clip.content.compoundID != nil {
+            Button("Open Compound Clip") { session.openCompound(clipID: clip.id) }
+            Button("Break Apart Compound Clip") { session.breakApartCompound(clipID: clip.id) }
+        } else {
+            Button("New Compound Clip") {
+                if !session.selectedClipIDs.contains(clip.id) { session.selectedClipIDs = [clip.id] }
+                session.createCompoundClip()
+            }
+        }
         Divider()
         Menu("Speed") {
             ForEach([0.25, 0.5, 0.75, 1, 1.25, 1.5, 2], id: \.self) { s in

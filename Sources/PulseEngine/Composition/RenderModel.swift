@@ -11,6 +11,8 @@ public enum RenderLayerContent: @unchecked Sendable {
     case image(url: URL, size: Size2)
     case text(TextElement)
     case solid(RGBAColor)
+    /// A compound clip: its nested layers are rendered together, then placed like one picture.
+    case group([RenderLayer])
 }
 
 /// One visual layer active during an instruction, bottom → top.
@@ -59,12 +61,24 @@ public final class PulseCompositionInstruction: NSObject, AVVideoCompositionInst
         self.timeRange = timeRange
         self.layers = layers
         self.scene = scene
-        let ids: [NSValue] = layers.compactMap {
-            if case .video(let trackID, _, _) = $0.content { return NSNumber(value: trackID) }
-            return nil
-        }
+        let ids: [NSValue] = PulseCompositionInstruction.trackIDs(in: layers).map { NSNumber(value: $0) }
         self.requiredSourceTrackIDs = ids.isEmpty ? nil : ids
         super.init()
+    }
+}
+
+extension PulseCompositionInstruction {
+    /// Every composition track a set of layers reads from (including inside compound clips).
+    static func trackIDs(in layers: [RenderLayer]) -> [CMPersistentTrackID] {
+        var ids: [CMPersistentTrackID] = []
+        for layer in layers {
+            switch layer.content {
+            case .video(let trackID, _, _): if !ids.contains(trackID) { ids.append(trackID) }
+            case .group(let children): for id in trackIDs(in: children) where !ids.contains(id) { ids.append(id) }
+            default: break
+            }
+        }
+        return ids
     }
 }
 

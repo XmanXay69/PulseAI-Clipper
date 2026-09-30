@@ -237,6 +237,33 @@ final class EngineSmokeTests: XCTestCase {
         let gm = AVAssetImageGenerator(asset: builtMulticam.composition)
         gm.videoComposition = builtMulticam.videoComposition
         Self.writePNG(try await gm.image(at: .seconds(6)).image, name: "multicam-cam-b.png")
+
+        // 10. Compound clip: two video clips + a title collapsed, then scaled down as one picture.
+        var compoundEdit = Timeline.empty(name: "Compound", canvas: .landscape1080)
+        let cv = compoundEdit.tracks[0].id, ct = compoundEdit.tracks[2].id, ca = compoundEdit.tracks[3].id
+        try compoundEdit.insert(TimelineClip(name: "Shot 1", content: .media(assetID: asset.id), start: 0, sourceIn: 5, sourceDuration: 2), onTrack: cv)
+        try compoundEdit.insert(TimelineClip(name: "Shot 2", content: .media(assetID: asset.id), start: 2, sourceIn: 40, sourceDuration: 2), onTrack: cv)
+        try compoundEdit.insert(TimelineClip(name: "Shot audio", content: .media(assetID: asset.id), start: 0, sourceIn: 5, sourceDuration: 4), onTrack: ca)
+        try compoundEdit.insert(TimelineClip(name: "Title", content: .text(TextElement(text: "COMPOUND")), start: 0.5, sourceDuration: 3), onTrack: ct)
+        let (nestedTimeline, compoundID) = try CompoundEditor.makeCompound(in: &compoundEdit, clipIDs: compoundEdit.allClips.map(\.id), name: "Group")
+        compoundEdit.updateClip(id: compoundID) { $0.transform.scale = AnimatedDouble(0.5) }
+        var compoundOptions = CompositionBuilder.Options()
+        compoundOptions.compounds = [nestedTimeline.id: nestedTimeline]
+        let builtCompound = try await CompositionBuilder.build(timeline: compoundEdit, assets: [asset.id: asset], options: compoundOptions)
+        XCTAssertTrue(builtCompound.missingAssetIDs.isEmpty)
+        XCTAssertEqual(builtCompound.duration, 4, accuracy: 0.05)
+        let groupInstruction = builtCompound.videoComposition.instructions
+            .compactMap { $0 as? PulseCompositionInstruction }
+            .first { $0.timeRange.containsTime(.seconds(2.5)) }
+        let groupLayer = groupInstruction?.layers.first { if case .group = $0.content { return true }; return false }
+        XCTAssertNotNil(groupLayer, "the compound renders as one group layer")
+        if case .group(let children)? = groupLayer?.content {
+            XCTAssertEqual(children.count, 2, "Shot 2 + the title are inside the group at 2.5 s")
+        }
+        XCTAssertEqual(builtCompound.composition.tracks.filter { $0.mediaType == .audio }.count, 1, "nested audio is mixed in")
+        let gc = AVAssetImageGenerator(asset: builtCompound.composition)
+        gc.videoComposition = builtCompound.videoComposition
+        Self.writePNG(try await gc.image(at: .seconds(2.5)).image, name: "compound-scaled.png")
     }
 
     /// Live screen capture through ScreenCaptureKit. Skips when the runner has no Screen Recording permission.

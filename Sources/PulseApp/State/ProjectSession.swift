@@ -57,6 +57,8 @@ final class ProjectSession: ObservableObject, Identifiable {
     @Published var candidateSort: CandidateSort = .potential
     @Published var analysisProgress: [UUID: EngineProgress] = [:]
     @Published var lastAIReport: String?
+    /// Timelines we came from while inside compound clips (breadcrumb, outermost first).
+    @Published var compoundPath: [UUID] = []
 
     @Published private(set) var canUndo = false
     @Published private(set) var canRedo = false
@@ -131,9 +133,7 @@ final class ProjectSession: ObservableObject, Identifiable {
     func editTimeline(_ label: String, coalesce: String? = nil, _ body: (inout Timeline) throws -> Void) {
         guard let id = selectedTimelineID else { return }
         edit(label, coalesce: coalesce) { doc in
-            guard let index = doc.timelines.firstIndex(where: { $0.id == id }) else { return }
-            try body(&doc.timelines[index])
-            doc.timelines[index].modifiedAt = Date()
+            try doc.editTimeline(id: id, body)
         }
     }
 
@@ -180,10 +180,12 @@ final class ProjectSession: ObservableObject, Identifiable {
 
     func reloadPlayback(debounce: Double = 0.05) {
         guard let timeline = activeTimeline else { return }
-        playback.load(timeline: timeline, assets: assetsByID, useProxies: app.settings.proxy.useProxiesForPlayback, debounce: debounce)
+        playback.load(timeline: timeline, assets: assetsByID, compounds: document.compoundsByID,
+                      useProxies: app.settings.proxy.useProxiesForPlayback, debounce: debounce)
     }
 
     func open(timelineID: UUID, at time: Seconds? = nil, section: SidebarSection = .editor) {
+        compoundPath = []
         let switching = selectedTimelineID != timelineID
         selectedTimelineID = timelineID
         selectedClipIDs = []

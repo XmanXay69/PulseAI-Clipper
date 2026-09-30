@@ -362,7 +362,7 @@ extension Timeline {
             let c = tracks[l.trackIndex].clips[l.clipIndex]
             let previousEnd = l.clipIndex > 0 ? tracks[l.trackIndex].clips[l.clipIndex - 1].end : 0
             let minDelta: Seconds
-            if c.content.assetID != nil {
+            if c.content.hasSourceTime {
                 // Can't reveal source before 0.
                 minDelta = max(-c.sourceIn / c.speed, previousEnd - c.start)
             } else {
@@ -403,7 +403,7 @@ extension Timeline {
             let c = tracks[l.trackIndex].clips[l.clipIndex]
             let nextStart = l.clipIndex + 1 < tracks[l.trackIndex].clips.count ? tracks[l.trackIndex].clips[l.clipIndex + 1].start : .infinity
             var maxDelta = ripple ? .infinity : nextStart - c.end
-            if c.content.assetID != nil, let mediaDuration {
+            if c.content.hasSourceTime, let mediaDuration {
                 maxDelta = min(maxDelta, (mediaDuration - c.sourceOut) / c.speed)
             }
             let minDelta = -(c.duration - Timeline.minimumClipDuration)
