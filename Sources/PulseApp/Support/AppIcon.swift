@@ -165,6 +165,11 @@ enum UISnapshotter {
                     session.cutToAngle(1)
                     try? await Task.sleep(nanoseconds: 2_500_000_000)
                     capture(app: app, name: "15-multicam-angles", to: directory)
+                    session.playback.seek(to: 22)
+                    session.applyMulticamGrid(.twoUp, angles: [])
+                    try? await Task.sleep(nanoseconds: 3_000_000_000)
+                    capture(app: app, name: "16-multicam-grid", to: directory)
+                    await captureViewerFrame(app: app, name: "16-multicam-grid-viewer-frame", to: directory)
                 }
             }
             NSApp.terminate(nil)

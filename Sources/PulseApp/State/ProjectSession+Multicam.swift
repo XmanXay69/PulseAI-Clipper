@@ -64,7 +64,7 @@ extension ProjectSession {
             guard let self else { return }
             let (levels, hop) = try await self.loudness(for: group.videoAngles.filter(\.hasAudio), job: job)
             job.detail = "Choosing shots"
-            let cuts = MulticamEditor.autoSwitch(group: group, levels: levels, hop: hop, range: span)
+            let cuts = MulticamEditor.autoSwitch(group: group, levels: levels, hop: hop, range: span, gridOnCrosstalk: true)
             let timeline = MulticamEditor.timeline(cuts: cuts, group: group, audioAssetID: nil, canvas: canvas, name: name)
             self.edit("AI Multicam Edit") { $0.timelines.append(timeline) }
             self.open(timelineID: timeline.id)
@@ -86,13 +86,30 @@ extension ProjectSession {
         app.jobs.start("AI angle switching", kind: .autoEdit) { [weak self] job in
             guard let self else { return }
             let (levels, hop) = try await self.loudness(for: group.videoAngles.filter(\.hasAudio), job: job)
-            let cuts = MulticamEditor.autoSwitch(group: group, levels: levels, hop: hop, range: TimeRange(start: start, end: end))
+            let cuts = MulticamEditor.autoSwitch(group: group, levels: levels, hop: hop, range: TimeRange(start: start, end: end), gridOnCrosstalk: true)
             let rebuilt = MulticamEditor.timeline(cuts: cuts, group: group, audioAssetID: nil, canvas: timeline.canvas, name: timeline.name)
             self.edit("AI Switch Angles") { doc in
                 doc.updateTimeline(id: timelineID) { t in
                     guard ti < t.tracks.count else { return }
                     let offset = first.start
-                    t.tracks[ti].clips = rebuilt.tracks[0].clips.map { var c = $0; c.start += offset; c.aiGenerated = true; return c }
+                    let span = TimeRange(start: first.start, end: last.end)
+                    func shifted(_ clips: [TimelineClip]) -> [TimelineClip] {
+                        clips.map { var c = $0; c.start += offset; c.aiGenerated = true; return c }
+                    }
+                    t.tracks[ti].clips = shifted(rebuilt.tracks[0].clips)
+                    // Old grid cells in this span go; the new grid shots come from the rebuilt edit.
+                    for gi in t.tracks.indices where t.tracks[gi].name.hasPrefix("Grid ") {
+                        t.tracks[gi].clips.removeAll { $0.timelineRange.overlaps(span) }
+                    }
+                    for gridTrack in rebuilt.tracks where gridTrack.name.hasPrefix("Grid ") && !gridTrack.clips.isEmpty {
+                        if let gi = t.tracks.firstIndex(where: { $0.kind == .video && $0.name == gridTrack.name }) {
+                            t.tracks[gi].clips = (t.tracks[gi].clips + shifted(gridTrack.clips)).sorted { $0.start < $1.start }
+                        } else {
+                            var track = Track(kind: .video, name: gridTrack.name)
+                            track.clips = shifted(gridTrack.clips)
+                            t.tracks.insert(track, at: min(t.tracks.count, ti + 1))
+                        }
+                    }
                 }
             }
             self.app.toast("\(cuts.count) shots chosen by who's talking")
@@ -107,6 +124,49 @@ extension ProjectSession {
         editTimeline("Cut to \(angle.name)", coalesce: nil) { t in
             let id = try MulticamEditor.cut(&t, at: time, to: angle.assetID, group: group)
             selectedClipIDs = [id]
+        }
+    }
+
+    /// The multicam shot under the playhead on the active timeline.
+    var multicamShotAtPlayhead: TimelineClip? {
+        guard let group = activeMulticamGroup, let timeline = activeTimeline else { return nil }
+        let time = playhead
+        for track in timeline.tracks where track.kind == .video {
+            if let clip = track.clips.first(where: { c in c.timelineRange.contains(time) && (c.assetID.map { group.angle($0) != nil } ?? false) }) {
+                return clip
+            }
+        }
+        return nil
+    }
+
+    /// Applies a grid layout to the shot under the playhead, or to every shot between In and Out.
+    /// `angles` are in slot order; empty = the shot's angle followed by the others.
+    func applyMulticamGrid(_ layout: MulticamGridLayout, angles: [UUID]) {
+        guard let group = activeMulticamGroup else { return }
+        let range: TimeRange? = {
+            guard let a = inPoint, let b = outPoint, b - a > 0.1 else { return nil }
+            return TimeRange(start: a, end: b)
+        }()
+        let shotID = multicamShotAtPlayhead?.id
+        var focus: [UUID: Vec2] = [:]
+        for angle in group.videoAngles {
+            if let face = analyses[angle.assetID]?.webcam?.face.center { focus[angle.assetID] = face }
+        }
+        editTimeline(layout == .single ? "Remove Grid" : "Grid: \(layout.displayName)") { t in
+            let ids: [UUID]
+            if let range {
+                ids = MulticamEditor.shots(&t, in: range, group: group)
+            } else if let shotID {
+                ids = [shotID]
+            } else {
+                ids = []
+            }
+            guard !ids.isEmpty else { throw MulticamError.notMulticam }
+            for id in ids {
+                guard let current = t.clip(id: id)?.assetID else { continue }
+                let order = angles.isEmpty ? [current] + group.videoAngles.map(\.assetID).filter { $0 != current } : angles
+                try MulticamEditor.applyGrid(&t, clipID: id, angles: order, layout: layout, group: group, focus: focus)
+            }
         }
     }
 

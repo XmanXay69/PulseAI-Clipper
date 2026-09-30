@@ -124,4 +124,95 @@ final class MulticamTests: XCTestCase {
         }
         XCTAssertLessThan(timeline.duration, 30, "silence removal also cut the linked companion tracks")
     }
+
+    // MARK: Grid layouts
+
+    func testGridSlotsTileTheCanvasWithoutOverlap() {
+        for canvas in [CanvasSettings.vertical1080, .landscape1080] {
+            for layout in MulticamGridLayout.allCases {
+                let slots = layout.slots(count: layout.capacity, canvas: canvas)
+                XCTAssertEqual(slots.count, layout.capacity, "\(layout)")
+                for s in slots {
+                    XCTAssertGreaterThanOrEqual(s.x, -1e-9)
+                    XCTAssertGreaterThanOrEqual(s.y, -1e-9)
+                    XCTAssertLessThanOrEqual(s.maxX, 1 + 1e-9)
+                    XCTAssertLessThanOrEqual(s.maxY, 1 + 1e-9)
+                }
+                for (i, a) in slots.enumerated() {
+                    for b in slots[(i + 1)...] {
+                        let overlapW = min(a.maxX, b.maxX) - max(a.x, b.x)
+                        let overlapH = min(a.maxY, b.maxY) - max(a.y, b.y)
+                        XCTAssertFalse(overlapW > 1e-6 && overlapH > 1e-6, "\(layout) slots overlap")
+                    }
+                }
+            }
+        }
+        let vertical = MulticamGridLayout.twoUp.slots(count: 2, canvas: .vertical1080)
+        XCTAssertLessThan(vertical[0].maxY, vertical[1].y + 1e-9, "2-up stacks on vertical canvases")
+        let landscape = MulticamGridLayout.twoUp.slots(count: 2, canvas: .landscape1080)
+        XCTAssertLessThan(landscape[0].maxX, landscape[1].x + 1e-9, "2-up is side by side on landscape")
+        XCTAssertEqual(MulticamGridLayout.automatic(for: 4), .quad)
+    }
+
+    func testApplyGridAddsSyncedLinkedCellsAndCutEndsIt() throws {
+        let a = asset("Host", role: .camera, offset: 0)
+        let b = asset("Guest", role: .camera, offset: 3)
+        let g = MulticamGroup.groups(in: [a, b])[0]
+        var timeline = MulticamEditor.timeline(cuts: [MulticamCut(range: TimeRange(start: 10, end: 30), assetID: a.id)],
+                                              group: g, audioAssetID: a.id, canvas: .vertical1080, name: "Podcast")
+        let shot = timeline.tracks[0].clips[0].id
+        try MulticamEditor.applyGrid(&timeline, clipID: shot, angles: [a.id, b.id], layout: .twoUp, group: g)
+        let partners = MulticamEditor.gridPartners(of: shot, in: timeline)
+        XCTAssertEqual(partners.count, 1)
+        let main = try XCTUnwrap(timeline.clip(id: shot)), cell = partners[0]
+        XCTAssertEqual(cell.assetID, b.id)
+        XCTAssertEqual(cell.start, main.start, accuracy: 1e-9)
+        XCTAssertEqual(cell.duration, main.duration, accuracy: 1e-9)
+        XCTAssertEqual(cell.sourceIn + b.syncOffset, main.sourceIn + a.syncOffset, accuracy: 1e-9, "cells show the same moment")
+        XCTAssertEqual(main.linkGroup, cell.linkGroup)
+        XCTAssertLessThan(main.transform.positionY.value, cell.transform.positionY.value, "host on top, guest below")
+        XCTAssertEqual(MulticamEditor.gridLayout(of: shot, in: timeline).count, 2)
+
+        // Cutting to the guest 8 s in ends the grid there; the first 8 s keep the grid.
+        let right = try MulticamEditor.cut(&timeline, at: 8, to: b.id, group: g)
+        XCTAssertTrue(MulticamEditor.gridPartners(of: right, in: timeline).isEmpty)
+        XCTAssertEqual(timeline.clip(id: right)?.assetID, b.id)
+        XCTAssertEqual(timeline.clip(id: right)?.transform.fit, .fill)
+        XCTAssertEqual(MulticamEditor.gridPartners(of: shot, in: timeline).count, 1)
+        XCTAssertEqual(MulticamEditor.gridPartners(of: shot, in: timeline).first?.end ?? 0, 8, accuracy: 1e-9)
+        XCTAssertEqual(timeline.duration, 20, accuracy: 1e-9)
+
+        // Removing the grid leaves one full-frame angle.
+        try MulticamEditor.removeGrid(&timeline, clipID: shot, group: g)
+        XCTAssertTrue(MulticamEditor.gridPartners(of: shot, in: timeline).isEmpty)
+        XCTAssertNil(timeline.clip(id: shot)?.linkGroup)
+    }
+
+    func testGridRefusesAngleMissingDuringTheShot() {
+        let a = asset("Cam A", role: .camera, offset: 0, duration: 100)
+        let b = asset("Cam B", role: .camera, offset: 50, duration: 100)
+        let g = MulticamGroup.groups(in: [a, b])[0]
+        var timeline = MulticamEditor.timeline(cuts: [MulticamCut(range: TimeRange(start: 0, end: 20), assetID: a.id)],
+                                              group: g, audioAssetID: nil, canvas: .landscape1080, name: "T")
+        let shot = timeline.tracks[0].clips[0].id
+        XCTAssertThrowsError(try MulticamEditor.applyGrid(&timeline, clipID: shot, angles: [a.id, b.id], layout: .twoUp, group: g))
+        XCTAssertTrue(MulticamEditor.gridPartners(of: shot, in: timeline).isEmpty)
+    }
+
+    func testAutoSwitchShowsBothSpeakersDuringCrosstalk() {
+        let a = asset("Host", role: .camera, offset: 0, duration: 30)
+        let b = asset("Guest", role: .camera, offset: 0, duration: 30)
+        let g = MulticamGroup.groups(in: [a, b])[0]
+        // Host alone 0–10 s, both loud 10–20 s, guest alone 20–30 s.
+        var host = [Float](repeating: -60, count: 300), guest = [Float](repeating: -60, count: 300)
+        for i in 0..<200 { host[i] = -18 }
+        for i in 100..<300 { guest[i] = -18 }
+        let cuts = MulticamEditor.autoSwitch(group: g, levels: [a.id: host, b.id: guest], hop: 0.1, gridOnCrosstalk: true)
+        let middle = cuts.first { $0.range.contains(15) }
+        XCTAssertEqual(Set(middle?.angles ?? []), [a.id, b.id])
+        XCTAssertEqual(cuts.first { $0.range.contains(5) }?.angles, [a.id])
+        XCTAssertEqual(cuts.first { $0.range.contains(25) }?.angles, [b.id])
+        let timeline = MulticamEditor.timeline(cuts: cuts, group: g, audioAssetID: nil, canvas: .vertical1080, name: "Auto")
+        XCTAssertTrue(timeline.tracks.contains { $0.name == "Grid 2" && !$0.clips.isEmpty }, "crosstalk became a 2-up grid shot")
+    }
 }

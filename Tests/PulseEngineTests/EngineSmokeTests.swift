@@ -238,6 +238,20 @@ final class EngineSmokeTests: XCTestCase {
         gm.videoComposition = builtMulticam.videoComposition
         Self.writePNG(try await gm.image(at: .seconds(6)).image, name: "multicam-cam-b.png")
 
+        // 9b. Grid shot: both angles on screen at once in a vertical 2-up.
+        var grid = MulticamEditor.timeline(cuts: [MulticamCut(range: TimeRange(start: 25, end: 31), assetID: angleA.id, extraAngles: [angleB.id])],
+                                           group: group, audioAssetID: angleA.id, canvas: .vertical1080, name: "Grid")
+        XCTAssertEqual(MulticamEditor.gridPartners(of: grid.tracks[0].clips[0].id, in: grid).count, 1)
+        try MulticamEditor.applyGrid(&grid, clipID: grid.tracks[0].clips[0].id, angles: [angleA.id, angleB.id], layout: .twoUp, group: group)
+        let builtGrid = try await CompositionBuilder.build(timeline: grid, assets: [angleA.id: angleA, angleB.id: angleB])
+        XCTAssertTrue(builtGrid.missingAssetIDs.isEmpty)
+        let gridLayers = builtGrid.videoComposition.instructions.compactMap { $0 as? PulseCompositionInstruction }
+            .first { $0.timeRange.containsTime(.seconds(3)) }?.layers.count ?? 0
+        XCTAssertEqual(gridLayers, 2, "both cells render")
+        let gg = AVAssetImageGenerator(asset: builtGrid.composition)
+        gg.videoComposition = builtGrid.videoComposition
+        Self.writePNG(try await gg.image(at: .seconds(3)).image, name: "multicam-grid-2up.png")
+
         // 10. Compound clip: two video clips + a title collapsed, then scaled down as one picture.
         var compoundEdit = Timeline.empty(name: "Compound", canvas: .landscape1080)
         let cv = compoundEdit.tracks[0].id, ct = compoundEdit.tracks[2].id, ca = compoundEdit.tracks[3].id

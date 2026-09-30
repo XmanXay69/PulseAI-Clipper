@@ -91,11 +91,16 @@ public struct MulticamGroup: Hashable, Identifiable, Sendable {
 public struct MulticamCut: Hashable, Sendable {
     public var range: TimeRange
     public var assetID: UUID
+    /// Other angles shown at the same time (a grid shot), in slot order after `assetID`.
+    public var extraAngles: [UUID]
 
-    public init(range: TimeRange, assetID: UUID) {
+    public init(range: TimeRange, assetID: UUID, extraAngles: [UUID] = []) {
         self.range = range
         self.assetID = assetID
+        self.extraAngles = extraAngles
     }
+
+    public var angles: [UUID] { [assetID] + extraAngles }
 }
 
 public enum MulticamError: Error, LocalizedError, Equatable {
@@ -139,6 +144,13 @@ public enum MulticamEditor {
                 timeline.tracks[ai].clips.append(audio)
             }
         }
+        // Grid shots.
+        for cut in sorted where !cut.extraAngles.isEmpty {
+            let start = cut.range.start - origin
+            if let clip = timeline.tracks[0].clips.first(where: { abs($0.start - start) < 0.001 }) {
+                try? applyGrid(&timeline, clipID: clip.id, angles: cut.angles, layout: .automatic(for: cut.angles.count), group: group)
+            }
+        }
         timeline.notes = "Multicam edit · \(group.videoAngles.count) angles"
         return timeline
     }
@@ -174,7 +186,8 @@ public enum MulticamEditor {
         }) ?? candidates.first(where: { c in
             abs(c.end - time) < 0.02 && (c.assetID.map { group.angle($0) != nil } ?? false)
         }) else { throw MulticamError.notMulticam }
-        if clip.assetID == assetID { return clip.id }
+        let inGrid = !gridPartners(of: clip.id, in: timeline).isEmpty
+        if clip.assetID == assetID && !inGrid { return clip.id }
         let frame = 1.0 / max(timeline.canvas.frameRate, 1)
         let target: UUID
         if time - clip.start < frame {
@@ -185,7 +198,13 @@ public enum MulticamEditor {
             guard let right = try timeline.split(at: time, clipIDs: [clip.id]).first else { throw MulticamError.notMulticam }
             target = right
         }
-        try switchAngle(&timeline, clipID: target, to: assetID, group: group)
+        if !gridPartners(of: target, in: timeline).isEmpty {
+            // Cutting to one angle ends the grid from here.
+            try removeGrid(&timeline, clipID: target, group: group)
+        }
+        if timeline.clip(id: target)?.assetID != assetID {
+            try switchAngle(&timeline, clipID: target, to: assetID, group: group)
+        }
         mergeAdjacentSameAngle(&timeline, around: target, group: group)
         return target
     }
@@ -214,7 +233,7 @@ public enum MulticamEditor {
     /// "wide" shot when nobody speaks or several people talk at once.
     public static func autoSwitch(group: MulticamGroup, levels: [UUID: [Float]], hop: Seconds, range: TimeRange? = nil,
                                   minimumShot: Seconds = 2.0, silenceDB: Float = -45, crosstalkDB: Float = 3,
-                                  wideAngle: UUID? = nil) -> [MulticamCut] {
+                                  wideAngle: UUID? = nil, gridOnCrosstalk: Bool = false) -> [MulticamCut] {
         let video = group.videoAngles
         guard !video.isEmpty, hop > 0 else { return [] }
         let span = range ?? group.commonVideoRange ?? group.sessionRange
@@ -236,19 +255,24 @@ public enum MulticamEditor {
         }
         // 1. Raw decision every 0.25 s.
         let step = 0.25
-        var decisions: [(t: Seconds, angle: UUID)] = []
+        let order = video.map(\.assetID)
+        var decisions: [(t: Seconds, angles: [UUID])] = []
         var t = span.start
         while t < span.end {
             let available = speakers.filter { $0.sessionRange.contains(t) }
             let ranked = available.map { ($0, level($0, t)) }.sorted { $0.1 > $1.1 }
-            var choice = wide.assetID
+            var choice = [wide.assetID]
             if let best = ranked.first, best.1 > silenceDB {
-                let second = ranked.dropFirst().first?.1 ?? -120
-                choice = best.1 - second >= crosstalkDB || ranked.count == 1 ? best.0.assetID : wide.assetID
+                let second = ranked.dropFirst().first
+                if ranked.count == 1 || best.1 - (second?.1 ?? -120) >= crosstalkDB {
+                    choice = [best.0.assetID]
+                } else if gridOnCrosstalk, let second, second.1 > silenceDB {
+                    // Two people talking over each other: show both.
+                    choice = [best.0.assetID, second.0.assetID].sorted { (order.firstIndex(of: $0) ?? 0) < (order.firstIndex(of: $1) ?? 0) }
+                }
             }
-            if !(group.angle(choice)?.sessionRange.contains(t) ?? false) {
-                choice = video.first { $0.sessionRange.contains(t) }?.assetID ?? choice
-            }
+            choice = choice.filter { group.angle($0)?.sessionRange.contains(t) ?? false }
+            if choice.isEmpty { choice = [video.first { $0.sessionRange.contains(t) }?.assetID ?? wide.assetID] }
             decisions.append((t, choice))
             t += step
         }
@@ -256,32 +280,37 @@ public enum MulticamEditor {
         var cuts: [MulticamCut] = []
         for (i, d) in decisions.enumerated() {
             let end = i + 1 < decisions.count ? decisions[i + 1].t : span.end
-            if let last = cuts.last, last.assetID == d.angle {
+            if let last = cuts.last, last.angles == d.angles {
                 cuts[cuts.count - 1].range = TimeRange(start: last.range.start, end: end)
             } else {
-                cuts.append(MulticamCut(range: TimeRange(start: d.t, end: end), assetID: d.angle))
+                cuts.append(MulticamCut(range: TimeRange(start: d.t, end: end), assetID: d.angles[0], extraAngles: Array(d.angles.dropFirst())))
             }
         }
         // 3. Enforce the minimum shot length by absorbing short shots into the previous one.
         var merged: [MulticamCut] = []
         for cut in cuts {
             if let last = merged.last, cut.range.duration < minimumShot || last.range.duration < minimumShot {
-                let absorbed = last.range.duration < minimumShot && cut.range.duration >= minimumShot ? cut.assetID : last.assetID
-                merged[merged.count - 1] = MulticamCut(range: TimeRange(start: last.range.start, end: cut.range.end), assetID: absorbed)
-            } else if let last = merged.last, last.assetID == cut.assetID {
+                let keep = last.range.duration < minimumShot && cut.range.duration >= minimumShot ? cut : last
+                merged[merged.count - 1] = MulticamCut(range: TimeRange(start: last.range.start, end: cut.range.end),
+                                                       assetID: keep.assetID, extraAngles: keep.extraAngles)
+            } else if let last = merged.last, last.angles == cut.angles {
                 merged[merged.count - 1].range = TimeRange(start: last.range.start, end: cut.range.end)
             } else {
                 merged.append(cut)
             }
         }
-        // 4. Every shot must be covered by its angle; otherwise fall back to one that is.
+        // 4. Every shot must be covered by its angles; otherwise fall back to one that is.
+        func covers(_ id: UUID, _ range: TimeRange) -> Bool {
+            guard let angle = group.angle(id) else { return false }
+            return angle.sessionRange.start <= range.start + 0.001 && angle.sessionRange.end >= range.end - 0.001
+        }
         return merged.map { cut in
-            guard let angle = group.angle(cut.assetID), angle.sessionRange.start <= cut.range.start + 0.001,
-                  angle.sessionRange.end >= cut.range.end - 0.001 else {
-                let fallback = video.first { $0.sessionRange.start <= cut.range.start + 0.001 && $0.sessionRange.end >= cut.range.end - 0.001 }
-                return MulticamCut(range: cut.range, assetID: fallback?.assetID ?? cut.assetID)
+            let angles = cut.angles.filter { covers($0, cut.range) }
+            if let first = angles.first {
+                return MulticamCut(range: cut.range, assetID: first, extraAngles: Array(angles.dropFirst()))
             }
-            return cut
+            let fallback = video.first { covers($0.assetID, cut.range) }
+            return MulticamCut(range: cut.range, assetID: fallback?.assetID ?? cut.assetID)
         }
     }
 }
