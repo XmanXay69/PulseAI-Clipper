@@ -191,11 +191,15 @@ final class EngineSmokeTests: XCTestCase {
         // 8. True cross-dissolve: during the blend both clips are on screen and moving.
         var dissolve = Timeline.empty(name: "Dissolve", canvas: .landscape1080)
         let videoTrack = dissolve.tracks.first { $0.kind == .video }!.id
-        let clipA = TimelineClip(name: "A", content: .media(assetID: asset.id), start: 0, sourceIn: 10, sourceDuration: 3)
+        let groupA = UUID(), groupB = UUID()
+        let clipA = TimelineClip(name: "A", content: .media(assetID: asset.id), start: 0, sourceIn: 10, sourceDuration: 3, linkGroup: groupA)
         let clipB = TimelineClip(name: "B", content: .media(assetID: asset.id), start: 3, sourceIn: 40, sourceDuration: 3,
-                                 transitionIn: ClipTransition(kind: .crossDissolve, duration: 1))
+                                 transitionIn: ClipTransition(kind: .crossDissolve, duration: 1), linkGroup: groupB)
         try dissolve.insert(clipA, onTrack: videoTrack)
         try dissolve.insert(clipB, onTrack: videoTrack)
+        let audioTrack = dissolve.tracks.first { $0.kind == .audio }!.id
+        try dissolve.insert(TimelineClip(name: "A audio", content: .media(assetID: asset.id), start: 0, sourceIn: 10, sourceDuration: 3, linkGroup: groupA), onTrack: audioTrack)
+        try dissolve.insert(TimelineClip(name: "B audio", content: .media(assetID: asset.id), start: 3, sourceIn: 40, sourceDuration: 3, linkGroup: groupB), onTrack: audioTrack)
         let builtDissolve = try await CompositionBuilder.build(timeline: dissolve, assets: [asset.id: asset])
         let during = builtDissolve.videoComposition.instructions
             .compactMap { $0 as? PulseCompositionInstruction }
@@ -205,6 +209,9 @@ final class EngineSmokeTests: XCTestCase {
             return nil
         } ?? [])
         XCTAssertEqual(videoTrackIDs.count, 2, "clip A's handle and clip B should both render during the dissolve")
+        // The linked audio crossfades too: A's audio continues on a helper track under B.
+        XCTAssertEqual(builtDissolve.composition.tracks.filter { $0.mediaType == .audio }.count, 2)
+        XCTAssertEqual(builtDissolve.audioMix.inputParameters.count, 2)
         let gd = AVAssetImageGenerator(asset: builtDissolve.composition)
         gd.videoComposition = builtDissolve.videoComposition
         gd.requestedTimeToleranceBefore = .zero

@@ -1,3 +1,4 @@
+import Accelerate
 import XCTest
 @testable import PulseCore
 
@@ -95,6 +96,37 @@ final class AudioDSPTests: XCTestCase {
         let speechAfter = rmsDB(channels[0][(burstStart + 4800)..<(burstStart + burst.count - 4800)])
         XCTAssertLessThan(noiseAfter - noiseBefore, -10)
         XCTAssertEqual(speechAfter, speechBefore, accuracy: 1)
+    }
+
+    func testSpectralDenoiserReconstructsExactlyWithUnityGain() {
+        var generator = SeededGenerator(seed: 11)
+        let input = (0..<20_000).map { _ in Float.random(in: -0.5...0.5, using: &generator) }
+        let log2n = vDSP_Length(log2(Double(SpectralDenoiser.frameSize)))
+        let setup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2))!
+        defer { vDSP_destroy_fftsetup(setup) }
+        var window = [Float](repeating: 0, count: SpectralDenoiser.frameSize)
+        vDSP_hann_window(&window, vDSP_Length(SpectralDenoiser.frameSize), Int32(vDSP_HANN_DENORM))
+        let output = SpectralDenoiser.denoise(input, setup: setup, log2n: log2n, window: window, oversubtraction: 0, floorGain: 1)
+        XCTAssertEqual(output.count, input.count)
+        let maxError = zip(input, output).map { abs($0 - $1) }.max() ?? 1
+        XCTAssertLessThan(maxError, 1e-4)
+    }
+
+    func testSpectralDenoiserRemovesSteadyNoiseUnderAndAroundSpeech() {
+        var generator = SeededGenerator(seed: 5)
+        let n = Int(3 * rate)
+        var signal = (0..<n).map { _ in Float.random(in: -0.02...0.02, using: &generator) }
+        let tone = sine(1000, amplitude: 0.3, seconds: 1)
+        let toneStart = Int(1 * rate)
+        for i in tone.indices { signal[toneStart + i] += tone[i] }
+        let noiseBefore = rmsDB(signal[0..<Int(0.8 * rate)])
+        let toneBefore = rmsDB(signal[(toneStart + 4800)..<(toneStart + tone.count - 4800)])
+        var channels = [signal]
+        SpectralDenoiser.process(&channels, amount: 1)
+        let noiseAfter = rmsDB(channels[0][Int(0.1 * rate)..<Int(0.8 * rate)])
+        let toneAfter = rmsDB(channels[0][(toneStart + 4800)..<(toneStart + tone.count - 4800)])
+        XCTAssertLessThan(noiseAfter - noiseBefore, -12)
+        XCTAssertEqual(toneAfter, toneBefore, accuracy: 1.5)
     }
 
     func testEnhanceFlagsAndFingerprint() {

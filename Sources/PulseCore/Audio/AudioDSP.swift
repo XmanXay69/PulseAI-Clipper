@@ -121,9 +121,12 @@ public enum AudioEnhanceChain {
             }
         }
 
-        // 2. Noise reduction (downward expander: attenuates the noise floor between words).
+        // 2. Noise reduction: spectral subtraction removes steady noise (hiss, fans, hum) under the
+        //    voice, then a gentle expander quiets what's left between words.
         if settings.noiseReduction > 0.001 {
-            expand(&channels, sampleRate: sampleRate, amount: settings.noiseReduction.clamped(0, 1))
+            let amount = settings.noiseReduction.clamped(0, 1)
+            SpectralDenoiser.process(&channels, amount: amount)
+            expand(&channels, sampleRate: sampleRate, amount: amount * 0.5)
         }
 
         // 3. EQ + voice shaping.

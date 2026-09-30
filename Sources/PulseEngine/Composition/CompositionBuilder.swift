@@ -257,11 +257,18 @@ public enum CompositionBuilder {
         var mixParameters: [AVMutableAudioMixInputParameters] = []
         let anySolo = timeline.tracks.contains { $0.kind == .audio && $0.isSolo }
         let dialogue = DuckingPlanner.dialogueRanges(in: timeline)
+        let allClips = timeline.allClips
         for track in timeline.tracks where track.kind == .audio {
             let trackGain = (track.isMuted || (anySolo && !track.isSolo)) ? 0 : track.volume
+            let crossfades = Self.audioCrossfades(on: track, allClips: allClips, assets: assets)
             var compTrack: AVMutableCompositionTrack?
+            var handleTrack: AVMutableCompositionTrack?
             var ramps: [(time: Seconds, gain: Double)] = []
-            for clip in track.clips where clip.isEnabled {
+            var handleRamps: [(time: Seconds, gain: Double)] = []
+            for original in track.clips.sorted(by: { $0.start < $1.start }) where original.isEnabled {
+                var clip = original
+                if let fade = crossfades.fadeIn[clip.id] { clip.audio.fadeIn = max(clip.audio.fadeIn, fade) }
+                let tail = crossfades.tail[clip.id]
                 guard case .media(let assetID) = clip.content, let asset = assets[assetID] else { continue }
                 guard let fileURL = url(for: asset) else { missing.insert(assetID); continue }
                 let av = avAsset(fileURL)
@@ -272,11 +279,15 @@ public enum CompositionBuilder {
                 guard let compTrack else { continue }
                 let at = CMTime.seconds(clip.start)
                 var insertedDuration: CMTime?
-                // Enhance chain: use the cached processed render of exactly this range. Decoding can
-                // end a few samples short, so clamp to what was rendered; on any problem fall back
-                // to the original audio rather than failing the whole composition.
+                // What the tail handle (audio crossfade) is read from: same file as the clip body so
+                // enhanced/normalized clips keep a consistent level through the fade.
+                var tailSource: (track: AVAssetTrack, start: CMTime)?
+                // Enhance chain: use the cached processed render of exactly this range (plus any
+                // crossfade tail). Decoding can end a few samples short, so clamp to what was
+                // rendered; on any problem fall back to the original audio.
+                let renderRange = TimeRange(start: clip.sourceIn, end: clip.sourceOut + (tail?.sourceLength ?? 0))
                 if clip.audio.needsEnhanceRender, let cacheDirectory = options.enhanceCacheDirectory,
-                   let enhancedURL = try? await AudioEnhancer.shared.render(sourceURL: fileURL, range: clip.sourceRange, settings: clip.audio, cacheDirectory: cacheDirectory),
+                   let enhancedURL = try? await AudioEnhancer.shared.render(sourceURL: fileURL, range: renderRange, settings: clip.audio, cacheDirectory: cacheDirectory),
                    // Tracks only weakly reference their asset, so keep it in the builder's cache.
                    let enhancedTrack = try? await avAsset(enhancedURL).loadTracks(withMediaType: .audio).first,
                    let available = try? await enhancedTrack.load(.timeRange) {
@@ -284,6 +295,7 @@ public enum CompositionBuilder {
                     if duration.secondsValue > 0.01,
                        (try? compTrack.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: enhancedTrack, at: at)) != nil {
                         insertedDuration = duration
+                        tailSource = (enhancedTrack, .seconds(clip.sourceDuration))
                     }
                 }
                 if insertedDuration == nil {
@@ -291,6 +303,7 @@ public enum CompositionBuilder {
                     do {
                         try compTrack.insertTimeRange(sourceRange, of: source, at: at)
                         insertedDuration = sourceRange.duration
+                        tailSource = (source, .seconds(clip.sourceOut))
                     } catch {
                         missing.insert(assetID)
                         continue
@@ -301,10 +314,37 @@ public enum CompositionBuilder {
                                              toDuration: .seconds(insertedDuration.secondsValue / clip.speed))
                 }
                 ramps.append(contentsOf: gainAutomation(for: clip, trackGain: trackGain, dialogue: dialogue))
+
+                // Crossfade tail: this clip keeps playing past its out point on a helper track and
+                // fades out while the next clip fades in.
+                if let tail, let tailSource {
+                    if handleTrack == nil {
+                        handleTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+                    }
+                    if let handleTrack {
+                        let range = CMTimeRange(start: tailSource.start, duration: .seconds(tail.sourceLength))
+                        let tailAt = CMTime.seconds(clip.end)
+                        if (try? handleTrack.insertTimeRange(range, of: tailSource.track, at: tailAt)) != nil {
+                            if abs(clip.speed - 1) > 0.001 {
+                                handleTrack.scaleTimeRange(CMTimeRange(start: tailAt, duration: range.duration), toDuration: .seconds(tail.duration))
+                            }
+                            var body = clip
+                            body.audio.fadeOut = 0
+                            let endGain = body.audio.gain(at: clip.duration, clipDuration: clip.duration) * trackGain
+                            handleRamps.append((clip.end, endGain))
+                            handleRamps.append((clip.end + tail.duration, 0))
+                        }
+                    }
+                }
             }
             if let compTrack {
                 let params = AVMutableAudioMixInputParameters(track: compTrack)
                 applyRamps(ramps, to: params)
+                mixParameters.append(params)
+            }
+            if let handleTrack {
+                let params = AVMutableAudioMixInputParameters(track: handleTrack)
+                applyRamps(handleRamps, to: params)
                 mixParameters.append(params)
             }
         }
@@ -312,6 +352,40 @@ public enum CompositionBuilder {
 
         return BuiltComposition(composition: composition.copy() as! AVComposition, videoComposition: videoComposition.copy() as! AVVideoComposition,
                                 audioMix: audioMix.copy() as! AVAudioMix, duration: duration, scene: scene, missingAssetIDs: missing)
+    }
+
+    /// Audio crossfades under video dissolves. For adjacent clips A → B on an audio track where B (or
+    /// its linked video) dissolves in, or A (or its linked video) dissolves out, A gets a tail of
+    /// `duration` that fades out under B, and B fades in. Needs media after A's out point.
+    struct AudioCrossfades {
+        struct Tail { var duration: Seconds; var sourceLength: Seconds }
+        var tail: [UUID: Tail] = [:]
+        var fadeIn: [UUID: Seconds] = [:]
+    }
+
+    static func audioCrossfades(on track: Track, allClips: [TimelineClip], assets: [UUID: MediaAsset]) -> AudioCrossfades {
+        var result = AudioCrossfades()
+        func dissolve(_ clip: TimelineClip, incoming: Bool) -> Seconds? {
+            let own = incoming ? clip.transitionIn : clip.transitionOut
+            if let own, own.kind == .crossDissolve, own.duration > 0 { return own.duration }
+            guard let group = clip.linkGroup else { return nil }
+            for other in allClips where other.linkGroup == group && other.id != clip.id && other.isVisual {
+                let t = incoming ? other.transitionIn : other.transitionOut
+                if let t, t.kind == .crossDissolve, t.duration > 0 { return t.duration }
+            }
+            return nil
+        }
+        let ordered = track.clips.filter(\.isEnabled).sorted { $0.start < $1.start }
+        for (a, b) in zip(ordered, ordered.dropFirst()) where abs(a.end - b.start) < 0.02 {
+            guard let d = dissolve(b, incoming: true) ?? dissolve(a, incoming: false),
+                  case .media(let assetID) = a.content, let asset = assets[assetID] else { continue }
+            let duration = min(d, b.duration, a.duration)
+            let sourceLength = duration * a.speed
+            guard duration > 0.01, a.sourceOut + sourceLength <= asset.metadata.duration + 0.001 else { continue }
+            result.tail[a.id] = AudioCrossfades.Tail(duration: duration, sourceLength: sourceLength)
+            result.fadeIn[b.id] = duration
+        }
+        return result
     }
 
     /// Samples a clip's gain (volume keyframes, gain, fades, ducking) into ramp points.

@@ -73,8 +73,9 @@ prompt), cloud AI providers with live keys.
 
 ## Honest gaps (architecture only / not yet implemented)
 
-- **Noise reduction** is a downward expander (quiets the floor between words), not spectral denoising.
-  Upgrade path: vDSP FFT spectral subtraction or an ML denoiser inside `AudioEnhanceChain`.
+- **Noise reduction** is classic spectral subtraction (STFT + learned noise profile) plus a gentle expander —
+  great for steady hiss/fans/hum, not for non-stationary noise (keyboard clicks, other voices). Upgrade path:
+  an ML denoiser (e.g. an RNNoise-style model via Core ML) inside `AudioEnhanceChain`.
 - **Compound clips, multicam, screen capture**: data-model hooks only, no UI/engine yet.
 - **Speaker diarization**: transcripts keep speaker IDs from imported files; there is no local diarization model.
 - **Cloud AI** (Claude / OpenAI-compatible) is optional, used only for titles/captions copy; untested with live keys.
