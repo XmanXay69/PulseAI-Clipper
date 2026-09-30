@@ -156,4 +156,21 @@ public struct ProjectSummary: Codable, Hashable, Identifiable, Sendable {
     public var thumbnailPath: String?
     public var isFavorite: Bool
     public var isTrashed: Bool
+
+    public init(id: UUID, name: String, path: String, modifiedAt: Date, createdAt: Date, duration: Seconds, resolution: String,
+                clipCount: Int, timelineCount: Int, status: ProjectStatus, thumbnailPath: String?, isFavorite: Bool, isTrashed: Bool) {
+        self.id = id
+        self.name = name
+        self.path = path
+        self.modifiedAt = modifiedAt
+        self.createdAt = createdAt
+        self.duration = duration
+        self.resolution = resolution
+        self.clipCount = clipCount
+        self.timelineCount = timelineCount
+        self.status = status
+        self.thumbnailPath = thumbnailPath
+        self.isFavorite = isFavorite
+        self.isTrashed = isTrashed
+    }
 }
