@@ -66,8 +66,10 @@ public enum TextRenderer {
     /// Draws lines of runs centered/aligned, with stroke, shadow, optional background plate and per-word boxes.
     static func draw(lines: [[Run]], style: TextStyle, pointSize: CGFloat, maxWidth: CGFloat?) -> Rendered? {
         let baseFont = font(for: style, pointSize: pointSize)
-        let spacing = style.letterSpacing * Double(pointSize) / 72
-        let strokeWidth = CGFloat(style.strokeWidth) * pointSize / 72
+        // Style values are in canvas pixels (1080-wide reference); `unit` converts them to output pixels.
+        let unit = pointSize / CGFloat(max(style.fontSize, 1))
+        let spacing = style.letterSpacing * Double(unit)
+        let strokeWidth = CGFloat(style.strokeWidth) * unit
         struct LaidLine {
             var line: CTLine
             var width: CGFloat
@@ -103,8 +105,8 @@ public enum TextRenderer {
         let lineAdvance = laid.map { ($0.ascent + $0.descent) * lineHeight }
         let contentWidth = laid.map(\.width).max() ?? 0
         let contentHeight = lineAdvance.reduce(0, +)
-        let padding = CGFloat(style.backgroundOpacity > 0 ? style.backgroundPadding : 0) * pointSize / 72
-        let shadowPad = CGFloat(style.shadowRadius + abs(style.shadowOffsetY)) * pointSize / 72 + strokeWidth + 4
+        let padding = CGFloat(style.backgroundOpacity > 0 ? style.backgroundPadding : 0) * unit
+        let shadowPad = CGFloat(style.shadowRadius + abs(style.shadowOffsetY)) * unit + strokeWidth + 4
         let width = ceil(contentWidth + 2 * (padding + shadowPad))
         let height = ceil(contentHeight + 2 * (padding + shadowPad))
         guard width > 1, height > 1, width < 16_384, height < 16_384 else { return nil }
@@ -118,7 +120,7 @@ public enum TextRenderer {
         // Background plate.
         if style.backgroundOpacity > 0 {
             let rect = CGRect(x: shadowPad, y: shadowPad, width: contentWidth + 2 * padding, height: contentHeight + 2 * padding)
-            let radius = CGFloat(style.backgroundCornerRadius) * pointSize / 72
+            let radius = CGFloat(style.backgroundCornerRadius) * unit
             ctx.setFillColor(cgColor(style.backgroundColor, alpha: style.backgroundOpacity))
             ctx.addPath(CGPath(roundedRect: rect, cornerWidth: min(radius, rect.width / 2), cornerHeight: min(radius, rect.height / 2), transform: nil))
             ctx.fillPath()
@@ -147,12 +149,13 @@ public enum TextRenderer {
             }
             ctx.saveGState()
             if style.shadowOpacity > 0 {
-                ctx.setShadow(offset: CGSize(width: 0, height: -CGFloat(style.shadowOffsetY) * pointSize / 72),
-                              blur: CGFloat(style.shadowRadius) * pointSize / 72,
+                ctx.setShadow(offset: CGSize(width: 0, height: -CGFloat(style.shadowOffsetY) * unit),
+                              blur: CGFloat(style.shadowRadius) * unit,
                               color: cgColor(style.shadowColor, alpha: style.shadowOpacity))
             }
             if strokeWidth > 0 {
                 ctx.setLineJoin(.round)
+                // The stroke is centred on the glyph edge, so double it for the visible outline width.
                 ctx.setLineWidth(strokeWidth * 2)
                 ctx.setStrokeColor(cgColor(style.strokeColor))
                 ctx.setTextDrawingMode(.stroke)

@@ -25,6 +25,8 @@ public final class PlaybackController: ObservableObject {
     private var buildTask: Task<Void, Never>?
     private var buildGeneration = 0
     private var endObserver: NSObjectProtocol?
+    /// A seek requested while a composition is building; applied once it's installed.
+    private var pendingSeek: Seconds?
 
     public init() {
         player.automaticallyWaitsToMinimizeStalling = false
@@ -80,7 +82,8 @@ public final class PlaybackController: ObservableObject {
         duration = built.duration
         missingAssetIDs = built.missingAssetIDs
         lastError = nil
-        let target = min(time.secondsValue, max(built.duration - 1 / max(frameRate, 1), 0))
+        let target = min(pendingSeek ?? time.secondsValue, max(built.duration - 1 / max(frameRate, 1), 0))
+        pendingSeek = nil
         player.seek(to: .seconds(target), toleranceBefore: .zero, toleranceAfter: .zero)
         currentTime = target
         if wasPlaying { player.play() }
@@ -102,6 +105,7 @@ public final class PlaybackController: ObservableObject {
 
     /// Frame-accurate seek.
     public func seek(to seconds: Seconds) {
+        if isBuilding { pendingSeek = max(0, seconds) }
         let t = max(0, min(seconds, duration))
         currentTime = t
         player.seek(to: .seconds(t), toleranceBefore: .zero, toleranceAfter: .zero)

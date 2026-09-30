@@ -57,6 +57,18 @@ jobs:
           fi
           exit $status
 
+      - name: UI snapshots
+        if: always()
+        run: |
+          if [ ! -x .build/debug/PULSE ]; then echo "PULSE executable not built"; exit 0; fi
+          mkdir -p build/ui
+          .build/debug/PULSE --ui-snapshots "$PWD/build/ui" > ui.log 2>&1 &
+          pid=$!
+          for i in $(seq 1 300); do kill -0 $pid 2>/dev/null || break; sleep 1; done
+          kill $pid 2>/dev/null || true
+          ls -la build/ui || true
+          tail -50 ui.log || true
+
       - name: Build PULSE.app
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.bundle || contains(github.event.head_commit.message, '[app]') }}
         run: ./scripts/build-app.sh
@@ -77,6 +89,7 @@ jobs:
           path: |
             *.log
             build/snapshots/*.png
+            build/ui/*.png
           if-no-files-found: ignore
 
       - name: Print snapshots (base64 thumbnails for remote review)
@@ -86,4 +99,8 @@ jobs:
           for f in build/snapshots/*.png; do
             sips -Z 360 -s format jpeg -s formatOptions 50 "$f" --out /tmp/snap.jpg >/dev/null 2>&1 || continue
             echo "SNAPSHOT $(basename "$f") $(base64 -i /tmp/snap.jpg | tr -d '\n')"
+          done
+          for f in build/ui/*.png; do
+            sips -Z 1280 -s format jpeg -s formatOptions 55 "$f" --out /tmp/snap.jpg >/dev/null 2>&1 || continue
+            echo "SNAPSHOT ui-$(basename "$f") $(base64 -i /tmp/snap.jpg | tr -d '\n')"
           done
