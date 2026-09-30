@@ -107,6 +107,8 @@ public final class SessionRecorder: NSObject, @unchecked Sendable {
     private var screen: ScreenCapture?
     private var camera: CameraCapture?
     private var startedAt: Date?
+    private var pausedAt: Date?
+    private var pausedTotal: TimeInterval = 0
 
     public override init() {}
 
@@ -191,12 +193,44 @@ public final class SessionRecorder: NSObject, @unchecked Sendable {
         self.screen = screen
         self.camera = camera
         self.startedAt = Date()
+        self.pausedAt = nil
+        self.pausedTotal = 0
         lock.unlock()
     }
 
+    /// Recorded time so far (paused time excluded).
     public var elapsed: TimeInterval {
         lock.lock(); defer { lock.unlock() }
-        return startedAt.map { Date().timeIntervalSince($0) } ?? 0
+        guard let startedAt else { return 0 }
+        let now = pausedAt ?? Date()
+        return max(0, now.timeIntervalSince(startedAt) - pausedTotal)
+    }
+
+    public var isPaused: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return pausedAt != nil
+    }
+
+    /// Pauses every file together; resuming continues the same files with no gap.
+    public func pause() {
+        lock.lock()
+        guard startedAt != nil, pausedAt == nil else { lock.unlock(); return }
+        pausedAt = Date()
+        let screen = self.screen, camera = self.camera
+        lock.unlock()
+        screen?.pause()
+        camera?.pause()
+    }
+
+    public func resume() {
+        lock.lock()
+        guard let pausedAt else { lock.unlock(); return }
+        pausedTotal += Date().timeIntervalSince(pausedAt)
+        self.pausedAt = nil
+        let screen = self.screen, camera = self.camera
+        lock.unlock()
+        screen?.resume()
+        camera?.resume()
     }
 
     public func stop() async throws -> RecordingResult {
@@ -205,6 +239,7 @@ public final class SessionRecorder: NSObject, @unchecked Sendable {
         self.screen = nil
         self.camera = nil
         self.startedAt = nil
+        self.pausedAt = nil
         lock.unlock()
         guard screen != nil || camera != nil else { throw CaptureError.notRecording }
         var warnings: [String] = []
@@ -265,6 +300,48 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecke
     private var firstVideoPTS: CMTime?
     private var lastVideoPTS: CMTime = .zero
     private var failure: Error?
+    // Pause state (queue-confined). Samples after a resume are shifted back by the paused time,
+    // so the file plays continuously.
+    private var isPaused = false
+    private var pauseStartedAt: CMTime?
+    private var pausedTotal: CMTime = .zero
+
+    private static func hostTime() -> CMTime { CMClockGetTime(CMClockGetHostTimeClock()) }
+
+    func pause() {
+        queue.sync {
+            guard !isPaused else { return }
+            isPaused = true
+            pauseStartedAt = Self.hostTime()
+        }
+    }
+
+    func resume() {
+        queue.sync {
+            guard isPaused else { return }
+            if let started = pauseStartedAt { pausedTotal = pausedTotal + (Self.hostTime() - started) }
+            pauseStartedAt = nil
+            isPaused = false
+        }
+    }
+
+    /// Copy of `buffer` with its timestamps moved earlier by `offset`.
+    static func retimed(_ buffer: CMSampleBuffer, by offset: CMTime) -> CMSampleBuffer? {
+        guard offset != .zero else { return buffer }
+        var count: CMItemCount = 0
+        CMSampleBufferGetSampleTimingInfoArray(buffer, entryCount: 0, arrayToFill: nil, entriesNeededOut: &count)
+        guard count > 0 else { return nil }
+        var timing = [CMSampleTimingInfo](repeating: CMSampleTimingInfo(), count: count)
+        CMSampleBufferGetSampleTimingInfoArray(buffer, entryCount: count, arrayToFill: &timing, entriesNeededOut: &count)
+        for i in timing.indices {
+            timing[i].presentationTimeStamp = timing[i].presentationTimeStamp - offset
+            if timing[i].decodeTimeStamp.isValid { timing[i].decodeTimeStamp = timing[i].decodeTimeStamp - offset }
+        }
+        var copy: CMSampleBuffer?
+        CMSampleBufferCreateCopyWithNewTiming(allocator: nil, sampleBuffer: buffer, sampleTimingEntryCount: count,
+                                              sampleTimingArray: &timing, sampleBufferOut: &copy)
+        return copy
+    }
 
     private init(url: URL, stream: SCStream, writer: AVAssetWriter, videoInput: AVAssetWriterInput, audioInput: AVAssetWriterInput?) {
         self.url = url
@@ -374,9 +451,14 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecke
     func stop() async throws -> (url: URL, hostStart: Seconds, duration: Seconds) {
         // ScreenCaptureKit only delivers frames when the screen changes, so the recording ends when
         // Stop was pressed, not at the last changed frame.
-        let stopTime = CMTime(seconds: hostSeconds(), preferredTimescale: 600)
+        let stopHost = Self.hostTime()
         try? await stream.stopCapture()
-        let (first, last, failure): (CMTime?, CMTime, Error?) = queue.sync { (firstVideoPTS, lastVideoPTS, self.failure) }
+        let (first, last, failure, paused): (CMTime?, CMTime, Error?, CMTime) = queue.sync {
+            // A pause still running at Stop doesn't count either.
+            let open = isPaused ? (pauseStartedAt.map { stopHost - $0 } ?? .zero) : .zero
+            return (firstVideoPTS, lastVideoPTS, self.failure, pausedTotal + open)
+        }
+        let stopTime = stopHost - paused
         guard let first else {
             writer.cancelWriting()
             try? FileManager.default.removeItem(at: url)
@@ -395,7 +477,8 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecke
 
     // SCStreamOutput (called on `queue`).
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
-        guard sampleBuffer.isValid, writer.status == .writing else { return }
+        guard sampleBuffer.isValid, writer.status == .writing, !isPaused else { return }
+        guard let sampleBuffer = Self.retimed(sampleBuffer, by: pausedTotal) else { return }
         switch type {
         case .screen:
             // Only complete frames carry pixels (idle/blank frames are status updates).
@@ -475,6 +558,14 @@ final class CameraCapture: NSObject, AVCaptureFileOutputRecordingDelegate, @unch
                 audio.startRecording(to: url, outputFileType: .m4a, recordingDelegate: self)
             }
         }
+    }
+
+    func pause() {
+        if output.isRecording && !output.isRecordingPaused { output.pauseRecording() }
+    }
+
+    func resume() {
+        if output.isRecordingPaused { output.resumeRecording() }
     }
 
     func stop() async throws -> (url: URL, hostStart: Seconds, duration: Seconds) {

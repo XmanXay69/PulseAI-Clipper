@@ -159,13 +159,19 @@ struct RecordingHUD: View {
                 Button("Cancel") { recorder.cancelCountdown() }.buttonStyle(.pulse(.ghost, compact: true))
             }
             .modifier(HUDBackground())
-        case .recording:
+        case .recording, .paused:
+            let paused = recorder.phase == .paused
             HStack(spacing: 10) {
-                Circle().fill(Theme.danger).frame(width: 10, height: 10)
-                    .opacity(pulse ? 0.35 : 1)
+                Circle().fill(paused ? Theme.warning : Theme.danger).frame(width: 10, height: 10)
+                    .opacity(pulse && !paused ? 0.35 : 1)
                     .onAppear { withAnimation(.easeInOut(duration: 0.8).repeatForever()) { pulse = true } }
-                Text("REC").font(.system(size: 11, weight: .heavy)).foregroundStyle(Theme.danger)
+                Text(paused ? "PAUSED" : "REC").font(.system(size: 11, weight: .heavy)).foregroundStyle(paused ? Theme.warning : Theme.danger)
                 Text(Timecode.duration(recorder.elapsed)).font(.pulseTimecode).foregroundStyle(.white)
+                Button { recorder.togglePause() } label: {
+                    Label(paused ? "Resume" : "Pause", systemImage: paused ? "record.circle" : "pause.fill")
+                }
+                .buttonStyle(.pulse(.secondary, compact: true))
+                .help(paused ? "Resume recording (⇧⌘P)" : "Pause recording (⇧⌘P) — the files continue without a gap")
                 Button { recorder.stop(app: app) } label: { Label("Stop", systemImage: "stop.fill") }
                     .buttonStyle(.pulse(.destructive, compact: true))
                     .help("Stop recording (⇧⌘R)")

@@ -264,12 +264,19 @@ final class EngineSmokeTests: XCTestCase {
         } catch CaptureError.screenPermission {
             throw XCTSkip("Screen Recording not permitted")
         }
-        try await Task.sleep(nanoseconds: 2_500_000_000)
+        // Record 1.5 s, pause 2 s, record 1.5 s: the file holds ~3 s with no gap.
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        recorder.pause()
+        XCTAssertTrue(recorder.isPaused)
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        recorder.resume()
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        XCTAssertEqual(recorder.elapsed, 3, accuracy: 0.5)
         let result = try await recorder.stop()
         let screen = try XCTUnwrap(result.files.first { $0.role == .gameplay })
         let meta = try await MediaProbe.probe(screen.url)
         XCTAssertTrue(meta.hasVideo)
-        XCTAssertGreaterThan(meta.duration, 2.0, "a static screen still records until Stop")
+        XCTAssertEqual(meta.duration, 3, accuracy: 0.6, "paused time is excluded; a static screen still records until Stop")
         print("screen capture:", screen.url.lastPathComponent, meta.width, "x", meta.height, String(format: "%.1fs", meta.duration))
     }
 

@@ -10,6 +10,7 @@ final class RecordingController: ObservableObject {
         case idle
         case countdown(Int)
         case recording
+        case paused
         case finishing
     }
 
@@ -107,8 +108,27 @@ final class RecordingController: ObservableObject {
         phase = .idle
     }
 
-    func stop(app: AppModel) {
+    var isCapturing: Bool { phase == .recording || phase == .paused }
+
+    func pause() {
         guard phase == .recording else { return }
+        recorder.pause()
+        phase = .paused
+        elapsed = recorder.elapsed
+    }
+
+    func resume() {
+        guard phase == .paused else { return }
+        recorder.resume()
+        phase = .recording
+    }
+
+    func togglePause() {
+        phase == .paused ? resume() : pause()
+    }
+
+    func stop(app: AppModel) {
+        guard isCapturing else { return }
         phase = .finishing
         ticker?.cancel()
         Task {

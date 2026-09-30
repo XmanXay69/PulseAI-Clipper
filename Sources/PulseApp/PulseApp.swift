@@ -76,10 +76,13 @@ struct PulseCommands: Commands {
             Button("Open Sample Project") { app.openDemoProject() }
             Divider()
             Button("Import Media…") { app.showImportPanel() }.keyboardShortcut("i")
-            Button(app.recording.phase == .recording ? "Stop Recording" : "New Recording…") {
-                if app.recording.phase == .recording { app.recording.stop(app: app) } else { app.showRecordSheet = true }
+            Button(app.recording.isCapturing ? "Stop Recording" : "New Recording…") {
+                if app.recording.isCapturing { app.recording.stop(app: app) } else { app.showRecordSheet = true }
             }
             .keyboardShortcut("r", modifiers: [.command, .shift])
+            Button(app.recording.phase == .paused ? "Resume Recording" : "Pause Recording") { app.recording.togglePause() }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
+                .disabled(!app.recording.isCapturing)
             Divider()
             Button("Close Project") { app.closeProject() }.keyboardShortcut("w", modifiers: [.command, .shift]).disabled(app.session == nil)
         }
