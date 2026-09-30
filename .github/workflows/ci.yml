@@ -78,3 +78,12 @@ jobs:
             *.log
             build/snapshots/*.png
           if-no-files-found: ignore
+
+      - name: Print snapshots (base64 thumbnails for remote review)
+        if: always()
+        run: |
+          shopt -s nullglob
+          for f in build/snapshots/*.png; do
+            sips -Z 360 -s format jpeg -s formatOptions 50 "$f" --out /tmp/snap.jpg >/dev/null 2>&1 || continue
+            echo "SNAPSHOT $(basename "$f") $(base64 -i /tmp/snap.jpg | tr -d '\n')"
+          done
