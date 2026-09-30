@@ -40,12 +40,16 @@ public enum CompositionBuilder {
         public var useProxies: Bool
         public var includeCaptions: Bool
         public var showSafeArea: SafeAreaPlatform?
+        /// Where rendered "Enhance" audio is cached; nil disables the enhance chain.
+        public var enhanceCacheDirectory: URL?
 
-        public init(renderSize: CGSize? = nil, useProxies: Bool = false, includeCaptions: Bool = true, showSafeArea: SafeAreaPlatform? = nil) {
+        public init(renderSize: CGSize? = nil, useProxies: Bool = false, includeCaptions: Bool = true, showSafeArea: SafeAreaPlatform? = nil,
+                    enhanceCacheDirectory: URL? = PulseDirectories.cache("Enhanced Audio")) {
             self.renderSize = renderSize
             self.useProxies = useProxies
             self.includeCaptions = includeCaptions
             self.showSafeArea = showSafeArea
+            self.enhanceCacheDirectory = enhanceCacheDirectory
         }
     }
 
@@ -191,12 +195,19 @@ public enum CompositionBuilder {
                 guard case .media(let assetID) = clip.content, let asset = assets[assetID] else { continue }
                 guard let fileURL = url(for: asset) else { missing.insert(assetID); continue }
                 let av = avAsset(fileURL)
-                guard let source = try await av.loadTracks(withMediaType: .audio).first else { continue }
+                guard var source = try await av.loadTracks(withMediaType: .audio).first else { continue }
+                var sourceRange = CMTimeRange(start: .seconds(clip.sourceIn), duration: .seconds(clip.sourceDuration))
+                // Enhance chain: swap in the cached processed render of exactly this range.
+                if clip.audio.needsEnhanceRender, let cacheDirectory = options.enhanceCacheDirectory,
+                   let enhancedURL = try? await AudioEnhancer.shared.render(sourceURL: fileURL, range: clip.sourceRange, settings: clip.audio, cacheDirectory: cacheDirectory),
+                   let enhancedTrack = try? await AVURLAsset(url: enhancedURL).loadTracks(withMediaType: .audio).first {
+                    source = enhancedTrack
+                    sourceRange = CMTimeRange(start: .zero, duration: .seconds(clip.sourceDuration))
+                }
                 if compTrack == nil {
                     compTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
                 }
                 guard let compTrack else { continue }
-                let sourceRange = CMTimeRange(start: .seconds(clip.sourceIn), duration: .seconds(clip.sourceDuration))
                 let at = CMTime.seconds(clip.start)
                 do {
                     try compTrack.insertTimeRange(sourceRange, of: source, at: at)

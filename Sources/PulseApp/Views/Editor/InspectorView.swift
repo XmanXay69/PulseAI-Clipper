@@ -373,18 +373,34 @@ struct AudioInspector: View {
                       help: "Automatically lowers this clip (music, game audio) whenever someone speaks")
             b.plainSlider("Duck by", \.audio.duckAmountDB, range: -30...0, format: "%.0f", unit: " dB")
         }
-        InspectorSection("Enhance", expanded: false) {
+        InspectorSection("Enhance", expanded: clip.audio.needsEnhanceRender) {
             HStack(spacing: 6) {
-                TagChip(text: "Coming soon", color: Theme.warning, symbol: "hammer")
-                Text("Settings are saved with the clip; the DSP render stage isn't wired up yet.")
-                    .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                Button { session.editClip(clip.id, "Voice Preset") { $0.audio.applyVoicePreset() } } label: { Label("Voice Preset", systemImage: "mic") }
+                    .buttonStyle(.pulse(.secondary, compact: true))
+                    .help("Rumble filter, presence, gentle compression, −14 LUFS loudness and a limiter")
+                Spacer()
+                ProcessingBadge(location: .local)
             }
-            ToggleRow(label: "Voice enhancement", isOn: b.value("Voice Enhance", \.audio.voiceEnhance, fallback: false))
+            ToggleRow(label: "Voice enhancement", isOn: b.value("Voice Enhance", \.audio.voiceEnhance, fallback: false),
+                      help: "80 Hz rumble filter, less mud, more presence and gentle compression")
             b.plainSlider("Noise reduction", \.audio.noiseReduction, range: 0...1)
-            ToggleRow(label: "Normalize loudness", isOn: b.value("Normalize", \.audio.normalize, fallback: false))
+            ToggleRow(label: "Normalize loudness (−14 LUFS)", isOn: b.value("Normalize", \.audio.normalize, fallback: false))
+            ToggleRow(label: "Limiter (−1 dBFS)", isOn: b.value("Limiter", \.audio.limiter, fallback: false))
             ToggleRow(label: "Compressor", isOn: b.value("Compressor", \.audio.compressor.isEnabled, fallback: false))
+            if clip.audio.compressor.isEnabled {
+                b.plainSlider("Threshold", \.audio.compressor.thresholdDB, range: -50...0, format: "%.0f", unit: " dB")
+                b.plainSlider("Ratio", \.audio.compressor.ratio, range: 1...12, format: "%.1f", unit: ":1")
+                b.plainSlider("Makeup", \.audio.compressor.makeupGainDB, range: 0...18, format: "%.1f", unit: " dB")
+            }
             ToggleRow(label: "EQ", isOn: b.value("EQ", \.audio.eq.isEnabled, fallback: false))
-            ToggleRow(label: "Limiter", isOn: b.value("Limiter", \.audio.limiter, fallback: false))
+            if clip.audio.eq.isEnabled {
+                b.plainSlider("Low (120 Hz)", \.audio.eq.lowGain, range: -12...12, format: "%.1f", unit: " dB")
+                b.plainSlider("Mid (1.2 kHz)", \.audio.eq.midGain, range: -12...12, format: "%.1f", unit: " dB")
+                b.plainSlider("High (8 kHz)", \.audio.eq.highGain, range: -12...12, format: "%.1f", unit: " dB")
+                b.plainSlider("High-pass", \.audio.eq.highPassHz, range: 0...400, format: "%.0f", unit: " Hz")
+            }
+            Text("Rendered on this Mac into a cached copy of the clip's audio — the original file is never changed.")
+                .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
         }
     }
 }

@@ -451,7 +451,7 @@ final class AppModel: ObservableObject {
     func clearCache() {
         let folder = cacheFolder
         Task.detached(priority: .utility) {
-            for sub in ["Thumbnails", "Waveforms", "Analysis", "Proxies", "Converted"] {
+            for sub in ["Thumbnails", "Waveforms", "Analysis", "Proxies", "Converted", "Enhanced Audio"] {
                 try? FileManager.default.removeItem(at: folder.appendingPathComponent(sub))
             }
             await MainActor.run { [weak self] in

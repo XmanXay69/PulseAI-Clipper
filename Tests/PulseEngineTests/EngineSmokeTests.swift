@@ -25,6 +25,51 @@ final class EngineSmokeTests: XCTestCase {
         XCTAssertEqual(lut?.data.count, 2 * 2 * 2 * 4 * 4)
     }
 
+    /// Audio "Enhance": renders a quiet, noisy mono recording through the voice preset and checks
+    /// the cached file is sample-accurate, stereo when panned, and loudness-normalized.
+    func testAudioEnhanceRender() async throws {
+        let dir = Self.workDir.appendingPathComponent("enhance-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let rate = 48_000.0
+        let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: rate, channels: 1, interleaved: false)!
+        let source = dir.appendingPathComponent("voice.caf")
+        let frames = Int(rate * 4)
+        do {
+            let file = try AVAudioFile(forWriting: source, settings: format.settings, commonFormat: .pcmFormatFloat32, interleaved: false)
+            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frames))!
+            buffer.frameLength = AVAudioFrameCount(frames)
+            var generator = SeededGenerator(seed: 3)
+            for i in 0..<frames {
+                let t = Double(i) / rate
+                let voice = (t > 1 && t < 3) ? 0.05 * sin(2 * Double.pi * 220 * t) : 0
+                buffer.floatChannelData![0][i] = Float(voice) + Float.random(in: -0.002...0.002, using: &generator)
+            }
+            try file.write(from: buffer)
+        }
+        var settings = AudioSettings()
+        settings.applyVoicePreset()
+        settings.pan = -0.3
+        let range = TimeRange(start: 0.5, end: 3.5)
+        let output = try await AudioEnhancer.shared.render(sourceURL: source, range: range, settings: settings, cacheDirectory: dir)
+        let again = try await AudioEnhancer.shared.render(sourceURL: source, range: range, settings: settings, cacheDirectory: dir)
+        XCTAssertEqual(output, again, "second render should hit the cache")
+
+        let rendered = try AVAudioFile(forReading: output)
+        XCTAssertEqual(rendered.processingFormat.channelCount, 2)
+        XCTAssertEqual(Double(rendered.length), range.duration * rate, accuracy: 64)
+        let buffer = AVAudioPCMBuffer(pcmFormat: rendered.processingFormat, frameCapacity: AVAudioFrameCount(rendered.length))!
+        try rendered.read(into: buffer)
+        let channels = (0..<2).map { c in Array(UnsafeBufferPointer(start: buffer.floatChannelData![c], count: Int(buffer.frameLength))) }
+        let lufs = LoudnessMeter.integratedLUFS(channels, sampleRate: rate)
+        XCTAssertEqual(lufs, AudioEnhanceChain.targetLUFS, accuracy: 2.5)
+        XCTAssertLessThanOrEqual(LoudnessMeter.samplePeak(channels), 0.9)
+
+        // A different setting produces a different cache entry.
+        settings.noiseReduction = 0.8
+        let other = try await AudioEnhancer.shared.render(sourceURL: source, range: range, settings: settings, cacheDirectory: dir)
+        XCTAssertNotEqual(other, output)
+    }
+
     func testEndToEndDemoPipeline() async throws {
         try FileManager.default.createDirectory(at: Self.workDir, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: Self.snapshotDir, withIntermediateDirectories: true)

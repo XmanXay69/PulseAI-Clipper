@@ -60,7 +60,7 @@ by compiling + automated screenshots on CI, not by a human clicking through it y
 
 ## Honest gaps (architecture only / not yet implemented)
 
-- **Audio enhance** (noise reduction, EQ, compressor, loudness normalize): UI section says "Coming soon"; volume, fades, keyframes, ducking and mute *do* work.
+- **Audio enhance** is implemented (`PulseCore/Audio/AudioDSP.swift` + `PulseEngine/Audio/AudioEnhancer.swift`): high-pass, 3-band EQ, voice shaping, compressor, pan, BS.1770 loudness normalize to −14 LUFS and a look-ahead limiter, rendered to a cached file per clip range. *Noise reduction* is a downward expander (quiets the floor between words); it is not spectral denoising — a future upgrade could use vDSP FFT spectral subtraction or an ML denoiser.
 - **Compound clips, multicam, screen capture**: data model hooks exist, no UI/engine yet.
 - **Cross-dissolve** between A/B clips renders as a fade-in over the lower layer (not a true two-sided dissolve).
 - **Speaker diarization**: transcripts carry speaker IDs from imported files; there is no local diarization model.
