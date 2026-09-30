@@ -62,6 +62,9 @@ struct HomeView: View {
                     app.showImportPanel()
                 }
             }
+            QuickActionTile(symbol: "record.circle", title: "Record", subtitle: "Screen + webcam + mic", color: Theme.danger) {
+                app.showRecordSheet = true
+            }
             QuickActionTile(symbol: "folder", title: "Open Project", subtitle: "Browse .pulse projects", color: Theme.success) {
                 app.showOpenPanel()
             }

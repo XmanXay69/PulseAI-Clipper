@@ -217,6 +217,60 @@ final class EngineSmokeTests: XCTestCase {
         gd.requestedTimeToleranceBefore = .zero
         gd.requestedTimeToleranceAfter = .zero
         Self.writePNG(try await gd.image(at: .seconds(3.5)).image, name: "dissolve-mid.png")
+
+        // 9. Multicam: the same stream as two synced "angles" 20 s apart; live-cut between them.
+        let session = UUID()
+        var angleA = asset
+        angleA.id = UUID(); angleA.name = "Cam A"; angleA.role = .camera; angleA.syncGroupID = session; angleA.syncOffset = 0
+        var angleB = asset
+        angleB.id = UUID(); angleB.name = "Cam B"; angleB.role = .camera; angleB.syncGroupID = session; angleB.syncOffset = -20
+        let group = try XCTUnwrap(MulticamGroup.groups(in: [angleA, angleB]).first)
+        var multicam = MulticamEditor.timeline(cuts: [MulticamCut(range: TimeRange(start: 5, end: 15), assetID: angleA.id)], group: group,
+                                               audioAssetID: angleA.id, canvas: .landscape1080, name: "Multicam")
+        try MulticamEditor.cut(&multicam, at: 4, to: angleB.id, group: group)
+        let cams = multicam.tracks[0].clips.sorted { $0.start < $1.start }
+        XCTAssertEqual(cams.map(\.assetID), [angleA.id, angleB.id])
+        XCTAssertEqual(cams[1].sourceIn, 29, accuracy: 1e-6, "session 9 s is source 29 s on Cam B")
+        let builtMulticam = try await CompositionBuilder.build(timeline: multicam, assets: [angleA.id: angleA, angleB.id: angleB])
+        XCTAssertTrue(builtMulticam.missingAssetIDs.isEmpty)
+        XCTAssertEqual(builtMulticam.duration, 10, accuracy: 0.05)
+        let gm = AVAssetImageGenerator(asset: builtMulticam.composition)
+        gm.videoComposition = builtMulticam.videoComposition
+        Self.writePNG(try await gm.image(at: .seconds(6)).image, name: "multicam-cam-b.png")
+    }
+
+    /// Live screen capture through ScreenCaptureKit. Skips when the runner has no Screen Recording permission.
+    func testScreenRecordingWhenPermitted() async throws {
+        let sources: [CaptureSource]
+        do {
+            sources = try await withThrowingTaskGroup(of: [CaptureSource].self) { group in
+                group.addTask { try await SessionRecorder.sources() }
+                group.addTask {
+                    try await Task.sleep(nanoseconds: 15_000_000_000)
+                    throw CaptureError.screenPermission
+                }
+                let first = try await group.next()!
+                group.cancelAll()
+                return first
+            }
+        } catch {
+            throw XCTSkip("Screen Recording not permitted on this machine: \(error.localizedDescription)")
+        }
+        guard let display = sources.first(where: { $0.kind == .display }) else { throw XCTSkip("no display") }
+        let dir = Self.workDir.appendingPathComponent("capture-\(UUID().uuidString)", isDirectory: true)
+        let recorder = SessionRecorder()
+        do {
+            try await recorder.start(RecordingOptions(source: display, captureSystemAudio: false, frameRate: 30, codec: .h264, outputDirectory: dir))
+        } catch CaptureError.screenPermission {
+            throw XCTSkip("Screen Recording not permitted")
+        }
+        try await Task.sleep(nanoseconds: 2_500_000_000)
+        let result = try await recorder.stop()
+        let screen = try XCTUnwrap(result.files.first { $0.role == .gameplay })
+        let meta = try await MediaProbe.probe(screen.url)
+        XCTAssertTrue(meta.hasVideo)
+        XCTAssertGreaterThan(meta.duration, 0.5)
+        print("screen capture:", screen.url.lastPathComponent, meta.width, "x", meta.height, String(format: "%.1fs", meta.duration))
     }
 
     func testPlaybackItemBuildsForTextOnlyTimeline() async throws {

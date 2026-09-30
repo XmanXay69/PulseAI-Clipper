@@ -117,6 +117,9 @@ struct ClipInspector: View {
                 }
                 if let role = clip.role { KeyValueRow(key: "Role", value: role.displayName) }
             }
+            if clip.isVisual, let id = clip.assetID, let group = session.activeMulticamGroup, group.angle(id) != nil {
+                MulticamAngleInspector(session: session, clip: clip, group: group)
+            }
             switch clip.content {
             case .text(let element):
                 TextInspector(session: session, clip: clip, element: element, b: b)

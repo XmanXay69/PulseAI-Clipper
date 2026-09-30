@@ -76,6 +76,10 @@ struct PulseCommands: Commands {
             Button("Open Sample Project") { app.openDemoProject() }
             Divider()
             Button("Import Media…") { app.showImportPanel() }.keyboardShortcut("i")
+            Button(app.recording.phase == .recording ? "Stop Recording" : "New Recording…") {
+                if app.recording.phase == .recording { app.recording.stop(app: app) } else { app.showRecordSheet = true }
+            }
+            .keyboardShortcut("r", modifiers: [.command, .shift])
             Divider()
             Button("Close Project") { app.closeProject() }.keyboardShortcut("w", modifiers: [.command, .shift]).disabled(app.session == nil)
         }
@@ -102,6 +106,7 @@ struct PulseCommands: Commands {
             Button("Add Marker") { app.session?.addMarker() }
             Divider()
             Button("Make More Entertaining") { app.session?.makeMoreEntertaining() }.keyboardShortcut("e", modifiers: [.command, .option])
+            Button("AI Switch Multicam Angles") { app.session?.autoSwitchActiveTimeline() }.disabled(app.session?.activeMulticamGroup == nil)
             Button("Remove All AI Edits") { app.session?.stripAI() }
             Divider()
             Button(app.settings.snapping ? "Turn Snapping Off" : "Turn Snapping On") { app.settings.snapping.toggle() }
@@ -169,6 +174,11 @@ final class KeyboardShortcutMonitor {
         default: break
         }
         guard let chars = event.charactersIgnoringModifiers?.lowercased() else { return false }
+        // 1–9 cut to multicam angle N at the playhead (works while playing).
+        if modifiers.isEmpty, let digit = Int(chars), (1...9).contains(digit), session.activeMulticamGroup != nil {
+            session.cutToAngle(digit - 1)
+            return true
+        }
         switch chars {
         case "i": session.inPoint = playback.currentTime; return true
         case "o": session.outPoint = playback.currentTime; return true

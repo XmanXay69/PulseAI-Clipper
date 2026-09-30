@@ -12,12 +12,13 @@ enum EditTool: String, CaseIterable {
 }
 
 enum LeftPanelTab: String, CaseIterable, Identifiable {
-    case media, transcript, effects, ai
+    case media, transcript, angles, effects, ai
     var id: String { rawValue }
     var title: String {
         switch self {
         case .media: return "Media"
         case .transcript: return "Transcript"
+        case .angles: return "Angles"
         case .effects: return "Effects"
         case .ai: return "AI Tools"
         }
@@ -26,6 +27,7 @@ enum LeftPanelTab: String, CaseIterable, Identifiable {
         switch self {
         case .media: return "photo.on.rectangle"
         case .transcript: return "text.quote"
+        case .angles: return "video.badge.checkmark"
         case .effects: return "sparkle"
         case .ai: return "wand.and.stars"
         }
@@ -440,7 +442,8 @@ final class ProjectSession: ObservableObject, Identifiable {
         guard let asset = document.asset(id: assetID) else { return }
         let ai = app.settings.ai
         let imported = analyses[assetID]?.transcript
-        let options = AnalysisPipeline.Options(transcribe: true, detectFaces: true, ai: ai, importedTranscript: imported)
+        let voice = voiceCompanion(for: asset).map { AnalysisPipeline.VoiceSource(main: asset, voice: $0) }
+        let options = AnalysisPipeline.Options(transcribe: true, detectFaces: true, ai: ai, importedTranscript: imported, voiceSource: voice)
         let pipeline = AnalysisPipeline(cacheDirectory: PulseDirectories.cache("Analysis", root: app.cacheFolder))
         document.media.firstIndex { $0.id == assetID }.map { document.media[$0].preparation.analysisState = .running }
         app.jobs.start("Analyze · \(asset.name)", kind: .analysis) { [weak self] job in
@@ -532,7 +535,11 @@ final class ProjectSession: ObservableObject, Identifiable {
         options.canvasPresetID = app.settings.safeAreaPlatform == .youtubeShorts ? CanvasPreset.shorts.id : (app.settings.safeAreaPlatform == .instagramReels ? CanvasPreset.reels.id : CanvasPreset.tiktok.id)
         let sfx = document.media.filter { $0.role == .soundEffect }
         let music = app.settings.ai.aiMusic ? document.media.first { $0.role == .music } : nil
-        let timeline = ShortBuilder.build(ShortBuildInput(candidate: candidate, asset: asset, analysis: analyses[asset.id], soundEffects: sfx, music: music), options: options)
+        let cam = webcamCompanion(for: asset)
+        let input = ShortBuildInput(candidate: candidate, asset: asset, analysis: analyses[asset.id], soundEffects: sfx, music: music,
+                                    companionWebcam: cam, companionVoice: voiceCompanion(for: asset),
+                                    companionFaceCenter: cam.flatMap { analyses[$0.id]?.webcam?.face.center })
+        let timeline = ShortBuilder.build(input, options: options)
         edit(mode == .autoEdit ? "Auto Edit Short" : "Create Short") { doc in
             doc.timelines.append(timeline)
             if let i = doc.candidates.firstIndex(where: { $0.id == candidateID }) {

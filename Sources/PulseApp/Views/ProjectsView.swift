@@ -122,6 +122,7 @@ struct ImportView: View {
                 HStack(spacing: 10) {
                     Button { app.showImportPanel() } label: { Label("Choose Files…", systemImage: "folder") }.buttonStyle(.pulsePrimary)
                     Button { app.openDemoProject() } label: { Label("Use Sample Project", systemImage: "play.rectangle") }.buttonStyle(.pulseSecondary)
+                    Button { app.showRecordSheet = true } label: { Label("Record Screen…", systemImage: "record.circle") }.buttonStyle(.pulseSecondary)
                 }
             }
             .padding(30)
@@ -169,7 +170,15 @@ struct ImportProjectView: View {
             VStack(alignment: .leading, spacing: 14) {
                 DropZone(targeted: $targeted) { session.importMedia($0) }
                     .frame(height: 190)
-                Text("Media in this project").font(.pulseHeadline).foregroundStyle(Theme.textPrimary)
+                HStack {
+                    Text("Media in this project").font(.pulseHeadline).foregroundStyle(Theme.textPrimary)
+                    Spacer()
+                    Button { app.showRecordSheet = true } label: { Label("Record Screen…", systemImage: "record.circle") }
+                        .buttonStyle(.pulse(.secondary, compact: true))
+                }
+                ForEach(session.multicamGroups, id: \.id) { group in
+                    MulticamSessionCard(session: session, group: group)
+                }
                 if session.document.media.isEmpty {
                     Text("Nothing imported yet.").font(.pulseBody).foregroundStyle(Theme.textTertiary)
                 }

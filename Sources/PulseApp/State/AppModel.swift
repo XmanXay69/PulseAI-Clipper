@@ -96,6 +96,9 @@ final class AppModel: ObservableObject {
 
     let jobs = JobCenter()
     let exports = ExportQueueController()
+    let recording = RecordingController()
+    @Published var showRecordSheet = false
+    private var recordingObserver: AnyCancellable?
     let store = ProjectStore()
     let recovery = RecoveryManager(directory: PulseDirectories.recovery)
     let library: LibraryDatabase?
@@ -135,6 +138,7 @@ final class AppModel: ObservableObject {
             default: break
             }
         }
+        recordingObserver = recording.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         refreshProjects()
         refreshActivity()
         refreshDiskInfo()

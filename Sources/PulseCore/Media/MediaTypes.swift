@@ -61,6 +61,13 @@ public struct ImportPlan: Sendable {
         public var kind: MediaKind
         public var role: MediaRole
         public var needsConversion: Bool
+
+        public init(url: URL, kind: MediaKind, role: MediaRole, needsConversion: Bool = false) {
+            self.url = url
+            self.kind = kind
+            self.role = role
+            self.needsConversion = needsConversion
+        }
     }
 
     public struct Rejection: Sendable, Hashable {
