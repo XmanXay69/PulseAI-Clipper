@@ -139,14 +139,27 @@ public struct ExportSettings: Codable, Hashable, Sendable {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
         var name = filenameTemplate
-            .replacingOccurrences(of: "{project}", with: project)
-            .replacingOccurrences(of: "{clip}", with: clip)
+            .replacingOccurrences(of: "{project}", with: ExportSettings.cleanComponent(project))
+            .replacingOccurrences(of: "{clip}", with: ExportSettings.cleanComponent(clip))
             .replacingOccurrences(of: "{preset}", with: ExportPreset.preset(id: presetID)?.name ?? presetID)
             .replacingOccurrences(of: "{date}", with: formatter.string(from: date))
             .replacingOccurrences(of: "{index}", with: String(format: "%02d", index))
         name = ExportSettings.sanitize(name)
         if name.isEmpty { name = "PULSE Export \(index)" }
         return name + "." + codec.fileExtension
+    }
+
+    /// Cleans a title used inside a filename: no quotes, emoji or path characters
+    /// (“DID SEE THAT?” 🔥 → DID SEE THAT).
+    public static func cleanComponent(_ text: String) -> String {
+        let dropped = CharacterSet(charactersIn: "\"'“”‘’«»`?!*|<>")
+        let spaced = CharacterSet(charactersIn: "/\\:%\n\r\t")
+        let scalars = text.unicodeScalars.compactMap { s -> Unicode.Scalar? in
+            if dropped.contains(s) || s.properties.isEmojiPresentation || s.value == 0xFE0F || s.value == 0x200D { return nil }
+            return spaced.contains(s) ? " " : s
+        }
+        let joined = String(String.UnicodeScalarView(scalars)).split(separator: " ").joined(separator: " ")
+        return joined.trimmingCharacters(in: CharacterSet(charactersIn: " .-_"))
     }
 
     public static func sanitize(_ name: String) -> String {

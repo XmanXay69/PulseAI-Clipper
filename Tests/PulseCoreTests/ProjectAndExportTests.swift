@@ -132,6 +132,9 @@ final class ProjectAndExportTests: XCTestCase {
         XCTAssertTrue(name.hasSuffix(".mp4"))
         XCTAssertTrue(name.contains("TikTok"))
         XCTAssertTrue(name.contains("03"))
+        var plain = ExportSettings(preset: .tiktok, outputDirectory: "/tmp")
+        plain.filenameTemplate = "{clip}-{preset}"
+        XCTAssertEqual(plain.filename(project: "P", clip: "“DID SEE THAT?” 🔥", index: 1), "DID SEE THAT-TikTok.mp4")
 
         let size = settings.outputSize(for: .vertical1080)
         XCTAssertEqual(size.width, 1080)
