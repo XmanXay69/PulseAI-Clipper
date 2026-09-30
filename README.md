@@ -18,7 +18,7 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
 - **Pro editor.** Multi-track timeline with trim, move, blade, ripple, snapping, a magnetic timeline,
   linked A/V, speed and markers. The inspector covers transform, crop, keyframes, text, audio, color,
   LUTs, effects and transitions (true cross-dissolves with audio crossfades).
-- **Audio Enhance.** Voice preset, spectral noise reduction, EQ, compressor, pan, −14 LUFS loudness
+- **Audio Enhance.** Voice preset, AI voice isolation (on-device neural noise removal) or classic noise reduction, EQ, compressor, pan, −14 LUFS loudness
   normalization and a limiter, rendered locally and non-destructively.
 - **Record.** Screen or window + system audio + webcam + mic (⇧⌘R, pause with ⇧⌘P), saved as synced
   files; shorts use the webcam as the facecam and your mic for captions.

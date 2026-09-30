@@ -165,4 +165,67 @@ final class AudioDSPTests: XCTestCase {
         XCTAssertTrue(channels.allSatisfy { $0.allSatisfy(\.isFinite) })
         XCTAssertLessThanOrEqual(LoudnessMeter.samplePeak(channels), Float(pow(10, AudioEnhanceChain.ceilingDB / 20)) + 1e-4)
     }
+
+    func testVoiceIsolatorIsMixedByAmountAndFallsBackToClassic() {
+        var generator = SeededGenerator(seed: 11)
+        let voice = sine(220, amplitude: 0.2, seconds: 1)
+        let noise = (0..<voice.count).map { _ in Float.random(in: -0.05...0.05, using: &generator) }
+        let noisy = zip(voice, noise).map(+)
+        var settings = AudioSettings()
+        XCTAssertEqual(settings.noiseMethod, .voiceIsolation, "new clips use the neural isolator")
+        settings.noiseReduction = 0.7
+        // A perfect isolator: returns the voice alone.
+        let perfect: AudioEnhanceChain.VoiceIsolator = { channels, _ in channels = [voice]; return true }
+        var channels = [noisy]
+        XCTAssertEqual(AudioEnhanceChain.process(&channels, sampleRate: rate, settings: settings, voiceIsolator: perfect), .voiceIsolation)
+        let residual = zip(channels[0], voice).map { $0 - $1 }
+        let keep = AudioEnhanceChain.backgroundGain(amount: 0.7)
+        XCTAssertEqual(keep, 0.09, accuracy: 0.001)
+        XCTAssertEqual(rmsDB(residual) - rmsDB(noise), 20 * log10(Double(keep)), accuracy: 0.1, "background kept at the amount's level")
+        // Amount 1 = voice only.
+        settings.noiseReduction = 1
+        channels = [noisy]
+        AudioEnhanceChain.process(&channels, sampleRate: rate, settings: settings, voiceIsolator: perfect)
+        XCTAssertEqual(channels[0], voice)
+        // Isolator unavailable → classic noise reduction, input untouched by the failed attempt.
+        let failing: AudioEnhanceChain.VoiceIsolator = { channels, _ in channels = [[]]; return false }
+        channels = [noisy]
+        XCTAssertEqual(AudioEnhanceChain.process(&channels, sampleRate: rate, settings: settings, voiceIsolator: failing), .spectral)
+        XCTAssertEqual(channels[0].count, noisy.count)
+        // Classic mode never calls the isolator.
+        settings.noiseMethod = .spectral
+        channels = [noisy]
+        XCTAssertEqual(AudioEnhanceChain.process(&channels, sampleRate: rate, settings: settings, voiceIsolator: perfect), .spectral)
+        XCTAssertNotEqual(channels[0], voice)
+        // No noise reduction → no method.
+        settings.noiseReduction = 0
+        XCTAssertNil(AudioEnhanceChain.process(&channels, sampleRate: rate, settings: settings, voiceIsolator: perfect))
+    }
+
+    func testNoiseMethodFingerprintAndOldProjects() throws {
+        var a = AudioSettings()
+        a.noiseReduction = 0.5
+        var b = a
+        b.noiseMethod = .spectral
+        XCTAssertNotEqual(a.enhanceFingerprint, b.enhanceFingerprint)
+        // Saved before the neural option existed: keeps classic noise reduction (and its cache key).
+        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(a)) as! [String: Any]
+        json.removeValue(forKey: "noiseMethod")
+        let old = try JSONDecoder().decode(AudioSettings.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertEqual(old.noiseMethod, .spectral)
+        XCTAssertEqual(old.enhanceFingerprint, b.enhanceFingerprint)
+    }
+
+    func testSignalAlignmentFindsProcessingDelay() {
+        var generator = SeededGenerator(seed: 5)
+        let reference = (0..<Int(rate * 2)).map { i in
+            Float(sin(Double(i) * 0.013)) * 0.3 + Float.random(in: -0.1...0.1, using: &generator)
+        }
+        for delay in [0, 7, 480, 2917] {
+            let delayed = [Float](repeating: 0, count: delay) + reference.map { $0 * 0.5 } + [Float](repeating: 0, count: 6000)
+            let found = SignalAlignment.delay(of: delayed, relativeTo: reference, maxLag: 6000)
+            XCTAssertEqual(found.lag, delay)
+            XCTAssertGreaterThan(found.correlation, 0.99)
+        }
+    }
 }

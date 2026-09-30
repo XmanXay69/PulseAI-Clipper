@@ -80,9 +80,12 @@ prompt), cloud AI providers with live keys.
 
 ## Honest gaps (architecture only / not yet implemented)
 
-- **Noise reduction** is classic spectral subtraction (STFT + learned noise profile) plus a gentle expander —
-  great for steady hiss/fans/hum, not for non-stationary noise (keyboard clicks, other voices). Upgrade path:
-  an ML denoiser (e.g. an RNNoise-style model via Core ML) inside `AudioEnhanceChain`.
+- **Noise reduction** has two methods (Inspector → Enhance → Method). **AI Voice Isolation** (default for new
+  clips) runs Apple's on-device neural voice isolation model (the `AUSoundIsolation` audio unit, macOS 13+)
+  offline, sample-aligned by cross-correlation, and mixes the original back in by the slider amount; it removes
+  non-steady noise (keyboard, music, crowd). It is Apple's model, not one trained for PULSE, and it only keeps
+  speech (singing or instruments you want to keep will be removed — use Classic there). **Classic** is spectral
+  subtraction + expander, used for old projects and whenever the model isn't available.
 - **Compound clips** (⌥G to nest, double-click to open, ⇧⌘G to break apart) render and export; they can't be
   retimed (speed) or reframed per nested clip from the parent, and effects on the compound apply to the
   flattened result.
@@ -122,5 +125,5 @@ prompt), cloud AI providers with live keys.
 1. Download `PULSE-app` from the latest green CI run (Actions → run → Artifacts) or run `./scripts/build-app.sh`,
    then try it by hand with a real long recording: import → Analyze & Find Clips → Open in Editor → Export.
 2. Report anything confusing or broken; the CI screenshot loop (`--ui-snapshots`) makes UI fixes quick to verify.
-3. Candidates for the next build phase: ML denoiser and speaker-embedding model (Core ML), bundled
+3. Candidates for the next build phase: speaker-embedding model (Core ML), bundled
    music/SFX library, keyframed layout morphs, per-speaker caption styling.

@@ -402,6 +402,17 @@ struct AudioInspector: View {
             ToggleRow(label: "Voice enhancement", isOn: b.value("Voice Enhance", \.audio.voiceEnhance, fallback: false),
                       help: "80 Hz rumble filter, less mud, more presence and gentle compression")
             b.plainSlider("Noise reduction", \.audio.noiseReduction, range: 0...1)
+            if clip.audio.noiseReduction > 0.001 {
+                Picker("Method", selection: Binding(get: { clip.audio.noiseMethod },
+                                                    set: { method in session.editClip(clip.id, "Noise Method") { $0.audio.noiseMethod = method } })) {
+                    ForEach(NoiseReductionMethod.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .font(.pulseCaption)
+                Text(noiseMethodHelp)
+                    .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+            }
             ToggleRow(label: "Normalize loudness (−14 LUFS)", isOn: b.value("Normalize", \.audio.normalize, fallback: false))
             ToggleRow(label: "Limiter (−1 dBFS)", isOn: b.value("Limiter", \.audio.limiter, fallback: false))
             ToggleRow(label: "Compressor", isOn: b.value("Compressor", \.audio.compressor.isEnabled, fallback: false))
@@ -419,6 +430,19 @@ struct AudioInspector: View {
             }
             Text("Rendered on this Mac into a cached copy of the clip's audio — the original file is never changed.")
                 .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+extension AudioInspector {
+    var noiseMethodHelp: String {
+        switch clip.audio.noiseMethod {
+        case .voiceIsolation:
+            return VoiceIsolation.isAvailable
+                ? "On-device neural voice isolation: keeps speech, removes keyboard, music, crowd and fans. The slider sets how much background stays."
+                : "AI voice isolation needs macOS 13 or later on this Mac; Classic is used instead."
+        case .spectral:
+            return "Removes steady noise (hiss, hum, fans) and quiets gaps between words. Best when you want the room to stay natural."
         }
     }
 }

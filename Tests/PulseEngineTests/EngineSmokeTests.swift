@@ -70,6 +70,88 @@ final class EngineSmokeTests: XCTestCase {
         XCTAssertNotEqual(other, output)
     }
 
+    /// Speech buried in keyboard clicks, music and fan noise: the neural voice isolator must recover it
+    /// far better than the noisy input (scored as SI-SDR against the clean voice), and beat classic mode.
+    func testVoiceIsolationRemovesNonSteadyNoise() throws {
+        guard VoiceIsolation.isAvailable else { throw XCTSkip("AUSoundIsolation isn't on this Mac") }
+        let dir = Self.workDir.appendingPathComponent("isolate-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let rate = 48_000.0
+        let url = dir.appendingPathComponent("voice.wav")
+        let say = Process()
+        say.executableURL = URL(fileURLWithPath: "/usr/bin/say")
+        say.arguments = ["-o", url.path, "--file-format=WAVE", "--data-format=LEF32@48000",
+                         "Okay chat, we are finally back. Let me show you the build I have been working on all week. It is honestly so good."]
+        try say.run()
+        say.waitUntilExit()
+        let file = try AVAudioFile(forReading: url)
+        let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length))!
+        try file.read(into: buffer)
+        let speech = Array(UnsafeBufferPointer(start: buffer.floatChannelData![0], count: Int(buffer.frameLength)))
+        // Half a second of silence either side, then scale the voice to about −20 dBFS RMS.
+        var clean = [Float](repeating: 0, count: Int(0.5 * rate)) + speech + [Float](repeating: 0, count: Int(0.5 * rate))
+        let voiceRMS = (clean.reduce(Float(0)) { $0 + $1 * $1 } / Float(speech.count)).squareRoot()
+        clean = clean.map { $0 * 0.1 / max(voiceRMS, 1e-6) }
+
+        var rng = SeededGenerator(seed: 21)
+        var noise = [Float](repeating: 0, count: clean.count)
+        // Mechanical keyboard: sharp decaying clicks at irregular intervals.
+        var next = 0
+        while next < noise.count {
+            for i in 0..<min(600, noise.count - next) {
+                noise[next + i] += Float.random(in: -1...1, using: &rng) * 0.35 * exp(-Float(i) / 90)
+            }
+            next += Int(Double.random(in: 0.07...0.25, using: &rng) * rate)
+        }
+        // Music: a chord with a pulsing beat.
+        for i in noise.indices {
+            let t = Double(i) / rate
+            let beat = Float(0.5 + 0.5 * sin(2 * Double.pi * 2 * t))
+            let chord = sin(2 * Double.pi * 196 * t) + sin(2 * Double.pi * 247 * t) + sin(2 * Double.pi * 294 * t) + 0.5 * sin(2 * Double.pi * 587 * t)
+            noise[i] += Float(chord) * 0.02 * beat
+        }
+        // Fan: low-passed noise.
+        var fan: Float = 0
+        for i in noise.indices {
+            fan = 0.97 * fan + 0.03 * Float.random(in: -1...1, using: &rng)
+            noise[i] += fan * 0.25
+        }
+        let noisy = zip(clean, noise).map(+)
+
+        func siSDR(_ estimate: [Float]) -> Double {
+            var dot = 0.0, energy = 0.0
+            for i in clean.indices { dot += Double(estimate[i] * clean[i]); energy += Double(clean[i] * clean[i]) }
+            let scale = dot / max(energy, 1e-12)
+            var target = 0.0, error = 0.0
+            for i in clean.indices {
+                let t = scale * Double(clean[i])
+                target += t * t
+                error += (Double(estimate[i]) - t) * (Double(estimate[i]) - t)
+            }
+            return 10 * log10(target / max(error, 1e-12))
+        }
+        var settings = AudioSettings()
+        settings.noiseReduction = 1
+        settings.noiseMethod = .spectral
+        var classic = [noisy]
+        AudioEnhanceChain.process(&classic, sampleRate: rate, settings: settings)
+        settings.noiseMethod = .voiceIsolation
+        var isolated = [noisy]
+        let start = Date()
+        let used = AudioEnhanceChain.process(&isolated, sampleRate: rate, settings: settings, voiceIsolator: VoiceIsolation.isolator)
+        let seconds = Date().timeIntervalSince(start)
+        XCTAssertEqual(used, .voiceIsolation, "isolator failed: \(VoiceIsolation.lastError ?? "?")")
+        XCTAssertEqual(isolated[0].count, noisy.count)
+        let aligned = SignalAlignment.delay(of: isolated[0] + [Float](repeating: 0, count: 4800), relativeTo: clean, maxLag: 4800)
+
+        let before = siSDR(noisy), afterClassic = siSDR(classic[0]), afterAI = siSDR(isolated[0])
+        print(String(format: "voice isolation: SI-SDR noisy %.1f dB, classic %.1f dB, AI %.1f dB; residual lag %d samples; %.1fs audio in %.2fs",
+                     before, afterClassic, afterAI, aligned.lag, Double(noisy.count) / rate, seconds))
+        XCTAssertLessThan(aligned.lag, 48, "output must stay aligned with the source")
+        XCTAssertGreaterThan(afterAI, before + 6)
+        XCTAssertGreaterThan(afterAI, afterClassic + 2)
+    }
+
     /// Two synthesized voices take turns; diarization must find two speakers and who said what.
     func testSpeakerDiarizationOfTwoVoices() async throws {
         let list = Process()

@@ -386,6 +386,21 @@ public struct CompressorSettings: Codable, Hashable, Sendable {
     public init() {}
 }
 
+/// How the Enhance chain removes background noise.
+public enum NoiseReductionMethod: String, Codable, CaseIterable, Sendable {
+    /// A neural network that keeps the voice and removes everything else (keyboard, music, crowd, fans).
+    case voiceIsolation
+    /// Spectral subtraction of a learned steady noise profile (hiss, hum, fans) plus a gentle expander.
+    case spectral
+
+    public var displayName: String {
+        switch self {
+        case .voiceIsolation: return "AI Voice Isolation"
+        case .spectral: return "Classic"
+        }
+    }
+}
+
 /// Audio processing chain for a clip. Volume/fades/ducking are applied live by the audio mix;
 /// the "enhance" chain (noise reduction, EQ, compressor, limiter) is rendered into a cached
 /// processed file by the engine so it stays non-destructive.
@@ -399,6 +414,8 @@ public struct AudioSettings: Codable, Hashable, Sendable {
     public var isMuted: Bool
     public var normalize: Bool
     public var noiseReduction: Double
+    /// How noise is removed: the on-device neural voice isolator (new clips) or classic spectral subtraction.
+    public var noiseMethod: NoiseReductionMethod
     public var voiceEnhance: Bool
     public var eq: EQSettings
     public var compressor: CompressorSettings
@@ -416,6 +433,7 @@ public struct AudioSettings: Codable, Hashable, Sendable {
         self.isMuted = false
         self.normalize = false
         self.noiseReduction = 0
+        self.noiseMethod = .voiceIsolation
         self.voiceEnhance = false
         self.eq = EQSettings()
         self.compressor = CompressorSettings()
@@ -434,6 +452,8 @@ public struct AudioSettings: Codable, Hashable, Sendable {
         isMuted = c.decode(Bool.self, forKey: .isMuted, default: false)
         normalize = c.decode(Bool.self, forKey: .normalize, default: false)
         noiseReduction = c.decode(Double.self, forKey: .noiseReduction, default: 0)
+        // Projects saved before the neural option keep the sound they were mixed with.
+        noiseMethod = c.decode(NoiseReductionMethod.self, forKey: .noiseMethod, default: .spectral)
         voiceEnhance = c.decode(Bool.self, forKey: .voiceEnhance, default: false)
         eq = c.decode(EQSettings.self, forKey: .eq, default: EQSettings())
         compressor = c.decode(CompressorSettings.self, forKey: .compressor, default: CompressorSettings())

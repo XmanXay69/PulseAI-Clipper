@@ -108,8 +108,23 @@ public enum AudioEnhanceChain {
     public static let targetLUFS = -14.0
     public static let ceilingDB = -1.0
 
-    public static func process(_ channels: inout [[Float]], sampleRate: Double, settings: AudioSettings) {
-        guard !channels.isEmpty, let length = channels.first?.count, length > 0 else { return }
+    /// A learned denoiser supplied by the engine (Core has no ML frameworks). It replaces the channels with
+    /// the isolated voice, time-aligned with the input, and returns false when it can't run.
+    public typealias VoiceIsolator = (_ channels: inout [[Float]], _ sampleRate: Double) -> Bool
+
+    /// How much of the original stays under the isolated voice for a noise-reduction amount (0…1):
+    /// 0.4 ≈ −9 dB of background, 0.7 ≈ −21 dB, 1 = voice only.
+    public static func backgroundGain(amount: Double) -> Float {
+        let rest = 1 - amount.clamped(0, 1)
+        return Float(rest * rest)
+    }
+
+    /// Returns the method actually used for noise reduction (nil when none ran).
+    @discardableResult
+    public static func process(_ channels: inout [[Float]], sampleRate: Double, settings: AudioSettings,
+                               voiceIsolator: VoiceIsolator? = nil) -> NoiseReductionMethod? {
+        guard !channels.isEmpty, let length = channels.first?.count, length > 0 else { return nil }
+        var denoisedWith: NoiseReductionMethod?
 
         // 1. High-pass: explicit EQ cut-off, or 80 Hz rumble removal for voice.
         var highPass = settings.eq.isEnabled ? settings.eq.highPassHz : 0
@@ -121,12 +136,30 @@ public enum AudioEnhanceChain {
             }
         }
 
-        // 2. Noise reduction: spectral subtraction removes steady noise (hiss, fans, hum) under the
-        //    voice, then a gentle expander quiets what's left between words.
+        // 2. Noise reduction. The neural voice isolator removes any non-voice sound; the original is
+        //    mixed back in under it by amount. Classic mode (or no isolator): spectral subtraction removes
+        //    steady noise (hiss, fans, hum), then a gentle expander quiets what's left between words.
         if settings.noiseReduction > 0.001 {
             let amount = settings.noiseReduction.clamped(0, 1)
-            SpectralDenoiser.process(&channels, amount: amount)
-            expand(&channels, sampleRate: sampleRate, amount: amount * 0.5)
+            if settings.noiseMethod == .voiceIsolation, let voiceIsolator {
+                let original = channels
+                if voiceIsolator(&channels, sampleRate), channels.count == original.count, channels.allSatisfy({ $0.count == length }) {
+                    let keep = backgroundGain(amount: amount)
+                    if keep > 0 {
+                        for c in channels.indices {
+                            for i in 0..<length { channels[c][i] += keep * (original[c][i] - channels[c][i]) }
+                        }
+                    }
+                    denoisedWith = .voiceIsolation
+                } else {
+                    channels = original
+                }
+            }
+            if denoisedWith == nil {
+                SpectralDenoiser.process(&channels, amount: amount)
+                expand(&channels, sampleRate: sampleRate, amount: amount * 0.5)
+                denoisedWith = .spectral
+            }
         }
 
         // 3. EQ + voice shaping.
@@ -182,6 +215,7 @@ public enum AudioEnhanceChain {
         if settings.limiter || settings.normalize || settings.voiceEnhance || settings.compressor.isEnabled {
             limit(&channels, sampleRate: sampleRate, ceilingDB: ceilingDB)
         }
+        return denoisedWith
     }
 
     /// Constant-power pan for mono, balance for stereo (the far side is attenuated).
@@ -326,6 +360,7 @@ extension AudioSettings {
         let parts: [String] = [
             normalize ? "n" : "", voiceEnhance ? "v" : "", limiter ? "l" : "",
             String(format: "nr%.3f", noiseReduction), String(format: "p%.3f", pan),
+            noiseReduction > 0.001 && noiseMethod == .voiceIsolation ? "vi" : "",
             eq.isEnabled ? String(format: "eq%.2f,%.2f,%.2f,%.1f", eq.lowGain, eq.midGain, eq.highGain, eq.highPassHz) : "",
             compressor.isEnabled ? String(format: "c%.2f,%.2f,%.2f", compressor.thresholdDB, compressor.ratio, compressor.makeupGainDB) : "",
         ]
