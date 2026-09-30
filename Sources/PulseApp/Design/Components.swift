@@ -225,6 +225,7 @@ struct PotentialMeter: View {
             if showsLabel {
                 Text("\(potential)")
                     .font(.system(size: 11, weight: .semibold, design: .rounded).monospacedDigit())
+                    .fixedSize()
                     .foregroundStyle(Theme.potentialColor(potential))
             }
         }

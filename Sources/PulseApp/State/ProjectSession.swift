@@ -221,6 +221,7 @@ final class ProjectSession: ObservableObject, Identifiable {
                 Task {
                     if await ThumbnailService.shared.writePoster(for: source, at: min(10, asset.metadata.duration / 3), to: target) {
                         self.document.thumbnailPath = relative
+                        self.save()
                     }
                 }
             }
@@ -540,7 +541,7 @@ final class ProjectSession: ObservableObject, Identifiable {
             }
             doc.activeTimelineID = timeline.id
         }
-        app.logActivity(.captions, title: "Captions + framing for “\(timeline.name)”", detail: "\(timeline.captions?.words.count ?? 0) caption words · \(timeline.layout?.displayName ?? "Full Frame")")
+        app.logActivity(.captions, title: "Captions + framing: \(timeline.name)", detail: "\(timeline.captions?.words.count ?? 0) caption words · \(timeline.layout?.displayName ?? "Full Frame")")
         if open { self.open(timelineID: timeline.id) }
         return timeline.id
     }

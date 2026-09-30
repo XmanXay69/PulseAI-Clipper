@@ -88,6 +88,13 @@ struct ViewerView: View {
                         }
                         if !playback.missingAssetIDs.isEmpty {
                             MediaOfflineBanner(session: session, missing: playback.missingAssetIDs)
+                        } else if let error = playback.lastError {
+                            Label("Preview couldn't be built: \(error)", systemImage: "exclamationmark.triangle.fill")
+                                .font(.pulseCaption)
+                                .foregroundStyle(.white)
+                                .padding(10)
+                                .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.75)))
+                                .padding(12)
                         }
                     }
                     .frame(width: frameSize.width, height: frameSize.height)

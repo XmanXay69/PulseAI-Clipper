@@ -72,7 +72,7 @@ struct TimelineToolbar: View {
             IconButton(symbol: "arrow.uturn.forward", help: session.redoLabel.map { "Redo \($0) (⇧⌘Z)" } ?? "Redo (⇧⌘Z)") { session.redo() }
                 .disabled(!session.canRedo)
             Divider().frame(height: 16).padding(.horizontal, 4)
-            IconButton(symbol: "magnet", help: "Snapping (S)", isActive: app.settings.snapping) { app.settings.snapping.toggle() }
+            IconButton(symbol: "arrow.right.and.line.vertical.and.arrow.left", help: "Snapping (S)", isActive: app.settings.snapping) { app.settings.snapping.toggle() }
             IconButton(symbol: "rectangle.compress.vertical", help: "Magnetic timeline — deleting closes gaps", isActive: app.settings.magneticTimeline) { app.settings.magneticTimeline.toggle() }
             Spacer()
             Button { session.makeMoreEntertaining() } label: { Label("Make More Entertaining", systemImage: "wand.and.stars") }

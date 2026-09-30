@@ -216,7 +216,7 @@ struct ImportProjectView: View {
                 }
                 VStack(alignment: .leading, spacing: 6) {
                     SectionLabel(text: "How many clips")
-                    LabeledSlider(label: aggressiveness < 0.34 ? "Best only" : (aggressiveness < 0.67 ? "Balanced" : "Lots"), value: $aggressiveness, range: 0...1, format: "%.0f", unit: "")
+                    LabeledSlider(label: aggressiveness < 0.34 ? "Best only" : (aggressiveness < 0.67 ? "Balanced" : "Lots"), value: Binding(get: { aggressiveness * 100 }, set: { aggressiveness = $0 / 100 }), range: 0...100, format: "%.0f", unit: "%")
                 }
                 HStack(spacing: 6) {
                     ProcessingBadge(location: .local)

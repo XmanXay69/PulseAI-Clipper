@@ -1,3 +1,4 @@
+import AVFoundation
 import AppKit
 import PulseCore
 import PulseEngine
@@ -110,16 +111,35 @@ enum UISnapshotter {
                 }
                 try? await Task.sleep(nanoseconds: 1_200_000_000)
                 capture(app: app, name: String(format: "%02d-%@", n + 2, section.rawValue), to: directory)
+                if section == .editor { await captureViewerFrame(app: app, name: String(format: "%02d-%@-viewer-frame", n + 2, section.rawValue), to: directory) }
             }
             NSApp.terminate(nil)
         }
     }
 
     static func capture(app: AppModel, name: String, to directory: URL) {
-        guard let window = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil && $0.frame.width > 600 }),
-              let view = window.contentView,
+        guard let main = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil && $0.frame.width > 600 }) else { return }
+        // Sheets (onboarding, recovery, search) live in their own window.
+        let window = main.attachedSheet ?? main
+        guard let view = window.contentView,
               let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
         view.cacheDisplay(in: view.bounds, to: rep)
+        if let data = rep.representation(using: .png, properties: [:]) {
+            try? data.write(to: directory.appendingPathComponent(name + ".png"))
+        }
+    }
+
+    /// AVPlayerLayer content isn't included in view caching, so grab the viewer's frame straight
+    /// from the live player item (same composition + compositor the viewer shows).
+    static func captureViewerFrame(app: AppModel, name: String, to directory: URL) async {
+        guard let playback = app.session?.playback, let item = playback.player.currentItem else { return }
+        let generator = AVAssetImageGenerator(asset: item.asset)
+        generator.videoComposition = item.videoComposition
+        generator.requestedTimeToleranceBefore = .zero
+        generator.requestedTimeToleranceAfter = .zero
+        let time = CMTime(seconds: playback.currentTime, preferredTimescale: 600)
+        guard let image = try? await generator.image(at: time).image else { return }
+        let rep = NSBitmapImageRep(cgImage: image)
         if let data = rep.representation(using: .png, properties: [:]) {
             try? data.write(to: directory.appendingPathComponent(name + ".png"))
         }

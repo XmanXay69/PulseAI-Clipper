@@ -429,6 +429,8 @@ struct ExportsView: View {
     @EnvironmentObject var app: AppModel
     @State private var settings = ExportSettings()
     @State private var loaded = false
+    /// Settings as loaded; changes equal to it are not user edits.
+    @State private var baseline: ExportSettings?
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -462,8 +464,11 @@ struct ExportsView: View {
             let preset = ExportPreset.preset(id: app.settings.defaultExportPresetID) ?? .tiktok
             settings = app.session?.document.exportSettings ?? ExportSettings(preset: preset)
             if settings.outputDirectory.isEmpty { settings.outputDirectory = app.exportFolder.path }
+            baseline = settings
         }
-        .onChange(of: settings) { newValue in
+        .onChange(of: settings) { _, newValue in
+            if let baseline, newValue == baseline { return }
+            baseline = nil
             app.session?.edit("Export Settings", coalesce: "export-settings") { $0.exportSettings = newValue }
             app.settings.defaultExportPresetID = newValue.presetID
         }
