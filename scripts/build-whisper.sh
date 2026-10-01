@@ -42,7 +42,8 @@ cp "$SRC/build/bin/whisper-cli" "$OUT/whisper-cli"
 cp "$SRC/LICENSE" "$OUT/LICENSE-whisper.cpp.txt"
 echo "▸ Linked libraries (must be system only):"
 otool -L "$OUT/whisper-cli"
-if otool -L "$OUT/whisper-cli" | tail -n +2 | grep -vE "^\s*(/usr/lib/|/System/Library/)"; then
+# Library lines are indented; the unindented ones name the file / architecture.
+if otool -L "$OUT/whisper-cli" | grep -E "^[[:space:]]" | grep -vE "^[[:space:]]*(/usr/lib/|/System/Library/)"; then
   echo "✗ whisper-cli links a non-system library; it would not run on other Macs" >&2
   exit 1
 fi
