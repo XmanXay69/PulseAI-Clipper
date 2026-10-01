@@ -173,7 +173,7 @@ prompt), cloud AI providers with live keys.
 
 ## Next steps
 
-1. Download `PULSE-app` from the latest green CI run (Actions → run → Artifacts) or run `./scripts/build-app.sh`,
+1. Download `PULSE.dmg` from the latest GitHub Release (link in the README), drag it into Applications,
    then try it by hand with a real long recording: import → Analyze & Find Clips → Open in Editor → Export.
 2. Report anything confusing or broken; the CI screenshot loop (`--ui-snapshots`) makes UI fixes quick to verify.
 3. Candidates for the next build phase: test with real recordings and tune from what breaks (speaker

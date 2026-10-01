@@ -467,6 +467,9 @@ struct WhisperModelRow: View {
                 }
                 Button { NSWorkspace.shared.activateFileViewerSelecting([model.localURL]) } label: { Image(systemName: "folder") }
                     .buttonStyle(.pulse(.ghost, compact: true))
+            } else if model.bundledURL != nil {
+                TagChip(text: "Built in", color: Theme.success)
+                    .help("Ships inside PULSE — nothing to download")
             } else {
                 Button("Download") { download() }.buttonStyle(.pulse(.secondary, compact: true))
             }

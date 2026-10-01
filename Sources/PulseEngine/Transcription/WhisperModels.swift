@@ -13,6 +13,12 @@ public struct WhisperModelInfo: Hashable, Identifiable, Sendable {
     public var url: URL { URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(fileName)")! }
     public var localURL: URL { WhisperModelInfo.directory.appendingPathComponent(fileName) }
     public var isInstalled: Bool { FileManager.default.fileExists(atPath: localURL.path) }
+    /// The copy shipped inside PULSE.app (release builds carry the English base model), if any.
+    public var bundledURL: URL? {
+        guard let url = Bundle.main.resourceURL?.appendingPathComponent(fileName),
+              FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return url
+    }
 
     public static var directory: URL { PulseDirectories.ensure(PulseDirectories.applicationSupport.appendingPathComponent("Models", isDirectory: true)) }
 

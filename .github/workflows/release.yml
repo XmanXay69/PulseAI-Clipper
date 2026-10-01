@@ -99,6 +99,8 @@ jobs:
           echo "Contents of $MNT:"; ls -la "$MNT"
           APP="$MNT/PULSE.app"
           test -L "$MNT/Applications"
+          test -f "$MNT/.VolumeIcon.icns" && echo "volume icon present"
+          test -f "$MNT/.DS_Store" && echo "Finder window layout present"
           codesign --verify --deep --strict --verbose=2 "$APP"
           lipo -info "$APP/Contents/MacOS/PULSE"
           lipo -info "$APP/Contents/MacOS/whisper-cli"
@@ -115,7 +117,7 @@ jobs:
           # Bundled transcription: speak a sentence, transcribe it with the app's own whisper + model.
           say -o "$RUNNER_TEMP/speech.aiff" "PULSE turns long streams into short clips."
           afconvert -f WAVE -d LEI16@16000 -c 1 "$RUNNER_TEMP/speech.aiff" "$RUNNER_TEMP/speech.wav"
-          "$APP/Contents/MacOS/whisper-cli" -m "$APP/Contents/Resources/ggml-base.en.bin" -f "$RUNNER_TEMP/speech.wav" -nt 2>/dev/null | tee "$RUNNER_TEMP/out.txt"
+          "$APP/Contents/MacOS/whisper-cli" -m "$APP/Contents/Resources/ggml-base.en.bin" -f "$RUNNER_TEMP/speech.wav" -nt 2>/dev/null | tee "$RUNNER_TEMP/out.txt"; echo
           grep -qi "clips" "$RUNNER_TEMP/out.txt"
           # What the installer window looks like.
           open "$MNT" || true

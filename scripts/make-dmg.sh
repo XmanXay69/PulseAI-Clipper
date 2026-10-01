@@ -26,14 +26,16 @@ echo "▸ Rendering window background"
 "$APP/Contents/MacOS/PULSE" --render-dmg-background "$ROOT/build/dmg-bg"
 tiffutil -cathidpicheck "$ROOT/build/dmg-bg/background.png" "$ROOT/build/dmg-bg/background@2x.png" \
   -out "$STAGE/.background/background.tiff" >/dev/null
-cp "$APP/Contents/Resources/AppIcon.icns" "$STAGE/.VolumeIcon.icns"
 
 echo "▸ Creating disk image"
 SIZE_MB=$(( $(du -sm "$STAGE" | cut -f1) + 40 ))
 hdiutil create -quiet -srcfolder "$STAGE" -volname "$VOLUME" -fs HFS+ -format UDRW -size "${SIZE_MB}m" "$RW"
 MOUNT_DIR="$(hdiutil attach -readwrite -noverify -noautoopen "$RW" | grep -E '/Volumes/' | sed -E 's|.*(/Volumes/.*)$|\1|')"
 echo "  mounted at $MOUNT_DIR"
-SetFile -a C "$MOUNT_DIR" 2>/dev/null || true   # use .VolumeIcon.icns
+# The disk's own icon (hdiutil -srcfolder leaves hidden files like this out, so add it after mounting).
+cp "$APP/Contents/Resources/AppIcon.icns" "$MOUNT_DIR/.VolumeIcon.icns"
+SetFile -c icnC "$MOUNT_DIR/.VolumeIcon.icns" 2>/dev/null || true
+SetFile -a C "$MOUNT_DIR" 2>/dev/null || echo "  (SetFile unavailable — disk keeps the generic icon)"
 
 # Window layout through Finder. Cosmetic: if Finder can't be scripted (some CI machines), the image
 # still works — it just opens as a plain icon window.

@@ -78,6 +78,12 @@ enum AppIcon {
         text("Drag PULSE into Applications", size: 20, weight: .semibold, color: .white, y: 320)
         text("Then open it from Launchpad or your Applications folder.", size: 12, weight: .regular,
              color: NSColor.white.withAlphaComponent(0.55), y: 60)
+        // Finder draws the icon names itself, black in Light Mode and white in Dark Mode; a mid-gray plate
+        // under each name keeps both readable (names sit ~74 pt below the icon centers).
+        NSColor(white: 0.56, alpha: 1).setFill()
+        for x in [160.0, 480.0] {
+            NSBezierPath(roundedRect: NSRect(x: x - 58, y: 400 - 264 - 11, width: 116, height: 22), xRadius: 11, yRadius: 11).fill()
+        }
         // Arrow from the app icon to Applications.
         let arrow = NSBezierPath()
         arrow.move(to: NSPoint(x: 250, y: 210))
