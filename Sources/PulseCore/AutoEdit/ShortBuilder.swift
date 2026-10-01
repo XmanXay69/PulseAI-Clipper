@@ -348,6 +348,7 @@ public enum ShortBuilder {
             changes.append(LayoutChange(time: max(0, t - morph / 2), preset: seg.layout, duration: morph, aiGenerated: true))
         }
         timeline.layoutChanges = changes
+        if !changes.isEmpty && timeline.canvas.backgroundBlur == nil { timeline.canvas.backgroundBlur = true }
         LayoutMorpher.rebuild(&timeline, context: context)
     }
 

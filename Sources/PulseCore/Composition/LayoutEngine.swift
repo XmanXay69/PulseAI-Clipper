@@ -79,6 +79,9 @@ public struct LayoutTarget: Hashable, Sendable {
     public var crop: NormRect
     public var style: LayerStyle
     public var visible: Bool
+    /// The canvas region the clip fills.
+    public var slot: NormRect = .full
+    public var opacity: Double = 1
 
     /// Writes the target as constant values (clearing layout animation).
     func write(to clip: inout TimelineClip) {
@@ -92,12 +95,47 @@ public struct LayoutTarget: Hashable, Sendable {
         clip.styleKeyframes = []
     }
 
-    /// This target's geometry, invisible and slightly smaller (how a facecam leaves or enters).
+    /// `other`'s geometry, invisible and slightly smaller (how a facecam leaves or enters).
     func hidden(like other: LayoutTarget) -> LayoutTarget {
         var t = other
         t.scale *= 0.9
+        t.slot = other.slot.insetBy(dx: other.slot.width * 0.05, dy: other.slot.height * 0.05)
         t.visible = false
+        t.opacity = 0
         return t
+    }
+
+    /// An in-between layout: the on-screen box and the crop move together, the crop reshaped to the
+    /// box so the clip always exactly fills it (no gaps, no stretching).
+    static func blend(_ a: LayoutTarget, _ b: LayoutTarget, _ p: Double, canvas: CanvasSettings, sourceSize: Size2) -> LayoutTarget {
+        if p <= 0 { return a }
+        if p >= 1 { return b }
+        func mix(_ x: Double, _ y: Double) -> Double { x + (y - x) * p }
+        func mixRect(_ r: NormRect, _ s: NormRect) -> NormRect {
+            NormRect(x: mix(r.x, s.x), y: mix(r.y, s.y), width: mix(r.width, s.width), height: mix(r.height, s.height))
+        }
+        let slot = mixRect(a.slot, b.slot)
+        let aspect = slot.pixelAspect(in: canvas.size)
+        let crop = reshape(mixRect(a.crop, b.crop), aspect: aspect, in: sourceSize)
+        let placement = LayerGeometry.placement(fillingSlot: slot, cropAspect: aspect, canvasSize: canvas.size)
+        return LayoutTarget(positionX: placement.positionX, positionY: placement.positionY, scale: placement.scale, crop: crop,
+                            style: a.style.interpolated(to: b.style, p), visible: a.visible || b.visible, slot: slot, opacity: mix(a.opacity, b.opacity))
+    }
+
+    /// Grows (or, at the frame edge, shrinks) a crop around its centre to the given pixel aspect.
+    static func reshape(_ crop: NormRect, aspect: Double, in frame: Size2) -> NormRect {
+        guard aspect > 0, frame.width > 0, frame.height > 0 else { return crop }
+        var w = crop.width * frame.width, h = crop.height * frame.height
+        if w / max(h, 1e-9) > aspect {
+            let grown = w / aspect
+            if grown <= frame.height { h = grown } else { h = frame.height; w = h * aspect }
+        } else {
+            let grown = h * aspect
+            if grown <= frame.width { w = grown } else { w = frame.width; h = w / aspect }
+        }
+        let nw = w / frame.width, nh = h / frame.height
+        let c = crop.center
+        return NormRect(x: (c.x - nw / 2).clamped(0, max(0, 1 - nw)), y: (c.y - nh / 2).clamped(0, max(0, 1 - nh)), width: nw, height: nh)
     }
 }
 
@@ -196,13 +234,13 @@ public enum LayoutEngine {
         let layoutSlots = Self.slots(for: effectivePreset == .dynamic ? .splitScreen : effectivePreset, canvas: canvas, webcamAspect: webcamAspect)
         if role == .webcam {
             guard let slot = layoutSlots.webcam, let region = webcamRegion else {
-                return LayoutTarget(positionX: 0.5, positionY: 0.5, scale: 1, crop: .full, style: .plain, visible: false)
+                return LayoutTarget(positionX: 0.5, positionY: 0.5, scale: 1, crop: .full, style: .plain, visible: false, slot: .full, opacity: 0)
             }
             let slotAspect = slot.pixelAspect(in: canvas.size)
             let face = context.webcamSourceSize == nil ? context.faceCenter : context.webcamFaceCenter
             let crop = Self.crop(aspect: slotAspect, inside: region.insetBy(dx: region.width * 0.02, dy: region.height * 0.02), frameSize: webcamSource, focus: face)
             let placement = LayerGeometry.placement(fillingSlot: slot, cropAspect: slotAspect, canvasSize: canvas.size)
-            return LayoutTarget(positionX: placement.positionX, positionY: placement.positionY, scale: placement.scale, crop: crop, style: layoutSlots.webcamStyle, visible: true)
+            return LayoutTarget(positionX: placement.positionX, positionY: placement.positionY, scale: placement.scale, crop: crop, style: layoutSlots.webcamStyle, visible: true, slot: slot)
         } else if role == .gameplay || role == .main || role == .camera {
             let slot = layoutSlots.gameplay
             let slotAspect = slot.pixelAspect(in: canvas.size)
@@ -215,7 +253,7 @@ public enum LayoutEngine {
                 crop = WebcamEstimator.gameplayRegion(frameSize: context.sourceSize, webcam: effectivePreset == .splitScreen || effectivePreset == .facecamDominant ? inFrameWebcam : nil, targetAspect: slotAspect)
             }
             let placement = LayerGeometry.placement(fillingSlot: slot, cropAspect: slotAspect, canvasSize: canvas.size)
-            return LayoutTarget(positionX: placement.positionX, positionY: placement.positionY, scale: placement.scale, crop: crop, style: .plain, visible: true)
+            return LayoutTarget(positionX: placement.positionX, positionY: placement.positionY, scale: placement.scale, crop: crop, style: .plain, visible: true, slot: slot)
         }
         return nil
     }
@@ -311,6 +349,8 @@ public enum LayoutMorpher {
         timeline.layoutChanges.append(change)
         timeline.layoutChanges.sort { $0.time < $1.time }
         if timeline.layout == nil { timeline.layout = .fullFrame }
+        // Blurred video behind the layers, so in-between frames never show flat bars.
+        if timeline.canvas.backgroundBlur == nil { timeline.canvas.backgroundBlur = true }
         rebuild(&timeline, context: context)
         return change.id
     }
@@ -358,18 +398,24 @@ public enum LayoutMorpher {
                 }
                 clip.isEnabled = true
                 var crop = AnimatedRect(startTarget.crop)
+                let frame = role == .webcam ? (context.webcamSourceSize ?? context.sourceSize) : context.sourceSize
                 for i in active {
                     var from = targets[i], to = targets[i + 1]
                     if !from.visible && to.visible { from = from.hidden(like: to) }
                     if from.visible && !to.visible { to = to.hidden(like: from) }
                     let t0 = changes[i].time - clip.start
-                    let t1 = t0 + max(changes[i].duration, minimumDuration)
-                    for (time, target) in [(t0, from), (t1, to)] {
-                        clip.transform.positionX.setKeyframe(at: time, value: target.positionX)
-                        clip.transform.positionY.setKeyframe(at: time, value: target.positionY)
-                        clip.transform.scale.setKeyframe(at: time, value: target.scale)
-                        if fades { clip.transform.opacity.setKeyframe(at: time, value: target.visible ? 1 : 0) }
-                        crop.setKeyframe(at: time, target.crop)
+                    let length = max(changes[i].duration, minimumDuration)
+                    // Sampled (30 per second, eased) so the box and crop stay consistent all the way.
+                    let steps = changes[i].duration < 0.05 ? 1 : max(2, Int((length * 30).rounded(.up)))
+                    for k in 0...steps {
+                        let linear = Double(k) / Double(steps)
+                        let target = LayoutTarget.blend(from, to, Interpolation.easeInOut.apply(linear), canvas: canvas, sourceSize: frame)
+                        let time = t0 + length * linear
+                        clip.transform.positionX.setKeyframe(at: time, value: target.positionX, interpolation: .linear)
+                        clip.transform.positionY.setKeyframe(at: time, value: target.positionY, interpolation: .linear)
+                        clip.transform.scale.setKeyframe(at: time, value: target.scale, interpolation: .linear)
+                        if fades { clip.transform.opacity.setKeyframe(at: time, value: target.opacity, interpolation: .linear) }
+                        crop.setKeyframe(at: time, target.crop, interpolation: .linear)
                         clip.styleKeyframes.removeAll { abs($0.time - time) < 1.0 / 240 }
                         clip.styleKeyframes.append(StyleKeyframe(time: time, style: target.style))
                     }

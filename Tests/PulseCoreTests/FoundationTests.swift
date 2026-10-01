@@ -49,8 +49,14 @@ final class FoundationTests: XCTestCase {
         v.setKeyframe(at: 6, value: 2)
         var right = v
         right.retainKeyframes(in: TimeRange(start: 5, end: 10), rebasingTo: 5)
-        XCTAssertEqual(right.keyframes.count, 1)
-        XCTAssertEqual(right.keyframes[0].time, 1, accuracy: 1e-9)
+        // The keyframe before the cut stays (rebased) so the curve through the cut is unchanged.
+        XCTAssertEqual(right.keyframes.map(\.time), [-4, 1])
+        for t in [5.0, 5.5, 6, 8] { XCTAssertEqual(right.value(at: t - 5), v.value(at: t), accuracy: 1e-9) }
+        // A piece before any animation becomes constant at its value.
+        var left = v
+        left.retainKeyframes(in: TimeRange(start: 0, end: 0.5), rebasingTo: 0)
+        XCTAssertTrue(left.keyframes.isEmpty)
+        XCTAssertEqual(left.value(at: 0.3), 1, accuracy: 1e-9)
     }
 
     func testHistoryUndoRedoAndCoalescing() {

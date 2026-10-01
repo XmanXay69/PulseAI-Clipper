@@ -124,7 +124,10 @@ prompt), cloud AI providers with live keys.
   `LayoutMorpher.rebuild` turns them into eased keyframes on the gameplay and facecam clips — position, scale,
   keyframed crop (`VisualTransform.cropAnimation`), keyframed style (`TimelineClip.styleKeyframes`: corners,
   border, shadow; a box rounds into a circle) and facecam opacity (it fades when a layout has no facecam). No
-  clips are split. Inspector → Layout → "Morph at Playhead"; AI Dynamic layouts use the same morphs. Rebuilding
+  clips are split. In-between frames move each clip's on-screen box and crop together (sampled 30×/s) so a
+  clip always exactly fills its box, and the canvas "Blur fill background" (on automatically once a timeline
+  has morphs) shows a blurred copy of the video wherever two layouts' boxes don't cover the frame.
+  Inspector → Layout → "Morph at Playhead"; AI Dynamic layouts use the same morphs. Rebuilding
   rewrites position/scale/crop/style keyframes on laid-out clips (zoom/pan punch-ins are separate and kept), so
   hand-made keyframes on those four properties are replaced when the layout schedule changes. Restoring a
   removed section doesn't shift later layout changes.

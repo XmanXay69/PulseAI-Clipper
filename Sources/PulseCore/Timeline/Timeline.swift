@@ -237,6 +237,11 @@ public struct CanvasSettings: Codable, Hashable, Sendable {
     public var height: Int
     public var frameRate: Double
     public var backgroundColor: RGBAColor
+    /// Fill the background with a blurred, darkened copy of the main video instead of a flat color
+    /// (shows wherever layers don't cover the frame, e.g. during layout morphs). Optional for old projects.
+    public var backgroundBlur: Bool?
+
+    public var blurFill: Bool { backgroundBlur ?? false }
 
     public init(width: Int, height: Int, frameRate: Double = 30, backgroundColor: RGBAColor = .black) {
         self.width = width

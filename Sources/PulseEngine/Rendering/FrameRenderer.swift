@@ -34,6 +34,9 @@ public final class FrameRenderer: @unchecked Sendable {
         let bounds = CGRect(origin: .zero, size: scene.renderSize)
         let bg = scene.canvas.backgroundColor
         var output = CIImage(color: CIColor(red: bg.red, green: bg.green, blue: bg.blue, alpha: bg.alpha)).cropped(to: bounds)
+        if scene.canvas.blurFill, let fill = blurFill(instruction: instruction, bounds: bounds, source: source) {
+            output = fill.composited(over: output)
+        }
         for layer in instruction.layers {
             if let image = renderLayer(layer, at: time, scene: scene, source: source) {
                 output = image.composited(over: output)
@@ -43,6 +46,29 @@ public final class FrameRenderer: @unchecked Sendable {
             output = caption.composited(over: output)
         }
         return output.cropped(to: bounds)
+    }
+
+    /// A darkened, heavily blurred copy of the bottom main video, scaled to cover the whole frame.
+    func blurFill(instruction: PulseCompositionInstruction, bounds: CGRect, source: (CMPersistentTrackID) -> CVPixelBuffer?) -> CIImage? {
+        let candidates = instruction.layers.filter { layer in
+            if case .video = layer.content { return true }
+            return false
+        }
+        let main = candidates.first { [.main, .gameplay, .camera].contains($0.clip.role ?? .main) } ?? candidates.first
+        guard let main, case .video(let trackID, _, let orientation) = main.content, let buffer = source(trackID) else { return nil }
+        var image = CIImage(cvPixelBuffer: buffer).oriented(orientation)
+        image = image.transformed(by: CGAffineTransform(translationX: -image.extent.minX, y: -image.extent.minY))
+        guard image.extent.width > 0, image.extent.height > 0 else { return nil }
+        // Blur small (fast), then scale up to cover.
+        let small: CGFloat = 0.125
+        let cover = max(bounds.width / image.extent.width, bounds.height / image.extent.height)
+        var fill = image.transformed(by: CGAffineTransform(scaleX: cover * small, y: cover * small))
+        fill = fill.clampedToExtent().applyingGaussianBlur(sigma: 6).cropped(to: fill.extent)
+        fill = fill.applyingFilter("CIExposureAdjust", parameters: [kCIInputEVKey: -1.2])
+        fill = fill.transformed(by: CGAffineTransform(scaleX: 1 / small, y: 1 / small))
+        let dx = (bounds.width - fill.extent.width) / 2 - fill.extent.minX
+        let dy = (bounds.height - fill.extent.height) / 2 - fill.extent.minY
+        return fill.transformed(by: CGAffineTransform(translationX: dx, y: dy)).cropped(to: bounds)
     }
 
     // MARK: Layers

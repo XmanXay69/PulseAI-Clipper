@@ -598,6 +598,8 @@ struct TimelineInspector: View {
                     ForEach([24.0, 25, 30, 50, 60], id: \.self) { Text("\(Int($0)) fps").tag($0) }
                 }
                 ColorRow(label: "Background", color: Binding(get: { timeline.canvas.backgroundColor }, set: { c in session.editTimeline("Background", coalesce: "bg") { $0.canvas.backgroundColor = c } }))
+                ToggleRow(label: "Blur fill background", isOn: Binding(get: { timeline.canvas.blurFill }, set: { on in session.editTimeline("Blur Fill") { $0.canvas.backgroundBlur = on } }),
+                          help: "Fill empty areas with a blurred copy of the video instead of a flat color")
             }
             InspectorSection("Layout", isAI: timeline.layout == .dynamic) {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 88), spacing: 6)], spacing: 6) {
