@@ -168,8 +168,8 @@ public enum MediaAccess {
     }
 
     public static func bookmark(for url: URL) -> Data? {
-        try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
-            ?? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
+        (try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil))
+            ?? (try? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil))
     }
 }
 

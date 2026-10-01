@@ -92,7 +92,7 @@ final class CompoundClipTests: XCTestCase {
         doc.compounds = [nested]
         XCTAssertNotNil(doc.timeline(id: nested.id))
         XCTAssertTrue(doc.isCompound(nested.id))
-        try doc.editTimeline(id: nested.id) { $0.name = "Renamed" }
+        doc.editTimeline(id: nested.id) { $0.name = "Renamed" }
         XCTAssertEqual(doc.compounds[0].name, "Renamed")
         XCTAssertEqual(CompoundEditor.referencedCompounds(of: t, in: doc.compoundsByID), [nested.id])
         // Round-trips through the project file.

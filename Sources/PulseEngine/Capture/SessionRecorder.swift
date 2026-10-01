@@ -189,13 +189,13 @@ public final class SessionRecorder: NSObject, @unchecked Sendable {
             _ = try? await screen.stop()
             throw error
         }
-        lock.lock()
-        self.screen = screen
-        self.camera = camera
-        self.startedAt = Date()
-        self.pausedAt = nil
-        self.pausedTotal = 0
-        lock.unlock()
+        lock.withLock {
+            self.screen = screen
+            self.camera = camera
+            self.startedAt = Date()
+            self.pausedAt = nil
+            self.pausedTotal = 0
+        }
     }
 
     /// Recorded time so far (paused time excluded).
@@ -234,13 +234,14 @@ public final class SessionRecorder: NSObject, @unchecked Sendable {
     }
 
     public func stop() async throws -> RecordingResult {
-        lock.lock()
-        let screen = self.screen, camera = self.camera
-        self.screen = nil
-        self.camera = nil
-        self.startedAt = nil
-        self.pausedAt = nil
-        lock.unlock()
+        let (screen, camera) = lock.withLock { () -> (ScreenCapture?, CameraCapture?) in
+            let taken = (self.screen, self.camera)
+            self.screen = nil
+            self.camera = nil
+            self.startedAt = nil
+            self.pausedAt = nil
+            return taken
+        }
         guard screen != nil || camera != nil else { throw CaptureError.notRecording }
         var warnings: [String] = []
         var raw: [(url: URL, role: MediaRole, hostStart: Seconds, duration: Seconds)] = []
@@ -577,9 +578,7 @@ final class CameraCapture: NSObject, AVCaptureFileOutputRecordingDelegate, @unch
             output.stopRecording()
         }
         session.stopRunning()
-        lock.lock()
-        let start = hostStart ?? hostSeconds()
-        lock.unlock()
+        let start = lock.withLock { hostStart ?? hostSeconds() }
         return (url, start, duration)
     }
 

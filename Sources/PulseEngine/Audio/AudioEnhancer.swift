@@ -25,7 +25,7 @@ public actor AudioEnhancer {
         if FileManager.default.fileExists(atPath: output.path) { return output }
         if let running = inFlight[key] { return try await running.value }
         let task = Task.detached(priority: .userInitiated) {
-            try AudioEnhancer.process(sourceURL: sourceURL, range: range, settings: settings, output: output)
+            try await AudioEnhancer.process(sourceURL: sourceURL, range: range, settings: settings, output: output)
             return output
         }
         inFlight[key] = task
@@ -34,9 +34,9 @@ public actor AudioEnhancer {
     }
 
     /// Decodes the range to float PCM, runs the chain, writes a CAF next to other caches.
-    static func process(sourceURL: URL, range: TimeRange, settings: AudioSettings, output: URL) throws {
+    static func process(sourceURL: URL, range: TimeRange, settings: AudioSettings, output: URL) async throws {
         let asset = AVURLAsset(url: sourceURL)
-        guard let track = asset.tracks(withMediaType: .audio).first else { throw EngineError.noAudioTrack(sourceURL) }
+        guard let track = try await asset.loadTracks(withMediaType: .audio).first else { throw EngineError.noAudioTrack(sourceURL) }
         let reader = try AVAssetReader(asset: asset)
         reader.timeRange = CMTimeRange(start: .seconds(range.start), duration: .seconds(range.duration))
         let trackOutput = AVAssetReaderTrackOutput(track: track, outputSettings: [
