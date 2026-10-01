@@ -16,18 +16,22 @@ struct InspectorView: View {
     var body: some View {
         VStack(spacing: 0) {
             PanelHeader("Inspector", subtitle: subtitle)
-            ScrollView {
-                VStack(spacing: 0) {
-                    if let timeline = session.activeTimeline {
-                        let clips = session.selectedClips
-                        if clips.count == 1, let clip = clips.first, let track = timeline.track(containingClip: clip.id) {
-                            ClipInspector(session: session, playback: playback, clip: clip, track: track)
-                        } else if clips.count > 1 {
-                            MultiSelectionInspector(session: session, count: clips.count)
-                        } else {
-                            TimelineInspector(session: session, timeline: timeline)
+            GeometryReader { geo in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        if let timeline = session.activeTimeline {
+                            let clips = session.selectedClips
+                            if clips.count == 1, let clip = clips.first, let track = timeline.track(containingClip: clip.id) {
+                                ClipInspector(session: session, playback: playback, clip: clip, track: track)
+                            } else if clips.count > 1 {
+                                MultiSelectionInspector(session: session, count: clips.count)
+                            } else {
+                                TimelineInspector(session: session, timeline: timeline)
+                            }
                         }
                     }
+                    // Lay everything out at the column's real width so rows never run past its edge.
+                    .frame(width: geo.size.width)
                 }
             }
         }
@@ -603,7 +607,7 @@ struct TimelineInspector: View {
                           help: "Fill empty areas with a blurred copy of the video instead of a flat color")
             }
             InspectorSection("Layout", isAI: timeline.layout == .dynamic) {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 88), spacing: 6)], spacing: 6) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 80), spacing: 6)], spacing: 6) {
                     ForEach(LayoutPreset.allCases, id: \.self) { preset in
                         Button { session.applyLayout(preset) } label: {
                             VStack(spacing: 4) {
