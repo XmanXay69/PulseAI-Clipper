@@ -138,6 +138,7 @@ struct ClipInspector: View {
                 }
                 transformSection(showCrop: true)
                 styleSection
+                speedSection
                 ColorInspector(session: session, clip: clip, b: b)
                 EffectsInspector(session: session, clip: clip)
                 transitionsSection

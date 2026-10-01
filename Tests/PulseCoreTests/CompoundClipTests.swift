@@ -101,4 +101,24 @@ final class CompoundClipTests: XCTestCase {
         XCTAssertEqual(decoded.compounds.first?.id, nested.id)
         XCTAssertEqual(decoded.timelines[0].allClips.first { $0.content.compoundID != nil }?.content.compoundID, nested.id)
     }
+
+    func testCompoundAtDoubleSpeedPlaysEverythingInsideTwiceAsFast() throws {
+        var t = try makeTimeline()
+        let ids = t.allClips.filter { ["A", "B", "Title"].contains($0.name) }.map(\.id)
+        let (nested, compoundID) = try CompoundEditor.makeCompound(in: &t, clipIDs: ids, name: "Intro")
+        try t.setSpeed(clipID: compoundID, speed: 2)
+        let compound = try XCTUnwrap(t.clip(id: compoundID))
+        XCTAssertEqual(compound.duration, 3.5, accuracy: 1e-9)
+        XCTAssertEqual(t.allClips.first { $0.name == "Outro" }?.start ?? 0, 8.5, accuracy: 1e-9, "later clips ripple in")
+        let pieces = CompoundEditor.flatten(compound, nested: nested)
+        let b = try XCTUnwrap(pieces.first { $0.clip.name == "B" }?.clip)
+        // B started 4 s into the compound → 2 s at double speed; still shows source 30…33.
+        XCTAssertEqual(b.start, 2 + 2, accuracy: 1e-9)
+        XCTAssertEqual(b.speed, 2, accuracy: 1e-9)
+        XCTAssertEqual(b.sourceRange, TimeRange(start: 30, end: 33))
+        XCTAssertEqual(b.end, compound.end, accuracy: 1e-9)
+        // Breaking apart keeps the faster timing.
+        try CompoundEditor.breakApart(&t, clipID: compoundID, nested: nested)
+        XCTAssertEqual(t.allClips.first { $0.name == "B" }?.speed ?? 0, 2, accuracy: 1e-9)
+    }
 }

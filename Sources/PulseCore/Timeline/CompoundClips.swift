@@ -68,9 +68,10 @@ public enum CompoundEditor {
     }
 
     /// The nested timeline's clips as they appear inside the compound clip, in the parent's time.
+    /// A compound played at speed `s` plays everything inside at `s` too.
     public static func flatten(_ compound: TimelineClip, nested: Timeline) -> [FlattenedClip] {
         let window = compound.sourceRange
-        let delta = compound.start - compound.sourceIn
+        let s = max(compound.speed, 0.01)
         var out: [FlattenedClip] = []
         for (ti, track) in nested.tracks.enumerated() where !track.isHidden {
             for clip in track.clips where clip.isEnabled {
@@ -92,7 +93,18 @@ public enum CompoundEditor {
                     c.transitionOut = nil
                 }
                 guard c.duration > Timeline.minimumClipDuration else { continue }
-                c.start += delta
+                // Nested time τ plays at parent time start + (τ − in) / s.
+                c.start = compound.start + (c.start - window.start) / s
+                if abs(s - 1) > 1e-9 {
+                    c.speed *= s
+                    c.transform = Timeline.rescaleKeyframes(c.transform, by: 1 / s)
+                    c.styleKeyframes = c.styleKeyframes.map { var k = $0; k.time /= s; return k }
+                    c.audio.volume = AnimatedDouble(c.audio.volume.value, keyframes: c.audio.volume.keyframes.map { var k = $0; k.time /= s; return k })
+                    c.audio.fadeIn /= s
+                    c.audio.fadeOut /= s
+                    c.transitionIn?.duration /= s
+                    c.transitionOut?.duration /= s
+                }
                 if track.isMuted { c.audio.isMuted = true }
                 out.append(FlattenedClip(trackIndex: ti, trackKind: track.kind, trackName: track.name, clip: c))
             }

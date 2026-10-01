@@ -446,6 +446,7 @@ extension Timeline {
             // Rescale keyframe times so animation keeps its relative timing.
             var c = tracks[l.trackIndex].clips[l.clipIndex]
             c.transform = Timeline.rescaleKeyframes(c.transform, by: ratio)
+            c.styleKeyframes = c.styleKeyframes.map { var k = $0; k.time *= ratio; return k }
             tracks[l.trackIndex].clips[l.clipIndex] = c
             let delta = newDuration - oldDuration
             for ci in tracks[l.trackIndex].clips.indices where ci > l.clipIndex {
@@ -475,6 +476,10 @@ extension Timeline {
         t.zoom = rescale(t.zoom)
         t.panX = rescale(t.panX)
         t.panY = rescale(t.panY)
+        if var crop = t.cropAnimation {
+            crop.x = rescale(crop.x); crop.y = rescale(crop.y); crop.width = rescale(crop.width); crop.height = rescale(crop.height)
+            t.cropAnimation = crop
+        }
         return t
     }
 
@@ -627,6 +632,15 @@ extension Timeline {
             }
         }
         guard !anchors.isEmpty else { throw TimelineEditError.nothingToRestore }
+        // Markers and layout changes after the restore point move with the content.
+        do {
+            let (ti, rawIndex) = anchors[0]
+            let anchor = tracks[ti].clips[rawIndex < 0 ? -(rawIndex + 1) : rawIndex]
+            let position = rawIndex < 0 ? anchor.start : anchor.end
+            let gap = range.duration / anchor.speed
+            for i in markers.indices where markers[i].time >= position - TimeRange.epsilon { markers[i].time += gap }
+            for i in layoutChanges.indices where layoutChanges[i].time >= position - TimeRange.epsilon { layoutChanges[i].time += gap }
+        }
         for (ti, rawIndex) in anchors {
             let insertBefore = rawIndex < 0
             let ci = insertBefore ? -(rawIndex + 1) : rawIndex

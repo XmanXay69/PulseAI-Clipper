@@ -96,9 +96,9 @@ prompt), cloud AI providers with live keys.
   speech (singing or instruments you want to keep will be removed — use Classic there). **Classic** is spectral
   subtraction + expander, used for old projects and whenever the model isn't available. Speed on the CI VM is
   ~2.8× real time per channel (Apple Silicon should be faster); renders are cached per clip + settings.
-- **Compound clips** (⌥G to nest, double-click to open, ⇧⌘G to break apart) render and export; they can't be
-  retimed (speed) or reframed per nested clip from the parent, and effects on the compound apply to the
-  flattened result.
+- **Compound clips** (⌥G to nest, double-click to open, ⇧⌘G to break apart) render and export, and can be sped
+  up or slowed down (everything inside plays at that speed); effects on the compound apply to the flattened
+  result.
 - **Multicam** works for synced sessions (imported multi-camera recordings via audio sync, or PULSE recordings):
   Angles panel, 1–9 live cuts, Inspector switching, grid shots (2-up / 3-up / 2×2 / featured, on "Grid N"
   tracks), AI active-speaker switching with a 2-up grid on crosstalk (needs one mic per angle; otherwise it
@@ -136,8 +136,8 @@ prompt), cloud AI providers with live keys.
   has morphs) shows a blurred copy of the video wherever two layouts' boxes don't cover the frame.
   Inspector → Layout → "Morph at Playhead"; AI Dynamic layouts use the same morphs. Rebuilding
   rewrites position/scale/crop/style keyframes on laid-out clips (zoom/pan punch-ins are separate and kept), so
-  hand-made keyframes on those four properties are replaced when the layout schedule changes. Restoring a
-  removed section doesn't shift later layout changes.
+  hand-made keyframes on those four properties are replaced when the layout schedule changes. Cutting and
+  restoring sections moves markers and layout changes with the content.
 - Cross-dissolves (video + linked audio crossfade) need media handles; at the very start/end of a recording they
   fall back to a fade over lower tracks.
 - whisper.cpp itself must be installed with Homebrew (`brew install whisper-cpp`); models download in-app

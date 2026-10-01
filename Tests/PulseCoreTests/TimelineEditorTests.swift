@@ -125,6 +125,8 @@ final class TimelineEditorTests: XCTestCase {
 
     func testRemoveSourceRangesAndRestore() throws {
         var t = Fixtures.simpleTimeline(clipDuration: 20) // source 100…120
+        t.markers.append(Marker(time: 12, name: "Payoff"))
+        t.layoutChanges.append(LayoutChange(time: 15, preset: .facecamCorner))
         let removed = t.removeSourceRanges([TimeRange(start: 105, end: 108)], assetID: asset, reason: .silence, aiGenerated: true)
         XCTAssertEqual(removed, 3, accuracy: 1e-6)
         XCTAssertEqual(t.duration, 17, accuracy: 1e-6)
@@ -134,8 +136,12 @@ final class TimelineEditorTests: XCTestCase {
         // Source continuity around the cut.
         XCTAssertEqual(t.tracks[0].clips[0].sourceOut, 105, accuracy: 1e-6)
         XCTAssertEqual(t.tracks[0].clips[1].sourceIn, 108, accuracy: 1e-6)
+        XCTAssertEqual(t.markers[0].time, 9, accuracy: 1e-6)
+        XCTAssertEqual(t.layoutChanges[0].time, 12, accuracy: 1e-6)
 
         try t.restore(removedSectionID: t.removedSections[0].id)
+        XCTAssertEqual(t.markers[0].time, 12, accuracy: 1e-6, "markers move back with the restored content")
+        XCTAssertEqual(t.layoutChanges[0].time, 15, accuracy: 1e-6)
         XCTAssertEqual(t.duration, 20, accuracy: 1e-6)
         XCTAssertTrue(t.removedSections.isEmpty)
         XCTAssertEqual(t.tracks[0].clips.count, 1, "restored halves should merge back")
