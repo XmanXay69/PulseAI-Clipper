@@ -46,6 +46,8 @@ public struct TimelineClip: Codable, Hashable, Identifiable, Sendable {
     public var speed: Double
     public var transform: VisualTransform
     public var style: LayerStyle
+    /// Keyframed styles (layout morphs: a box rounding into a circle, borders fading in).
+    public var styleKeyframes: [StyleKeyframe]
     public var color: ColorAdjustments
     public var effects: [EffectInstance]
     public var audio: AudioSettings
@@ -74,6 +76,7 @@ public struct TimelineClip: Codable, Hashable, Identifiable, Sendable {
         self.speed = speed
         self.transform = transform
         self.style = style
+        self.styleKeyframes = []
         self.color = color
         self.effects = effects
         self.audio = audio
@@ -97,6 +100,7 @@ public struct TimelineClip: Codable, Hashable, Identifiable, Sendable {
         speed = c.decode(Double.self, forKey: .speed, default: 1)
         transform = c.decode(VisualTransform.self, forKey: .transform, default: .identity)
         style = c.decode(LayerStyle.self, forKey: .style, default: .plain)
+        styleKeyframes = c.decode([StyleKeyframe].self, forKey: .styleKeyframes, default: [])
         color = c.decode(ColorAdjustments.self, forKey: .color, default: .neutral)
         effects = c.decode([EffectInstance].self, forKey: .effects, default: [])
         audio = c.decode(AudioSettings.self, forKey: .audio, default: AudioSettings())
@@ -129,6 +133,11 @@ public struct TimelineClip: Codable, Hashable, Identifiable, Sendable {
     /// Clip-relative time for keyframe evaluation.
     public func localTime(atTimeline t: Seconds) -> Seconds {
         t - start
+    }
+
+    /// The layer style at clip time `t` (keyframed styles blend; otherwise `style`).
+    public func style(at t: Seconds) -> LayerStyle {
+        styleKeyframes.style(at: t) ?? style
     }
 
     public var isVisual: Bool {
@@ -301,6 +310,25 @@ public struct TimelineOrigin: Codable, Hashable, Sendable {
     }
 }
 
+/// A switch to another layout at a point of the timeline, animated over `duration`.
+public struct LayoutChange: Codable, Hashable, Identifiable, Sendable {
+    public var id: UUID
+    /// Timeline time the morph starts.
+    public var time: Seconds
+    public var preset: LayoutPreset
+    /// Morph length (0 = hard cut).
+    public var duration: Seconds
+    public var aiGenerated: Bool
+
+    public init(id: UUID = UUID(), time: Seconds, preset: LayoutPreset, duration: Seconds = 0.5, aiGenerated: Bool = false) {
+        self.id = id
+        self.time = time
+        self.preset = preset
+        self.duration = duration
+        self.aiGenerated = aiGenerated
+    }
+}
+
 /// An editable sequence (one short, or a long-form edit).
 public struct Timeline: Codable, Hashable, Identifiable, Sendable {
     public var id: UUID
@@ -310,6 +338,8 @@ public struct Timeline: Codable, Hashable, Identifiable, Sendable {
     public var captions: CaptionTrack?
     public var markers: [Marker]
     public var layout: LayoutPreset?
+    /// Layout changes over time (each morphs smoothly from the layout before it). Empty = `layout` throughout.
+    public var layoutChanges: [LayoutChange]
     public var origin: TimelineOrigin?
     public var removedSections: [RemovedSection]
     public var aiFramingEnabled: Bool
@@ -330,6 +360,7 @@ public struct Timeline: Codable, Hashable, Identifiable, Sendable {
         self.captions = captions
         self.markers = markers
         self.layout = layout
+        self.layoutChanges = []
         self.origin = origin
         self.removedSections = removedSections
         self.aiFramingEnabled = aiFramingEnabled
@@ -348,6 +379,7 @@ public struct Timeline: Codable, Hashable, Identifiable, Sendable {
         captions = c.decode(CaptionTrack?.self, forKey: .captions, default: nil)
         markers = c.decode([Marker].self, forKey: .markers, default: [])
         layout = c.decode(LayoutPreset?.self, forKey: .layout, default: nil)
+        layoutChanges = c.decode([LayoutChange].self, forKey: .layoutChanges, default: [])
         origin = c.decode(TimelineOrigin?.self, forKey: .origin, default: nil)
         removedSections = c.decode([RemovedSection].self, forKey: .removedSections, default: [])
         aiFramingEnabled = c.decode(Bool.self, forKey: .aiFramingEnabled, default: true)

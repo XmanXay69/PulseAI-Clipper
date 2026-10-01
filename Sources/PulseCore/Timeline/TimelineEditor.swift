@@ -179,6 +179,8 @@ extension Timeline {
         // Keyframes stay locked to content.
         left.transform.retainKeyframes(in: TimeRange(start: 0, end: local), rebasingTo: 0)
         right.transform.retainKeyframes(in: TimeRange(start: local, end: clip.duration), rebasingTo: local)
+        left.styleKeyframes = clip.styleKeyframes.retained(in: TimeRange(start: 0, end: local), rebasingTo: 0)
+        right.styleKeyframes = clip.styleKeyframes.retained(in: TimeRange(start: local, end: clip.duration), rebasingTo: local)
         left.audio.volume.retainKeyframes(in: TimeRange(start: 0, end: local), rebasingTo: 0)
         right.audio.volume.retainKeyframes(in: TimeRange(start: local, end: clip.duration), rebasingTo: local)
         left.audio.fadeOut = 0
@@ -265,6 +267,11 @@ extension Timeline {
             markers[i].time -= range.duration
         }
         markers.removeAll { range.contains($0.time) && $0.time > range.start + TimeRange.epsilon }
+        // Layout changes follow the edit; one inside the removed range now starts where the cut is.
+        for i in layoutChanges.indices {
+            if layoutChanges[i].time >= range.end { layoutChanges[i].time -= range.duration }
+            else if layoutChanges[i].time > range.start { layoutChanges[i].time = range.start }
+        }
         relinkSplitSegments()
         touch()
     }
@@ -379,6 +386,7 @@ extension Timeline {
             c.sourceIn += delta * c.speed
             c.sourceDuration -= delta * c.speed
             c.transform.shiftKeyframes(by: -delta)
+            c.styleKeyframes = c.styleKeyframes.map { var k = $0; k.time -= delta; return k }
             c.audio.volume.shiftKeyframes(by: -delta)
             if ripple {
                 // Head ripple: clip stays at its start, later clips shift by -delta.
@@ -634,6 +642,7 @@ extension Timeline {
                 tracks[ti].clips[ci].sourceIn = range.start
                 tracks[ti].clips[ci].sourceDuration += range.duration
                 tracks[ti].clips[ci].transform.shiftKeyframes(by: gap)
+                tracks[ti].clips[ci].styleKeyframes = tracks[ti].clips[ci].styleKeyframes.map { var k = $0; k.time += gap; return k }
             } else {
                 tracks[ti].clips[ci].sourceDuration += range.duration
                 // If the next clip continues the source right after, merge it back in.

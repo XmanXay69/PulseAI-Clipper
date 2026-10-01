@@ -158,6 +158,22 @@ enum UISnapshotter {
                 FileHandle.standardError.write(Data("UI-SOUNDS music clip added after \(soundWait)s: \(session.activeTimeline?.allClips.contains { $0.role == .music } ?? false)\n".utf8))
                 session.leftTab = .media
             }
+            // Layout morph: from 2 s the split screen animates into a circle facecam.
+            if let session = app.session, let short = session.document.timelines.first {
+                app.section = .editor
+                session.open(timelineID: short.id)
+                session.selectedClipIDs = []
+                session.playback.seek(to: 2)
+                try? await Task.sleep(nanoseconds: 800_000_000)
+                session.addLayoutChange(.circleFacecam, duration: 1)
+                session.playback.seek(to: 2.5)
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                capture(app: app, name: "13d-layout-morph", to: directory)
+                await captureViewerFrame(app: app, name: "13d-layout-morph-viewer-frame", to: directory)
+                session.playback.seek(to: 4)
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                await captureViewerFrame(app: app, name: "13e-layout-morph-after-viewer-frame", to: directory)
+            }
             // Record sheet (shows the permission card on machines without Screen Recording access).
             app.showRecordSheet = true
             try? await Task.sleep(nanoseconds: 2_500_000_000)

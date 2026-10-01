@@ -118,7 +118,7 @@ public final class FrameRenderer: @unchecked Sendable {
         image = image.transformed(by: CGAffineTransform(translationX: -image.extent.minX, y: -image.extent.minY))
         image = image.cropped(to: CGRect(x: 0, y: 0, width: targetW, height: targetH))
 
-        image = applyStyle(image, style: clip.style, size: CGSize(width: targetW, height: targetH), renderScale: rs)
+        image = applyStyle(image, style: clip.style(at: local), size: CGSize(width: targetW, height: targetH), renderScale: rs)
 
         let tr = transitionState(clip, local: local, scene: scene)
         let center = CGPoint(x: g.center.x * rs + tr.offset.x + shake.x, y: H - g.center.y * rs + tr.offset.y + shake.y)

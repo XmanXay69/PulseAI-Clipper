@@ -34,6 +34,8 @@ public struct VisualTransform: Codable, Hashable, Sendable {
     public var panX: AnimatedDouble
     public var panY: AnimatedDouble
     public var crop: NormRect
+    /// Keyframed crop (layout morphs); when animated it overrides `crop`.
+    public var cropAnimation: AnimatedRect?
     public var fit: FitMode
     public var flipHorizontal: Bool
     public var flipVertical: Bool
@@ -49,6 +51,7 @@ public struct VisualTransform: Codable, Hashable, Sendable {
         self.panX = AnimatedDouble(0)
         self.panY = AnimatedDouble(0)
         self.crop = crop
+        self.cropAnimation = nil
         self.fit = fit
         self.flipHorizontal = false
         self.flipVertical = false
@@ -67,13 +70,20 @@ public struct VisualTransform: Codable, Hashable, Sendable {
         panX = c.decode(AnimatedDouble.self, forKey: .panX, default: AnimatedDouble(0))
         panY = c.decode(AnimatedDouble.self, forKey: .panY, default: AnimatedDouble(0))
         crop = c.decode(NormRect.self, forKey: .crop, default: .full)
+        cropAnimation = c.decode(AnimatedRect?.self, forKey: .cropAnimation, default: nil)
         fit = c.decode(FitMode.self, forKey: .fit, default: .fit)
         flipHorizontal = c.decode(Bool.self, forKey: .flipHorizontal, default: false)
         flipVertical = c.decode(Bool.self, forKey: .flipVertical, default: false)
     }
 
     public var hasKeyframes: Bool {
-        [positionX, positionY, scale, rotation, opacity, zoom, panX, panY].contains { $0.isAnimated }
+        [positionX, positionY, scale, rotation, opacity, zoom, panX, panY].contains { $0.isAnimated } || cropAnimation?.isAnimated == true
+    }
+
+    /// The crop at clip time `t` (before pan and content zoom).
+    public func crop(at t: Seconds) -> NormRect {
+        if let cropAnimation, cropAnimation.isAnimated { return cropAnimation.value(at: t) }
+        return crop
     }
 
     public mutating func shiftKeyframes(by delta: Seconds) {
@@ -85,6 +95,7 @@ public struct VisualTransform: Codable, Hashable, Sendable {
         zoom.shiftKeyframes(by: delta)
         panX.shiftKeyframes(by: delta)
         panY.shiftKeyframes(by: delta)
+        cropAnimation?.shiftKeyframes(by: delta)
     }
 
     public mutating func retainKeyframes(in range: TimeRange, rebasingTo origin: Seconds) {
@@ -96,6 +107,7 @@ public struct VisualTransform: Codable, Hashable, Sendable {
         zoom.retainKeyframes(in: range, rebasingTo: origin)
         panX.retainKeyframes(in: range, rebasingTo: origin)
         panY.retainKeyframes(in: range, rebasingTo: origin)
+        cropAnimation?.retainKeyframes(in: range, rebasingTo: origin)
     }
 
     public mutating func removeAIKeyframes() {
@@ -112,7 +124,7 @@ public struct VisualTransform: Codable, Hashable, Sendable {
     /// Crop actually sampled at time `t` after pan + content zoom, clamped inside the source.
     public func effectiveCrop(at t: Seconds) -> NormRect {
         let z = max(zoom.value(at: t), 0.05)
-        var rect = crop.offsetBy(dx: panX.value(at: t), dy: panY.value(at: t))
+        var rect = crop(at: t).offsetBy(dx: panX.value(at: t), dy: panY.value(at: t))
         rect = rect.scaled(by: 1 / z)
         return rect.clampedToUnit()
     }
@@ -138,7 +150,7 @@ public enum LayerGeometry {
     public static func resolve(_ transform: VisualTransform, at t: Seconds, sourceSize: Size2, canvasSize: Size2) -> ResolvedLayerGeometry {
         let crop = transform.effectiveCrop(at: t)
         // Base size uses the un-zoomed crop so content zoom never changes the frame.
-        let base = transform.crop.clampedToUnit()
+        let base = transform.crop(at: t).clampedToUnit()
         let cw = max(base.width * sourceSize.width, 1)
         let ch = max(base.height * sourceSize.height, 1)
         var size: Size2
@@ -221,6 +233,75 @@ public struct LayerStyle: Codable, Hashable, Sendable {
 
     public static let plain = LayerStyle()
     public var isPlain: Bool { mask == .rectangle && borderWidth <= 0 && shadowOpacity <= 0 }
+
+    /// Corner rounding as a fraction of the shorter side (circle = 0.5).
+    var roundness: Double {
+        switch mask {
+        case .rectangle: return cornerRadius
+        case .roundedRectangle: return max(cornerRadius, 0.04)
+        case .circle, .ellipse: return 0.5
+        }
+    }
+
+    /// Blend toward `other` (0…1). Different mask shapes morph through rounded corners, so a box can
+    /// grow into a circle (a square slot with 50% rounding is a circle).
+    public func interpolated(to other: LayerStyle, _ t: Double) -> LayerStyle {
+        let p = t.clamped(0, 1)
+        if p <= 0 { return self }
+        if p >= 1 { return other }
+        func mix(_ a: Double, _ b: Double) -> Double { a + (b - a) * p }
+        var out = LayerStyle()
+        if mask == other.mask {
+            out.mask = mask
+            out.cornerRadius = mix(cornerRadius, other.cornerRadius)
+        } else if mask == .ellipse || other.mask == .ellipse {
+            out.mask = p < 0.5 ? mask : other.mask
+            out.cornerRadius = p < 0.5 ? cornerRadius : other.cornerRadius
+        } else {
+            out.mask = .rectangle
+            out.cornerRadius = mix(roundness, other.roundness)
+        }
+        out.borderWidth = mix(borderWidth, other.borderWidth)
+        out.borderColor = other.borderWidth > 0 ? other.borderColor : borderColor
+        out.shadowRadius = mix(shadowRadius, other.shadowRadius)
+        out.shadowOpacity = mix(shadowOpacity, other.shadowOpacity)
+        out.shadowOffsetY = mix(shadowOffsetY, other.shadowOffsetY)
+        return out
+    }
+}
+
+/// A style at a moment of a clip (clip-relative time); styles between keyframes blend with ease-in-out.
+public struct StyleKeyframe: Codable, Hashable, Sendable {
+    public var time: Seconds
+    public var style: LayerStyle
+
+    public init(time: Seconds, style: LayerStyle) {
+        self.time = time
+        self.style = style
+    }
+}
+
+extension Array where Element == StyleKeyframe {
+    /// The blended style at clip time `t`, or nil when there are no keyframes.
+    public func style(at t: Seconds) -> LayerStyle? {
+        guard let first = first, let last = last else { return nil }
+        if t <= first.time { return first.style }
+        if t >= last.time { return last.style }
+        guard let i = lastIndex(where: { $0.time <= t }), i + 1 < count else { return last.style }
+        let a = self[i], b = self[i + 1]
+        let span = b.time - a.time
+        guard span > TimeRange.epsilon else { return b.style }
+        return a.style.interpolated(to: b.style, Interpolation.easeInOut.apply((t - a.time) / span))
+    }
+
+    /// Same idea as `AnimatedDouble.retainKeyframes`: keep what shapes `range`, rebased.
+    public func retained(in range: TimeRange, rebasingTo origin: Seconds) -> [StyleKeyframe] {
+        let inside = indices.filter { self[$0].time >= range.start - TimeRange.epsilon && self[$0].time <= range.end + TimeRange.epsilon }
+        var keep = Set(inside)
+        if let before = indices.last(where: { self[$0].time < range.start - TimeRange.epsilon }), contains(where: { $0.time > range.start }) { keep.insert(before) }
+        if let after = indices.first(where: { self[$0].time > range.end + TimeRange.epsilon }), contains(where: { $0.time < range.end }) { keep.insert(after) }
+        return indices.filter { keep.contains($0) }.map { var k = self[$0]; k.time -= origin; return k }
+    }
 }
 
 /// Primary color correction. All values are neutral at 0 (exposure in stops, others −1…1),

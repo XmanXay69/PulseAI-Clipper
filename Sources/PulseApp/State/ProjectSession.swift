@@ -700,16 +700,63 @@ final class ProjectSession: ObservableObject, Identifiable {
         open(timelineID: timeline.id)
     }
 
+    /// What the layout engine needs to know about a timeline's sources (main file, facecam file or region, faces).
+    func layoutContext(for timeline: Timeline) -> (context: LayoutContext, assetID: UUID?) {
+        let assetID = timeline.origin?.assetID ?? timeline.allClips.first { $0.isVisual && $0.role != .webcam && $0.assetID != nil }?.assetID ?? timeline.assetIDs.first
+        let size = assetID.flatMap { document.asset(id: $0)?.metadata.size } ?? Size2(1920, 1080)
+        var context = LayoutContext(analysis: analysis(for: timeline), sourceSize: size.isEmpty ? Size2(1920, 1080) : size)
+        // A separate facecam recording (screen + webcam sessions).
+        if let camID = timeline.allClips.first(where: { $0.role == .webcam && $0.assetID != nil && $0.assetID != assetID })?.assetID,
+           let cam = document.asset(id: camID) {
+            context.webcamSourceSize = cam.metadata.size.isEmpty ? Size2(1280, 720) : cam.metadata.size
+            context.webcamRegion = .full
+            context.webcamFaceCenter = analyses[camID]?.webcam?.face.center
+        }
+        return (context, assetID)
+    }
+
     func applyLayout(_ preset: LayoutPreset) {
         guard let timeline = activeTimeline else { return }
+        let (context, assetID) = layoutContext(for: timeline)
         let analysis = analysis(for: timeline)
-        let assetID = timeline.origin?.assetID ?? timeline.assetIDs.first
-        let size = assetID.flatMap { document.asset(id: $0)?.metadata.size } ?? Size2(1920, 1080)
-        let context = LayoutContext(analysis: analysis, sourceSize: size)
         editTimeline("Layout: \(preset.displayName)") { t in
             if preset.usesWebcam, context.webcamRegion != nil, let assetID { LayoutEngine.ensureWebcamLayer(in: &t, assetID: assetID) }
             LayoutEngine.apply(preset == .dynamic ? .splitScreen : preset, to: &t, context: context)
             t.layout = preset
+            if preset == .dynamic, context.webcamRegion != nil, let assetID, let analysis {
+                ShortBuilder.applyDynamicLayout(to: &t, assetID: assetID, analysis: analysis, context: context)
+            }
+        }
+        if preset == .dynamic, let t = activeTimeline {
+            app.toast(t.layoutChanges.isEmpty ? "No layout changes needed — the energy is even" : "\(t.layoutChanges.count) AI layout changes, morphing smoothly")
+        }
+    }
+
+    /// Morphs to `preset` starting at the playhead.
+    func addLayoutChange(_ preset: LayoutPreset, duration: Seconds) {
+        guard let timeline = activeTimeline else { return }
+        let (context, assetID) = layoutContext(for: timeline)
+        let time = playhead
+        editTimeline("Change Layout to \(preset.displayName)") { t in
+            if preset.usesWebcam, context.webcamRegion != nil, let assetID { LayoutEngine.ensureWebcamLayer(in: &t, assetID: assetID) }
+            if t.layout == nil { t.layout = LayoutMorpher.preset(at: 0, in: t) }
+            LayoutMorpher.addChange(preset, at: time, duration: duration, to: &t, context: context)
+        }
+    }
+
+    func removeLayoutChange(_ id: UUID) {
+        guard let timeline = activeTimeline else { return }
+        let (context, _) = layoutContext(for: timeline)
+        editTimeline("Remove Layout Change") { t in LayoutMorpher.removeChange(id: id, from: &t, context: context) }
+    }
+
+    func setLayoutChangeDuration(_ id: UUID, _ duration: Seconds) {
+        guard let timeline = activeTimeline else { return }
+        let (context, _) = layoutContext(for: timeline)
+        editTimeline("Layout Morph Length", coalesce: "morph-\(id)") { t in
+            guard let i = t.layoutChanges.firstIndex(where: { $0.id == id }) else { return }
+            t.layoutChanges[i].duration = duration
+            LayoutMorpher.rebuild(&t, context: context)
         }
     }
 

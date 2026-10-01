@@ -128,16 +128,63 @@ public struct AnimatedDouble: Codable, Hashable, Sendable {
         for i in keyframes.indices { keyframes[i].time += delta }
     }
 
-    /// Keeps only keyframes inside `range` (clip-relative), used after splitting.
+    /// Keeps the keyframes that shape `range` (clip-relative), used after splitting: those inside it plus
+    /// the nearest one on each side, so an animation crossing the cut keeps its exact curve.
     public mutating func retainKeyframes(in range: TimeRange, rebasingTo newOrigin: Seconds) {
         let boundaryValueStart = value(at: range.start)
         let hadKeyframes = isAnimated
-        keyframes = keyframes
-            .filter { $0.time >= range.start - TimeRange.epsilon && $0.time <= range.end + TimeRange.epsilon }
-            .map { var k = $0; k.time -= newOrigin; return k }
+        let inside = keyframes.indices.filter { keyframes[$0].time >= range.start - TimeRange.epsilon && keyframes[$0].time <= range.end + TimeRange.epsilon }
+        var keep = Set(inside)
+        if let before = keyframes.indices.last(where: { keyframes[$0].time < range.start - TimeRange.epsilon }),
+           keyframes.contains(where: { $0.time > range.start + TimeRange.epsilon }) {
+            keep.insert(before)
+        }
+        if let after = keyframes.indices.first(where: { keyframes[$0].time > range.end + TimeRange.epsilon }),
+           keyframes.contains(where: { $0.time < range.end - TimeRange.epsilon }) {
+            keep.insert(after)
+        }
+        keyframes = keyframes.indices.filter { keep.contains($0) }
+            .map { var k = keyframes[$0]; k.time -= newOrigin; return k }
         if hadKeyframes && keyframes.isEmpty {
             value = boundaryValueStart
         }
+    }
+}
+
+/// A rectangle whose edges can be keyframed (animated crops for layout morphs).
+public struct AnimatedRect: Codable, Hashable, Sendable {
+    public var x: AnimatedDouble
+    public var y: AnimatedDouble
+    public var width: AnimatedDouble
+    public var height: AnimatedDouble
+
+    public init(_ rect: NormRect) {
+        x = AnimatedDouble(rect.x)
+        y = AnimatedDouble(rect.y)
+        width = AnimatedDouble(rect.width)
+        height = AnimatedDouble(rect.height)
+    }
+
+    public var isAnimated: Bool { x.isAnimated || y.isAnimated || width.isAnimated || height.isAnimated }
+
+    public func value(at t: Seconds) -> NormRect {
+        NormRect(x: x.value(at: t), y: y.value(at: t), width: width.value(at: t), height: height.value(at: t))
+    }
+
+    public mutating func setKeyframe(at t: Seconds, _ rect: NormRect, interpolation: Interpolation = .easeInOut) {
+        x.setKeyframe(at: t, value: rect.x, interpolation: interpolation)
+        y.setKeyframe(at: t, value: rect.y, interpolation: interpolation)
+        width.setKeyframe(at: t, value: rect.width, interpolation: interpolation)
+        height.setKeyframe(at: t, value: rect.height, interpolation: interpolation)
+    }
+
+    public mutating func shiftKeyframes(by delta: Seconds) {
+        x.shiftKeyframes(by: delta); y.shiftKeyframes(by: delta); width.shiftKeyframes(by: delta); height.shiftKeyframes(by: delta)
+    }
+
+    public mutating func retainKeyframes(in range: TimeRange, rebasingTo origin: Seconds) {
+        x.retainKeyframes(in: range, rebasingTo: origin); y.retainKeyframes(in: range, rebasingTo: origin)
+        width.retainKeyframes(in: range, rebasingTo: origin); height.retainKeyframes(in: range, rebasingTo: origin)
     }
 }
 

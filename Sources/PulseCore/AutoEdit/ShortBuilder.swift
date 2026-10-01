@@ -205,9 +205,6 @@ public enum ShortBuilder {
         let signals: EngagementSignals? = analysis.map {
             EngagementModel.compute(duration: $0.duration, audio: $0.audio, transcript: $0.transcript, visual: $0.visual)
         }
-        if layout == .dynamic, hasWebcam, let signals {
-            applyDynamicLayout(to: &timeline, assetID: asset.id, range: candidate.range, signals: signals, context: context)
-        }
 
         // Dead air & fillers — recorded as restorable removed sections.
         if let silencePreset = options.silence {
@@ -223,6 +220,11 @@ public enum ShortBuilder {
                 let ranges = FillerWordDetector.cutRanges(for: fillers, in: transcript)
                 timeline.removeSourceRanges(ranges, assetID: asset.id, reason: .fillerWord, texts: fillers.map(\.text), aiGenerated: true)
             }
+        }
+
+        // AI layout changes, placed on the final (tightened) edit and morphing smoothly between layouts.
+        if layout == .dynamic, hasWebcam, let signals {
+            applyDynamicLayout(to: &timeline, assetID: asset.id, range: candidate.range, signals: signals, context: context)
         }
 
         // Captions.
@@ -330,22 +332,31 @@ public enum ShortBuilder {
         return sfx.first
     }
 
-    /// Splits the main/webcam clips at AI layout switch points and lays out each segment.
-    static func applyDynamicLayout(to timeline: inout Timeline, assetID: UUID, range: TimeRange, signals: EngagementSignals, context: LayoutContext) {
+    /// AI layout switches (facecam-dominant while talking, corner during action…) as smooth morphs on
+    /// the timeline's layout schedule — the clips aren't split.
+    public static func applyDynamicLayout(to timeline: inout Timeline, assetID: UUID, range: TimeRange, signals: EngagementSignals,
+                                          context: LayoutContext, morph: Seconds = 0.5) {
         let segments = DynamicLayoutPlanner.plan(range: range, signals: signals)
-        guard segments.count > 1 else { return }
-        // Cut at each boundary (source → timeline time through the first video clip).
-        for seg in segments.dropFirst() {
-            if let t = timeline.timelineRanges(forSource: TimeRange(start: seg.range.start, duration: 0.01), assetID: assetID).first?.start {
-                let ids = timeline.allClips.filter { $0.assetID == assetID && $0.timelineRange.contains(t) }.map(\.id)
-                _ = try? timeline.split(at: t, clipIDs: ids)
-            }
-        }
-        for seg in segments {
-            let ids = Set(timeline.allClips.filter { $0.assetID == assetID && seg.range.contains(($0.sourceIn + $0.sourceOut) / 2) }.map(\.id))
-            LayoutEngine.apply(seg.layout, to: &timeline, context: context, onlyClips: ids)
-        }
         timeline.layout = .dynamic
+        var changes: [LayoutChange] = []
+        if let first = segments.first, first.layout != LayoutMorpher.basePreset(of: timeline) {
+            changes.append(LayoutChange(time: 0, preset: first.layout, duration: 0, aiGenerated: true))
+        }
+        for seg in segments.dropFirst() {
+            // Where this moment ended up in the edit (or the next kept moment, if it was cut).
+            guard let t = timeline.timelineRanges(forSource: seg.range, assetID: assetID).map(\.start).min() else { continue }
+            changes.append(LayoutChange(time: max(0, t - morph / 2), preset: seg.layout, duration: morph, aiGenerated: true))
+        }
+        timeline.layoutChanges = changes
+        LayoutMorpher.rebuild(&timeline, context: context)
+    }
+
+    /// Dynamic layout for an existing edit (Editor → Layout → Dynamic), from the media analysis.
+    public static func applyDynamicLayout(to timeline: inout Timeline, assetID: UUID, analysis: MediaAnalysis, context: LayoutContext) {
+        let sources = timeline.allClips.filter { $0.assetID == assetID }.map(\.sourceRange)
+        guard let lo = sources.map(\.start).min(), let hi = sources.map(\.end).max(), hi > lo else { return }
+        let signals = EngagementModel.compute(duration: analysis.duration, audio: analysis.audio, transcript: analysis.transcript, visual: analysis.visual)
+        applyDynamicLayout(to: &timeline, assetID: assetID, range: TimeRange(start: lo, end: hi), signals: signals, context: context)
     }
 }
 

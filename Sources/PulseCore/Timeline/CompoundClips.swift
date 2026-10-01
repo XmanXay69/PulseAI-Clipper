@@ -85,6 +85,7 @@ public enum CompoundEditor {
                     c.sourceDuration -= cut * c.speed
                     c.transitionIn = nil
                     c.transform.retainKeyframes(in: TimeRange(start: cut, end: clip.duration), rebasingTo: cut)
+                    c.styleKeyframes = c.styleKeyframes.retained(in: TimeRange(start: cut, end: clip.duration), rebasingTo: cut)
                 }
                 if c.end > window.end {
                     c.sourceDuration -= (c.end - window.end) * c.speed

@@ -120,7 +120,14 @@ prompt), cloud AI providers with live keys.
   production, not a live band; judge by ear and tweak `Synth`/`MusicComposer` voices if something sounds off.
   Editor → Sounds tab (preview, search, add); AI shorts / Make More Entertaining use it when the project has no
   music/SFX of its own (Settings → AI music / sound effects).
-- Dynamic layouts (switching layout mid-clip) are done by splitting segments, not keyframed layout morphs.
+- **Layout morphs:** a timeline has a starting layout plus `layoutChanges` (time, layout, morph length);
+  `LayoutMorpher.rebuild` turns them into eased keyframes on the gameplay and facecam clips — position, scale,
+  keyframed crop (`VisualTransform.cropAnimation`), keyframed style (`TimelineClip.styleKeyframes`: corners,
+  border, shadow; a box rounds into a circle) and facecam opacity (it fades when a layout has no facecam). No
+  clips are split. Inspector → Layout → "Morph at Playhead"; AI Dynamic layouts use the same morphs. Rebuilding
+  rewrites position/scale/crop/style keyframes on laid-out clips (zoom/pan punch-ins are separate and kept), so
+  hand-made keyframes on those four properties are replaced when the layout schedule changes. Restoring a
+  removed section doesn't shift later layout changes.
 - Cross-dissolves (video + linked audio crossfade) need media handles; at the very start/end of a recording they
   fall back to a fade over lower tracks.
 - whisper.cpp itself must be installed with Homebrew (`brew install whisper-cpp`); models download in-app
@@ -140,4 +147,4 @@ prompt), cloud AI providers with live keys.
 1. Download `PULSE-app` from the latest green CI run (Actions → run → Artifacts) or run `./scripts/build-app.sh`,
    then try it by hand with a real long recording: import → Analyze & Find Clips → Open in Editor → Export.
 2. Report anything confusing or broken; the CI screenshot loop (`--ui-snapshots`) makes UI fixes quick to verify.
-3. Candidates for the next build phase: keyframed layout morphs, per-speaker caption styling.
+3. Candidates for the next build phase: per-speaker caption styling.

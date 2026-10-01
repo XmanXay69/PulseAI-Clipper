@@ -12,7 +12,8 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
 - **AI clip finding.** Analyzes speech, silence, loudness spikes, scene changes and faces. Each candidate
   follows HOOK → CONTEXT → PAYOFF → END and gets an *AI Potential* score, tags, titles and hook advice.
 - **One-click shorts.** Builds a 9:16 edit with a gameplay + facecam layout, AI reframing, animated
-  word-level captions (8 presets), silence trimming, punch-ins and music ducking.
+  word-level captions (8 presets), silence trimming, punch-ins and music ducking. Layouts can change mid-clip
+  with smooth morphs (split screen → corner → circle facecam), placed by AI or at the playhead.
 - **Make More Entertaining.** Adds jump cuts, filler-word removal, zooms and caption emphasis. The
   *Remove All AI Edits* command strips them out again.
 - **Pro editor.** Multi-track timeline with trim, move, blade, ripple, snapping, a magnetic timeline,

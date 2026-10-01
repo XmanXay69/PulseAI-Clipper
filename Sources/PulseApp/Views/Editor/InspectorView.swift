@@ -617,6 +617,7 @@ struct TimelineInspector: View {
                 }
                 Text("Layouts set crops and positions on the gameplay and facecam clips. Select a clip to fine-tune it.")
                     .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                LayoutChangesEditor(session: session, timeline: timeline)
             }
             InspectorSection("Captions", isAI: timeline.captions?.aiGenerated ?? false) {
                 if let captions = timeline.captions {
@@ -688,5 +689,67 @@ struct TimelineInspector: View {
                     .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
             }
         }
+    }
+}
+
+/// Layout changes over time: morph to another layout at the playhead; list, jump to, re-time, remove.
+struct LayoutChangesEditor: View {
+    @ObservedObject var session: ProjectSession
+    let timeline: Timeline
+    @AppStorage("layoutMorphLength") private var morph = 0.5
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SectionLabel(text: "Change over time")
+            HStack(spacing: 6) {
+                Menu {
+                    ForEach([LayoutPreset.splitScreen, .facecamCorner, .circleFacecam, .facecamDominant, .fullFrame], id: \.self) { preset in
+                        Button { session.addLayoutChange(preset, duration: morph) } label: { Label(preset.displayName, systemImage: preset.symbolName) }
+                    }
+                } label: {
+                    Label("Morph at Playhead", systemImage: "wand.and.rays").font(.pulseCaption)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("From the playhead, animate the gameplay and facecam into another layout")
+                Spacer()
+                Picker("", selection: $morph) {
+                    Text("Cut").tag(0.0)
+                    Text("0.3 s").tag(0.3)
+                    Text("0.5 s").tag(0.5)
+                    Text("1 s").tag(1.0)
+                }
+                .labelsHidden()
+                .frame(width: 74)
+                .help("Length of the morph")
+            }
+            ForEach(timeline.layoutChanges.sorted { $0.time < $1.time }) { change in
+                HStack(spacing: 6) {
+                    Button { session.playback.seek(to: change.time) } label: {
+                        Text(Timecode.short(change.time)).font(.pulseMono).foregroundStyle(Theme.info)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Jump to this change")
+                    Image(systemName: change.preset.symbolName).foregroundStyle(Theme.textSecondary)
+                    Text(change.preset.displayName).lineLimit(1).foregroundStyle(Theme.textPrimary)
+                    if change.aiGenerated { Image(systemName: "sparkles").font(.system(size: 9)).foregroundStyle(Theme.ai) }
+                    Spacer(minLength: 2)
+                    Menu(change.duration < 0.02 ? "cut" : String(format: "%.1f s", change.duration)) {
+                        ForEach([0.0, 0.3, 0.5, 1.0, 1.5], id: \.self) { d in
+                            Button(d == 0 ? "Cut" : String(format: "%.1f s", d)) { session.setLayoutChangeDuration(change.id, d) }
+                        }
+                    }
+                    .menuStyle(.borderlessButton).fixedSize().font(.pulseMicro)
+                    Button { session.removeLayoutChange(change.id) } label: { Image(systemName: "xmark").font(.system(size: 9)) }
+                        .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help("Remove this change")
+                }
+                .font(.pulseCaption)
+            }
+            if timeline.layoutChanges.isEmpty {
+                Text("Same layout throughout. Move the playhead and morph to switch layouts smoothly — nothing gets cut.")
+                    .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.top, 4)
     }
 }

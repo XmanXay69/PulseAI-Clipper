@@ -238,6 +238,12 @@ struct TimelineRuler: View {
                 p.closeSubpath()
                 ctx.fill(p, with: .color(Color(marker.color.rgba)))
             }
+            // Layout morphs: a violet bar spanning each morph on the ruler's bottom edge.
+            for change in timeline.layoutChanges {
+                let x0 = CGFloat(change.time) * pps
+                let w = max(CGFloat(change.duration) * pps, 3)
+                ctx.fill(Path(roundedRect: CGRect(x: x0, y: 22, width: w, height: 5), cornerRadius: 2), with: .color(Theme.ai))
+            }
             // Playhead head.
             let px = CGFloat(playback.currentTime) * pps
             var head = Path()

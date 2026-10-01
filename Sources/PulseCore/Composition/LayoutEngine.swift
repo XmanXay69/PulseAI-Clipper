@@ -71,6 +71,36 @@ public struct LayoutContext: Sendable {
     }
 }
 
+/// Where a layout places one clip.
+public struct LayoutTarget: Hashable, Sendable {
+    public var positionX: Double
+    public var positionY: Double
+    public var scale: Double
+    public var crop: NormRect
+    public var style: LayerStyle
+    public var visible: Bool
+
+    /// Writes the target as constant values (clearing layout animation).
+    func write(to clip: inout TimelineClip) {
+        clip.transform.crop = crop
+        clip.transform.cropAnimation = nil
+        clip.transform.fit = .fit
+        clip.transform.positionX = AnimatedDouble(positionX)
+        clip.transform.positionY = AnimatedDouble(positionY)
+        clip.transform.scale = AnimatedDouble(scale)
+        clip.style = style
+        clip.styleKeyframes = []
+    }
+
+    /// This target's geometry, invisible and slightly smaller (how a facecam leaves or enters).
+    func hidden(like other: LayoutTarget) -> LayoutTarget {
+        var t = other
+        t.scale *= 0.9
+        t.visible = false
+        return t
+    }
+}
+
 /// Slots (normalized canvas rects) for each layout.
 public struct LayoutSlots: Sendable {
     public var gameplay: NormRect
@@ -156,63 +186,64 @@ public enum LayoutEngine {
         return r.clampedToUnit()
     }
 
-    /// Applies a layout to every gameplay/main and webcam clip of the timeline.
-    /// Gameplay = clips with role gameplay/main/camera on video tracks; webcam = role webcam.
-    public static func apply(_ preset: LayoutPreset, to timeline: inout Timeline, context: LayoutContext, onlyClips clipIDs: Set<UUID>? = nil) {
-        let canvas = timeline.canvas
+    /// Where one layout puts a clip of the given role. Nil = the clip isn't laid out (overlays, text…);
+    /// `visible == false` = the layout has no place for it (e.g. the facecam in Full Frame).
+    public static func target(role: MediaRole, preset: LayoutPreset, context: LayoutContext, canvas: CanvasSettings) -> LayoutTarget? {
         let webcamSource = context.webcamSourceSize ?? context.sourceSize
         let webcamRegion = context.webcamSourceSize != nil ? NormRect.full : context.webcamRegion
         let webcamAspect = webcamRegion.map { $0.pixelAspect(in: webcamSource) } ?? (16.0 / 9.0)
         let effectivePreset: LayoutPreset = (preset.usesWebcam && webcamRegion == nil) ? .fullFrame : preset
         let layoutSlots = Self.slots(for: effectivePreset == .dynamic ? .splitScreen : effectivePreset, canvas: canvas, webcamAspect: webcamAspect)
+        if role == .webcam {
+            guard let slot = layoutSlots.webcam, let region = webcamRegion else {
+                return LayoutTarget(positionX: 0.5, positionY: 0.5, scale: 1, crop: .full, style: .plain, visible: false)
+            }
+            let slotAspect = slot.pixelAspect(in: canvas.size)
+            let face = context.webcamSourceSize == nil ? context.faceCenter : context.webcamFaceCenter
+            let crop = Self.crop(aspect: slotAspect, inside: region.insetBy(dx: region.width * 0.02, dy: region.height * 0.02), frameSize: webcamSource, focus: face)
+            let placement = LayerGeometry.placement(fillingSlot: slot, cropAspect: slotAspect, canvasSize: canvas.size)
+            return LayoutTarget(positionX: placement.positionX, positionY: placement.positionY, scale: placement.scale, crop: crop, style: layoutSlots.webcamStyle, visible: true)
+        } else if role == .gameplay || role == .main || role == .camera {
+            let slot = layoutSlots.gameplay
+            let slotAspect = slot.pixelAspect(in: canvas.size)
+            let crop: NormRect
+            if effectivePreset == .fullFrame, context.profile == .talkingHead || context.profile == .podcast, let face = context.faceCenter {
+                crop = NormRect.crop(aspect: slotAspect, frameSize: context.sourceSize, focus: Vec2(face.x, 0.5))
+            } else {
+                // Only carve the facecam out of the gameplay when it's inside the same file.
+                let inFrameWebcam = context.webcamSourceSize == nil ? webcamRegion : nil
+                crop = WebcamEstimator.gameplayRegion(frameSize: context.sourceSize, webcam: effectivePreset == .splitScreen || effectivePreset == .facecamDominant ? inFrameWebcam : nil, targetAspect: slotAspect)
+            }
+            let placement = LayerGeometry.placement(fillingSlot: slot, cropAspect: slotAspect, canvasSize: canvas.size)
+            return LayoutTarget(positionX: placement.positionX, positionY: placement.positionY, scale: placement.scale, crop: crop, style: .plain, visible: true)
+        }
+        return nil
+    }
 
+    /// Applies a layout to every gameplay/main and webcam clip of the timeline (or only `clipIDs`).
+    /// Applied to the whole timeline it replaces any layout changes over time.
+    public static func apply(_ preset: LayoutPreset, to timeline: inout Timeline, context: LayoutContext, onlyClips clipIDs: Set<UUID>? = nil) {
+        let canvas = timeline.canvas
         for ti in timeline.tracks.indices where timeline.tracks[ti].kind == .video {
             for ci in timeline.tracks[ti].clips.indices {
                 var clip = timeline.tracks[ti].clips[ci]
                 guard clip.assetID != nil else { continue }
                 if let clipIDs, !clipIDs.contains(clip.id) { continue }
-                let role = clip.role ?? .main
-                if role == .webcam {
-                    guard let slot = layoutSlots.webcam, let region = webcamRegion else {
-                        clip.isEnabled = false
-                        timeline.tracks[ti].clips[ci] = clip
-                        continue
-                    }
-                    let slotAspect = slot.pixelAspect(in: canvas.size)
-                    let face = context.webcamSourceSize == nil ? context.faceCenter : context.webcamFaceCenter
-                    let crop = Self.crop(aspect: slotAspect, inside: region.insetBy(dx: region.width * 0.02, dy: region.height * 0.02), frameSize: webcamSource, focus: face)
-                    let placement = LayerGeometry.placement(fillingSlot: slot, cropAspect: slotAspect, canvasSize: canvas.size)
-                    clip.transform.crop = crop
-                    clip.transform.fit = .fit
-                    clip.transform.positionX = AnimatedDouble(placement.positionX)
-                    clip.transform.positionY = AnimatedDouble(placement.positionY)
-                    clip.transform.scale = AnimatedDouble(placement.scale)
-                    clip.style = layoutSlots.webcamStyle
+                guard let target = target(role: clip.role ?? .main, preset: preset, context: context, canvas: canvas) else { continue }
+                if target.visible {
+                    target.write(to: &clip)
                     clip.isEnabled = true
-                } else if role == .gameplay || role == .main || role == .camera {
-                    let slot = layoutSlots.gameplay
-                    let slotAspect = slot.pixelAspect(in: canvas.size)
-                    let crop: NormRect
-                    if effectivePreset == .fullFrame, context.profile == .talkingHead || context.profile == .podcast, let face = context.faceCenter {
-                        crop = NormRect.crop(aspect: slotAspect, frameSize: context.sourceSize, focus: Vec2(face.x, 0.5))
-                    } else {
-                        // Only carve the facecam out of the gameplay when it's inside the same file.
-                        let inFrameWebcam = context.webcamSourceSize == nil ? webcamRegion : nil
-                        crop = WebcamEstimator.gameplayRegion(frameSize: context.sourceSize, webcam: effectivePreset == .splitScreen || effectivePreset == .facecamDominant ? inFrameWebcam : nil, targetAspect: slotAspect)
-                    }
-                    let placement = LayerGeometry.placement(fillingSlot: slot, cropAspect: slotAspect, canvasSize: canvas.size)
-                    clip.transform.crop = crop
-                    clip.transform.fit = .fit
-                    clip.transform.positionX = AnimatedDouble(placement.positionX)
-                    clip.transform.positionY = AnimatedDouble(placement.positionY)
-                    clip.transform.scale = AnimatedDouble(placement.scale)
-                    clip.style = .plain
-                    clip.isEnabled = true
+                } else {
+                    clip.isEnabled = false
                 }
+                if clipIDs == nil, clip.role == .webcam { clip.transform.opacity = AnimatedDouble(1) }
                 timeline.tracks[ti].clips[ci] = clip
             }
         }
-        if clipIDs == nil { timeline.layout = preset }
+        if clipIDs == nil {
+            timeline.layout = preset
+            timeline.layoutChanges = []
+        }
         timeline.modifiedAt = Date()
     }
 
@@ -247,6 +278,108 @@ public enum LayoutEngine {
         // Insert right above the source track.
         let insertAt = (timeline.trackIndex(id: source.id) ?? 0) + 1
         timeline.tracks.insert(webcamTrack, at: insertAt)
+    }
+}
+
+/// Smooth layout changes over time. A timeline's `layout` is the starting layout and `layoutChanges`
+/// switch to others; `rebuild` turns that schedule into eased keyframes (position, scale, crop, style,
+/// opacity) on the gameplay and facecam clips — no clip splitting, so the edit stays as it was.
+public enum LayoutMorpher {
+    public static let defaultDuration: Seconds = 0.5
+    static let minimumDuration: Seconds = 1.0 / 60
+
+    /// The layout a timeline starts in.
+    public static func basePreset(of timeline: Timeline) -> LayoutPreset {
+        switch timeline.layout {
+        case .none: return .fullFrame
+        case .some(.dynamic): return .splitScreen
+        case .some(let preset): return preset
+        }
+    }
+
+    /// Layout in effect at timeline time `t` (the target of a morph that has started).
+    public static func preset(at t: Seconds, in timeline: Timeline) -> LayoutPreset {
+        timeline.layoutChanges.sorted { $0.time < $1.time }.last { $0.time <= t + TimeRange.epsilon }?.preset ?? basePreset(of: timeline)
+    }
+
+    /// Adds (or replaces, if one starts within 50 ms) a change and rebuilds the animation.
+    @discardableResult
+    public static func addChange(_ preset: LayoutPreset, at time: Seconds, duration: Seconds = defaultDuration, aiGenerated: Bool = false,
+                                 to timeline: inout Timeline, context: LayoutContext) -> UUID {
+        timeline.layoutChanges.removeAll { abs($0.time - time) < 0.05 }
+        let change = LayoutChange(time: max(0, time), preset: preset, duration: max(0, duration), aiGenerated: aiGenerated)
+        timeline.layoutChanges.append(change)
+        timeline.layoutChanges.sort { $0.time < $1.time }
+        if timeline.layout == nil { timeline.layout = .fullFrame }
+        rebuild(&timeline, context: context)
+        return change.id
+    }
+
+    public static func removeChange(id: UUID, from timeline: inout Timeline, context: LayoutContext) {
+        timeline.layoutChanges.removeAll { $0.id == id }
+        rebuild(&timeline, context: context)
+    }
+
+    /// Rewrites the layout animation of every laid-out clip from the schedule.
+    public static func rebuild(_ timeline: inout Timeline, context: LayoutContext) {
+        let changes = timeline.layoutChanges.sorted { $0.time < $1.time }
+        let base = basePreset(of: timeline)
+        let canvas = timeline.canvas
+        // presets[i] is in effect after change i-1 (presets[0] = base).
+        let presets = [base] + changes.map(\.preset)
+        for ti in timeline.tracks.indices where timeline.tracks[ti].kind == .video {
+            for ci in timeline.tracks[ti].clips.indices {
+                var clip = timeline.tracks[ti].clips[ci]
+                guard clip.assetID != nil else { continue }
+                let role = clip.role ?? .main
+                var targets: [LayoutTarget] = []
+                for p in presets {
+                    guard let t = LayoutEngine.target(role: role, preset: p, context: context, canvas: canvas) else { break }
+                    targets.append(t)
+                }
+                guard targets.count == presets.count else { continue }
+                // Changes that animate during this clip, and the layout at its start.
+                let active = changes.indices.filter { i in
+                    let d = max(changes[i].duration, minimumDuration)
+                    return changes[i].time < clip.end && changes[i].time + d > clip.start
+                }
+                let startIndex = changes.lastIndex(where: { $0.time + max($0.duration, minimumDuration) <= clip.start }).map { $0 + 1 } ?? 0
+                var startTarget = targets[startIndex]
+                if !startTarget.visible, let shown = targets.first(where: \.visible) { startTarget = startTarget.hidden(like: shown) }
+                startTarget.write(to: &clip)
+                // Only the facecam appears and disappears; other clips keep their own opacity.
+                let fades = role == .webcam
+                if fades { clip.transform.opacity = AnimatedDouble(startTarget.visible ? 1 : 0) }
+                if active.isEmpty {
+                    clip.isEnabled = startTarget.visible
+                    if fades { clip.transform.opacity = AnimatedDouble(1) }
+                    timeline.tracks[ti].clips[ci] = clip
+                    continue
+                }
+                clip.isEnabled = true
+                var crop = AnimatedRect(startTarget.crop)
+                for i in active {
+                    var from = targets[i], to = targets[i + 1]
+                    if !from.visible && to.visible { from = from.hidden(like: to) }
+                    if from.visible && !to.visible { to = to.hidden(like: from) }
+                    let t0 = changes[i].time - clip.start
+                    let t1 = t0 + max(changes[i].duration, minimumDuration)
+                    for (time, target) in [(t0, from), (t1, to)] {
+                        clip.transform.positionX.setKeyframe(at: time, value: target.positionX)
+                        clip.transform.positionY.setKeyframe(at: time, value: target.positionY)
+                        clip.transform.scale.setKeyframe(at: time, value: target.scale)
+                        if fades { clip.transform.opacity.setKeyframe(at: time, value: target.visible ? 1 : 0) }
+                        crop.setKeyframe(at: time, target.crop)
+                        clip.styleKeyframes.removeAll { abs($0.time - time) < 1.0 / 240 }
+                        clip.styleKeyframes.append(StyleKeyframe(time: time, style: target.style))
+                    }
+                }
+                clip.styleKeyframes.sort { $0.time < $1.time }
+                clip.transform.cropAnimation = crop
+                timeline.tracks[ti].clips[ci] = clip
+            }
+        }
+        timeline.modifiedAt = Date()
     }
 }
 
