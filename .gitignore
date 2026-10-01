@@ -12,3 +12,4 @@ DerivedData/
 *.bin
 *.gguf
 .env
+!Resources/Models/*.bin
