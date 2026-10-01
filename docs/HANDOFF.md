@@ -123,6 +123,10 @@ prompt), cloud AI providers with live keys.
   production, not a live band; judge by ear and tweak `Synth`/`MusicComposer` voices if something sounds off.
   Editor → Sounds tab (preview, search, add); AI shorts / Make More Entertaining use it when the project has no
   music/SFX of its own (Settings → AI music / sound effects).
+- **Per-speaker captions:** caption tracks keep speaker names and per-speaker overrides (text/highlight color,
+  position). "Color by speaker" gives each extra voice its own color (one-click shorts do it automatically when
+  two or more people talk); optional name tags above captions; Captions → Speakers to edit; re-detecting,
+  renaming or merging speakers updates existing captions.
 - **Layout morphs:** a timeline has a starting layout plus `layoutChanges` (time, layout, morph length);
   `LayoutMorpher.rebuild` turns them into eased keyframes on the gameplay and facecam clips — position, scale,
   keyframed crop (`VisualTransform.cropAnimation`), keyframed style (`TimelineClip.styleKeyframes`: corners,
@@ -153,4 +157,5 @@ prompt), cloud AI providers with live keys.
 1. Download `PULSE-app` from the latest green CI run (Actions → run → Artifacts) or run `./scripts/build-app.sh`,
    then try it by hand with a real long recording: import → Analyze & Find Clips → Open in Editor → Export.
 2. Report anything confusing or broken; the CI screenshot loop (`--ui-snapshots`) makes UI fixes quick to verify.
-3. Candidates for the next build phase: per-speaker caption styling.
+3. Candidates for the next build phase: test with real recordings and tune from what breaks (speaker
+   clustering threshold, music mix levels, layout morph timing), then notarized Developer ID builds.

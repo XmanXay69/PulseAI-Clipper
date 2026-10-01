@@ -178,6 +178,45 @@ final class EngineSmokeTests: XCTestCase {
         print(String(format: "sound library: 12.3 s of %@ rendered + encoded in %.2fs, %.1f LUFS after AAC", sound.name, seconds, lufs))
     }
 
+    /// Captions take each speaker's color and show a name tag when labels are on.
+    func testSpeakerCaptionColorsAndLabels() throws {
+        var words: [CaptionWord] = []
+        for i in 0..<6 { words.append(CaptionWord(text: "HELLO\(i)", start: Double(i), end: Double(i) + 0.8, speaker: i < 3 ? 0 : 1)) }
+        var track = CaptionTrack(sourceAssetID: UUID(), words: words, style: .bold)
+        track.speakerNames = [0: "Host", 1: "Guest"]
+        track.colorBySpeaker()
+        let timed = track.words.map { TimedCaptionWord(id: $0.id, text: $0.text, start: $0.start, end: $0.end, isEmphasized: false, speaker: $0.speaker) }
+        var styles: [Int: CaptionStyle] = [:]
+        for id in track.speakerStyles.keys { styles[id] = track.style(forSpeaker: id) }
+        let plain = CaptionRenderData(pages: CaptionLayoutEngine.pages(timed, style: track.style), style: track.style, speakerStyles: styles)
+        let labelled = CaptionRenderData(pages: plain.pages, style: track.style, speakerStyles: styles, labels: [0: "Host", 1: "Guest"])
+        let scene = RenderScene(canvas: .vertical1080, renderSize: CGSize(width: 540, height: 960), captions: plain)
+        let renderer = FrameRenderer.shared
+        // Mean (blue − red) of the visible caption pixels: white text ≈ 0, cyan text > 0.
+        func blueBias(_ image: CIImage) -> Double {
+            let rect = image.extent.intersection(CGRect(x: 0, y: 0, width: 540, height: 960))
+            guard let cg = renderer.context.createCGImage(image, from: rect) else { return 0 }
+            let w = cg.width, h = cg.height
+            var data = [UInt8](repeating: 0, count: w * h * 4)
+            let ctx = CGContext(data: &data, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+            var total = 0.0, count = 0.0
+            for i in stride(from: 0, to: data.count, by: 4) where data[i + 3] > 200 && Int(data[i]) + Int(data[i + 1]) + Int(data[i + 2]) > 450 {
+                total += Double(Int(data[i + 2]) - Int(data[i])); count += 1
+            }
+            return count > 0 ? total / count : 0
+        }
+        let host = try XCTUnwrap(renderer.renderCaptions(plain, at: 0.5, scene: scene))
+        let guest = try XCTUnwrap(renderer.renderCaptions(plain, at: 3.5, scene: scene))
+        let hostBias = blueBias(host), guestBias = blueBias(guest)
+        let withLabel = try XCTUnwrap(renderer.renderCaptions(labelled, at: 3.5, scene: scene))
+        print(String(format: "speaker captions: host blue-bias %.0f, guest %.0f; height %.0f → %.0f with name tag",
+                     hostBias, guestBias, guest.extent.height, withLabel.extent.height))
+        XCTAssertGreaterThan(guestBias, hostBias + 40, "the guest's captions are cyan")
+        XCTAssertGreaterThan(withLabel.extent.height, guest.extent.height + 10, "a name tag sits above the caption")
+    }
+
     /// Mean absolute pixel difference (0–255) between two frames, compared at 90×160.
     static func meanDifference(_ a: CGImage, _ b: CGImage) -> Double {
         func pixels(_ image: CGImage) -> [UInt8] {

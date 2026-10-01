@@ -58,6 +58,7 @@ extension ProjectSession {
             analysis.transcript = result
             analysis.processing["speakers"] = .local
             self.setAnalysis(analysis)
+            self.syncCaptionSpeakers(assetID: assetID, transcript: result)
             let found = result.speakerIDs.count
             self.app.logActivity(.transcription, title: found > 1 ? "\(found) speakers found" : "One speaker", detail: asset.name)
             self.app.toast(found > 1 ? "\(found) speakers found — rename them in the transcript" : "Only one voice detected")
@@ -69,6 +70,7 @@ extension ProjectSession {
         t.renameSpeaker(id: id, to: name)
         analysis.transcript = t
         setAnalysis(analysis)
+        syncCaptionSpeakers(assetID: assetID, transcript: t)
     }
 
     func mergeSpeaker(_ from: Int, into: Int, assetID: UUID) {
@@ -76,5 +78,24 @@ extension ProjectSession {
         t.mergeSpeaker(from, into: into)
         analysis.transcript = t
         setAnalysis(analysis)
+        syncCaptionSpeakers(assetID: assetID, transcript: t)
+    }
+
+    /// Carries new speaker labels and names into every caption track made from this asset's transcript
+    /// (re-coloring tracks that were colored by speaker).
+    func syncCaptionSpeakers(assetID: UUID, transcript: Transcript) {
+        let ids = (document.timelines + document.compounds).filter { $0.captions?.sourceAssetID == assetID }.map(\.id)
+        guard !ids.isEmpty else { return }
+        edit("Update Caption Speakers") { doc in
+            for id in ids {
+                doc.updateTimeline(id: id) { t in
+                    guard var captions = t.captions else { return }
+                    let colored = captions.isColoredBySpeaker
+                    captions.syncSpeakers(from: transcript)
+                    if colored { captions.colorBySpeaker() }
+                    t.captions = captions
+                }
+            }
+        }
     }
 }

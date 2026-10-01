@@ -61,8 +61,7 @@ public enum CompositionBuilder {
         let renderSize = options.renderSize ?? CGSize(width: timeline.canvas.width, height: timeline.canvas.height)
         let captionData: CaptionRenderData? = {
             guard options.includeCaptions, let captions = timeline.captions, captions.isEnabled else { return nil }
-            let words = CaptionLayoutEngine.timelineWords(captions, in: timeline)
-            return CaptionRenderData(pages: CaptionLayoutEngine.pages(words, style: captions.style), style: captions.style)
+            return CaptionRenderData(track: captions, timeline: timeline)
         }()
         let scene = RenderScene(canvas: timeline.canvas, renderSize: renderSize, captions: captionData, showSafeArea: options.showSafeArea)
 

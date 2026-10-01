@@ -288,4 +288,18 @@ public enum TextRenderer {
         }
         return CaptionFrame(rendered: rendered, scale: pageScale, opacity: opacity, offsetY: offsetY)
     }
+
+    /// A small speaker-name tag drawn above a caption, in the speaker's caption color.
+    public static func renderSpeakerLabel(_ name: String, style: CaptionStyle, renderScale: Double) -> Rendered? {
+        var text = style.text
+        text.fontSize = max(26, style.text.fontSize * 0.42)
+        text.weight = .heavy
+        text.textCase = .uppercase
+        text.letterSpacing = 2
+        text.strokeWidth = min(style.text.strokeWidth, 5)
+        text.backgroundOpacity = 0
+        let pointSize = CGFloat(text.fontSize * renderScale)
+        return draw(lines: [[Run(text: text.textCase.apply(name), color: style.text.color, scale: 1, boxColor: nil, alpha: 1)]],
+                    style: text, pointSize: pointSize, maxWidth: nil)
+    }
 }

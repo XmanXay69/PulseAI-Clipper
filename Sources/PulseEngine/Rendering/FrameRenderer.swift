@@ -472,14 +472,15 @@ public final class FrameRenderer: @unchecked Sendable {
 
     func renderCaptions(_ captions: CaptionRenderData, at time: Seconds, scene: RenderScene) -> CIImage? {
         guard let page = CaptionLayoutEngine.page(at: time, in: captions.pages) else { return nil }
+        let style = captions.style(for: page)
         let rs = scene.renderScale
-        guard let frame = TextRenderer.renderCaption(page: page, style: captions.style, at: time, renderScale: rs) else { return nil }
+        guard let frame = TextRenderer.renderCaption(page: page, style: style, at: time, renderScale: rs) else { return nil }
         var image = CIImage(cgImage: frame.rendered.image)
         let W = Double(scene.renderSize.width)
         let H = Double(scene.renderSize.height)
-        var cxN = captions.style.positionX
-        var cyN = captions.style.positionY
-        if let platform = captions.style.safeArea, scene.canvas.aspect < 1 {
+        var cxN = style.positionX
+        var cyN = style.positionY
+        if let platform = style.safeArea, scene.canvas.aspect < 1 {
             cyN = platform.clampCenterY(cyN, blockHeight: Double(frame.rendered.size.height) / H)
             cxN = platform.clampCenterX(cxN, blockWidth: min(Double(frame.rendered.size.width) / W, 0.8))
         }
@@ -489,6 +490,15 @@ public final class FrameRenderer: @unchecked Sendable {
         if frame.scale != 1 { t = t.concatenating(CGAffineTransform(scaleX: frame.scale, y: frame.scale)) }
         t = t.concatenating(CGAffineTransform(translationX: cxN * W, y: H - cyN * H - Double(frame.offsetY)))
         image = image.transformed(by: t)
+        // Speaker name above the caption block.
+        if let speaker = page.speaker, let name = captions.labels[speaker],
+           let label = TextRenderer.renderSpeakerLabel(name, style: style, renderScale: rs) {
+            let top = H - cyN * H - Double(frame.offsetY) + h * frame.scale / 2
+            let lw = Double(label.size.width), lh = Double(label.size.height)
+            let labelImage = CIImage(cgImage: label.image)
+                .transformed(by: CGAffineTransform(translationX: cxN * W - lw / 2, y: top + 4 * rs - lh * 0.15))
+            image = labelImage.composited(over: image)
+        }
         if frame.opacity < 0.999 { image = withOpacity(image, Double(frame.opacity)) }
         return image
     }

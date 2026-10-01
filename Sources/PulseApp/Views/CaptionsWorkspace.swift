@@ -127,6 +127,9 @@ struct CaptionStylePanel: View {
                             }
                             Text("Click a word below to emphasise it yourself.").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
                         }
+                        if let captions, captions.captionSpeakers.count >= 2 {
+                            SpeakerCaptionSection(session: session, captions: captions)
+                        }
                         InspectorSection("Position") {
                             LabeledSlider(label: "Vertical", value: styleBinding("Caption Position", \.positionY, fallback: 0.7), range: 0.05...0.95)
                             LabeledSlider(label: "Horizontal", value: styleBinding("Caption Position X", \.positionX, fallback: 0.5), range: 0.1...0.9)
@@ -325,6 +328,54 @@ struct CaptionWordEditor: View {
                     session.focusedCaptionWordID = w.id
                     playback.seek(to: w.start)
                 }
+        }
+    }
+}
+
+/// Per-speaker caption looks: color by speaker, name labels, and each speaker's color and position.
+struct SpeakerCaptionSection: View {
+    @ObservedObject var session: ProjectSession
+    let captions: CaptionTrack
+
+    func override(_ id: Int, _ label: String, _ change: @escaping (inout SpeakerCaptionStyle) -> Void) {
+        session.editTimeline(label, coalesce: "speaker-\(id)-\(label)") { t in
+            var s = t.captions?.speakerStyles[id] ?? SpeakerCaptionStyle()
+            change(&s)
+            t.captions?.speakerStyles[id] = s.isEmpty ? nil : s
+        }
+    }
+
+    var body: some View {
+        InspectorSection("Speakers") {
+            ToggleRow(label: "Color by speaker", isOn: Binding(get: { captions.isColoredBySpeaker }, set: { on in
+                session.editTimeline(on ? "Color Captions by Speaker" : "Same Color for All Speakers") { t in
+                    if on { t.captions?.colorBySpeaker() } else { t.captions?.clearSpeakerColors() }
+                }
+            }), help: "Each voice gets its own caption color so viewers can follow the conversation")
+            ToggleRow(label: "Show speaker names", isOn: Binding(get: { captions.showSpeakerLabels }, set: { on in
+                session.editTimeline("Speaker Names") { $0.captions?.showSpeakerLabels = on }
+            }), help: "A small name tag above each caption (rename speakers in the transcript)")
+            ForEach(captions.captionSpeakers, id: \.self) { id in
+                let style = captions.style(forSpeaker: id)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Circle().fill(Color(style.text.color)).frame(width: 8, height: 8)
+                        Text(captions.speakerName(id)).font(.pulseCaption.weight(.semibold)).foregroundStyle(Theme.textPrimary)
+                        Spacer()
+                        if captions.speakerStyles[id] != nil {
+                            Button("Reset") { session.editTimeline("Reset Speaker Style") { $0.captions?.speakerStyles[id] = nil } }
+                                .buttonStyle(.plain).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                        }
+                    }
+                    ColorRow(label: "Text", color: Binding(get: { style.text.color }, set: { c in override(id, "Speaker Color") { $0.textColor = c } }))
+                    ColorRow(label: "Highlight", color: Binding(get: { style.highlightColor }, set: { c in override(id, "Speaker Highlight") { $0.highlightColor = c } }))
+                    LabeledSlider(label: "Vertical", value: Binding(get: { style.positionY }, set: { y in override(id, "Speaker Position") { $0.positionY = y } }),
+                                  range: 0.05...0.95, onEditingChanged: { editing in if !editing { session.commitCoalescing() } })
+                }
+                .padding(.vertical, 4)
+            }
+            Text("Tip: in a split screen, put each person's captions next to their camera.")
+                .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
         }
     }
 }

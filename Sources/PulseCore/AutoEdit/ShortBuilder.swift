@@ -237,6 +237,8 @@ public enum ShortBuilder {
             }
             var track = CaptionTrack.make(from: transcript, range: candidate.range, assetID: asset.id, style: style, emphasize: options.emphasizeWords)
             track.profanity = options.profanity
+            // Conversations: each voice gets its own caption color.
+            track.colorBySpeaker()
             timeline.captions = track
         }
 

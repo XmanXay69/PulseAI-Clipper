@@ -27,7 +27,8 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
   put 2–4 angles on screen at once (2-up, 3-up, 2×2, featured), or let AI cut to whoever is talking.
 - **Compound clips.** Nest a selection into one clip (⌥G), open it to edit inside, break it apart again.
 - **Speakers.** Transcripts are split into speakers on your Mac with a neural voice model (or by mic in
-  multi-mic multicam sessions); rename or merge speakers in the Transcript panel.
+  multi-mic multicam sessions); rename or merge speakers in the Transcript panel. Captions can take a color
+  per speaker and show name tags.
 - **Music & SFX library.** 14 royalty-free tracks in 10 styles, composed on your Mac to fit your edit
   exactly, and 28 sound effects (whoosh, impact, boom, ding, rimshot, sad trombone…). AI shorts use them too.
 - **Text-based editing.** Delete words in the transcript to cut them from the video, and restore them

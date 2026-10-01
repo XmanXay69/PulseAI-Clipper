@@ -26,6 +26,30 @@ public struct RenderLayer: @unchecked Sendable {
 public struct CaptionRenderData: @unchecked Sendable {
     public var pages: [CaptionPage]
     public var style: CaptionStyle
+    /// Full styles for speakers with their own look.
+    public var speakerStyles: [Int: CaptionStyle] = [:]
+    /// Speaker name labels (only when labels are on).
+    public var labels: [Int: String] = [:]
+
+    public func style(for page: CaptionPage) -> CaptionStyle {
+        page.speaker.flatMap { speakerStyles[$0] } ?? style
+    }
+
+    public init(pages: [CaptionPage], style: CaptionStyle, speakerStyles: [Int: CaptionStyle] = [:], labels: [Int: String] = [:]) {
+        self.pages = pages
+        self.style = style
+        self.speakerStyles = speakerStyles
+        self.labels = labels
+    }
+
+    public init(track: CaptionTrack, timeline: Timeline) {
+        let words = CaptionLayoutEngine.timelineWords(track, in: timeline)
+        var styles: [Int: CaptionStyle] = [:]
+        for id in track.speakerStyles.keys { styles[id] = track.style(forSpeaker: id) }
+        var labels: [Int: String] = [:]
+        if track.showSpeakerLabels { for id in track.captionSpeakers { labels[id] = track.speakerName(id) } }
+        self.init(pages: CaptionLayoutEngine.pages(words, style: track.style), style: track.style, speakerStyles: styles, labels: labels)
+    }
 }
 
 /// Settings shared by the whole composition.

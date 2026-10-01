@@ -34,6 +34,10 @@ public struct CaptionTrack: Codable, Hashable, Sendable {
     public var aiGenerated: Bool
     public var profanity: ProfanityMode
     public var showSpeakerLabels: Bool
+    /// Per-speaker look (color, highlight, position) layered over `style`.
+    public var speakerStyles: [Int: SpeakerCaptionStyle]
+    /// Speaker names for labels ("Speaker 1" when unknown).
+    public var speakerNames: [Int: String]
 
     public init(sourceAssetID: UUID, words: [CaptionWord], style: CaptionStyle = .bold, isEnabled: Bool = true,
                 aiGenerated: Bool = false, profanity: ProfanityMode = .off, showSpeakerLabels: Bool = false) {
@@ -44,6 +48,8 @@ public struct CaptionTrack: Codable, Hashable, Sendable {
         self.aiGenerated = aiGenerated
         self.profanity = profanity
         self.showSpeakerLabels = showSpeakerLabels
+        self.speakerStyles = [:]
+        self.speakerNames = [:]
     }
 
     public init(from decoder: Decoder) throws {
@@ -55,6 +61,8 @@ public struct CaptionTrack: Codable, Hashable, Sendable {
         aiGenerated = c.decode(Bool.self, forKey: .aiGenerated, default: false)
         profanity = c.decode(ProfanityMode.self, forKey: .profanity, default: .off)
         showSpeakerLabels = c.decode(Bool.self, forKey: .showSpeakerLabels, default: false)
+        speakerStyles = c.decode([Int: SpeakerCaptionStyle].self, forKey: .speakerStyles, default: [:])
+        speakerNames = c.decode([Int: String].self, forKey: .speakerNames, default: [:])
     }
 
     /// Builds captions from a transcript range.
@@ -69,7 +77,9 @@ public struct CaptionTrack: Codable, Hashable, Sendable {
                 words[i].emphasisIsAI = true
             }
         }
-        return CaptionTrack(sourceAssetID: assetID, words: words, style: style, aiGenerated: aiGenerated)
+        var track = CaptionTrack(sourceAssetID: assetID, words: words, style: style, aiGenerated: aiGenerated)
+        for speaker in transcript.speakers { track.speakerNames[speaker.id] = speaker.name }
+        return track
     }
 
     public mutating func setWordText(id: UUID, text: String) {
