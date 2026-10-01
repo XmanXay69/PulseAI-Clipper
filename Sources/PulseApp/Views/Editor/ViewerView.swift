@@ -341,12 +341,13 @@ struct TransportBar: View {
     @ObservedObject var playback: PlaybackController
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             Text(Timecode.string(playback.currentTime, fps: playback.frameRate))
                 .font(.pulseTimecode)
                 .foregroundStyle(Theme.accent)
-                .frame(width: 130, alignment: .leading)
-            Spacer()
+                .fixedSize()
+                .frame(minWidth: 120, maxWidth: 130, alignment: .leading)
+            Spacer(minLength: 4)
             IconButton(symbol: "backward.end.fill", help: "Go to start (Home)") { playback.goToStart() }
             IconButton(symbol: "backward.frame.fill", help: "Previous frame (←)") { playback.step(frames: -1) }
             Button { playback.togglePlayPause() } label: {
@@ -361,19 +362,28 @@ struct TransportBar: View {
             IconButton(symbol: "forward.frame.fill", help: "Next frame (→)") { playback.step(frames: 1) }
             IconButton(symbol: "forward.end.fill", help: "Go to end (End)") { playback.goToEnd() }
             IconButton(symbol: "repeat", help: "Loop", isActive: playback.loopEnabled) { playback.loopEnabled.toggle() }
-            Spacer()
-            HStack(spacing: 6) {
-                if let i = session.inPoint { TagChip(text: "IN \(Timecode.short(i))", color: Theme.info) }
-                if let o = session.outPoint { TagChip(text: "OUT \(Timecode.short(o))", color: Theme.info) }
-                Text(Timecode.string(playback.duration, fps: playback.frameRate))
-                    .font(.pulseMono)
-                    .foregroundStyle(Theme.textTertiary)
+            Spacer(minLength: 4)
+            // In/out chips drop out first when the viewer is narrow; the duration always shows.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 6) {
+                    if let i = session.inPoint { TagChip(text: "IN \(Timecode.short(i))", color: Theme.info) }
+                    if let o = session.outPoint { TagChip(text: "OUT \(Timecode.short(o))", color: Theme.info) }
+                    duration
+                }
+                duration
             }
-            .frame(width: 220, alignment: .trailing)
+            .frame(minWidth: 90, maxWidth: 220, alignment: .trailing)
         }
         .padding(.horizontal, 12)
         .frame(height: 40)
         .background(Theme.panel)
         .overlay(alignment: .top) { Rectangle().fill(Theme.divider).frame(height: 1) }
+    }
+
+    var duration: some View {
+        Text(Timecode.string(playback.duration, fps: playback.frameRate))
+            .font(.pulseMono)
+            .foregroundStyle(Theme.textTertiary)
+            .fixedSize()
     }
 }
