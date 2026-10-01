@@ -36,6 +36,7 @@ echo "  mounted at $MOUNT_DIR"
 cp "$APP/Contents/Resources/AppIcon.icns" "$MOUNT_DIR/.VolumeIcon.icns"
 SetFile -c icnC "$MOUNT_DIR/.VolumeIcon.icns" 2>/dev/null || true
 SetFile -a C "$MOUNT_DIR" 2>/dev/null || echo "  (SetFile unavailable — disk keeps the generic icon)"
+ls -la "$MOUNT_DIR"
 
 # Window layout through Finder. Cosmetic: if Finder can't be scripted (some CI machines), the image
 # still works — it just opens as a plain icon window.
@@ -64,6 +65,7 @@ APPLESCRIPT
 then
   echo "  (Finder layout skipped — Finder not scriptable here)"
 fi
+ls -la "$MOUNT_DIR"
 chmod -Rf go-w "$MOUNT_DIR" 2>/dev/null || true
 sync
 for attempt in 1 2 3 4 5; do
