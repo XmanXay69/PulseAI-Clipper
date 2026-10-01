@@ -267,9 +267,22 @@ public enum SpeakerClustering {
 }
 
 /// Clustering for neural speaker embeddings (unit vectors where cosine similarity means "same voice").
+///
+/// Builds an average-linkage tree (on an evenly spaced sample for long recordings), then picks the cut
+/// whose speakers are most clearly separated (mean silhouette on cosine distance). Clusters too small to
+/// be a person are treated as outliers while choosing, then join their nearest speaker. A split must
+/// reach `minimumSilhouette` to count, so one voice stays one speaker; no fixed similarity threshold is
+/// needed, which keeps it working across microphones and rooms.
 public enum EmbeddingClustering {
-    /// Average cosine similarity above which two groups of segments are taken to be one person.
-    public static let defaultThreshold: Float = 0.70
+    /// Speakers whose voices are this similar on average are always merged.
+    public static let sameVoiceSimilarity: Float = 0.92
+
+    public struct Result: Sendable {
+        public var labels: [Int]
+        /// Best silhouette per number of speakers tried (diagnostics).
+        public var silhouettes: [Int: Float]
+        public var speakers: Int { Set(labels).count }
+    }
 
     static func dot(_ a: [Float], _ b: [Float]) -> Float {
         var s: Float = 0
@@ -282,24 +295,36 @@ public enum EmbeddingClustering {
         return n > 0 ? v.map { $0 / n } : v
     }
 
-    /// Speaker label per embedding. Average-linkage agglomerative clustering (on an evenly spaced sample
-    /// for long recordings), merging while groups are more similar than `threshold` — or until
-    /// `speakerCount` remain — then every segment joins its nearest speaker and the voices are refined.
-    public static func cluster(_ embeddings: [[Float]], speakerCount: Int? = nil, threshold: Float = defaultThreshold,
-                               maxSpeakers: Int = 8, sampleLimit: Int = 400) -> [Int] {
+    static func centroid(_ indices: [Int], _ points: [[Float]]) -> [Float] {
+        var v = [Float](repeating: 0, count: points.first?.count ?? 0)
+        for i in indices { for d in v.indices { v[d] += points[i][d] } }
+        return unit(v)
+    }
+
+    public static func cluster(_ embeddings: [[Float]], speakerCount: Int? = nil, maxSpeakers: Int = 8,
+                               minimumSilhouette: Float = 0.15, sampleLimit: Int = 400) -> [Int] {
+        estimate(embeddings, speakerCount: speakerCount, maxSpeakers: maxSpeakers, minimumSilhouette: minimumSilhouette, sampleLimit: sampleLimit).labels
+    }
+
+    public static func estimate(_ embeddings: [[Float]], speakerCount: Int? = nil, maxSpeakers: Int = 8,
+                                minimumSilhouette: Float = 0.15, sampleLimit: Int = 400) -> Result {
         let n = embeddings.count
-        guard n >= 2 else { return Array(repeating: 0, count: n) }
+        guard n >= 2 else { return Result(labels: Array(repeating: 0, count: n), silhouettes: [:]) }
         let points = embeddings.map(unit)
         let stride = max(1, Int((Double(n) / Double(sampleLimit)).rounded(.up)))
         let sample = Array(Swift.stride(from: 0, to: n, by: stride))
         let m = sample.count
-        // Sum of pairwise similarities between clusters (average = sum / (size·size)).
-        var sums = [[Float]](repeating: [Float](repeating: 0, count: m), count: m)
-        for a in 0..<m { for b in (a + 1)..<m { let s = dot(points[sample[a]], points[sample[b]]); sums[a][b] = s; sums[b][a] = s } }
-        var members: [[Int]] = sample.map { [$0] }
+        var similarity = [[Float]](repeating: [Float](repeating: 1, count: m), count: m)
+        for a in 0..<m { for b in (a + 1)..<m { let s = dot(points[sample[a]], points[sample[b]]); similarity[a][b] = s; similarity[b][a] = s } }
+
+        // Average-linkage tree; remember the partitions with few clusters.
+        var sums = similarity
+        var members: [[Int]] = (0..<m).map { [$0] }
         var alive = Array(repeating: true, count: m)
         var count = m
-        let target = speakerCount.map { max(1, min($0, m)) }
+        let maxCut = min(m, max(maxSpeakers + 4, speakerCount ?? 0))
+        var cuts: [Int: [[Int]]] = [:]
+        if count <= maxCut { cuts[count] = (0..<m).map { members[$0] } }
         while count > 1 {
             var best: (Int, Int)? = nil
             var bestScore = -Float.infinity
@@ -311,40 +336,79 @@ public enum EmbeddingClustering {
             }
             guard let pair = best else { break }
             let (a, b) = pair
-            if let target {
-                if count <= target { break }
-            } else if bestScore < threshold && count <= maxSpeakers {
-                break
-            }
             members[a] += members[b]
             alive[b] = false
             for c in 0..<m where alive[c] && c != a { sums[a][c] += sums[b][c]; sums[c][a] = sums[a][c] }
             count -= 1
+            if count <= maxCut { cuts[count] = (0..<m).filter { alive[$0] }.map { members[$0] } }
         }
-        var centroids = (0..<m).filter { alive[$0] }.map { c -> [Float] in
-            var v = [Float](repeating: 0, count: points[0].count)
-            for i in members[c] { for d in v.indices { v[d] += points[i][d] } }
-            return unit(v)
+
+        let minimumSize = max(2, m / 20)
+        var silhouettes: [Int: Float] = [:]
+        var chosen: [[Int]] = [Array(0..<m)]
+        if let speakerCount, speakerCount > 1 {
+            let k = min(speakerCount, m)
+            chosen = cuts[k] ?? chosen
+        } else if speakerCount == nil {
+            var bestScore = minimumSilhouette
+            for cut in cuts.keys.sorted() where cut >= 2 {
+                let groups = cuts[cut]!.filter { $0.count >= minimumSize }
+                guard groups.count >= 2, groups.count <= maxSpeakers else { continue }
+                let score = silhouette(groups, similarity)
+                if score > (silhouettes[groups.count] ?? -1) { silhouettes[groups.count] = score }
+                if score > bestScore + 0.01 { bestScore = score; chosen = groups }
+            }
         }
+        // Centroids of the chosen speakers; near-identical voices merge.
+        var centroids = chosen.map { centroid($0.map { sample[$0] }, points) }
+        if speakerCount == nil {
+            var merged = true
+            while merged && centroids.count > 1 {
+                merged = false
+                outer: for a in 0..<centroids.count {
+                    for b in (a + 1)..<centroids.count where dot(centroids[a], centroids[b]) > sameVoiceSimilarity {
+                        chosen[a] += chosen[b]
+                        chosen.remove(at: b)
+                        centroids = chosen.map { centroid($0.map { sample[$0] }, points) }
+                        merged = true
+                        break outer
+                    }
+                }
+            }
+        }
+        // Everyone joins their nearest speaker; refine the voices twice.
         func assign() -> [Int] { points.map { p in centroids.indices.max { dot(p, centroids[$0]) < dot(p, centroids[$1]) } ?? 0 } }
         var labels = assign()
-        for _ in 0..<3 {
-            // Groups too small to be a person fold into their nearest neighbour (unless the count was given).
-            if speakerCount == nil, centroids.count > 1 {
-                let minimum = max(2, n / 50)
-                let sizes = centroids.indices.map { c in labels.lazy.filter { $0 == c }.count }
-                let keep = centroids.indices.filter { sizes[$0] >= minimum }
-                if !keep.isEmpty && keep.count < centroids.count { centroids = keep.map { centroids[$0] } }
-            }
-            labels = assign()
+        for _ in 0..<2 {
             centroids = centroids.indices.map { c in
-                var v = [Float](repeating: 0, count: points[0].count)
-                for (i, l) in labels.enumerated() where l == c { for d in v.indices { v[d] += points[i][d] } }
-                return v.allSatisfy { $0 == 0 } ? centroids[c] : unit(v)
+                let mine = labels.indices.filter { labels[$0] == c }
+                return mine.isEmpty ? centroids[c] : centroid(mine, points)
             }
             labels = assign()
         }
-        return labels
+        return Result(labels: labels, silhouettes: silhouettes)
+    }
+
+    /// Mean silhouette with cosine distance over the members of `groups` (indices into `similarity`).
+    static func silhouette(_ groups: [[Int]], _ similarity: [[Float]]) -> Float {
+        var total: Float = 0
+        var counted = 0
+        for (g, group) in groups.enumerated() where group.count > 1 {
+            for i in group {
+                var own: Float = 0
+                for j in group where j != i { own += 1 - similarity[i][j] }
+                let a = own / Float(group.count - 1)
+                var b = Float.infinity
+                for (h, other) in groups.enumerated() where h != g {
+                    var d: Float = 0
+                    for j in other { d += 1 - similarity[i][j] }
+                    b = min(b, d / Float(other.count))
+                }
+                total += (b - a) / max(a, b, 1e-6)
+                counted += 1
+            }
+        }
+        return counted > 0 ? total / Float(counted) : 0
     }
 
     /// Similarity statistics for diagnostics: mean cosine within the same label and across labels.

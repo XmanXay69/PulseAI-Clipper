@@ -341,8 +341,27 @@ final class EngineSmokeTests: XCTestCase {
         let meanNeural = neuralScores.reduce(0, +) / Double(neuralScores.count)
         let meanClassic = classicScores.reduce(0, +) / Double(classicScores.count)
         print(String(format: "voice pairs: neural %.0f%% vs classic %.0f%% of words on average", meanNeural * 100, meanClassic * 100))
-        XCTAssertGreaterThan(neuralScores[0], 0.9, "the female/male pair")
+        XCTAssertGreaterThan(meanNeural, 0.9)
         XCTAssertGreaterThanOrEqual(meanNeural, meanClassic)
+        for (pair, score) in zip(pairs, neuralScores) { XCTAssertGreaterThan(score, 0.8, pair.joined(separator: " + ")) }
+
+        // One voice reading everything stays one speaker (no labels).
+        let solo = try Self.voiceConversation([pairs[0][0]], lines: lines, in: dir)
+        let soloResult = try await SpeakerDiarization.diarize(solo.transcript, audioURL: solo.url, method: .neural)
+        let soloVectors = try await SpeakerDiarization.embeddings(url: solo.url, ranges: SpeechSegmenter.segments(from: solo.transcript).map(\.range), encoder: SpeakerEncoder.shared!)
+        print("one voice: \(soloResult.speakerIDs.count) speakers, silhouettes \(EmbeddingClustering.estimate(soloVectors.compactMap { $0 }).silhouettes)")
+        XCTAssertLessThanOrEqual(soloResult.speakerIDs.count, 1)
+
+        // Three voices taking turns.
+        let trio = ["Samantha", "Fred", "Daniel"].filter(has)
+        if trio.count == 3 {
+            let three = try Self.voiceConversation(trio, lines: lines + lines.prefix(4), in: dir)
+            let result = try await SpeakerDiarization.diarize(three.transcript, audioURL: three.url, method: .neural)
+            let score = Self.wordAccuracy(result, three.transcript, turns: three.turns)
+            print(String(format: "three voices: %d speakers, %.0f%% of words", result.speakerIDs.count, score * 100))
+            XCTAssertEqual(result.speakerIDs.count, 3)
+            XCTAssertGreaterThan(score, 0.85)
+        }
     }
 
     /// Two synthesized voices take turns; diarization must find two speakers and who said what.
