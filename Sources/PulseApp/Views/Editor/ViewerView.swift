@@ -137,12 +137,18 @@ struct ViewerView: View {
                     Text(t.name).font(.pulseHeadline).lineLimit(1)
                 }
                 .menuStyle(.borderlessButton)
-                .frame(maxWidth: 260, alignment: .leading)
-                if t.hasAIContent { AIBadge(label: "AI edit") }
+                .frame(minWidth: 60, maxWidth: 260, alignment: .leading)
+                .layoutPriority(1)
+                if t.hasAIContent { AIBadge(label: "AI edit").fixedSize() }
             }
-            Spacer()
-            Text("\(canvas.width)×\(canvas.height) · \(canvas.aspectLabel) · \(Int(canvas.frameRate)) fps")
-                .font(.pulseMono).foregroundStyle(Theme.textTertiary)
+            Spacer(minLength: 4)
+            // Full readout when there's room, shorter when the viewer is narrow, nothing when it's very narrow.
+            ViewThatFits(in: .horizontal) {
+                Text("\(canvas.width)×\(canvas.height) · \(canvas.aspectLabel) · \(Int(canvas.frameRate)) fps")
+                Text("\(canvas.aspectLabel) · \(Int(canvas.frameRate)) fps")
+                Color.clear.frame(width: 0, height: 0)
+            }
+            .font(.pulseMono).foregroundStyle(Theme.textTertiary).lineLimit(1)
             Picker("", selection: $zoom) {
                 ForEach(ViewerZoom.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }

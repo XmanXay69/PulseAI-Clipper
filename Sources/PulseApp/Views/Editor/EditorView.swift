@@ -30,22 +30,25 @@ struct EditorView: View {
         } else {
             VStack(spacing: 0) {
                 WorkspaceBar()
-                HStack(spacing: 0) {
-                    if layout.showLeftPanel {
-                        LeftPanel(session: session)
-                            .frame(width: layout.leftPanelWidth)
-                        ResizeHandle(axis: .horizontal) { delta in
-                            updateLayout { $0.leftPanelWidth = min(max($0.leftPanelWidth + delta, 220), 520) }
+                GeometryReader { geo in
+                    let widths = panelWidths(available: geo.size.width)
+                    HStack(spacing: 0) {
+                        if layout.showLeftPanel {
+                            LeftPanel(session: session)
+                                .frame(width: widths.left)
+                            ResizeHandle(axis: .horizontal) { delta in
+                                updateLayout { $0.leftPanelWidth = min(max($0.leftPanelWidth + delta, 220), 520) }
+                            }
                         }
-                    }
-                    ViewerView(session: session)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    if layout.showRightPanel {
-                        ResizeHandle(axis: .horizontal) { delta in
-                            updateLayout { $0.rightPanelWidth = min(max($0.rightPanelWidth - delta, 260), 520) }
+                        ViewerView(session: session)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        if layout.showRightPanel {
+                            ResizeHandle(axis: .horizontal) { delta in
+                                updateLayout { $0.rightPanelWidth = min(max($0.rightPanelWidth - delta, 260), 520) }
+                            }
+                            InspectorView(session: session)
+                                .frame(width: widths.right)
                         }
-                        InspectorView(session: session)
-                            .frame(width: layout.rightPanelWidth)
                     }
                 }
                 if layout.showTimeline {
@@ -57,6 +60,23 @@ struct EditorView: View {
                 }
             }
         }
+    }
+}
+
+extension EditorView {
+    /// Side panels at their saved widths, shrunk (never below their minimums) when the window is too
+    /// narrow to leave the viewer at least 420 pt.
+    func panelWidths(available: CGFloat) -> (left: CGFloat, right: CGFloat) {
+        var left = layout.showLeftPanel ? CGFloat(layout.leftPanelWidth) : 0
+        var right = layout.showRightPanel ? CGFloat(layout.rightPanelWidth) : 0
+        let viewerMinimum: CGFloat = 420
+        let excess = left + right + viewerMinimum + 16 - available
+        if excess > 0, left + right > 0 {
+            let leftShare = left / (left + right)
+            left = layout.showLeftPanel ? max(220, left - excess * leftShare) : 0
+            right = layout.showRightPanel ? max(260, right - excess * (1 - leftShare)) : 0
+        }
+        return (left, right)
     }
 }
 

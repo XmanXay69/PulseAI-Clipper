@@ -163,7 +163,7 @@ struct ClipCandidateCard: View {
                 }
                 .padding(8)
                 if candidate.timelineID != nil {
-                    Label("Edited", systemImage: "timeline.selection")
+                    Label("Edited", systemImage: "checkmark.circle.fill")
                         .font(.pulseMicro).padding(.horizontal, 6).padding(.vertical, 2)
                         .background(Capsule().fill(Theme.info.opacity(0.85))).foregroundStyle(.white)
                         .padding(8)

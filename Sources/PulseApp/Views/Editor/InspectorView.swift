@@ -608,7 +608,8 @@ struct TimelineInspector: View {
                         Button { session.applyLayout(preset) } label: {
                             VStack(spacing: 4) {
                                 Image(systemName: preset.symbolName).font(.system(size: 16))
-                                Text(preset.displayName).font(.system(size: 9.5, weight: .medium)).lineLimit(1)
+                                Text(preset.displayName).font(.system(size: 9.5, weight: .medium)).lineLimit(2)
+                                    .multilineTextAlignment(.center).minimumScaleFactor(0.85).fixedSize(horizontal: false, vertical: true)
                             }
                             .frame(maxWidth: .infinity, minHeight: 50)
                             .foregroundStyle(timeline.layout == preset ? Theme.accent : Theme.textSecondary)

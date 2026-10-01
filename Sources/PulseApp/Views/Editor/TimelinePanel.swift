@@ -3,7 +3,7 @@ import PulseEngine
 import SwiftUI
 
 enum TimelineMetrics {
-    static let headerWidth: CGFloat = 158
+    static let headerWidth: CGFloat = 172
     static let rulerHeight: CGFloat = 26
     static func laneHeight(_ kind: TrackKind) -> CGFloat {
         switch kind {
@@ -109,12 +109,13 @@ struct TrackHeader: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
                 .lineLimit(1)
+                .truncationMode(.middle)
+                .help(track.name)
             Spacer(minLength: 2)
-            if track.kind != .text {
+            if track.kind == .video {
                 toggle("eye", "eye.slash", on: !track.isHidden, help: "Show/hide") { t in t.isHidden.toggle() }
-                    .opacity(track.kind == .video ? 1 : 0)
+            } else if track.kind == .audio {
                 toggle("speaker.wave.2", "speaker.slash", on: !track.isMuted, help: "Mute") { t in t.isMuted.toggle() }
-                    .opacity(track.kind == .audio ? 1 : 0)
             }
             if track.kind == .audio {
                 Button { update { $0.isSolo.toggle() } } label: {
