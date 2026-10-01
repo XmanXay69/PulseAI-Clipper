@@ -202,8 +202,12 @@ final class EngineSmokeTests: XCTestCase {
                                 space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
             ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
             var total = 0.0, count = 0.0
-            for i in stride(from: 0, to: data.count, by: 4) where data[i + 3] > 200 && Int(data[i]) + Int(data[i + 1]) + Int(data[i + 2]) > 450 {
-                total += Double(Int(data[i + 2]) - Int(data[i])); count += 1
+            for i in stride(from: 0, to: data.count, by: 4) {
+                let r = Int(data[i]), g = Int(data[i + 1]), b = Int(data[i + 2]), a = Int(data[i + 3])
+                let brightness: Int = r + g + b
+                guard a > 200, brightness > 450 else { continue }
+                total += Double(b - r)
+                count += 1
             }
             return count > 0 ? total / count : 0
         }
