@@ -36,18 +36,23 @@ struct EditorView: View {
                         if layout.showLeftPanel {
                             LeftPanel(session: session)
                                 .frame(width: widths.left)
+                                .clipped()
                             ResizeHandle(axis: .horizontal) { delta in
                                 updateLayout { $0.leftPanelWidth = min(max($0.leftPanelWidth + delta, 220), 520) }
                             }
                         }
+                        // An exact width: the viewer's controls would otherwise refuse to shrink and push
+                        // the inspector off the window's edge.
                         ViewerView(session: session)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .frame(width: widths.viewer(in: geo.size.width), height: geo.size.height)
+                            .clipped()
                         if layout.showRightPanel {
                             ResizeHandle(axis: .horizontal) { delta in
                                 updateLayout { $0.rightPanelWidth = min(max($0.rightPanelWidth - delta, 260), 520) }
                             }
                             InspectorView(session: session)
                                 .frame(width: widths.right)
+                                .clipped()
                         }
                     }
                 }
@@ -66,7 +71,7 @@ struct EditorView: View {
 extension EditorView {
     /// Side panels at their saved widths, shrunk (never below their minimums) when the window is too
     /// narrow to leave the viewer at least 420 pt.
-    func panelWidths(available: CGFloat) -> (left: CGFloat, right: CGFloat) {
+    func panelWidths(available: CGFloat) -> PanelWidths {
         var left = layout.showLeftPanel ? CGFloat(layout.leftPanelWidth) : 0
         var right = layout.showRightPanel ? CGFloat(layout.rightPanelWidth) : 0
         let viewerMinimum: CGFloat = 420
@@ -76,7 +81,18 @@ extension EditorView {
             left = layout.showLeftPanel ? max(220, left - excess * leftShare) : 0
             right = layout.showRightPanel ? max(260, right - excess * (1 - leftShare)) : 0
         }
-        return (left, right)
+        return PanelWidths(left: left, right: right)
+    }
+}
+
+struct PanelWidths {
+    var left: CGFloat
+    var right: CGFloat
+
+    /// What's left for the viewer between the panels and their 1 pt resize handles.
+    func viewer(in available: CGFloat) -> CGFloat {
+        let handles: CGFloat = (left > 0 ? 1 : 0) + (right > 0 ? 1 : 0)
+        return max(200, available - left - right - handles)
     }
 }
 
