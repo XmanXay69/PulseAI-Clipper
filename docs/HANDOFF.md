@@ -60,7 +60,7 @@ Key files to know:
 
 ### What CI actually verifies on every push (macOS 15 runner)
 
-- 128 unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
+- 133 unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
   captions, layouts, export settings, audio DSP, …).
 - **Engine end-to-end:** generate a 75 s gameplay+facecam stream → probe → analyze (audio + Vision faces) →
   AI clip candidates → one-click 9:16 short (split-screen, captions, normalized dialogue audio) → rendered
@@ -69,6 +69,9 @@ Key files to know:
   (“No way, that was the craziest clutch I have ever seen. Let's go.”).
 - **Screen recording:** ScreenCaptureKit records the runner's display with a pause in the middle; the file
   length excludes the pause.
+- **Layout morphs:** the demo short morphs split screen → circle facecam over 1 s without splitting clips;
+  before/mid/after frames are rendered and differ (mean pixel change 35 / 31), mid-morph has no black bars
+  (`layout-morph-*.png`, app screenshot `13d-layout-morph`).
 - **AI noise removal:** speech under keyboard clicks, music and fan noise → SI-SDR 10.3 dB noisy, 11.9 dB
   classic, 17.9 dB AI voice isolation, output sample-aligned (7.6 s of audio in 2.7 s on the CI VM).
 - **Sound library:** every track and effect renders (exact length, −16 LUFS music / −3 dBFS effects, clean
