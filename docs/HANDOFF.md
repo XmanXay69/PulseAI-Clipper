@@ -33,8 +33,8 @@ open build/PULSE.app
 
 | Module | What it is |
 |---|---|
-| `PulseCore` (pure Swift, 110 unit tests) | Timeline model + all edit ops (split, ripple, trim, speed, link, text-based delete/restore), snapshot undo/redo, `.pulse` project packages (autosave, rotating backups, versions, crash recovery), transcripts (SRT/VTT/whisper.cpp/OpenAI JSON), filler words, silence detection, audio sync, engagement model + AI clip generation (HOOK→CONTEXT→PAYOFF→END, AI Potential), titles/hooks, captions (8 presets, paging, word timing, emphasis, safe areas), streamer layouts + facecam detection, AI reframing, punch-ins, one-click short builder, "Make More Entertaining", templates, export presets/queue, AI provider abstraction + privacy policy (Local / Claude / OpenAI-compatible), settings, global search, multicam (sync groups, angle cuts, AI switching, grid layouts), compound clips (nested timelines), speaker diarization (segmenting, PCA + k-means clustering with a reference-based speaker count, labels) |
-| `PulseEngine` (AVFoundation, Vision, Speech, Core Image/Metal, SQLite) | Media probing/import, thumbnails, waveforms, proxies, audio analysis, Vision face detection, Apple Speech + whisper.cpp transcription, composition builder + custom `AVVideoCompositing` compositor (layouts, masks, crops, keyframes, captions, text, color, LUTs, effects, transitions), AVAssetWriter export (H.264/HEVC hardware, ProRes), playback controller, demo media generator, SQLite library index with FTS5 transcript search, ScreenCaptureKit + camera/mic session recorder (pause/resume), audio enhance chain, local speaker voiceprints (MFCC + pitch via vDSP) |
+| `PulseCore` (pure Swift, 110 unit tests) | Timeline model + all edit ops (split, ripple, trim, speed, link, text-based delete/restore), snapshot undo/redo, `.pulse` project packages (autosave, rotating backups, versions, crash recovery), transcripts (SRT/VTT/whisper.cpp/OpenAI JSON), filler words, silence detection, audio sync, engagement model + AI clip generation (HOOK→CONTEXT→PAYOFF→END, AI Potential), titles/hooks, captions (8 presets, paging, word timing, emphasis, safe areas), streamer layouts + facecam detection, AI reframing, punch-ins, one-click short builder, "Make More Entertaining", templates, export presets/queue, AI provider abstraction + privacy policy (Local / Claude / OpenAI-compatible), settings, global search, multicam (sync groups, angle cuts, AI switching, grid layouts), compound clips (nested timelines), speaker diarization (segmenting, embedding clustering, MFCC fallback clustering, labels) |
+| `PulseEngine` (AVFoundation, Vision, Speech, Core Image/Metal, SQLite) | Media probing/import, thumbnails, waveforms, proxies, audio analysis, Vision face detection, Apple Speech + whisper.cpp transcription, composition builder + custom `AVVideoCompositing` compositor (layouts, masks, crops, keyframes, captions, text, color, LUTs, effects, transitions), AVAssetWriter export (H.264/HEVC hardware, ProRes), playback controller, demo media generator, SQLite library index with FTS5 transcript search, ScreenCaptureKit + camera/mic session recorder (pause/resume), audio enhance chain, neural speaker encoder (GE2E LSTM via BLAS) + MFCC fallback |
 | `PulseApp` (SwiftUI) | Sidebar app: Home, Projects, Import, AI Clips, Editor (viewer, timeline, inspector, transcript), Captions, Media, Templates, Exports, Settings; onboarding, recovery, ⌘F global search, background jobs, toasts, keyboard shortcuts |
 
 Key files to know:
@@ -60,7 +60,7 @@ Key files to know:
 
 ### What CI actually verifies on every push (macOS 15 runner)
 
-- 125 unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
+- 128 unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
   captions, layouts, export settings, audio DSP, …).
 - **Engine end-to-end:** generate a 75 s gameplay+facecam stream → probe → analyze (audio + Vision faces) →
   AI clip candidates → one-click 9:16 short (split-screen, captions, normalized dialogue audio) → rendered
@@ -74,8 +74,9 @@ Key files to know:
 - **Sound library:** every track and effect renders (exact length, −16 LUFS music / −3 dBFS effects, clean
   ending); the upbeat groove measures 122 BPM as written; the end-to-end short exports with a library music
   bed and impact; in the app a composed bed is added to the sample short in ~5 s (screenshot `13c-sounds-added`).
-- **Speaker diarization:** two different `say` voices alternating in one recording are separated into two
-  speakers from the audio alone (100% of words; separation 15.3 vs a 4.8 threshold).
+- **Speaker diarization:** the Swift speaker encoder matches the PyTorch model (cosine 0.999999); on six pairs of
+  macOS voices (incl. female/female and male/male) neural diarization labels 100% of words correctly vs 67%
+  for the old MFCC method; three voices → 3 speakers (100%); one voice → one speaker.
 - **The app itself:** launches, builds the sample project, visits every section, screenshots them, grabs a
   live viewer frame, opens ⌘F search, and exports the short through the app's export queue (≈8.8 MB MP4).
 - **Release bundle:** `scripts/build-app.sh` builds, icons, ad-hoc signs and zips `PULSE.app` on `[app]` commits.
@@ -101,14 +102,15 @@ prompt), cloud AI providers with live keys.
   falls back to the wide shot).
 - **Screen capture** (ScreenCaptureKit, pause/resume) is verified on CI with a real display; webcam/mic capture
   can't be tested on CI (no devices) — test on your Mac.
-- **Speaker diarization** is classic signal processing, not a neural model: per-segment voiceprints (MFCC
-  means/spreads + pitch), reduced to principal components and clustered with k-means. The speaker count is
-  chosen by comparing cluster separation with the same k-means run on structureless data of the same spread
-  (gap-statistic style), so one voice stays one speaker; it is deliberately conservative. It separates clearly
-  different voices (e.g. male/female, different mics) well; two similar voices on one mic, heavy overlap or
-  loud music will mislabel. Fix-ups are in the Transcript panel (Speakers menu: re-detect with a fixed count,
-  rename, merge). Multicam sessions with one mic per person use mic loudness instead, which is much more
-  reliable. Upgrade path: a speaker-embedding model (ECAPA/x-vector) via Core ML in `SpeakerDiarization.voiceprints`.
+- **Speaker diarization** uses a neural speaker-embedding model: Resemblyzer's pretrained GE2E encoder
+  (3-layer LSTM, 256-d embeddings, trained on LibriSpeech + VoxCeleb, Apache-2.0 — license in
+  `Resources/Models`), reimplemented in Swift with Accelerate (`SpeakerEncoder`) and checked against the
+  PyTorch original. Speakers are found by cutting an average-linkage tree where the silhouette is best, then
+  merging near-identical voices (cosine > 0.92). Calibrated on macOS synthetic voices only — real rooms,
+  overlapping speech and laughter will be harder; the Speakers menu (fixed count, rename, merge) is the
+  override. Notably, one voice split by the tree scored 0.40 silhouette on CI and was rescued by the 0.92 merge
+  rule, so watch for over-splitting on real solo recordings. The old MFCC+pitch clustering remains as the
+  fallback if the model file is missing. Multicam sessions with one mic per person still use mic loudness.
 - **Cloud AI** (Claude / OpenAI-compatible) is optional, used only for titles/captions copy; untested with live keys.
 - **Music/SFX library** is built in and generated on the Mac (`PulseCore/Library`): 14 music tracks in 10 styles
   (lo-fi, trap, upbeat pop, acoustic, synthwave, cinematic, chiptune, suspense, comedy, ambient) composed by
@@ -138,4 +140,4 @@ prompt), cloud AI providers with live keys.
 1. Download `PULSE-app` from the latest green CI run (Actions → run → Artifacts) or run `./scripts/build-app.sh`,
    then try it by hand with a real long recording: import → Analyze & Find Clips → Open in Editor → Export.
 2. Report anything confusing or broken; the CI screenshot loop (`--ui-snapshots`) makes UI fixes quick to verify.
-3. Candidates for the next build phase: speaker-embedding model (Core ML), keyframed layout morphs, per-speaker caption styling.
+3. Candidates for the next build phase: keyframed layout morphs, per-speaker caption styling.
