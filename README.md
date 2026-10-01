@@ -7,6 +7,22 @@ Import a long stream, podcast or video. PULSE analyzes it on your Mac, finds the
 moments and builds ready-to-post vertical shorts with captions, facecam layouts and punch-ins. Every
 AI decision lands on a professional timeline as normal, editable clips, keyframes and captions.
 
+## Screenshots
+
+These come straight from CI (`PULSE --ui-snapshots` on a GitHub macOS runner, with a generated sample
+stream). The runner can't capture the live video layer, so viewers look black in the app shots; the frame
+the viewer actually shows is rendered separately below.
+
+| AI clips | Editor |
+|---|---|
+| ![AI clips](docs/screenshots/ai-clips.jpg) | ![Editor](docs/screenshots/editor.jpg) |
+| **Captions** | **Multicam grid** |
+| ![Captions](docs/screenshots/captions.jpg) | ![Multicam](docs/screenshots/multicam.jpg) |
+
+| Rendered short (split screen + captions) | Layout morph: split screen → circle facecam (before / mid / after) |
+|---|---|
+| <img src="docs/screenshots/short-frame.jpg" width="220"> | <img src="docs/screenshots/layout-morph.jpg" width="420"> |
+
 ## Features
 
 - **AI clip finding.** Analyzes speech, silence, loudness spikes, scene changes and faces. Each candidate

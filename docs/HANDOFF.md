@@ -140,6 +140,12 @@ prompt), cloud AI providers with live keys.
   rewrites position/scale/crop/style keyframes on laid-out clips (zoom/pan punch-ins are separate and kept), so
   hand-made keyframes on those four properties are replaced when the layout schedule changes. Cutting and
   restoring sections moves markers and layout changes with the content.
+- **Editor layout at small window sizes:** the viewer gets an exact width between the side panels (which
+  shrink toward their minimums so the viewer keeps ≥ 420 pt), side panels are clipped, the Inspector lays out
+  at its column width, and the viewer header/transport bar compress (in/out chips and the canvas readout drop
+  out first). Checked on CI at a 1280 × 720 window; very small windows (< ~1000 pt) will still crowd.
+- README screenshots in `docs/screenshots/` are copied from CI snapshots; refresh them from a newer run after
+  UI changes (decode the `SNAPSHOT` lines as described below).
 - Cross-dissolves (video + linked audio crossfade) need media handles; at the very start/end of a recording they
   fall back to a fade over lower tracks.
 - whisper.cpp itself must be installed with Homebrew (`brew install whisper-cpp`); models download in-app
