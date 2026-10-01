@@ -9,6 +9,17 @@
 works on macOS 15). CI compiles, tests and screenshots the app on a GitHub Actions `macos-15` runner
 (`.github/workflows/ci.yml`) because the cloud dev box used to write it is Linux.
 
+## Download (the easy way)
+
+`PULSE.dmg` is published by `.github/workflows/release.yml` on commits containing `[release]` (or a manual
+run) as the latest GitHub Release: https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg
+— universal (arm64 + x86_64), with a static whisper.cpp (`scripts/build-whisper.sh`, Metal embedded,
+system libraries only) in `Contents/MacOS/whisper-cli` and `ggml-base.en.bin` in `Contents/Resources`.
+The workflow checks the mounted image: signature, both slices, the app binary running, and a real `say` →
+whisper transcription using only what's inside the image. Without Developer ID secrets the app is ad-hoc
+signed, so the first launch needs Privacy & Security → Open Anyway (macOS 15) or right-click → Open
+(macOS 14); the README lists the secrets that make it signed + notarized.
+
 ## Run it on your Mac
 
 ```bash

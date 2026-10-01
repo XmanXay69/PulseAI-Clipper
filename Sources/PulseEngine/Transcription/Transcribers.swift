@@ -148,7 +148,8 @@ public final class AppleSpeechTranscriber: TranscriptionProvider, @unchecked Sen
     }
 }
 
-/// whisper.cpp via its CLI (`brew install whisper-cpp`). Fully local, word-level timestamps.
+/// whisper.cpp via its CLI. Release builds of PULSE.app carry their own `whisper-cli` (static, Metal) and
+/// the English base model; otherwise `brew install whisper-cpp`. Fully local, word-level timestamps.
 public struct WhisperCppTranscriber: TranscriptionProvider {
     public let id = "whisper.cpp"
     public let displayName = "Whisper (whisper.cpp)"
@@ -168,6 +169,7 @@ public struct WhisperCppTranscriber: TranscriptionProvider {
     public static func locateExecutable(preferred: String = "") -> URL? {
         var candidates: [String] = []
         if !preferred.isEmpty { candidates.append(preferred) }
+        if let bundled = Bundle.main.url(forAuxiliaryExecutable: "whisper-cli") { candidates.append(bundled.path) }
         for dir in ["/opt/homebrew/bin", "/usr/local/bin"] {
             for name in ["whisper-cli", "whisper-cpp", "whisper"] { candidates.append("\(dir)/\(name)") }
         }
@@ -176,9 +178,11 @@ public struct WhisperCppTranscriber: TranscriptionProvider {
 
     public static func locateModel(preferred: String = "") -> URL? {
         if !preferred.isEmpty, FileManager.default.fileExists(atPath: preferred) { return URL(fileURLWithPath: preferred) }
-        let dirs = [PulseDirectories.applicationSupport.appendingPathComponent("Models"),
+        // Models you downloaded come first; the app bundle's base model is the out-of-the-box default.
+        var dirs = [PulseDirectories.applicationSupport.appendingPathComponent("Models"),
                     URL(fileURLWithPath: "/opt/homebrew/share/whisper-cpp"),
                     URL(fileURLWithPath: "/usr/local/share/whisper-cpp")]
+        if let resources = Bundle.main.resourceURL { dirs.append(resources) }
         let preferredOrder = ["ggml-large-v3-turbo", "ggml-medium", "ggml-small", "ggml-base", "ggml-tiny"]
         var found: [URL] = []
         for dir in dirs {
@@ -232,24 +236,11 @@ public struct WhisperCppTranscriber: TranscriptionProvider {
 /// Picks the transcription engine according to settings and availability.
 public enum TranscriptionEngineFactory {
     public static func make(settings: AISettings) -> TranscriptionProvider? {
-        let whisper: WhisperCppTranscriber? = {
-            guard let exe = WhisperCppTranscriber.locateExecutable(preferred: settings.whisperExecutablePath),
-                  let model = WhisperCppTranscriber.locateModel(preferred: settings.whisperModelPath) else { return nil }
-            return WhisperCppTranscriber(executable: exe, model: model)
-        }()
-        switch settings.transcriptionEngine {
-        case .whisperCpp:
-            return whisper
-        case .appleOnDevice:
-            return AppleSpeechTranscriber()
-        case .automatic:
-            if AppleSpeechTranscriber.hasUsageDescription { return AppleSpeechTranscriber() }
-            return whisper
-        }
+        candidates(settings: settings).first
     }
 
-    /// Engines to try in order. Automatic tries Apple Speech first and falls back to whisper.cpp
-    /// (e.g. when the on-device speech model isn't downloaded).
+    /// Engines to try in order. Automatic prefers whisper.cpp when its model covers the language (no
+    /// permission prompt, and release builds ship it), otherwise Apple Speech, and falls back to the other.
     public static func candidates(settings: AISettings) -> [TranscriptionProvider] {
         let whisper: WhisperCppTranscriber? = {
             guard let exe = WhisperCppTranscriber.locateExecutable(preferred: settings.whisperExecutablePath),
@@ -264,16 +255,24 @@ public enum TranscriptionEngineFactory {
         case .automatic:
             var list: [TranscriptionProvider] = []
             if AppleSpeechTranscriber.hasUsageDescription { list.append(AppleSpeechTranscriber()) }
-            if let whisper { list.append(whisper) }
+            if let whisper {
+                if whisperCovers(language: settings.transcriptionLanguage, model: whisper.model) { list.insert(whisper, at: 0) } else { list.append(whisper) }
+            }
             return list
         }
+    }
+
+    /// English-only models (`*.en.bin`) only cover English; multilingual ones cover everything.
+    static func whisperCovers(language: String, model: URL) -> Bool {
+        !model.lastPathComponent.contains(".en.") || language.lowercased().hasPrefix("en")
     }
 
     public static func availabilitySummary(settings: AISettings) -> String {
         var parts: [String] = []
         parts.append(AppleSpeechTranscriber.hasUsageDescription ? "Apple Speech: available" : "Apple Speech: needs app bundle")
         if let exe = WhisperCppTranscriber.locateExecutable(preferred: settings.whisperExecutablePath) {
-            parts.append("whisper.cpp: \(exe.lastPathComponent)" + (WhisperCppTranscriber.locateModel(preferred: settings.whisperModelPath) == nil ? " (no model found)" : ""))
+            let bundled = exe.path.hasPrefix(Bundle.main.bundlePath + "/")
+            parts.append("whisper.cpp: \(bundled ? "built in" : exe.lastPathComponent)" + (WhisperCppTranscriber.locateModel(preferred: settings.whisperModelPath) == nil ? " (no model found)" : ""))
         } else {
             parts.append("whisper.cpp: not installed")
         }

@@ -5,14 +5,17 @@
 #   ARCHS="arm64 x86_64" ./scripts/build-app.sh   # universal
 #   SIGN_IDENTITY="Developer ID Application: …" ./scripts/build-app.sh
 #
-# Without SIGN_IDENTITY the app is ad-hoc signed, which is fine for running on your own Mac
-# (right-click → Open the first time if Gatekeeper complains).
+# If build/whisper/whisper-cli exists (./scripts/build-whisper.sh) it is bundled as the app's own
+# transcriber, and build/models/ggml-*.bin as its default model (override with WHISPER_CLI / WHISPER_MODEL).
+#
+# Without SIGN_IDENTITY the app is ad-hoc signed, which is fine for running on your own Mac.
+# ./scripts/make-dmg.sh turns the result into a drag-to-Applications disk image.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 ARCHS="${ARCHS:-arm64}"
-VERSION="${VERSION:-0.1.0}"
+VERSION="${VERSION:-$(cat VERSION 2>/dev/null || echo 0.1.0)}"
 BUILD_NUMBER="${BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 APP="$ROOT/build/PULSE.app"
@@ -31,6 +34,17 @@ cp "$BIN_DIR/PULSE" "$APP/Contents/MacOS/PULSE"
 find "$BIN_DIR" -maxdepth 1 -name "*.bundle" -exec cp -R {} "$APP/Contents/Resources/" \;
 # On-device models (speaker embeddings) and their licenses.
 cp Resources/Models/* "$APP/Contents/Resources/"
+WHISPER_CLI="${WHISPER_CLI:-$ROOT/build/whisper/whisper-cli}"
+if [ -x "$WHISPER_CLI" ]; then
+  echo "▸ Bundling whisper.cpp"
+  cp "$WHISPER_CLI" "$APP/Contents/MacOS/whisper-cli"
+  [ -f "$(dirname "$WHISPER_CLI")/LICENSE-whisper.cpp.txt" ] && cp "$(dirname "$WHISPER_CLI")/LICENSE-whisper.cpp.txt" "$APP/Contents/Resources/"
+fi
+WHISPER_MODEL="${WHISPER_MODEL:-$(ls "$ROOT"/build/models/ggml-*.bin 2>/dev/null | head -1 || true)}"
+if [ -n "$WHISPER_MODEL" ] && [ -f "$WHISPER_MODEL" ]; then
+  echo "▸ Bundling model $(basename "$WHISPER_MODEL")"
+  cp "$WHISPER_MODEL" "$APP/Contents/Resources/"
+fi
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD_NUMBER/" Resources/Info.plist > "$APP/Contents/Info.plist"
 printf "APPL????" > "$APP/Contents/PkgInfo"
 
@@ -41,12 +55,17 @@ rm -rf "$ICONSET"
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 
 echo "▸ Signing ($SIGN_IDENTITY)"
+# Inside-out: the bundled helper first, then the app (its own entitlements only).
 if [ "$SIGN_IDENTITY" = "-" ]; then
-  codesign --force --deep --sign - --entitlements Resources/PULSE.entitlements "$APP"
+  SIGN_FLAGS=(--force --sign -)
 else
-  codesign --force --deep --options runtime --timestamp --sign "$SIGN_IDENTITY" --entitlements Resources/PULSE.entitlements "$APP"
+  SIGN_FLAGS=(--force --options runtime --timestamp --sign "$SIGN_IDENTITY")
 fi
-codesign --verify --verbose=2 "$APP"
+if [ -f "$APP/Contents/MacOS/whisper-cli" ]; then
+  codesign "${SIGN_FLAGS[@]}" "$APP/Contents/MacOS/whisper-cli"
+fi
+codesign "${SIGN_FLAGS[@]}" --entitlements Resources/PULSE.entitlements "$APP"
+codesign --verify --deep --strict --verbose=2 "$APP"
 
 echo "▸ Zipping"
 rm -f "$ROOT/build/PULSE.zip"

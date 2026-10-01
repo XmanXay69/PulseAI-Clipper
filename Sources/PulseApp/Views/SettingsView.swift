@@ -398,7 +398,7 @@ struct TranscriptionSettings: View {
                 .labelsHidden().frame(width: 240)
             }
         }
-        SettingsGroup("whisper.cpp (optional)", footnote: "Install with `brew install whisper-cpp` and download a ggml model (e.g. ggml-base.en.bin). PULSE also looks in /opt/homebrew/bin and ~/Library/Application Support/PULSE/Models automatically.") {
+        SettingsGroup("whisper.cpp", footnote: "The downloadable PULSE app has whisper.cpp and the English base model built in. Leave these empty to use them, or point at your own build (e.g. `brew install whisper-cpp`) or model. Bigger models downloaded below are picked up automatically.") {
             SettingsRow("Executable") {
                 pathField($app.settings.ai.whisperExecutablePath, placeholder: WhisperCppTranscriber.locateExecutable()?.path ?? "whisper-cli", directory: false)
             }

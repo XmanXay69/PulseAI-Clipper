@@ -1,7 +1,8 @@
 import Foundation
 
 public enum TranscriptionEngineChoice: String, Codable, CaseIterable, Sendable {
-    /// Apple Speech first, whisper.cpp if Apple Speech is unavailable.
+    /// whisper.cpp when its model covers the language (the release app ships one), else Apple Speech;
+    /// each falls back to the other.
     case automatic
     case appleOnDevice
     case whisperCpp

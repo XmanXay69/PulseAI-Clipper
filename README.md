@@ -7,6 +7,23 @@ Import a long stream, podcast or video. PULSE analyzes it on your Mac, finds the
 moments and builds ready-to-post vertical shorts with captions, facecam layouts and punch-ins. Every
 AI decision lands on a professional timeline as normal, editable clips, keyframes and captions.
 
+## Download
+
+**[⬇ Download PULSE.dmg](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
+(macOS 14 or later, Apple Silicon and Intel) · [all releases](https://github.com/XmanXay69/PulseAI-Clipper/releases)
+
+1. Double-click **PULSE.dmg** and drag **PULSE** into **Applications**.
+2. Open PULSE from Launchpad or Applications.
+
+**First launch only:** builds aren't notarized by Apple yet (that needs a paid Apple Developer account, see
+below), so macOS asks once before opening PULSE:
+- **macOS 15 Sequoia or later:** double-click PULSE, click **Done** on the warning, then go to
+  **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to PULSE.
+- **macOS 14 Sonoma:** right-click PULSE in Applications → **Open** → **Open**.
+
+Everything else works out of the box, offline: transcription (whisper.cpp and its English model are built
+in), speaker detection, the music and sound effects library, and export.
+
 ## Screenshots
 
 These come straight from CI (`PULSE --ui-snapshots` on a GitHub macOS runner, with a generated sample
@@ -64,6 +81,8 @@ Requirements: macOS 14 or later (macOS 15 recommended), Xcode 16 or its command 
 ```bash
 swift run PULSE                 # launch from source
 ./scripts/build-app.sh          # build/PULSE.app + build/PULSE.zip (ad-hoc signed)
+./scripts/build-whisper.sh      # optional: bundle a self-contained whisper.cpp (needs cmake)
+./scripts/make-dmg.sh           # build/PULSE.dmg (drag-to-Applications installer)
 swift test                      # unit + engine end-to-end tests
 ```
 
@@ -72,12 +91,26 @@ You can also open `Package.swift` in Xcode, choose the **PULSE** scheme and run.
 To try it without your own footage, pick **Open Sample Project** on the welcome screen. PULSE
 generates a 75-second gameplay + facecam clip locally and runs the whole pipeline on it.
 
+### Releases
+
+Put `[release]` in a commit message (or run **Actions → Release** by hand) and the Release workflow builds a
+universal `PULSE.app` with whisper.cpp and the English base model inside, packages `PULSE.dmg`, checks the
+disk image (signature, both architectures, a real transcription from inside the image) and publishes it as
+the latest GitHub Release. The version comes from the `VERSION` file.
+
+**Signing and notarization (removes the first-launch warning):** join the Apple Developer Program, create a
+*Developer ID Application* certificate, export it as a `.p12`, and add these repository secrets
+(Settings → Secrets and variables → Actions): `MACOS_CERT_P12` (base64 of the .p12), `MACOS_CERT_PASSWORD`,
+`NOTARY_APPLE_ID`, `NOTARY_PASSWORD` (an app-specific password) and `NOTARY_TEAM_ID`. The next release is
+then signed, notarized and stapled, and opens with no warning.
+
 ### Transcription
 
-- **Apple on-device speech** needs the app bundle (`./scripts/build-app.sh`).
-- **whisper.cpp:** run `brew install whisper-cpp`, then download a model in Settings → Transcription
-  (or drop a ggml model into `~/Library/Application Support/PULSE/Models`). Automatic mode falls back
-  to whisper.cpp when Apple Speech isn't available.
+- **whisper.cpp** is built into the downloadable app with the English base model, so English works offline
+  immediately. Bigger or multilingual models download in Settings → Transcription. From source, run
+  `brew install whisper-cpp` (or `./scripts/build-whisper.sh`) and download a model.
+- **Apple on-device speech** needs the app bundle. Automatic mode uses whisper.cpp when its model covers
+  your language and Apple Speech otherwise, each falling back to the other.
 - **Or import** an SRT or VTT file.
 
 ## Project layout

@@ -1,0 +1,177 @@
+name: Release
+
+# Builds the downloadable PULSE.dmg (universal app, whisper.cpp + English model built in), checks the
+# disk image the way a user would use it, and publishes it as a GitHub Release.
+#
+# Runs on commits whose message contains [release], or by hand (Actions → Release → Run workflow).
+# The latest release is always at:
+#   https://github.com/<owner>/<repo>/releases/latest/download/PULSE.dmg
+#
+# Optional repository secrets for a disk image macOS opens with no warning (Apple Developer account):
+#   MACOS_CERT_P12           base64 of a "Developer ID Application" certificate exported as .p12
+#   MACOS_CERT_PASSWORD      its export password
+#   NOTARY_APPLE_ID, NOTARY_PASSWORD (app-specific password), NOTARY_TEAM_ID
+# Without them the app is ad-hoc signed and macOS asks once before the first launch.
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish a GitHub Release with the DMG"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    name: Build PULSE.dmg
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release]') }}
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      ARCHS: arm64 x86_64
+      WHISPER_VERSION: v1.7.6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Cache whisper.cpp build
+        uses: actions/cache@v4
+        with:
+          path: build/whisper
+          key: whisper-cli-${{ env.WHISPER_VERSION }}-universal-${{ hashFiles('scripts/build-whisper.sh') }}
+
+      - name: Cache whisper model
+        uses: actions/cache@v4
+        with:
+          path: build/models
+          key: whisper-ggml-base-en-v1
+
+      - name: Build whisper.cpp
+        run: |
+          if [ ! -x build/whisper/whisper-cli ]; then ./scripts/build-whisper.sh; fi
+          lipo -info build/whisper/whisper-cli
+
+      - name: Download English base model
+        run: |
+          mkdir -p build/models
+          if [ ! -f build/models/ggml-base.en.bin ]; then
+            curl -fsSL --retry 3 -o build/models/ggml-base.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+          fi
+          ls -la build/models
+
+      - name: Import signing certificate (optional)
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          if [ -z "$MACOS_CERT_P12" ]; then echo "No certificate secret — ad-hoc signing"; exit 0; fi
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          security create-keychain -p ci "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p ci "$KEYCHAIN"
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" | grep 'Developer ID Application' | head -1 | sed -E 's/.*"(.*)"/\1/')"
+          echo "SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+          echo "Signing as: $IDENTITY"
+
+      - name: Build PULSE.app (universal)
+        run: ./scripts/build-app.sh
+
+      - name: Make PULSE.dmg
+        env:
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+        run: ./scripts/make-dmg.sh
+
+      - name: Check the disk image like a user would
+        run: |
+          set -euo pipefail
+          MNT="$(hdiutil attach -readonly -nobrowse -noautoopen build/PULSE.dmg | grep -E '/Volumes/' | sed -E 's|.*(/Volumes/.*)$|\1|')"
+          echo "Contents of $MNT:"; ls -la "$MNT"
+          APP="$MNT/PULSE.app"
+          test -L "$MNT/Applications"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          lipo -info "$APP/Contents/MacOS/PULSE"
+          lipo -info "$APP/Contents/MacOS/whisper-cli"
+          ls -la "$APP/Contents/Resources"
+          echo "Gatekeeper assessment (expected to be rejected unless notarized):"
+          spctl --assess --type execute --verbose "$APP" 2>&1 || true
+          # The app binary runs from the image (renders its icon set and exits).
+          "$APP/Contents/MacOS/PULSE" --render-icon "$RUNNER_TEMP/icon-check" && ls "$RUNNER_TEMP/icon-check" | head -3
+          if arch -x86_64 /usr/bin/true 2>/dev/null; then
+            arch -x86_64 "$APP/Contents/MacOS/PULSE" --render-icon "$RUNNER_TEMP/icon-check-x86" && echo "x86_64 slice runs (Rosetta)"
+          else
+            echo "Rosetta not installed on this runner; x86_64 slice not executed"
+          fi
+          # Bundled transcription: speak a sentence, transcribe it with the app's own whisper + model.
+          say -o "$RUNNER_TEMP/speech.aiff" "PULSE turns long streams into short clips."
+          afconvert -f WAVE -d LEI16@16000 -c 1 "$RUNNER_TEMP/speech.aiff" "$RUNNER_TEMP/speech.wav"
+          "$APP/Contents/MacOS/whisper-cli" -m "$APP/Contents/Resources/ggml-base.en.bin" -f "$RUNNER_TEMP/speech.wav" -nt 2>/dev/null | tee "$RUNNER_TEMP/out.txt"
+          grep -qi "clips" "$RUNNER_TEMP/out.txt"
+          # What the installer window looks like.
+          open "$MNT" || true
+          sleep 4
+          screencapture -x "$RUNNER_TEMP/dmg-window.png" 2>/dev/null || true
+          if [ -f "$RUNNER_TEMP/dmg-window.png" ]; then
+            sips -Z 1280 -s format jpeg -s formatOptions 55 "$RUNNER_TEMP/dmg-window.png" --out "$RUNNER_TEMP/dmg-window.jpg" >/dev/null
+            echo "SNAPSHOT dmg-window.jpg $(base64 -i "$RUNNER_TEMP/dmg-window.jpg" | tr -d '\n')"
+          fi
+          osascript -e 'tell application "Finder" to close every window' 2>/dev/null || true
+          hdiutil detach -quiet "$MNT" || hdiutil detach -force "$MNT"
+          ls -la build/PULSE.dmg
+          shasum -a 256 build/PULSE.dmg | tee build/PULSE.dmg.sha256
+
+      - name: Upload PULSE.dmg
+        uses: actions/upload-artifact@v4
+        with:
+          name: PULSE-dmg
+          path: |
+            build/PULSE.dmg
+            build/PULSE.dmg.sha256
+
+      - name: Publish GitHub Release
+        if: ${{ github.event_name == 'push' || inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="$(cat VERSION)"
+          BUILD="$(git rev-list --count HEAD)"
+          TAG="v$VERSION-build.$BUILD"
+          SHORT="$(git rev-parse --short HEAD)"
+          SHA256="$(cut -d' ' -f1 build/PULSE.dmg.sha256)"
+          if [ -n "${SIGN_IDENTITY:-}" ]; then SIGNED=yes; else SIGNED=no; fi
+          {
+            echo "## Install"
+            echo
+            echo "1. Download **PULSE.dmg** below and double-click it."
+            echo "2. Drag **PULSE** into **Applications**."
+            echo "3. Open PULSE from Launchpad or Applications."
+            echo
+            if [ "$SIGNED" = no ]; then
+              echo "**First launch only:** this build isn't notarized by Apple yet, so macOS asks before opening it."
+              echo "- **macOS 15 (Sequoia) or later:** double-click PULSE, click **Done** on the warning, then open"
+              echo "  **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to PULSE."
+              echo "- **macOS 14 (Sonoma):** right-click PULSE in Applications → **Open** → **Open**."
+              echo
+              echo "After that it opens normally."
+              echo
+            fi
+            echo "Requires macOS 14 or later. Universal: Apple Silicon and Intel."
+            echo "Transcription works offline out of the box (whisper.cpp + the English base model are built in)."
+            echo
+            echo "Build $BUILD from \`$SHORT\` · SHA-256 \`$SHA256\`"
+          } > "$RUNNER_TEMP/notes.md"
+          gh release create "$TAG" build/PULSE.dmg build/PULSE.dmg.sha256 \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "PULSE $VERSION (build $BUILD)" --notes-file "$RUNNER_TEMP/notes.md" --latest
+          echo "Published $TAG: https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"

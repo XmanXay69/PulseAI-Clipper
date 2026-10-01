@@ -45,6 +45,57 @@ enum AppIcon {
         }
     }
 
+    /// The disk image window: 640 × 400 pt, the app icon goes at (160, 190) and Applications at (480, 190)
+    /// (Finder coordinates, top-left origin) — scripts/make-dmg.sh places them there.
+    static func writeDMGBackground(to directory: URL) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        for scale in [1, 2] {
+            let w = 640 * scale, h = 400 * scale
+            guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: w, pixelsHigh: h, bitsPerSample: 8,
+                                             samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+                                             bytesPerRow: 0, bitsPerPixel: 0) else { continue }
+            rep.size = NSSize(width: 640, height: 400)
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+            drawDMGBackground(in: NSRect(x: 0, y: 0, width: 640, height: 400))
+            NSGraphicsContext.restoreGraphicsState()
+            guard let png = rep.representation(using: .png, properties: [:]) else { continue }
+            try png.write(to: directory.appendingPathComponent(scale == 1 ? "background.png" : "background@2x.png"))
+        }
+    }
+
+    private static func drawDMGBackground(in rect: NSRect) {
+        NSGradient(colors: [NSColor(red: 0.08, green: 0.08, blue: 0.11, alpha: 1), NSColor(red: 0.03, green: 0.03, blue: 0.05, alpha: 1)])?
+            .draw(in: rect, angle: -90)
+        func text(_ string: String, size: CGFloat, weight: NSFont.Weight, color: NSColor, y: CGFloat) {
+            let style = NSMutableParagraphStyle()
+            style.alignment = .center
+            let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: size, weight: weight),
+                                                             .foregroundColor: color, .paragraphStyle: style]
+            NSAttributedString(string: string, attributes: attributes).draw(in: NSRect(x: 0, y: y, width: rect.width, height: size * 1.5))
+        }
+        // AppKit's origin is bottom-left: Finder's y = 190 is 210 up from the bottom.
+        text("Drag PULSE into Applications", size: 20, weight: .semibold, color: .white, y: 320)
+        text("Then open it from Launchpad or your Applications folder.", size: 12, weight: .regular,
+             color: NSColor.white.withAlphaComponent(0.55), y: 60)
+        // Arrow from the app icon to Applications.
+        let arrow = NSBezierPath()
+        arrow.move(to: NSPoint(x: 250, y: 210))
+        arrow.line(to: NSPoint(x: 382, y: 210))
+        arrow.lineWidth = 4
+        arrow.lineCapStyle = .round
+        let pink = NSColor(red: 1, green: 0.24, blue: 0.43, alpha: 1)
+        pink.setStroke()
+        arrow.stroke()
+        let head = NSBezierPath()
+        head.move(to: NSPoint(x: 394, y: 210))
+        head.line(to: NSPoint(x: 378, y: 222))
+        head.line(to: NSPoint(x: 378, y: 198))
+        head.close()
+        pink.setFill()
+        head.fill()
+    }
+
     /// Writes an .iconset for `iconutil` (used by scripts/build-app.sh via `PULSE --render-icon <dir>`).
     static func writeIconset(to directory: URL) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

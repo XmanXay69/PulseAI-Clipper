@@ -20,6 +20,16 @@ struct PulseMain: App {
                 exit(1)
             }
         }
+        // `PULSE --render-dmg-background <dir>` writes the installer window background (1× and 2× PNGs).
+        if let i = args.firstIndex(of: "--render-dmg-background"), i + 1 < args.count {
+            do {
+                try AppIcon.writeDMGBackground(to: URL(fileURLWithPath: args[i + 1], isDirectory: true))
+                exit(0)
+            } catch {
+                FileHandle.standardError.write(Data("render-dmg-background failed: \(error)\n".utf8))
+                exit(1)
+            }
+        }
     }
 
     var body: some Scene {
