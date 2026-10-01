@@ -266,6 +266,101 @@ public enum SpeakerClustering {
     }
 }
 
+/// Clustering for neural speaker embeddings (unit vectors where cosine similarity means "same voice").
+public enum EmbeddingClustering {
+    /// Average cosine similarity above which two groups of segments are taken to be one person.
+    public static let defaultThreshold: Float = 0.70
+
+    static func dot(_ a: [Float], _ b: [Float]) -> Float {
+        var s: Float = 0
+        for i in 0..<min(a.count, b.count) { s += a[i] * b[i] }
+        return s
+    }
+
+    static func unit(_ v: [Float]) -> [Float] {
+        let n = dot(v, v).squareRoot()
+        return n > 0 ? v.map { $0 / n } : v
+    }
+
+    /// Speaker label per embedding. Average-linkage agglomerative clustering (on an evenly spaced sample
+    /// for long recordings), merging while groups are more similar than `threshold` — or until
+    /// `speakerCount` remain — then every segment joins its nearest speaker and the voices are refined.
+    public static func cluster(_ embeddings: [[Float]], speakerCount: Int? = nil, threshold: Float = defaultThreshold,
+                               maxSpeakers: Int = 8, sampleLimit: Int = 400) -> [Int] {
+        let n = embeddings.count
+        guard n >= 2 else { return Array(repeating: 0, count: n) }
+        let points = embeddings.map(unit)
+        let stride = max(1, Int((Double(n) / Double(sampleLimit)).rounded(.up)))
+        let sample = Array(Swift.stride(from: 0, to: n, by: stride))
+        let m = sample.count
+        // Sum of pairwise similarities between clusters (average = sum / (size·size)).
+        var sums = [[Float]](repeating: [Float](repeating: 0, count: m), count: m)
+        for a in 0..<m { for b in (a + 1)..<m { let s = dot(points[sample[a]], points[sample[b]]); sums[a][b] = s; sums[b][a] = s } }
+        var members: [[Int]] = sample.map { [$0] }
+        var alive = Array(repeating: true, count: m)
+        var count = m
+        let target = speakerCount.map { max(1, min($0, m)) }
+        while count > 1 {
+            var best: (Int, Int)? = nil
+            var bestScore = -Float.infinity
+            for a in 0..<m where alive[a] {
+                for b in (a + 1)..<m where alive[b] {
+                    let score = sums[a][b] / Float(members[a].count * members[b].count)
+                    if score > bestScore { bestScore = score; best = (a, b) }
+                }
+            }
+            guard let pair = best else { break }
+            let (a, b) = pair
+            if let target {
+                if count <= target { break }
+            } else if bestScore < threshold && count <= maxSpeakers {
+                break
+            }
+            members[a] += members[b]
+            alive[b] = false
+            for c in 0..<m where alive[c] && c != a { sums[a][c] += sums[b][c]; sums[c][a] = sums[a][c] }
+            count -= 1
+        }
+        var centroids = (0..<m).filter { alive[$0] }.map { c -> [Float] in
+            var v = [Float](repeating: 0, count: points[0].count)
+            for i in members[c] { for d in v.indices { v[d] += points[i][d] } }
+            return unit(v)
+        }
+        func assign() -> [Int] { points.map { p in centroids.indices.max { dot(p, centroids[$0]) < dot(p, centroids[$1]) } ?? 0 } }
+        var labels = assign()
+        for _ in 0..<3 {
+            // Groups too small to be a person fold into their nearest neighbour (unless the count was given).
+            if speakerCount == nil, centroids.count > 1 {
+                let minimum = max(2, n / 50)
+                let sizes = centroids.indices.map { c in labels.lazy.filter { $0 == c }.count }
+                let keep = centroids.indices.filter { sizes[$0] >= minimum }
+                if !keep.isEmpty && keep.count < centroids.count { centroids = keep.map { centroids[$0] } }
+            }
+            labels = assign()
+            centroids = centroids.indices.map { c in
+                var v = [Float](repeating: 0, count: points[0].count)
+                for (i, l) in labels.enumerated() where l == c { for d in v.indices { v[d] += points[i][d] } }
+                return v.allSatisfy { $0 == 0 } ? centroids[c] : unit(v)
+            }
+            labels = assign()
+        }
+        return labels
+    }
+
+    /// Similarity statistics for diagnostics: mean cosine within the same label and across labels.
+    public static func separation(_ embeddings: [[Float]], labels: [Int]) -> (within: Float, between: Float) {
+        let points = embeddings.map(unit)
+        var w: Float = 0, wn = 0, b: Float = 0, bn = 0
+        for i in points.indices {
+            for j in (i + 1)..<points.count {
+                let s = dot(points[i], points[j])
+                if labels[i] == labels[j] { w += s; wn += 1 } else { b += s; bn += 1 }
+            }
+        }
+        return (wn > 0 ? w / Float(wn) : 0, bn > 0 ? b / Float(bn) : 0)
+    }
+}
+
 /// Puts speaker labels onto transcript words.
 public enum Diarizer {
     /// Labels each segment by whichever microphone is loudest (one mic per person — the most reliable

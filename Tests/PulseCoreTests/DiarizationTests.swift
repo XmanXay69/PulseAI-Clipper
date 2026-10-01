@@ -159,4 +159,42 @@ final class DiarizationTests: XCTestCase {
         XCTAssertTrue(t.words.allSatisfy { $0.speaker == nil })
         XCTAssertTrue(t.speakers.isEmpty)
     }
+
+    /// Unit vectors scattered around per-speaker directions (like neural voice embeddings).
+    func embeddings(speakers: Int, perSpeaker: Int, spread: Float, dims: Int = 64, seed: UInt64) -> (vectors: [[Float]], truth: [Int]) {
+        var rng = SeededGenerator(seed: seed)
+        let centres = (0..<speakers).map { _ in (0..<dims).map { _ -> Float in let u = Float.random(in: 0...1, using: &rng); return u * u * u } }
+        var vectors: [[Float]] = [], truth: [Int] = []
+        for i in 0..<(speakers * perSpeaker) {
+            let s = i % speakers
+            vectors.append(centres[s].map { max(0, $0 + Float.random(in: -spread...spread, using: &rng)) })
+            truth.append(s)
+        }
+        return (vectors, truth)
+    }
+
+    func agreement(_ labels: [Int], _ truth: [Int]) -> Double {
+        // Best one-to-one match via majority vote per cluster.
+        var votes: [Int: [Int: Int]] = [:]
+        for (l, t) in zip(labels, truth) { votes[l, default: [:]][t, default: 0] += 1 }
+        return Double(votes.values.map { $0.values.max() ?? 0 }.reduce(0, +)) / Double(truth.count)
+    }
+
+    func testEmbeddingClusteringFindsSpeakersByVoiceSimilarity() {
+        for speakers in [2, 3, 4] {
+            let (vectors, truth) = embeddings(speakers: speakers, perSpeaker: 25, spread: 0.35, seed: UInt64(speakers))
+            let sep = EmbeddingClustering.separation(vectors, labels: truth)
+            let labels = EmbeddingClustering.cluster(vectors)
+            XCTAssertEqual(Set(labels).count, speakers, "within \(sep.within) between \(sep.between)")
+            XCTAssertGreaterThan(agreement(labels, truth), 0.95)
+        }
+        // One voice stays one speaker.
+        let (single, _) = embeddings(speakers: 1, perSpeaker: 60, spread: 0.35, seed: 9)
+        XCTAssertEqual(Set(EmbeddingClustering.cluster(single)).count, 1)
+        // A fixed count is honoured, and long recordings are clustered via a sample.
+        let (many, truth) = embeddings(speakers: 2, perSpeaker: 500, spread: 0.35, seed: 10)
+        let fixed = EmbeddingClustering.cluster(many, speakerCount: 2, sampleLimit: 120)
+        XCTAssertEqual(Set(fixed).count, 2)
+        XCTAssertGreaterThan(agreement(fixed, truth), 0.95)
+    }
 }

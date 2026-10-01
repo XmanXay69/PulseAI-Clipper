@@ -423,6 +423,12 @@ struct TranscriptionSettings: View {
                 .labelsHidden().frame(width: 140)
                 .disabled(!app.settings.ai.detectSpeakers)
             }
+            SettingsRow("Voice model", detail: SpeakerDiarization.availableMethod == .neural
+                        ? "Neural speaker embeddings (GE2E encoder from Resemblyzer, Apache-2.0) — recognises the same voice whatever is said."
+                        : "Speaker model not found; using classic voice statistics (pitch + timbre).") {
+                Text(SpeakerDiarization.availableMethod == .neural ? "Neural · on device" : "Classic")
+                    .font(.pulseCaption).foregroundStyle(SpeakerDiarization.availableMethod == .neural ? Theme.ai : Theme.textSecondary)
+            }
         }
         SettingsGroup("Import instead") {
             Text("Already have captions? Import an SRT or VTT file on the Import page and PULSE will use it as the transcript — no transcription needed.")

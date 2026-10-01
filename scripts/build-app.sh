@@ -29,6 +29,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/PULSE" "$APP/Contents/MacOS/PULSE"
 # SwiftPM resource bundles (if any target adds resources later).
 find "$BIN_DIR" -maxdepth 1 -name "*.bundle" -exec cp -R {} "$APP/Contents/Resources/" \;
+# On-device models (speaker embeddings) and their licenses.
+cp Resources/Models/* "$APP/Contents/Resources/"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD_NUMBER/" Resources/Info.plist > "$APP/Contents/Info.plist"
 printf "APPL????" > "$APP/Contents/PkgInfo"
 

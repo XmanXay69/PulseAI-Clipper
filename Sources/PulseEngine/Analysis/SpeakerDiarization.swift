@@ -13,17 +13,37 @@ public enum SpeakerDiarization {
     static let melBands = 26
     static let cepstra = 13
 
+    public enum Method: String, Sendable {
+        /// Neural speaker embeddings (`SpeakerEncoder`).
+        case neural
+        /// MFCC + pitch statistics (fallback when the model isn't installed).
+        case voiceprint
+    }
+
+    /// The method `diarize` uses on this Mac.
+    public static var availableMethod: Method { SpeakerEncoder.shared != nil ? .neural : .voiceprint }
+
     /// Labels `transcript` with speakers. `delta` maps times: fileTime = transcriptTime + delta.
     /// `speakerCount` nil estimates the number of speakers.
     public static func diarize(_ transcript: Transcript, audioURL: URL, delta: Seconds = 0, speakerCount: Int? = nil,
+                               method: Method? = nil,
                                isCancelled: @escaping @Sendable () -> Bool = { false }) async throws -> Transcript {
         let segments = SpeechSegmenter.segments(from: transcript)
         guard segments.count >= 2 else { return transcript }
         let ranges = segments.map { TimeRange(start: $0.range.start + delta, end: $0.range.end + delta) }
-        let prints = try await voiceprints(url: audioURL, ranges: ranges, isCancelled: isCancelled)
+        let prints: [[Float]?]
+        let useNeural = (method ?? availableMethod) == .neural
+        if useNeural, let encoder = SpeakerEncoder.shared {
+            prints = try await embeddings(url: audioURL, ranges: ranges, encoder: encoder, isCancelled: isCancelled)
+        } else {
+            prints = try await voiceprints(url: audioURL, ranges: ranges, isCancelled: isCancelled)
+        }
         let usable = prints.indices.filter { prints[$0] != nil }
         guard usable.count >= 2 else { return transcript }
-        let clustered = SpeakerClustering.cluster(usable.map { prints[$0]! }, speakerCount: speakerCount)
+        let features = usable.map { prints[$0]! }
+        let clustered = useNeural && SpeakerEncoder.shared != nil
+            ? EmbeddingClustering.cluster(features, speakerCount: speakerCount)
+            : SpeakerClustering.cluster(features, speakerCount: speakerCount)
         // Segments without enough voiced audio take the previous segment's speaker.
         var labels = [Int](repeating: -1, count: segments.count)
         for (k, index) in usable.enumerated() { labels[index] = clustered[k] }
@@ -34,6 +54,70 @@ public enum SpeakerDiarization {
         var result = transcript
         Diarizer.apply(labels: labels, segments: segments, to: &result)
         return result
+    }
+
+    /// One neural embedding per range (sorted, non-overlapping file-time ranges); nil for ranges
+    /// shorter than 0.4 s. Audio is streamed and embedded in batches.
+    public static func embeddings(url: URL, ranges: [TimeRange], encoder: SpeakerEncoder,
+                                  isCancelled: @escaping @Sendable () -> Bool = { false }) async throws -> [[Float]?] {
+        var result = [[Float]?](repeating: nil, count: ranges.count)
+        var pending: [(index: Int, samples: [Float])] = []
+        func flush() {
+            guard !pending.isEmpty else { return }
+            let vectors = encoder.embed(pending.map(\.samples))
+            for (k, item) in pending.enumerated() { result[item.index] = vectors[k] }
+            pending.removeAll()
+        }
+        try await segmentAudio(url: url, ranges: ranges, isCancelled: isCancelled) { index, samples in
+            guard Double(samples.count) >= 0.4 * sampleRate else { return }
+            pending.append((index, samples))
+            if pending.count >= 24 { flush() }
+        }
+        flush()
+        return result
+    }
+
+    /// Streams the file at 16 kHz mono and hands over each range's samples as soon as it is complete.
+    static func segmentAudio(url: URL, ranges: [TimeRange], isCancelled: @escaping @Sendable () -> Bool,
+                             _ handle: (Int, [Float]) -> Void) async throws {
+        let asset = AVURLAsset(url: url)
+        guard let track = try await asset.loadTracks(withMediaType: .audio).first else { throw EngineError.noAudioTrack(url) }
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVSampleRateKey: sampleRate,
+            AVNumberOfChannelsKey: 1,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMIsNonInterleaved: false,
+            AVLinearPCMIsBigEndianKey: false,
+        ])
+        output.alwaysCopiesSampleData = false
+        reader.add(output)
+        guard reader.startReading() else { throw EngineError.readerFailed(reader.error?.localizedDescription ?? "couldn't read audio for speakers") }
+        var position = 0            // samples read so far
+        var current = 0             // range being collected
+        var collected: [Float] = []
+        while current < ranges.count, let buffer = output.copyNextSampleBuffer() {
+            if isCancelled() { reader.cancelReading(); throw EngineError.cancelled }
+            let samples = SampleBufferReader.floats(from: buffer)
+            let bufferStart = position
+            position += samples.count
+            while current < ranges.count {
+                let start = Int(ranges[current].start * sampleRate), end = Int(ranges[current].end * sampleRate)
+                let from = max(start, bufferStart), to = min(end, position)
+                if from < to { collected.append(contentsOf: samples[(from - bufferStart)..<(to - bufferStart)]) }
+                if end <= position {
+                    handle(current, collected)
+                    collected.removeAll(keepingCapacity: true)
+                    current += 1
+                } else {
+                    break
+                }
+            }
+        }
+        if current < ranges.count && !collected.isEmpty { handle(current, collected) }
+        if reader.status == .reading { reader.cancelReading() }
     }
 
     /// One voiceprint per range (sorted, non-overlapping file-time ranges); nil when a range has

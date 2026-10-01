@@ -23,6 +23,6 @@ let package = Package(
         .target(name: "PulseEngine", dependencies: ["PulseCore"]),
         .executableTarget(name: "PulseApp", dependencies: ["PulseCore", "PulseEngine"]),
         .testTarget(name: "PulseCoreTests", dependencies: ["PulseCore"]),
-        .testTarget(name: "PulseEngineTests", dependencies: ["PulseEngine", "PulseCore"]),
+        .testTarget(name: "PulseEngineTests", dependencies: ["PulseEngine", "PulseCore"], exclude: ["Fixtures"]),
     ]
 )
