@@ -60,7 +60,7 @@ Key files to know:
 
 ### What CI actually verifies on every push (macOS 15 runner)
 
-- 119 unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
+- 125 unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
   captions, layouts, export settings, audio DSP, …).
 - **Engine end-to-end:** generate a 75 s gameplay+facecam stream → probe → analyze (audio + Vision faces) →
   AI clip candidates → one-click 9:16 short (split-screen, captions, normalized dialogue audio) → rendered
@@ -71,6 +71,9 @@ Key files to know:
   length excludes the pause.
 - **AI noise removal:** speech under keyboard clicks, music and fan noise → SI-SDR 10.3 dB noisy, 11.9 dB
   classic, 17.9 dB AI voice isolation, output sample-aligned (7.6 s of audio in 2.7 s on the CI VM).
+- **Sound library:** every track and effect renders (exact length, −16 LUFS music / −3 dBFS effects, clean
+  ending); the upbeat groove measures 122 BPM as written; the end-to-end short exports with a library music
+  bed and impact; in the app a composed bed is added to the sample short in ~5 s (screenshot `13c-sounds-added`).
 - **Speaker diarization:** two different `say` voices alternating in one recording are separated into two
   speakers from the audio alone (100% of words; separation 15.3 vs a 4.8 threshold).
 - **The app itself:** launches, builds the sample project, visits every section, screenshots them, grabs a

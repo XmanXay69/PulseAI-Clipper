@@ -144,7 +144,7 @@ struct LeftPanel: View {
                     Button { session.leftTab = tab } label: {
                         VStack(spacing: 2) {
                             Image(systemName: tab.symbol).font(.system(size: 12))
-                            Text(tab.title).font(.system(size: 9.5, weight: .medium))
+                            Text(tab.title).font(.system(size: 9.5, weight: .medium)).lineLimit(1).minimumScaleFactor(0.75)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)

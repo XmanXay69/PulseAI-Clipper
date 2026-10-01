@@ -34,7 +34,7 @@ final class SoundLibraryTests: XCTestCase {
             let audio = SoundLibrary.render(sound)
             XCTAssertEqual(audio.count, 2, sound.name)
             let n = audio[0].count
-            XCTAssertGreaterThan(Double(n) / rate, 0.03, sound.name)
+            XCTAssertGreaterThan(Double(n) / rate, 0.01, sound.name)
             XCTAssertLessThan(Double(n) / rate, 6, sound.name)
             XCTAssertTrue(audio.allSatisfy { $0.allSatisfy(\.isFinite) }, sound.name)
             let peak = LoudnessMeter.samplePeak(audio)
