@@ -266,28 +266,13 @@ public enum ShortBuilder {
             timeline.markers.append(Marker(time: payoffTimeline, name: "Payoff", note: "Peak moment detected by PULSE", color: .pink, aiGenerated: true))
         }
 
-        // Sound effects (only from the user's own library).
+        // Sound effects (the project's own, or the built-in library's that the app imported).
         if options.soundEffects, let payoffTimeline, let sfx = pickSoundEffect(input.soundEffects, preferring: ["impact", "boom", "hit", "pop", "whoosh"]) {
-            let duration = min(max(sfx.metadata.duration, 0.3), 2.5)
-            var clip = TimelineClip(name: sfx.name, content: .media(assetID: sfx.id), start: max(0, payoffTimeline - 0.05), sourceDuration: duration,
-                                    role: .soundEffect, aiGenerated: true)
-            clip.audio.volume = AnimatedDouble(0.6)
-            if let ti = timeline.tracks.firstIndex(where: { $0.name.hasPrefix("A3") }) {
-                timeline.tracks[ti].clips.append(clip)
-            }
+            addPayoffHit(sfx, at: payoffTimeline, to: &timeline)
         }
 
         // Music bed with ducking.
-        if let music = input.music, let ti = timeline.tracks.firstIndex(where: { $0.name.hasPrefix("A2") }) {
-            let total = timeline.duration
-            let length = music.metadata.duration > 0 ? min(music.metadata.duration, total) : total
-            var clip = TimelineClip(name: music.name, content: .media(assetID: music.id), start: 0, sourceDuration: length, role: .music, aiGenerated: true)
-            clip.audio.volume = AnimatedDouble(0.35)
-            clip.audio.duckUnderDialogue = true
-            clip.audio.fadeIn = 0.6
-            clip.audio.fadeOut = 1.2
-            timeline.tracks[ti].clips = [clip]
-        }
+        if let music = input.music { addMusicBed(music, to: &timeline) }
 
         timeline.modifiedAt = Date()
         return timeline
@@ -302,6 +287,39 @@ public enum ShortBuilder {
         guard clippedEnd - clippedStart > 0.1 else { return nil }
         return TimelineClip(name: companion.name, content: .media(assetID: companion.id), start: clippedStart - start,
                             sourceIn: clippedStart, sourceDuration: clippedEnd - clippedStart, linkGroup: group, role: role, aiGenerated: true)
+    }
+
+    /// Puts a sound effect on the short's SFX track just before the payoff.
+    public static func addPayoffHit(_ sfx: MediaAsset, at time: Seconds, to timeline: inout Timeline) {
+        let duration = min(max(sfx.metadata.duration, 0.3), 2.5)
+        var clip = TimelineClip(name: sfx.name, content: .media(assetID: sfx.id), start: max(0, time - 0.05), sourceDuration: duration,
+                                role: .soundEffect, aiGenerated: true)
+        clip.audio.volume = AnimatedDouble(0.6)
+        if let ti = timeline.tracks.firstIndex(where: { $0.name.hasPrefix("A3") }) {
+            timeline.tracks[ti].clips.append(clip)
+            timeline.tracks[ti].clips.sort { $0.start < $1.start }
+        } else {
+            let trackID = timeline.freeTrack(kind: .audio, for: TimeRange(start: clip.start, duration: duration))
+            try? timeline.insert(clip, onTrack: trackID, mode: .overwrite)
+        }
+    }
+
+    /// Lays a music bed under the whole short (ducked under dialogue, faded in and out), replacing any on A2.
+    public static func addMusicBed(_ music: MediaAsset, to timeline: inout Timeline) {
+        let total = timeline.duration
+        guard total > 0 else { return }
+        let length = music.metadata.duration > 0 ? min(music.metadata.duration, total) : total
+        var clip = TimelineClip(name: music.name, content: .media(assetID: music.id), start: 0, sourceDuration: length, role: .music, aiGenerated: true)
+        clip.audio.volume = AnimatedDouble(0.35)
+        clip.audio.duckUnderDialogue = true
+        clip.audio.fadeIn = 0.6
+        clip.audio.fadeOut = 1.2
+        if let ti = timeline.tracks.firstIndex(where: { $0.name.hasPrefix("A2") }) {
+            timeline.tracks[ti].clips = [clip]
+        } else {
+            let trackID = timeline.freeTrack(kind: .audio, for: TimeRange(start: 0, end: total))
+            try? timeline.insert(clip, onTrack: trackID)
+        }
     }
 
     static func pickSoundEffect(_ library: [MediaAsset], preferring keywords: [String]) -> MediaAsset? {

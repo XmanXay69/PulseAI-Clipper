@@ -27,6 +27,8 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
 - **Compound clips.** Nest a selection into one clip (⌥G), open it to edit inside, break it apart again.
 - **Speakers.** Transcripts are split into speakers locally (voice clustering, or one mic per person in
   multicam sessions); rename or merge speakers in the Transcript panel.
+- **Music & SFX library.** 14 royalty-free tracks in 10 styles, composed on your Mac to fit your edit
+  exactly, and 28 sound effects (whoosh, impact, boom, ding, rimshot, sad trombone…). AI shorts use them too.
 - **Text-based editing.** Delete words in the transcript to cut them from the video, and restore them
   any time.
 - **Export.** TikTok, YouTube Shorts and Reels presets, hardware H.264/HEVC or ProRes, and a batch

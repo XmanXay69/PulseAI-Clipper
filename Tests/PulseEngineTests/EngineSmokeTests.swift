@@ -152,6 +152,32 @@ final class EngineSmokeTests: XCTestCase {
         XCTAssertGreaterThan(afterAI, afterClassic + 2)
     }
 
+    /// Library sounds render to AAC files of the right length and loudness, and are cached.
+    func testSoundLibraryStoreRendersCachedFiles() async throws {
+        let dir = Self.workDir.appendingPathComponent("library-\(UUID().uuidString)", isDirectory: true)
+        let sound = SoundLibrary.sound(id: "music.lofi.sunday")!
+        let start = Date()
+        let url = try await SoundLibraryStore.shared.file(for: sound, duration: 12.34, directory: dir)
+        let seconds = Date().timeIntervalSince(start)
+        let again = try await SoundLibraryStore.shared.file(for: sound, duration: 12.3, directory: dir)
+        XCTAssertEqual(url, again, "same length (to 0.1 s) hits the cache")
+        let meta = try await MediaProbe.probe(url)
+        XCTAssertEqual(meta.duration, 12.3, accuracy: 0.06)
+        XCTAssertTrue(meta.hasAudio)
+        let file = try AVAudioFile(forReading: url)
+        let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length))!
+        try file.read(into: buffer)
+        let channels = (0..<Int(buffer.format.channelCount)).map { Array(UnsafeBufferPointer(start: buffer.floatChannelData![$0], count: Int(buffer.frameLength))) }
+        XCTAssertEqual(channels.count, 2)
+        let lufs = LoudnessMeter.integratedLUFS(channels, sampleRate: file.processingFormat.sampleRate)
+        XCTAssertEqual(lufs, -16, accuracy: 2)
+        let pop = try await SoundLibraryStore.shared.file(for: SoundLibrary.sound(id: "sfx.pop")!, directory: dir)
+        let asset = try await SoundLibraryStore.asset(for: SoundLibrary.sound(id: "sfx.pop")!, url: pop, duration: nil, cacheRoot: dir)
+        XCTAssertEqual(asset.role, .soundEffect)
+        XCTAssertTrue(asset.tags.contains("library:sfx.pop"))
+        print(String(format: "sound library: 12.3 s of %@ rendered + encoded in %.2fs, %.1f LUFS after AAC", sound.name, seconds, lufs))
+    }
+
     /// Two synthesized voices take turns; diarization must find two speakers and who said what.
     func testSpeakerDiarizationOfTwoVoices() async throws {
         let list = Process()
@@ -311,14 +337,27 @@ final class EngineSmokeTests: XCTestCase {
         XCTAssertFalse(candidates.isEmpty)
         let best = try XCTUnwrap(candidates.first { $0.range.contains(22.5) } ?? candidates.first { $0.range.contains(51.5) })
 
-        // 4. Short timeline.
-        let short = ShortBuilder.build(ShortBuildInput(candidate: best, asset: asset, analysis: analysis), options: .oneClick)
+        // 4. Short timeline, with a music bed and a payoff hit from the built-in sound library.
+        let libraryDir = Self.workDir.appendingPathComponent("library", isDirectory: true)
+        let musicSound = SoundLibrary.recommendedMusic(for: best.tags)
+        let musicURL = try await SoundLibraryStore.shared.file(for: musicSound, duration: 30, directory: libraryDir)
+        let music = try await SoundLibraryStore.asset(for: musicSound, url: musicURL, duration: 30, cacheRoot: Self.workDir)
+        let impactSound = SoundLibrary.sound(id: "sfx.impact")!
+        let impact = try await SoundLibraryStore.asset(for: impactSound, url: try await SoundLibraryStore.shared.file(for: impactSound, directory: libraryDir),
+                                                       duration: nil, cacheRoot: Self.workDir)
+        var shortOptions = ShortBuildOptions.oneClick
+        shortOptions.soundEffects = true
+        let short = ShortBuilder.build(ShortBuildInput(candidate: best, asset: asset, analysis: analysis, soundEffects: [impact], music: music), options: shortOptions)
         XCTAssertEqual(short.layout, .splitScreen)
         XCTAssertNotNil(short.captions)
+        XCTAssertTrue(short.allClips.contains { $0.assetID == music.id && $0.audio.duckUnderDialogue }, "library music bed, ducked under speech")
+        let allAssets = [asset.id: asset, music.id: music, impact.id: impact]
 
         // 5. Render a still through the compositor pipeline (fast visual check).
-        let built = try await CompositionBuilder.build(timeline: short, assets: [asset.id: asset])
+        let built = try await CompositionBuilder.build(timeline: short, assets: allAssets)
         XCTAssertTrue(built.missingAssetIDs.isEmpty)
+        let usedFiles = Set(built.composition.tracks.flatMap { $0.segments.compactMap { $0.sourceURL?.lastPathComponent } })
+        XCTAssertTrue(usedFiles.contains(musicURL.lastPathComponent), "music is in the mix: \(usedFiles)")
         // One-click shorts normalize dialogue, so the audio must come from the enhance renders.
         var enhancedSegments = 0
         for track in built.composition.tracks where track.mediaType == .audio {
@@ -341,7 +380,7 @@ final class EngineSmokeTests: XCTestCase {
         // 6. Export.
         let exportURL = Self.workDir.appendingPathComponent("short-export.mp4")
         let settings = ExportSettings(preset: .tiktok, outputDirectory: Self.workDir.path, quality: .draft)
-        try await ExportEngine().export(timeline: short, assets: [asset.id: asset], settings: settings, to: exportURL, progress: { _ in })
+        try await ExportEngine().export(timeline: short, assets: allAssets, settings: settings, to: exportURL, progress: { _ in })
         let exported = try await MediaProbe.probe(exportURL)
         XCTAssertEqual(exported.width, 1080)
         XCTAssertEqual(exported.height, 1920)
@@ -356,7 +395,7 @@ final class EngineSmokeTests: XCTestCase {
         var landscape = short
         landscape.canvas = .landscape1080
         LayoutEngine.apply(.facecamCorner, to: &landscape, context: LayoutContext(analysis: analysis, sourceSize: meta.size))
-        let builtLandscape = try await CompositionBuilder.build(timeline: landscape, assets: [asset.id: asset])
+        let builtLandscape = try await CompositionBuilder.build(timeline: landscape, assets: allAssets)
         let gl = AVAssetImageGenerator(asset: builtLandscape.composition)
         gl.videoComposition = builtLandscape.videoComposition
         let landscapeFrame = try await gl.image(at: .seconds(1)).image

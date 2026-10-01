@@ -139,6 +139,25 @@ enum UISnapshotter {
                     }
                 }
             }
+            // Sound library: browse, then add a music bed composed to fit the short.
+            if let session = app.session, let short = session.document.timelines.first {
+                app.section = .editor
+                session.open(timelineID: short.id)
+                session.leftTab = .sounds
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                capture(app: app, name: "13b-sounds", to: directory)
+                session.playback.seek(to: 0)
+                if let bed = SoundLibrary.sound(id: "music.upbeat.goodvibes") { session.addLibrarySound(bed) }
+                var soundWait = 0.0
+                while !(session.activeTimeline?.allClips.contains { $0.role == .music } ?? false) && soundWait < 90 {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    soundWait += 0.5
+                }
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                capture(app: app, name: "13c-sounds-added", to: directory)
+                FileHandle.standardError.write(Data("UI-SOUNDS music clip added after \(soundWait)s: \(session.activeTimeline?.allClips.contains { $0.role == .music } ?? false)\n".utf8))
+                session.leftTab = .media
+            }
             // Record sheet (shows the permission card on machines without Screen Recording access).
             app.showRecordSheet = true
             try? await Task.sleep(nanoseconds: 2_500_000_000)

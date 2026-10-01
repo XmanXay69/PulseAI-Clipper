@@ -12,11 +12,12 @@ enum EditTool: String, CaseIterable {
 }
 
 enum LeftPanelTab: String, CaseIterable, Identifiable {
-    case media, transcript, angles, effects, ai
+    case media, sounds, transcript, angles, effects, ai
     var id: String { rawValue }
     var title: String {
         switch self {
         case .media: return "Media"
+        case .sounds: return "Sounds"
         case .transcript: return "Transcript"
         case .angles: return "Angles"
         case .effects: return "Effects"
@@ -26,6 +27,7 @@ enum LeftPanelTab: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .media: return "photo.on.rectangle"
+        case .sounds: return "music.note.list"
         case .transcript: return "text.quote"
         case .angles: return "video.badge.checkmark"
         case .effects: return "sparkle"
@@ -551,11 +553,17 @@ final class ProjectSession: ObservableObject, Identifiable {
             doc.activeTimelineID = timeline.id
         }
         app.logActivity(.captions, title: "Captions + framing: \(timeline.name)", detail: "\(timeline.captions?.words.count ?? 0) caption words · \(timeline.layout?.displayName ?? "Full Frame")")
+        // No music / effects of the project's own: use the built-in library.
+        addLibraryAudio(toShort: timeline.id, music: app.settings.ai.aiMusic && music == nil, effects: options.soundEffects && sfx.isEmpty)
         if open { self.open(timelineID: timeline.id) }
         return timeline.id
     }
 
     func makeMoreEntertaining(options: EntertainmentOptions = EntertainmentOptions()) {
+        makeMoreEntertainingWithLibrary(options: options)
+    }
+
+    func applyEntertainment(options: EntertainmentOptions) {
         guard let timeline = activeTimeline else { return }
         let analysis = analysis(for: timeline)
         let sfx = document.media.filter { $0.role == .soundEffect }

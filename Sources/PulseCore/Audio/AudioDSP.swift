@@ -20,6 +20,24 @@ public struct Biquad: Sendable {
         return Biquad(b0: (1 + cw) / 2, b1: -(1 + cw), b2: (1 + cw) / 2, a0: 1 + alpha, a1: -2 * cw, a2: 1 - alpha)
     }
 
+    public static func lowPass(frequency: Double, q: Double = 0.7071, sampleRate: Double) -> Biquad {
+        let w = 2 * Double.pi * min(frequency, sampleRate * 0.45) / sampleRate
+        let cw = cos(w), alpha = sin(w) / (2 * q)
+        return Biquad(b0: (1 - cw) / 2, b1: 1 - cw, b2: (1 - cw) / 2, a0: 1 + alpha, a1: -2 * cw, a2: 1 - alpha)
+    }
+
+    /// Constant 0 dB peak gain band-pass.
+    public static func bandPass(frequency: Double, q: Double = 0.7071, sampleRate: Double) -> Biquad {
+        let w = 2 * Double.pi * min(frequency, sampleRate * 0.45) / sampleRate
+        let cw = cos(w), alpha = sin(w) / (2 * q)
+        return Biquad(b0: alpha, b1: 0, b2: -alpha, a0: 1 + alpha, a1: -2 * cw, a2: 1 - alpha)
+    }
+
+    /// Takes another filter's coefficients but keeps this one's state (for sweeps without clicks).
+    public mutating func retune(_ other: Biquad) {
+        b0 = other.b0; b1 = other.b1; b2 = other.b2; a1 = other.a1; a2 = other.a2
+    }
+
     public static func peaking(frequency: Double, gainDB: Double, q: Double, sampleRate: Double) -> Biquad {
         let a = pow(10, gainDB / 40)
         let w = 2 * Double.pi * min(frequency, sampleRate * 0.45) / sampleRate

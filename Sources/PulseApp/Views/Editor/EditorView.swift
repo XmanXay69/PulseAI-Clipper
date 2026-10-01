@@ -159,6 +159,7 @@ struct LeftPanel: View {
             .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
             switch session.leftTab {
             case .media: MediaPanel(session: session)
+            case .sounds: SoundsPanel(session: session)
             case .transcript: TranscriptPanel(session: session)
             case .angles: AnglesPanel(session: session)
             case .effects: EffectsPanel(session: session)

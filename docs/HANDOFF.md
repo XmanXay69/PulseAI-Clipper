@@ -107,7 +107,14 @@ prompt), cloud AI providers with live keys.
   rename, merge). Multicam sessions with one mic per person use mic loudness instead, which is much more
   reliable. Upgrade path: a speaker-embedding model (ECAPA/x-vector) via Core ML in `SpeakerDiarization.voiceprints`.
 - **Cloud AI** (Claude / OpenAI-compatible) is optional, used only for titles/captions copy; untested with live keys.
-- **Music/SFX library**: uses media you import (role = Music / Sound Effect); nothing is bundled.
+- **Music/SFX library** is built in and generated on the Mac (`PulseCore/Library`): 14 music tracks in 10 styles
+  (lo-fi, trap, upbeat pop, acoustic, synthwave, cinematic, chiptune, suspense, comedy, ambient) composed by
+  code to any exact length with an intro, breakdown and real ending, plus 28 synthesized SFX (whoosh, riser,
+  impact, boom, pop, ding, rimshot, sad trombone, record scratch, applause, 8-bit coin, countdown…). Royalty-free
+  because nothing is sampled. It's synthesis, not recorded instruments — it sounds like clean electronic
+  production, not a live band; judge by ear and tweak `Synth`/`MusicComposer` voices if something sounds off.
+  Editor → Sounds tab (preview, search, add); AI shorts / Make More Entertaining use it when the project has no
+  music/SFX of its own (Settings → AI music / sound effects).
 - Dynamic layouts (switching layout mid-clip) are done by splitting segments, not keyframed layout morphs.
 - Cross-dissolves (video + linked audio crossfade) need media handles; at the very start/end of a recording they
   fall back to a fade over lower tracks.
@@ -128,5 +135,4 @@ prompt), cloud AI providers with live keys.
 1. Download `PULSE-app` from the latest green CI run (Actions → run → Artifacts) or run `./scripts/build-app.sh`,
    then try it by hand with a real long recording: import → Analyze & Find Clips → Open in Editor → Export.
 2. Report anything confusing or broken; the CI screenshot loop (`--ui-snapshots`) makes UI fixes quick to verify.
-3. Candidates for the next build phase: speaker-embedding model (Core ML), bundled
-   music/SFX library, keyframed layout morphs, per-speaker caption styling.
+3. Candidates for the next build phase: speaker-embedding model (Core ML), keyframed layout morphs, per-speaker caption styling.
