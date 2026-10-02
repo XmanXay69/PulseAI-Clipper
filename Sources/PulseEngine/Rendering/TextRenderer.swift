@@ -25,7 +25,9 @@ public enum TextRenderer {
         }
         var font: NSFont
         let name = style.fontName
-        if name.hasPrefix("SF Pro") || name.isEmpty || name == "System" {
+        if name == BundledFonts.tiktokSans, let tiktok = BundledFonts.tiktokSans(size: pointSize, weight: style.weight, italic: style.italic) {
+            return tiktok
+        } else if name.hasPrefix("SF Pro") || name.isEmpty || name == "System" || name == BundledFonts.tiktokSans {
             font = NSFont.systemFont(ofSize: pointSize, weight: weight)
             if name.contains("Rounded"), let d = font.fontDescriptor.withDesign(.rounded) {
                 font = NSFont(descriptor: d, size: pointSize) ?? font

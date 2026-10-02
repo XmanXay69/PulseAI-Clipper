@@ -9,6 +9,7 @@ struct PulseMain: App {
     @StateObject private var app = AppModel()
 
     init() {
+        BundledFonts.register()
         // Build-script hook: `PULSE --render-icon <dir>` writes an .iconset and exits.
         let args = CommandLine.arguments
         if let i = args.firstIndex(of: "--render-icon"), i + 1 < args.count {

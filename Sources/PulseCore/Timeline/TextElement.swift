@@ -61,6 +61,9 @@ public enum TextAnimation: String, Codable, CaseIterable, Sendable {
 
 /// Shared typographic styling for titles, labels and captions.
 public struct TextStyle: Codable, Hashable, Sendable {
+    /// TikTok's open-source typeface, bundled with PULSE (falls back to SF Pro if it's ever missing).
+    public static let tiktokSans = "TikTok Sans"
+
     public var fontName: String
     /// Size in pixels on a 1080-px-wide canvas; scaled to the actual canvas at render time.
     public var fontSize: Double
@@ -82,7 +85,7 @@ public struct TextStyle: Codable, Hashable, Sendable {
     public var letterSpacing: Double
     public var lineHeight: Double
 
-    public init(fontName: String = "SF Pro Display", fontSize: Double = 72, weight: FontWeight = .heavy,
+    public init(fontName: String = TextStyle.tiktokSans, fontSize: Double = 72, weight: FontWeight = .heavy,
                 italic: Bool = false, textCase: TextCase = .asTyped, color: RGBAColor = .white,
                 strokeColor: RGBAColor = .black, strokeWidth: Double = 0, shadowColor: RGBAColor = .black,
                 shadowOpacity: Double = 0.45, shadowRadius: Double = 8, shadowOffsetY: Double = 4,

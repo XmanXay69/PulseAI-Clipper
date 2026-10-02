@@ -36,7 +36,7 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var defaultClipLength: ClipLengthPreset = .medium30
     public var customClipLength: Seconds = 45
     public var entertainmentThreshold: Int = 25
-    public var captionPresetName: String = "Bold"
+    public var captionPresetName: String = "TikTok"
     public var autoZoom: Bool = true
     public var autoCrop: Bool = true
     public var silenceRemoval: Bool = true

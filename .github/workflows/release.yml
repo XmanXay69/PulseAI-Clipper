@@ -148,11 +148,13 @@ jobs:
           set -euo pipefail
           VERSION="$(cat VERSION)"
           BUILD="$(git rev-list --count HEAD)"
-          TAG="v$VERSION-build.$BUILD"
+          # The first release of a version gets the plain tag (v1.0.0); rebuilds get a build suffix.
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then TAG="v$VERSION-build.$BUILD"; else TAG="v$VERSION"; fi
           SHORT="$(git rev-parse --short HEAD)"
           SHA256="$(cut -d' ' -f1 build/PULSE.dmg.sha256)"
           if [ -n "${SIGN_IDENTITY:-}" ]; then SIGNED=yes; else SIGNED=no; fi
           {
+            if [ -f "versions/$VERSION/NOTES.md" ]; then cat "versions/$VERSION/NOTES.md"; echo; fi
             echo "## Install"
             echo
             echo "1. Download **PULSE.dmg** below and double-click it."
@@ -173,7 +175,10 @@ jobs:
             echo
             echo "Build $BUILD from \`$SHORT\` · SHA-256 \`$SHA256\`"
           } > "$RUNNER_TEMP/notes.md"
-          gh release create "$TAG" build/PULSE.dmg build/PULSE.dmg.sha256 \
+          # PULSE.dmg keeps the "latest" download link stable; PULSE-<version>.dmg is for the archive.
+          cp build/PULSE.dmg "build/PULSE-$VERSION.dmg"
+          if [ "$TAG" = "v$VERSION" ]; then TITLE="PULSE $VERSION"; else TITLE="PULSE $VERSION (build $BUILD)"; fi
+          gh release create "$TAG" build/PULSE.dmg "build/PULSE-$VERSION.dmg" build/PULSE.dmg.sha256 \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "PULSE $VERSION (build $BUILD)" --notes-file "$RUNNER_TEMP/notes.md" --latest
+            --title "$TITLE" --notes-file "$RUNNER_TEMP/notes.md" --latest
           echo "Published $TAG: https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"

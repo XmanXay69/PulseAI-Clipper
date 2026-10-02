@@ -127,16 +127,24 @@ public struct CaptionStyle: Codable, Hashable, Sendable {
 
     // MARK: Presets
 
+    /// TikTok's own look: TikTok Sans Bold, white with a thin dark outline, sentence case, two short lines.
+    public static let tiktok = CaptionStyle(
+        presetName: "TikTok",
+        text: TextStyle(fontName: TextStyle.tiktokSans, fontSize: 76, weight: .bold, textCase: .asTyped, color: .white,
+                        strokeColor: .black, strokeWidth: 5, shadowOpacity: 0.45, shadowRadius: 6, shadowOffsetY: 3),
+        highlightColor: RGBAColor(hex: "#FE2C55")!, highlightMode: .color, animation: .pop, displayMode: .phrase,
+        maxWordsPerPage: 4, maxCharsPerLine: 18, maxLines: 2, positionY: 0.66)
+
     public static let clean = CaptionStyle(
         presetName: "Clean",
-        text: TextStyle(fontName: "SF Pro Display", fontSize: 64, weight: .bold, textCase: .asTyped, color: .white,
+        text: TextStyle(fontName: TextStyle.tiktokSans, fontSize: 64, weight: .bold, textCase: .asTyped, color: .white,
                         strokeWidth: 0, shadowOpacity: 0.55, shadowRadius: 10, shadowOffsetY: 3),
         highlightColor: RGBAColor(hex: "#FFFFFF")!, highlightMode: .none, animation: .fade, displayMode: .phrase,
         maxWordsPerPage: 6, maxCharsPerLine: 24, maxLines: 2, positionY: 0.72)
 
     public static let bold = CaptionStyle(
         presetName: "Bold",
-        text: TextStyle(fontName: "SF Pro Display", fontSize: 84, weight: .black, textCase: .uppercase, color: .white,
+        text: TextStyle(fontName: TextStyle.tiktokSans, fontSize: 84, weight: .black, textCase: .uppercase, color: .white,
                         strokeColor: .black, strokeWidth: 9, shadowOpacity: 0.5, shadowRadius: 6, shadowOffsetY: 5),
         highlightColor: .yellow, highlightMode: .colorAndScale, animation: .pop, displayMode: .phrase,
         maxWordsPerPage: 3, maxCharsPerLine: 14, maxLines: 2, positionY: 0.66)
@@ -159,7 +167,7 @@ public struct CaptionStyle: Codable, Hashable, Sendable {
 
     public static let minimal = CaptionStyle(
         presetName: "Minimal",
-        text: TextStyle(fontName: "SF Pro Text", fontSize: 50, weight: .medium, textCase: .lowercase, color: .white,
+        text: TextStyle(fontName: TextStyle.tiktokSans, fontSize: 50, weight: .medium, textCase: .lowercase, color: .white,
                         strokeWidth: 0, shadowOpacity: 0.35, shadowRadius: 6, shadowOffsetY: 2),
         highlightColor: RGBAColor(hex: "#FFFFFF")!, highlightMode: .none, animation: .fade, displayMode: .phrase,
         maxWordsPerPage: 7, maxCharsPerLine: 28, maxLines: 2, positionY: 0.78)
@@ -174,7 +182,7 @@ public struct CaptionStyle: Codable, Hashable, Sendable {
 
     public static let podcast = CaptionStyle(
         presetName: "Podcast",
-        text: TextStyle(fontName: "SF Pro Display", fontSize: 66, weight: .heavy, textCase: .asTyped, color: .white,
+        text: TextStyle(fontName: TextStyle.tiktokSans, fontSize: 66, weight: .heavy, textCase: .asTyped, color: .white,
                         strokeWidth: 0, shadowOpacity: 0, backgroundColor: RGBAColor(hex: "#101014")!,
                         backgroundOpacity: 0.78, backgroundPadding: 18, backgroundCornerRadius: 16),
         highlightColor: RGBAColor(hex: "#101014")!, highlightBoxColor: RGBAColor(hex: "#FFD60A")!, highlightMode: .box,
@@ -182,14 +190,14 @@ public struct CaptionStyle: Codable, Hashable, Sendable {
 
     public static let highEnergy = CaptionStyle(
         presetName: "High Energy",
-        text: TextStyle(fontName: "SF Pro Display", fontSize: 104, weight: .black, italic: true, textCase: .uppercase,
+        text: TextStyle(fontName: TextStyle.tiktokSans, fontSize: 104, weight: .black, italic: true, textCase: .uppercase,
                         color: .white, strokeColor: .black, strokeWidth: 12, shadowOpacity: 0.65, shadowRadius: 0,
                         shadowOffsetY: 8),
         highlightColor: RGBAColor(hex: "#FF3D6E")!, emphasisColor: RGBAColor(hex: "#FFD60A")!, emphasisScale: 1.25,
         highlightMode: .colorAndScale, animation: .bounce, animationSpeed: 1.4, displayMode: .wordByWord,
         maxWordsPerPage: 1, maxCharsPerLine: 12, maxLines: 1, positionY: 0.58)
 
-    public static let presets: [CaptionStyle] = [.clean, .bold, .gaming, .meme, .minimal, .cinematic, .podcast, .highEnergy]
+    public static let presets: [CaptionStyle] = [.tiktok, .clean, .bold, .gaming, .meme, .minimal, .cinematic, .podcast, .highEnergy]
 
     public static func preset(named name: String) -> CaptionStyle? {
         presets.first { $0.presetName.caseInsensitiveCompare(name) == .orderedSame }

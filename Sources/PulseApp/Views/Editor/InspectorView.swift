@@ -314,7 +314,7 @@ struct TextInspector: View {
     let element: TextElement
     let b: ClipBindings
 
-    static let fonts = ["SF Pro Display", "SF Pro Rounded", "New York", "Helvetica Neue", "Avenir Next", "Futura", "Impact", "Arial Black", "Georgia", "Menlo", "Marker Felt", "Chalkboard SE"]
+    static let fonts = ["TikTok Sans", "SF Pro Display", "SF Pro Rounded", "New York", "Helvetica Neue", "Avenir Next", "Futura", "Impact", "Arial Black", "Georgia", "Menlo", "Marker Felt", "Chalkboard SE"]
 
     func textBinding<T>(_ label: String, _ keyPath: WritableKeyPath<TextElement, T>) -> Binding<T> {
         Binding(get: { (session.activeTimeline?.clip(id: clip.id)?.content.textElement ?? element)[keyPath: keyPath] },

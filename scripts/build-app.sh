@@ -34,6 +34,9 @@ cp "$BIN_DIR/PULSE" "$APP/Contents/MacOS/PULSE"
 find "$BIN_DIR" -maxdepth 1 -name "*.bundle" -exec cp -R {} "$APP/Contents/Resources/" \;
 # On-device models (speaker embeddings) and their licenses.
 cp Resources/Models/* "$APP/Contents/Resources/"
+# Bundled fonts (TikTok Sans, OFL) — registered by the app at launch.
+mkdir -p "$APP/Contents/Resources/Fonts"
+cp Resources/Fonts/* "$APP/Contents/Resources/Fonts/"
 WHISPER_CLI="${WHISPER_CLI:-$ROOT/build/whisper/whisper-cli}"
 if [ -x "$WHISPER_CLI" ]; then
   echo "▸ Bundling whisper.cpp"

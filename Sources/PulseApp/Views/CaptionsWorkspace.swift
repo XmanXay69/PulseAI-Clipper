@@ -74,7 +74,7 @@ struct CaptionStylePanel: View {
                     VStack(spacing: 0) {
                         presets
                         InspectorSection("Text") {
-                            Picker("Font", selection: styleBinding("Caption Font", \.text.fontName, fallback: "SF Pro Display")) {
+                            Picker("Font", selection: styleBinding("Caption Font", \.text.fontName, fallback: TextStyle.tiktokSans)) {
                                 ForEach(TextInspector.fonts, id: \.self) { Text($0).tag($0) }
                             }
                             Picker("Weight", selection: styleBinding("Caption Weight", \.text.weight, fallback: .black)) {
@@ -191,6 +191,13 @@ struct CaptionPresetSwatch: View {
     let style: CaptionStyle
     let selected: Bool
 
+    /// The preset's own typeface, small.
+    var swatchFont: Font {
+        let name = style.text.fontName
+        if name == TextStyle.tiktokSans || name == "Impact" { return .custom(name, size: 13).weight(fontWeight) }
+        return .system(size: 13, weight: fontWeight, design: name.contains("Rounded") ? .rounded : (name == "New York" ? .serif : .default))
+    }
+
     var body: some View {
         VStack(spacing: 4) {
             ZStack {
@@ -203,7 +210,7 @@ struct CaptionPresetSwatch: View {
                         .padding(.horizontal, style.highlightMode == .box ? 3 : 0)
                         .background(RoundedRectangle(cornerRadius: 2).fill(style.highlightMode == .box ? Color(style.highlightBoxColor) : .clear))
                 }
-                .font(.system(size: 13, weight: fontWeight, design: style.text.fontName.contains("Rounded") ? .rounded : (style.text.fontName == "New York" ? .serif : .default)))
+                .font(swatchFont)
                 .italic(style.text.italic)
                 .shadow(color: .black.opacity(style.text.strokeWidth > 0 ? 0.9 : style.text.shadowOpacity), radius: style.text.strokeWidth > 0 ? 0.8 : 2)
                 .padding(4)

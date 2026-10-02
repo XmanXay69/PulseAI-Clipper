@@ -28,7 +28,7 @@ public struct ShortBuildOptions: Codable, Hashable, Sendable {
     public var profanity: ProfanityMode
 
     public init(mode: Mode = .oneClick, canvasPresetID: String = CanvasPreset.tiktok.id, frameRate: Double? = nil, layout: LayoutPreset? = nil,
-                captionStyle: CaptionStyle = .bold, captionsEnabled: Bool = true, emphasizeWords: Bool = true, aiFraming: Bool = true,
+                captionStyle: CaptionStyle = .tiktok, captionsEnabled: Bool = true, emphasizeWords: Bool = true, aiFraming: Bool = true,
                 punchIns: Bool = true, punchInSettings: PunchInSettings = PunchInSettings(), silence: SilencePreset? = .conservative,
                 removeFillers: Bool = false, normalizeAudio: Bool = true, voiceEnhance: Bool = false, soundEffects: Bool = false,
                 musicAssetID: UUID? = nil, profanity: ProfanityMode = .off) {
@@ -67,7 +67,7 @@ public struct ShortBuildOptions: Codable, Hashable, Sendable {
     /// Derives options from the user's AI settings.
     public init(settings: AISettings, mode: Mode = .oneClick) {
         self.init(mode: mode)
-        captionStyle = CaptionStyle.preset(named: settings.captionPresetName) ?? .bold
+        captionStyle = CaptionStyle.preset(named: settings.captionPresetName) ?? .tiktok
         aiFraming = settings.aiFraming
         punchIns = settings.autoZoom
         silence = settings.silenceRemoval ? settings.silencePreset : nil
