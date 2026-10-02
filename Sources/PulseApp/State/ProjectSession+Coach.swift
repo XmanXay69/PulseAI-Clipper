@@ -14,9 +14,10 @@ extension ProjectSession {
 
     /// Review of the active edit (recomputed as you edit; cheap compared with rendering).
     var activeReview: EditReview? {
-        guard let timeline = activeTimeline, timeline.duration > 0.5, !document.isCompound(timeline.id) else { return nil }
-        let analysis = analysis(for: timeline)
-        return EditCoach.review(timeline, analysis: analysis, signals: analysis.flatMap { signals(for: $0.assetID) })
+        // Without an analysis there's nothing real to judge — no score rather than a made-up one.
+        guard let timeline = activeTimeline, timeline.duration > 0.5, !document.isCompound(timeline.id),
+              let analysis = analysis(for: timeline), analysis.audio != nil || analysis.transcript != nil else { return nil }
+        return EditCoach.review(timeline, analysis: analysis, signals: signals(for: analysis.assetID))
     }
 
     func applyCoachFix(_ suggestion: EditSuggestion) {

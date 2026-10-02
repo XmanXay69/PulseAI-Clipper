@@ -45,6 +45,7 @@ public struct ClipTemplate: Codable, Hashable, Identifiable, Sendable {
     }
 
     public static let builtIns: [ClipTemplate] = [
+        ClipTemplate(id: UUID(uuidString: "6B1B7A55-0000-4000-8000-000000000006")!, name: "TikTok Native", captionStyle: .tiktok, layout: .splitScreen, isBuiltIn: true),
         ClipTemplate(id: UUID(uuidString: "6B1B7A55-0000-4000-8000-000000000001")!, name: "Gaming Split", captionStyle: .gaming, layout: .splitScreen, isBuiltIn: true),
         ClipTemplate(id: UUID(uuidString: "6B1B7A55-0000-4000-8000-000000000002")!, name: "Facecam Corner", captionStyle: .bold, layout: .facecamCorner,
                      webcamStyle: LayerStyle(mask: .roundedRectangle, cornerRadius: 0.12, borderWidth: 6, borderColor: .white, shadowRadius: 18, shadowOpacity: 0.45, shadowOffsetY: 6), isBuiltIn: true),

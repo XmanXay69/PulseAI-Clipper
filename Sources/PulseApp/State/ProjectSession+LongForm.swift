@@ -11,7 +11,10 @@ extension ProjectSession {
     func longFormEstimate(options: LongFormOptions) -> Seconds {
         guard let asset = document.primaryAsset else { return 30 }
         let target = options.targetLength(forSource: asset.metadata.duration)
-        return 6 + (options.music ? target / 240 * 9 : 0) + (options.soundEffects ? 4 : 0)
+        // Composing music dominates: one bed per ~4 minutes, roughly 6 s + 8 % of its length each.
+        let chapters = max(1, (target / 240).rounded(.up))
+        let music = options.music ? chapters * (6 + min(target / chapters, 300) * 0.08) : 0
+        return 6 + music + (options.soundEffects || options.memes ? 6 : 0)
     }
 
     func editMyVOD(options: LongFormOptions) {

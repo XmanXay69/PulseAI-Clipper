@@ -12,9 +12,9 @@ struct OnboardingView: View {
     static let steps: [(symbol: String, title: String, detail: String)] = [
         ("square.and.arrow.down", "Import", "Drop a long stream, podcast or video. PULSE references it in place — nothing is copied."),
         ("waveform.and.magnifyingglass", "AI Analyze", "Speech, silence, volume spikes, scene changes and faces are analyzed on this Mac."),
-        ("sparkles", "Create Clips", "PULSE ranks the best moments with an AI Potential score and builds 9:16 shorts with captions."),
-        ("timeline.selection", "Edit", "Every AI decision is a normal, editable clip, keyframe or caption on a pro timeline."),
-        ("square.and.arrow.up", "Export", "TikTok, Shorts and Reels presets, hardware H.264/HEVC, batch export queue."),
+        ("sparkles", "Create", "Captioned 9:16 shorts of the best moments — or Edit My VOD for a 10–20 min YouTube video."),
+        ("timeline.selection", "Edit", "Every AI decision is a normal, editable clip on a pro timeline. The coach suggests what to fix."),
+        ("square.and.arrow.up", "Export", "TikTok, Shorts, Reels and YouTube presets, hardware encoding, batch export queue."),
     ]
 
     var body: some View {
@@ -34,6 +34,7 @@ struct OnboardingView: View {
                         HStack {
                             Image(systemName: step.symbol).font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(index == 2 ? Theme.ai : Theme.accent)
+                                .frame(width: 24, height: 22, alignment: .leading)
                             Spacer()
                             Text("\(index + 1)").font(.pulseMono).foregroundStyle(Theme.textTertiary)
                         }

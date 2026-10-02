@@ -267,6 +267,19 @@ public enum TranscriptionEngineFactory {
         !model.lastPathComponent.contains(".en.") || language.lowercased().hasPrefix("en")
     }
 
+    /// Plain-language status for the Analyze card: what will transcribe, or what to do about it.
+    public static func friendlyStatus(settings: AISettings) -> (ready: Bool, text: String) {
+        guard let first = candidates(settings: settings).first else {
+            return (false, "No speech-to-text yet — clips will be found from sound alone. Settings → Transcription to set it up.")
+        }
+        if let whisper = first as? WhisperCppTranscriber {
+            let bundled = whisper.executable.path.hasPrefix(Bundle.main.bundlePath + "/")
+            let model = whisper.model.deletingPathExtension().lastPathComponent.replacingOccurrences(of: "ggml-", with: "")
+            return (true, "Speech-to-text: Whisper \(model)\(bundled ? ", built in" : "") — on this Mac")
+        }
+        return (true, "Speech-to-text: Apple, on this Mac (asks for permission the first time)")
+    }
+
     public static func availabilitySummary(settings: AISettings) -> String {
         var parts: [String] = []
         parts.append(AppleSpeechTranscriber.hasUsageDescription ? "Apple Speech: available" : "Apple Speech: needs app bundle")

@@ -227,10 +227,11 @@ struct ImportProjectView: View {
                     SectionLabel(text: "How many clips")
                     LabeledSlider(label: aggressiveness < 0.34 ? "Best only" : (aggressiveness < 0.67 ? "Balanced" : "Lots"), value: Binding(get: { aggressiveness * 100 }, set: { aggressiveness = $0 / 100 }), range: 0...100, format: "%.0f", unit: "%")
                 }
-                HStack(spacing: 6) {
-                    ProcessingBadge(location: .local)
-                    Text(TranscriptionEngineFactory.availabilitySummary(settings: app.settings.ai))
-                        .font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(2)
+                let status = TranscriptionEngineFactory.friendlyStatus(settings: app.settings.ai)
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: status.ready ? "checkmark.circle.fill" : "exclamationmark.circle")
+                        .font(.system(size: 11)).foregroundStyle(status.ready ? Theme.success : Theme.warning)
+                    Text(status.text).font(.pulseMicro).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                 }
                 if let asset = session.document.primaryAsset {
                     if let progress = session.analysisProgress[asset.id] {
