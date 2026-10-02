@@ -118,7 +118,9 @@ public enum ThumbnailHeadline {
                 text = String(text[..<r.lowerBound])
             }
         }
-        let ending = text.trimmingCharacters(in: .whitespaces).last.flatMap { "!?".contains($0) ? String($0) : nil } ?? ""
+        // Clip titles are often quoted ("“DID YOU SEE THAT?” 🔥"): look past the quotes for ?/!.
+        let ending = text.trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "\"'“”‘’")))
+            .last.flatMap { "!?".contains($0) ? String($0) : nil } ?? ""
         let words = text.components(separatedBy: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "'’$%")).inverted)
             .filter { !$0.isEmpty }
         var kept: [String] = []

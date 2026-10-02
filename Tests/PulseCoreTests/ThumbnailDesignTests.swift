@@ -82,6 +82,7 @@ final class ThumbnailDesignTests: XCTestCase {
         XCTAssertEqual(ThumbnailHeadline.make(from: "No way!"), "No way!")
         XCTAssertEqual(ThumbnailHeadline.make(from: "I can't believe this actually happened on stream"), "I can't believe this")
         XCTAssertEqual(ThumbnailHeadline.make(from: "😭😭😭"), "NO WAY")
+        XCTAssertEqual(ThumbnailHeadline.make(from: "“DID SEE THAT?” 🔥"), "DID SEE THAT?")
     }
 
     func testPicksStrongestMomentsSpacedApartAndPrefersTheFace() {
