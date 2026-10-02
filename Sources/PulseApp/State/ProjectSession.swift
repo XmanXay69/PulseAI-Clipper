@@ -87,6 +87,32 @@ final class ProjectSession: ObservableObject, Identifiable {
         refreshAvailability()
         startAutosave()
         reloadPlayback(debounce: 0)
+        // An analysis that was running when PULSE quit picks up where it left off.
+        let interrupted = document.media.filter { $0.preparation.analysisState == .running }.map(\.id)
+        if !interrupted.isEmpty {
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                self?.resumeInterruptedAnalyses(interrupted)
+            }
+        }
+    }
+
+    /// Restarts analyses that were cut off by quitting; finished stages come back from their checkpoints.
+    func resumeInterruptedAnalyses(_ ids: [UUID]) {
+        for id in ids {
+            guard let asset = document.asset(id: id), analysisProgress[id] == nil else { continue }
+            PulseLog.info("Resuming interrupted analysis: \(asset.name)")
+            app.toast("Resuming the analysis of \(asset.name) where it left off")
+            analyze(assetID: id, generateClips: document.candidates.allSatisfy { $0.assetID != id })
+        }
+    }
+
+    /// Analysis state is saved right away (not an undo step) so an interrupted run can be resumed.
+    func setAnalysisState(_ state: MediaPreparation.AnalysisState, for id: UUID) {
+        guard let i = document.media.firstIndex(where: { $0.id == id }) else { return }
+        document.media[i].preparation.analysisState = state
+        isDirty = true
+        save()
     }
 
     // MARK: Derived
@@ -454,7 +480,7 @@ final class ProjectSession: ObservableObject, Identifiable {
         let options = AnalysisPipeline.Options(transcribe: true, detectFaces: true, ai: ai, importedTranscript: imported, voiceSource: voice,
                                                speed: ai.analysisSpeed)
         let pipeline = AnalysisPipeline(cacheDirectory: PulseDirectories.cache("Analysis", root: app.cacheFolder))
-        document.media.firstIndex { $0.id == assetID }.map { document.media[$0].preparation.analysisState = .running }
+        setAnalysisState(.running, for: assetID)
         let job = app.jobs.start("Analyze · \(asset.name)", kind: .analysis) { [weak self] job in
             guard let self else { return }
             do {
@@ -468,6 +494,9 @@ final class ProjectSession: ObservableObject, Identifiable {
                 }, isCancelled: job.isCancelledCheck)
                 self.analysisProgress[assetID] = nil
                 self.analysisRemaining[assetID] = nil
+                if !output.resumedStages.isEmpty {
+                    PulseLog.info("Analysis resumed; reused: \(output.resumedStages.map(\.rawValue).joined(separator: ", "))")
+                }
                 // Learn this Mac's speed so the next estimate is closer.
                 self.app.settings.ai.analysisSpeed.learn(stageSeconds: output.stageSeconds, mediaDuration: asset.metadata.duration)
                 self.setAnalysis(output.analysis)
@@ -486,7 +515,8 @@ final class ProjectSession: ObservableObject, Identifiable {
             } catch {
                 self.analysisProgress[assetID] = nil
                 self.analysisRemaining[assetID] = nil
-                self.document.media.firstIndex { $0.id == assetID }.map { self.document.media[$0].preparation.analysisState = .failed }
+                // Cancelled or failed: a later "Analyze" (or relaunch) resumes from the checkpoints.
+                self.setAnalysisState(.failed, for: assetID)
                 throw error
             }
         }

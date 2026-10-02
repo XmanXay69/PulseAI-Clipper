@@ -45,6 +45,7 @@ struct RootView: View {
         .sheet(isPresented: $app.showNewProjectSheet) { NewProjectSheet().environmentObject(app) }
         .sheet(isPresented: $app.showGlobalSearch) { GlobalSearchView().environmentObject(app) }
         .sheet(isPresented: $app.showRecordSheet) { RecordView(recorder: app.recording).environmentObject(app) }
+        .sheet(isPresented: $app.showReportProblem) { ReportProblemSheet().environmentObject(app) }
         .sheet(isPresented: $app.showLongFormSheet) {
             if let session = app.session { LongFormSheet(session: session).environmentObject(app) }
         }

@@ -62,6 +62,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var app: AppModel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSSetUncaughtExceptionHandler { exception in
+            PulseLog.error("Uncaught exception: \(exception.name.rawValue) — \(exception.reason ?? "") \(exception.callStackSymbols.prefix(12).joined(separator: " | "))")
+            PulseLog.flush()
+        }
         NSApp.appearance = NSAppearance(named: .darkAqua)
         NSApp.applicationIconImage = AppIcon.render(size: 512)
         // `swift run` launches as a background process; make it a regular foreground app.
@@ -72,6 +76,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
     func applicationWillTerminate(_ notification: Notification) {
+        PulseLog.info("PULSE quit")
+        PulseLog.flush()
         MainActor.assumeIsolated { app?.applicationWillTerminate() }
     }
 }
@@ -108,6 +114,14 @@ struct PulseCommands: Commands {
             Button(app.session?.redoLabel.map { "Redo \($0)" } ?? "Redo") { app.session?.redo() }
                 .keyboardShortcut("z", modifiers: [.command, .shift])
                 .disabled(!(app.session?.canRedo ?? false))
+        }
+        CommandGroup(replacing: .help) {
+            Button("Report a Problem…") { app.showReportProblem = true }
+            Button("Open Log Folder") { NSWorkspace.shared.open(PulseLog.directory) }
+            Divider()
+            Button("PULSE on GitHub") {
+                if let url = URL(string: "https://github.com/XmanXay69/PulseAI-Clipper") { NSWorkspace.shared.open(url) }
+            }
         }
         CommandMenu("Timeline") {
             Button("Split at Playhead") { app.session?.splitAtPlayhead() }.keyboardShortcut("k")

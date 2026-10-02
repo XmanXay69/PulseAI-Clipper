@@ -108,6 +108,7 @@ final class AppModel: ObservableObject {
     @Published var showRecordSheet = false
     /// "Edit My VOD" — the long-form YouTube edit sheet.
     @Published var showLongFormSheet = false
+    @Published var showReportProblem = false
     private var recordingObserver: AnyCancellable?
     let store = ProjectStore()
     let recovery = RecoveryManager(directory: PulseDirectories.recovery)
@@ -124,6 +125,7 @@ final class AppModel: ObservableObject {
     }
 
     init() {
+        PulseLog.info("PULSE \(AppModel.versionString) launched on macOS \(ProcessInfo.processInfo.operatingSystemVersionString), \(ProblemReporter.machineModel), \(ProcessInfo.processInfo.activeProcessorCount) cores, \(ProcessInfo.processInfo.physicalMemory / 1_073_741_824) GB")
         settings = AppModel.loadSettings()
         library = try? LibraryDatabase(url: LibraryDatabase.defaultURL())
         store.backupsToKeep = settings.backupsToKeep
@@ -141,9 +143,11 @@ final class AppModel: ObservableObject {
             guard let self else { return }
             switch job.status {
             case .completed(let path):
+                PulseLog.info("Export finished: \(job.timelineName) → \((path as NSString).lastPathComponent)")
                 self.logActivity(.export, title: "Exported “\(job.timelineName)”", detail: (path as NSString).lastPathComponent)
                 self.session?.edit("Mark Exported") { doc in doc.exportCount += 1 }
             case .failed(let message):
+                PulseLog.error("Export failed: \(job.timelineName) — \(message)")
                 self.logActivity(.export, title: "Export failed: \(job.timelineName)", detail: message)
             default: break
             }
@@ -480,15 +484,25 @@ final class AppModel: ObservableObject {
 
     func present(_ error: Error, title: String) {
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        PulseLog.error("\(title): \(message)")
         alert = AppAlert(title: title, message: message)
     }
 
     func present(title: String, message: String) {
+        PulseLog.warning("\(title): \(message)")
         alert = AppAlert(title: title, message: message)
     }
 
     func presentMessage(title: String, message: String) {
+        PulseLog.warning("\(title): \(message)")
         alert = AppAlert(title: title, message: message)
+    }
+
+    /// "1.0.1 (68)" from the bundle, or "dev" when run from source.
+    static var versionString: String {
+        let info = Bundle.main.infoDictionary
+        guard let v = info?["CFBundleShortVersionString"] as? String else { return "dev" }
+        return "\(v) (\(info?["CFBundleVersion"] as? String ?? "?"))"
     }
 
     func toast(_ message: String) {

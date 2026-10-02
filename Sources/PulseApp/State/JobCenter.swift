@@ -85,6 +85,7 @@ final class JobCenter: ObservableObject {
         let job = BackgroundJob(title: title, kind: kind, location: location)
         jobs.insert(job, at: 0)
         if jobs.count > 40 { jobs.removeLast(jobs.count - 40) }
+        PulseLog.info("Job started: \(title)")
         job.task = Task { @MainActor [weak self] in
             do {
                 try await operation(job)
@@ -98,6 +99,12 @@ final class JobCenter: ObservableObject {
                 job.state = .cancelled
             } catch {
                 job.state = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+            }
+            let seconds = String(format: "%.1f s", Date().timeIntervalSince(job.startedAt))
+            switch job.state {
+            case .failed(let message): PulseLog.error("Job failed after \(seconds): \(title) — \(message)")
+            case .cancelled: PulseLog.info("Job cancelled after \(seconds): \(title)")
+            default: PulseLog.info("Job finished in \(seconds): \(title)")
             }
             self?.objectWillChange.send()
             self?.onFinished?(job)

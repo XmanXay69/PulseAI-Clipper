@@ -181,6 +181,11 @@ struct GeneralSettings: View {
                 Button("Open Sample") { app.openDemoProject() }.buttonStyle(.pulse(.secondary, compact: true))
             }
         }
+        SettingsGroup("Help") {
+            SettingsRow("Something not working?", detail: "Bundles the app log and system info (never your media) and opens a GitHub issue.") {
+                Button("Report a Problem…") { app.showReportProblem = true }.buttonStyle(.pulse(.secondary, compact: true))
+            }
+        }
     }
 }
 

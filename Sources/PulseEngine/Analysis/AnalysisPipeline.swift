@@ -84,6 +84,8 @@ public struct AnalysisPipeline: Sendable {
         public var warnings: [String]
         /// Wall-clock time each stage took (to learn this Mac's speed).
         public var stageSeconds: [AnalysisStage: Seconds] = [:]
+        /// Stages restored from an earlier, interrupted run instead of being redone.
+        public var resumedStages: [AnalysisStage] = []
     }
 
     public var cacheDirectory: URL
@@ -117,11 +119,26 @@ public struct AnalysisPipeline: Sendable {
             progress(EngineProgress(stage: stage, fraction: min(1, (base + fraction * weight) / totalWeight)))
         }
 
+        // Finished stages of an interrupted run are picked up instead of redone.
+        let checkpoint = AnalysisCheckpoint(directory: cacheDirectory, asset: asset, mediaURL: url, voiceURL: options.voiceSource?.url,
+                                            settings: "\(options.detectFaces)|\(options.ai.transcriptionLanguage)|\(options.ai.detectSpeakers)|\(options.voiceSource?.delta ?? 0)")
+        let savedAudio: AudioFeatureSeries? = hasAudio ? checkpoint.load(.audio) : nil
+        let savedTranscript: Transcript? = needsTranscription ? checkpoint.load(.transcription) : nil
+        let savedVisual: VisualFeatureSeries? = checkpoint.load(.video)
+        var resumed: [AnalysisStage] = []
+        let wavTarget = needsTranscription ? cacheDirectory.appendingPathComponent("\(asset.id.uuidString)-16k.wav") : nil
+        let wavReady = wavTarget.map { FileManager.default.fileExists(atPath: $0.path) } ?? true
+
         // 1. Audio.
         var audioFeatures: AudioFeatureSeries?
         var wavURL: URL?
-        if hasAudio {
-            let wavTarget = needsTranscription ? cacheDirectory.appendingPathComponent("\(asset.id.uuidString)-16k.wav") : nil
+        if let savedAudio, savedTranscript != nil || wavReady {
+            audioFeatures = savedAudio
+            wavURL = savedTranscript == nil ? wavTarget : nil
+            processing["audio"] = .local
+            resumed.append(.audio)
+            completed += audioWeight
+        } else if hasAudio {
             let base = completed
             do {
                 let result = try await AudioAnalyzer().analyze(url: audioURL, writeWAVTo: wavTarget, progress: { p in
@@ -138,7 +155,10 @@ public struct AnalysisPipeline: Sendable {
             } catch {
                 warnings.append("Audio analysis failed: \(error.localizedDescription)")
             }
-            if audioFeatures != nil { stageSeconds[.audio] = Date().timeIntervalSince(stageStart) }
+            if let audioFeatures {
+                stageSeconds[.audio] = Date().timeIntervalSince(stageStart)
+                checkpoint.save(audioFeatures, .audio)
+            }
             completed += audioWeight
         } else {
             warnings.append(EngineError.noAudioTrack(url).localizedDescription)
@@ -147,7 +167,13 @@ public struct AnalysisPipeline: Sendable {
         // 2. Transcript.
         var transcript = options.importedTranscript
         if transcript != nil { processing["transcript"] = .local }
-        if needsTranscription, let wavURL {
+        if let savedTranscript {
+            transcript = savedTranscript
+            processing["transcript"] = .local
+            resumed.append(.transcription)
+            completed += speechWeight
+            if let wavTarget { try? FileManager.default.removeItem(at: wavTarget) }
+        } else if needsTranscription, let wavURL {
             stageStart = Date()
             let engines = TranscriptionEngineFactory.candidates(settings: options.ai)
             if !engines.isEmpty {
@@ -190,7 +216,10 @@ public struct AnalysisPipeline: Sendable {
                     warnings.append("Speaker detection failed: \(error.localizedDescription)")
                 }
             }
-            if transcript != nil { stageSeconds[.transcription] = Date().timeIntervalSince(stageStart) }
+            if let transcript {
+                stageSeconds[.transcription] = Date().timeIntervalSince(stageStart)
+                checkpoint.save(transcript, .transcription)
+            }
             completed += speechWeight
             try? FileManager.default.removeItem(at: wavURL)
         }
@@ -198,7 +227,12 @@ public struct AnalysisPipeline: Sendable {
 
         // 3. Video.
         var visual: VisualFeatureSeries?
-        if meta.hasVideo && asset.kind == .video {
+        if let savedVisual {
+            visual = savedVisual
+            processing["video"] = .local
+            resumed.append(.video)
+            completed += videoWeight
+        } else if meta.hasVideo && asset.kind == .video {
             stageStart = Date()
             let base = completed
             do {
@@ -212,7 +246,10 @@ public struct AnalysisPipeline: Sendable {
             } catch {
                 warnings.append("Video analysis failed: \(error.localizedDescription)")
             }
-            if visual != nil { stageSeconds[.video] = Date().timeIntervalSince(stageStart) }
+            if let visual {
+                stageSeconds[.video] = Date().timeIntervalSince(stageStart)
+                checkpoint.save(visual, .video)
+            }
             completed += videoWeight
         }
 
@@ -221,6 +258,45 @@ public struct AnalysisPipeline: Sendable {
         let analysis = MediaAnalysis(assetID: asset.id, duration: meta.duration, audio: audioFeatures, visual: visual,
                                      transcript: transcript, webcam: webcam, profile: profile, processing: processing)
         progress(EngineProgress(stage: "Done", fraction: 1))
-        return Output(analysis: analysis, warnings: warnings, stageSeconds: stageSeconds)
+        checkpoint.clear()
+        return Output(analysis: analysis, warnings: warnings, stageSeconds: stageSeconds, resumedStages: resumed)
+    }
+}
+
+/// Per-stage results of an analysis in progress, so quitting PULSE (or a crash) doesn't throw away
+/// finished work. Keyed by the asset, the file's size + modification date, and the settings that
+/// affect the result; cleared once the analysis completes.
+struct AnalysisCheckpoint {
+    let directory: URL
+    let key: String
+
+    init(directory: URL, asset: MediaAsset, mediaURL: URL, voiceURL: URL?, settings: String) {
+        self.directory = directory
+        func fingerprint(_ url: URL?) -> String {
+            guard let url, let a = try? FileManager.default.attributesOfItem(atPath: url.path) else { return "-" }
+            let size = (a[.size] as? NSNumber)?.int64Value ?? 0
+            let date = (a[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+            return "\(size)-\(Int(date))"
+        }
+        // FNV-1a: stable across launches (Swift's Hasher isn't).
+        let stable = settings.utf8.reduce(UInt64(1469598103934665603)) { ($0 ^ UInt64($1)) &* 1099511628211 }
+        key = "\(asset.id.uuidString)-\(fingerprint(mediaURL))-\(fingerprint(voiceURL))-\(String(stable, radix: 36))"
+    }
+
+    func url(_ stage: AnalysisStage) -> URL { directory.appendingPathComponent("checkpoint-\(key)-\(stage.rawValue).plist") }
+
+    func load<T: Decodable>(_ stage: AnalysisStage) -> T? {
+        guard let data = try? Data(contentsOf: url(stage)) else { return nil }
+        return try? PropertyListDecoder().decode(T.self, from: data)
+    }
+
+    func save<T: Encodable>(_ value: T, _ stage: AnalysisStage) {
+        let encoder = PropertyListEncoder()
+        encoder.outputFormat = .binary
+        if let data = try? encoder.encode(value) { try? data.write(to: url(stage), options: .atomic) }
+    }
+
+    func clear() {
+        for stage in AnalysisStage.allCases { try? FileManager.default.removeItem(at: url(stage)) }
     }
 }
