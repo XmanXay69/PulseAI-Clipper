@@ -58,6 +58,8 @@ public struct PerformancePrediction: Hashable, Sendable {
     public var score: Int
     public var factors: [Factor]
     public var format: EditFormat
+    /// How many of your own videos the weights were calibrated on (0 = PULSE's defaults).
+    public var calibratedOn: Int = 0
 
     public var tier: PerformanceTier { PerformanceTier(score: score) }
 
@@ -115,7 +117,15 @@ public struct EditReview: Hashable, Sendable {
 /// Reviews an edit as you work: a performance prediction and concrete suggestions ("the first 2 s are
 /// slow", "8 % dead air", "no captions"…), most with a one-click fix.
 public enum EditCoach {
-    public static func review(_ timeline: Timeline, analysis: MediaAnalysis?, signals precomputed: EngagementSignals? = nil) -> EditReview {
+    /// PULSE's built-in weights for each factor.
+    public static func defaultWeights(_ format: EditFormat) -> [String: Double] {
+        format == .short
+            ? ["Hook": 0.24, "Energy": 0.2, "Payoff": 0.16, "Pacing": 0.14, "Ending": 0.08, "Length": 0.08, "Polish": 0.1]
+            : ["Hook": 0.18, "Energy": 0.2, "Payoff": 0.1, "Pacing": 0.22, "Ending": 0.05, "Length": 0.1, "Polish": 0.15]
+    }
+
+    public static func review(_ timeline: Timeline, analysis: MediaAnalysis?, signals precomputed: EngagementSignals? = nil,
+                              calibration: CoachCalibration? = nil) -> EditReview {
         let format = EditFormat.of(timeline)
         let duration = timeline.duration
         let program = Program(timeline: timeline, assetID: analysis?.assetID ?? timeline.origin?.assetID)
@@ -301,13 +311,16 @@ public enum EditCoach {
         factors.append(.init(name: "Polish", value: polish.clamped(0, 1), note: polish >= 0.7 ? "Captions, zooms and sound in place" : "Missing finishing touches"))
 
         // Weighted score.
-        let weights: [String: Double] = format == .short
-            ? ["Hook": 0.24, "Energy": 0.2, "Payoff": 0.16, "Pacing": 0.14, "Ending": 0.08, "Length": 0.08, "Polish": 0.1]
-            : ["Hook": 0.18, "Energy": 0.2, "Payoff": 0.1, "Pacing": 0.22, "Ending": 0.05, "Length": 0.1, "Polish": 0.15]
+        var weights = defaultWeights(format)
+        var calibratedOn = 0
+        if let fitted = calibration?.weights(for: format), fitted.samples >= CoachCalibrator.minimumSamples {
+            weights = fitted.weights
+            calibratedOn = fitted.samples
+        }
         let raw = factors.reduce(0) { $0 + (weights[$1.name] ?? 0) * $1.value }
         let score = Int((pow(raw.clamped(0, 1), 0.85) * 100).rounded()).clamped(1, 99)
         suggestions.sort { $0.severity != $1.severity ? $0.severity > $1.severity : $0.id < $1.id }
-        return EditReview(prediction: PerformancePrediction(score: score, factors: factors, format: format), suggestions: suggestions)
+        return EditReview(prediction: PerformancePrediction(score: score, factors: factors, format: format, calibratedOn: calibratedOn), suggestions: suggestions)
     }
 
     static func silenceThreshold(_ audio: AudioFeatureSeries?) -> Float {

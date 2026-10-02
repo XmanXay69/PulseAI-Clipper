@@ -146,6 +146,7 @@ final class AppModel: ObservableObject {
             switch job.status {
             case .completed(let path):
                 PulseLog.info("Export finished: \(job.timelineName) → \((path as NSString).lastPathComponent)")
+                self.rememberPrediction(timelineID: job.timelineID, fileName: ((path as NSString).lastPathComponent as NSString).deletingPathExtension)
                 self.logActivity(.export, title: "Exported “\(job.timelineName)”", detail: (path as NSString).lastPathComponent)
                 self.session?.edit("Mark Exported") { doc in doc.exportCount += 1 }
             case .failed(let message):
@@ -499,6 +500,51 @@ final class AppModel: ObservableObject {
     func presentMessage(title: String, message: String) {
         PulseLog.warning("\(title): \(message)")
         alert = AppAlert(title: title, message: message)
+    }
+
+    // MARK: Performance history (for calibrating the coach)
+
+    @Published private(set) var performanceHistory: [PerformanceRecord] = AppModel.loadPerformanceHistory()
+
+    static var performanceHistoryURL: URL { PulseDirectories.applicationSupport.appendingPathComponent("performance-history.json") }
+
+    static func loadPerformanceHistory() -> [PerformanceRecord] {
+        guard let data = try? Data(contentsOf: performanceHistoryURL) else { return [] }
+        return (try? JSONDecoder().decode([PerformanceRecord].self, from: data)) ?? []
+    }
+
+    func savePerformanceHistory() {
+        if let data = try? JSONEncoder().encode(performanceHistory) { try? data.write(to: Self.performanceHistoryURL, options: .atomic) }
+    }
+
+    /// What the coach predicted for an export, kept so real views can be matched to it later.
+    func rememberPrediction(timelineID: UUID, fileName: String) {
+        guard let session, let timeline = session.document.timeline(id: timelineID), let review = session.review(of: timeline) else { return }
+        var titles = [timeline.name, fileName]
+        if let copy = timeline.copy { titles += copy.titles + [copy.shortsTitle] }
+        performanceHistory.removeAll { $0.titles.first == timeline.name && $0.views == nil && $0.predictedScore == review.prediction.score }
+        performanceHistory.append(PerformanceRecord(review: review, titles: titles, duration: timeline.duration))
+        if performanceHistory.count > 2000 { performanceHistory.removeFirst(performanceHistory.count - 2000) }
+        savePerformanceHistory()
+    }
+
+    /// Reads a YouTube Studio / TikTok analytics CSV, matches it to past exports and recalibrates the coach.
+    func importAnalytics(_ url: URL) -> (rows: Int, matched: Int) {
+        guard let text = try? String(contentsOf: url, encoding: .utf8) ?? String(contentsOf: url, encoding: .utf16) else { return (0, 0) }
+        let rows = AnalyticsImporter.parse(text)
+        var records = performanceHistory
+        let matched = AnalyticsImporter.match(rows, into: &records)
+        performanceHistory = records
+        savePerformanceHistory()
+        settings.ai.coachCalibration = CoachCalibrator.fit(records)
+        PulseLog.info("Analytics import: \(rows.count) rows, \(matched) matched, \(records.filter { $0.views != nil }.count) total with views")
+        return (rows.count, matched)
+    }
+
+    func resetCalibration() {
+        settings.ai.coachCalibration = nil
+        for i in performanceHistory.indices { performanceHistory[i].views = nil; performanceHistory[i].averagePercentViewed = nil }
+        savePerformanceHistory()
     }
 
     /// "1.0.1 (68)" from the bundle, or "dev" when run from source.

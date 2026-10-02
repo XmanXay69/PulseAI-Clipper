@@ -62,6 +62,8 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var analysisSpeed: AnalysisSpeedProfile = AnalysisSpeedProfile()
     /// What you find entertaining, learned from 👍 / 👎.
     public var taste: TasteProfile = TasteProfile()
+    /// Coach weights fitted to your real analytics (nil = PULSE's defaults).
+    public var coachCalibration: CoachCalibration?
 
     public init() {}
 
@@ -102,6 +104,7 @@ public struct AISettings: Codable, Hashable, Sendable {
         openAIIsLocalServer = c.decode(Bool.self, forKey: .openAIIsLocalServer, default: d.openAIIsLocalServer)
         analysisSpeed = c.decode(AnalysisSpeedProfile.self, forKey: .analysisSpeed, default: d.analysisSpeed)
         taste = c.decode(TasteProfile.self, forKey: .taste, default: d.taste)
+        coachCalibration = c.decode(CoachCalibration?.self, forKey: .coachCalibration, default: nil)
     }
 }
 

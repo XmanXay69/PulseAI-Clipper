@@ -17,7 +17,13 @@ extension ProjectSession {
         // Without an analysis there's nothing real to judge — no score rather than a made-up one.
         guard let timeline = activeTimeline, timeline.duration > 0.5, !document.isCompound(timeline.id),
               let analysis = analysis(for: timeline), analysis.audio != nil || analysis.transcript != nil else { return nil }
-        return EditCoach.review(timeline, analysis: analysis, signals: signals(for: analysis.assetID))
+        return EditCoach.review(timeline, analysis: analysis, signals: signals(for: analysis.assetID), calibration: app.settings.ai.coachCalibration)
+    }
+
+    /// Review of any edit in this project (used to remember predictions at export).
+    func review(of timeline: Timeline) -> EditReview? {
+        guard let analysis = analysis(for: timeline), analysis.audio != nil || analysis.transcript != nil else { return nil }
+        return EditCoach.review(timeline, analysis: analysis, signals: signals(for: analysis.assetID), calibration: app.settings.ai.coachCalibration)
     }
 
     func applyCoachFix(_ suggestion: EditSuggestion) {

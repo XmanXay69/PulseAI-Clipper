@@ -100,7 +100,8 @@ struct CoachSection: View {
                         .buttonStyle(.plain).font(.pulseMicro).foregroundStyle(Theme.info)
                 }
             }
-            Text("A prediction from the video's energy, hook, pacing and polish — a guide, not a guarantee.")
+            Text(p.calibratedOn > 0 ? "Calibrated on \(p.calibratedOn) of your videos' real views — still a guide, not a guarantee."
+                                    : "A prediction from the video's energy, hook, pacing and polish — a guide, not a guarantee. Import your analytics in Settings → Performance to calibrate it.")
                 .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
         }
     }

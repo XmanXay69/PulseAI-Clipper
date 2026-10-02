@@ -5,7 +5,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, aiProcessing, aiFeatures, brandKit, transcription, files, proxies, shortcuts
+    case general, aiProcessing, aiFeatures, brandKit, performance, transcription, files, proxies, shortcuts
 
     var id: String { rawValue }
 
@@ -15,6 +15,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .aiProcessing: return "AI Processing"
         case .aiFeatures: return "AI Features"
         case .brandKit: return "Brand Kit"
+        case .performance: return "Performance"
         case .transcription: return "Transcription"
         case .files: return "Files & Storage"
         case .proxies: return "Proxies"
@@ -28,6 +29,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .aiProcessing: return "lock.shield"
         case .aiFeatures: return "sparkles"
         case .brandKit: return "paintbrush.pointed"
+        case .performance: return "chart.line.uptrend.xyaxis"
         case .transcription: return "waveform"
         case .files: return "externaldrive"
         case .proxies: return "square.stack.3d.down.right"
@@ -74,6 +76,7 @@ struct SettingsView: View {
                     case .aiProcessing: AIProcessingSettings()
                     case .aiFeatures: AIFeatureSettings()
                     case .brandKit: BrandKitSettings()
+                    case .performance: PerformanceSettings()
                     case .transcription: TranscriptionSettings()
                     case .files: FileSettings()
                     case .proxies: ProxySettingsPane()
@@ -712,6 +715,58 @@ struct BrandKitSettings: View {
             .buttonStyle(.pulse(.secondary, compact: true))
             if !path.wrappedValue.isEmpty {
                 Button { path.wrappedValue = "" } label: { Image(systemName: "xmark") }.buttonStyle(.pulse(.ghost, compact: true)).help("Remove")
+            }
+        }
+    }
+}
+
+/// Settings → Performance: match real views to what PULSE predicted, and calibrate the coach to your channel.
+struct PerformanceSettings: View {
+    @EnvironmentObject var app: AppModel
+    @State private var lastImport: String?
+
+    var withViews: [PerformanceRecord] { app.performanceHistory.filter { $0.views != nil }.sorted { ($0.views ?? 0) > ($1.views ?? 0) } }
+
+    var body: some View {
+        SettingsGroup("Calibrate the score with your real views", footnote: "Every export remembers what PULSE predicted. Import an analytics export and PULSE matches the videos by title, then re-weights the coach toward what actually worked on your channel (after 5 matched videos of a format). Only titles and numbers are read.") {
+            SettingsRow("Analytics export", detail: "YouTube Studio → Analytics → Advanced mode → Export (CSV), or TikTok's analytics export.") {
+                Button("Import CSV…") {
+                    let panel = NSOpenPanel()
+                    panel.allowedContentTypes = [UTType.commaSeparatedText, .plainText]
+                    if panel.runModal() == .OK, let url = panel.url {
+                        let result = app.importAnalytics(url)
+                        lastImport = result.rows == 0 ? "Couldn't find title and views columns in that file."
+                            : "Read \(result.rows) videos, matched \(result.matched) to your PULSE exports."
+                    }
+                }
+                .buttonStyle(.pulse(.primary, compact: true))
+            }
+            if let lastImport { Text(lastImport).font(.pulseCaption).foregroundStyle(Theme.textSecondary) }
+            SettingsRow("Status") {
+                let c = app.settings.ai.coachCalibration
+                Text(c.map { $0.samples > 0 ? "Calibrated: \($0.shortSamples) shorts, \($0.longSamples) YouTube videos" : "Not enough matches yet" } ?? "Using PULSE's default weights")
+                    .font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+            }
+            if let insight = app.settings.ai.coachCalibration?.insight, !insight.isEmpty {
+                Label(insight, systemImage: "lightbulb").font(.pulseCaption).foregroundStyle(Theme.ai)
+            }
+            SettingsRow("Exports remembered", detail: "\(app.performanceHistory.count) exported edits · \(withViews.count) with real views") {
+                Button("Reset Calibration") { app.resetCalibration() }
+                    .buttonStyle(.pulse(.secondary, compact: true))
+                    .disabled(app.settings.ai.coachCalibration == nil)
+            }
+        }
+        if !withViews.isEmpty {
+            SettingsGroup("Matched videos") {
+                ForEach(withViews.prefix(25)) { record in
+                    HStack {
+                        Text(record.titles.first ?? "Untitled").font(.pulseCaption).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                        Spacer()
+                        Text("predicted \(record.predictedScore)").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                        Text("\(Int(record.views ?? 0).formatted()) views").font(.pulseMono).foregroundStyle(Theme.textSecondary)
+                            .frame(width: 110, alignment: .trailing)
+                    }
+                }
             }
         }
     }
