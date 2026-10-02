@@ -76,7 +76,7 @@ Key files to know:
 
 ### What CI actually verifies on every push (macOS 15 runner)
 
-- 138 unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
+- 154 unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
   captions, layouts, export settings, audio DSP, …).
 - **Engine end-to-end:** generate a 75 s gameplay+facecam stream → probe → analyze (audio + Vision faces) →
   AI clip candidates → one-click 9:16 short (split-screen, captions, normalized dialogue audio) → rendered

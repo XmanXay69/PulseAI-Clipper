@@ -30,13 +30,15 @@ These come straight from CI (`PULSE --ui-snapshots` on a GitHub macOS runner, wi
 stream). The runner can't capture the live video layer, so viewers look black in the app shots; the frame
 the viewer actually shows is rendered separately below.
 
-| AI clips | Editor |
+| Home | Edit My VOD |
 |---|---|
-| ![AI clips](docs/screenshots/ai-clips.jpg) | ![Editor](docs/screenshots/editor.jpg) |
-| **Captions** | **Multicam grid** |
-| ![Captions](docs/screenshots/captions.jpg) | ![Multicam](docs/screenshots/multicam.jpg) |
+| ![Home](docs/screenshots/home.jpg) | ![Edit My VOD](docs/screenshots/edit-my-vod.jpg) |
+| **YouTube edit + coach** | **AI clips** |
+| ![YouTube edit with the coach](docs/screenshots/youtube-edit.jpg) | ![AI clips](docs/screenshots/ai-clips.jpg) |
+| **Editor** | **Captions** |
+| ![Editor](docs/screenshots/editor.jpg) | ![Captions](docs/screenshots/captions.jpg) |
 
-| Rendered short (split screen + captions) | Layout morph: split screen → circle facecam (before / mid / after) |
+| Rendered short (split screen + TikTok Sans captions) | Layout morph: split screen → circle facecam (before / mid / after) |
 |---|---|
 | <img src="docs/screenshots/short-frame.jpg" width="220"> | <img src="docs/screenshots/layout-morph.jpg" width="420"> |
 
