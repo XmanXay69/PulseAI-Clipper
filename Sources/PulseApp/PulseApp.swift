@@ -90,6 +90,7 @@ struct PulseCommands: Commands {
         CommandGroup(replacing: .newItem) {
             Button("New Project…") { app.showNewProjectSheet = true }.keyboardShortcut("n")
             Button("Open Project…") { app.showOpenPanel() }.keyboardShortcut("o")
+            Button("Overnight Batch…") { app.showBatchSheet = true }.keyboardShortcut("b", modifiers: [.command, .option])
             Button("Open Sample Project") { app.openDemoProject() }
             Divider()
             Button("Import Media…") { app.showImportPanel() }.keyboardShortcut("i")

@@ -86,8 +86,8 @@ struct HomeView: View {
             QuickActionTile(symbol: "record.circle", title: "Record", subtitle: "Screen + webcam + mic", color: Theme.danger) {
                 app.showRecordSheet = true
             }
-            QuickActionTile(symbol: "folder", title: "Open Project", subtitle: "Browse .pulse projects", color: Theme.success) {
-                app.showOpenPanel()
+            QuickActionTile(symbol: "moon.stars", title: "Overnight Batch", subtitle: "Queue several VODs", color: Theme.success) {
+                app.showBatchSheet = true
             }
             QuickActionTile(symbol: "play.rectangle.on.rectangle", title: "Sample Project", subtitle: "See PULSE in action", color: Theme.warning) {
                 app.openDemoProject()

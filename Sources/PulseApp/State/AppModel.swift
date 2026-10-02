@@ -109,6 +109,8 @@ final class AppModel: ObservableObject {
     /// "Edit My VOD" — the long-form YouTube edit sheet.
     @Published var showLongFormSheet = false
     @Published var showReportProblem = false
+    @Published var showBatchSheet = false
+    let batch = BatchController()
     private var recordingObserver: AnyCancellable?
     let store = ProjectStore()
     let recovery = RecoveryManager(directory: PulseDirectories.recovery)
@@ -152,6 +154,7 @@ final class AppModel: ObservableObject {
             default: break
             }
         }
+        batch.app = self
         recordingObserver = recording.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         refreshProjects()
         refreshActivity()
