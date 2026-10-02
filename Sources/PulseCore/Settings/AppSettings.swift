@@ -205,6 +205,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var safeAreaPlatform: SafeAreaPlatform = .tiktok
     public var defaultExportPresetID: String = ExportPreset.tiktok.id
     public var recentProjectPaths: [String] = []
+    /// Logo, intro/outro and caption look applied to new edits.
+    public var brandKit: BrandKit = BrandKit()
 
     public init() {}
 
@@ -238,6 +240,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
         snapping = c.decode(Bool.self, forKey: .snapping, default: d.snapping)
         showSafeAreas = c.decode(Bool.self, forKey: .showSafeAreas, default: d.showSafeAreas)
         safeAreaPlatform = c.decode(SafeAreaPlatform.self, forKey: .safeAreaPlatform, default: d.safeAreaPlatform)
+        brandKit = c.decode(BrandKit.self, forKey: .brandKit, default: d.brandKit)
         defaultExportPresetID = c.decode(String.self, forKey: .defaultExportPresetID, default: d.defaultExportPresetID)
         recentProjectPaths = c.decode([String].self, forKey: .recentProjectPaths, default: d.recentProjectPaths)
     }

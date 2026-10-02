@@ -74,6 +74,7 @@ extension ProjectSession {
                 doc.activeTimelineID = timeline.id
             }
             self.open(timelineID: timeline.id)
+            self.autoApplyBrandKit(to: timeline.id)
             self.lastAIReport = result.report
             self.app.logActivity(.autoEdit, title: "Edited “\(asset.name)” into a \(Timecode.short(timeline.duration)) video", detail: result.report)
             self.app.toast("Your edit is ready — \(result.report)")

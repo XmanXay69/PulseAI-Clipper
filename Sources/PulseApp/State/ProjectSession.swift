@@ -689,6 +689,7 @@ final class ProjectSession: ObservableObject, Identifiable {
         app.logActivity(.captions, title: "Captions + framing: \(timeline.name)", detail: "\(timeline.captions?.words.count ?? 0) caption words · \(timeline.layout?.displayName ?? "Full Frame")")
         // No music / effects of the project's own: use the built-in library.
         addLibraryAudio(toShort: timeline.id, music: app.settings.ai.aiMusic && music == nil, effects: options.soundEffects && sfx.isEmpty)
+        autoApplyBrandKit(to: timeline.id)
         if open { self.open(timelineID: timeline.id) }
         return timeline.id
     }

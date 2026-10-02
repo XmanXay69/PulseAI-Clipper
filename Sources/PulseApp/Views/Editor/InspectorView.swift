@@ -606,6 +606,13 @@ struct TimelineInspector: View {
                 ColorRow(label: "Background", color: Binding(get: { timeline.canvas.backgroundColor }, set: { c in session.editTimeline("Background", coalesce: "bg") { $0.canvas.backgroundColor = c } }))
                 ToggleRow(label: "Blur fill background", isOn: Binding(get: { timeline.canvas.blurFill }, set: { on in session.editTimeline("Blur Fill") { $0.canvas.backgroundBlur = on } }),
                           help: "Fill empty areas with a blurred copy of the video instead of a flat color")
+                HStack {
+                    Text("Brand kit").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    Spacer()
+                    Button("Apply") { session.applyBrandKit(to: timeline.id) }
+                        .buttonStyle(.pulse(.secondary, compact: true))
+                        .help("Add your logo, intro/outro and caption look (Settings → Brand Kit)")
+                }
             }
             InspectorSection("Layout", isAI: timeline.layout == .dynamic) {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 80), spacing: 6)], spacing: 6) {

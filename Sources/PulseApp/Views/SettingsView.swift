@@ -2,9 +2,10 @@ import AppKit
 import PulseCore
 import PulseEngine
 import SwiftUI
+import UniformTypeIdentifiers
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, aiProcessing, aiFeatures, transcription, files, proxies, shortcuts
+    case general, aiProcessing, aiFeatures, brandKit, transcription, files, proxies, shortcuts
 
     var id: String { rawValue }
 
@@ -13,6 +14,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .general: return "General"
         case .aiProcessing: return "AI Processing"
         case .aiFeatures: return "AI Features"
+        case .brandKit: return "Brand Kit"
         case .transcription: return "Transcription"
         case .files: return "Files & Storage"
         case .proxies: return "Proxies"
@@ -25,6 +27,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .general: return "gearshape"
         case .aiProcessing: return "lock.shield"
         case .aiFeatures: return "sparkles"
+        case .brandKit: return "paintbrush.pointed"
         case .transcription: return "waveform"
         case .files: return "externaldrive"
         case .proxies: return "square.stack.3d.down.right"
@@ -70,6 +73,7 @@ struct SettingsView: View {
                     case .general: GeneralSettings()
                     case .aiProcessing: AIProcessingSettings()
                     case .aiFeatures: AIFeatureSettings()
+                    case .brandKit: BrandKitSettings()
                     case .transcription: TranscriptionSettings()
                     case .files: FileSettings()
                     case .proxies: ProxySettingsPane()
@@ -623,6 +627,91 @@ struct ShortcutsPane: View {
                             .background(RoundedRectangle(cornerRadius: Theme.radiusSmall).fill(Theme.control))
                     }
                 }
+            }
+        }
+    }
+}
+
+/// Settings → Brand Kit: logo, intro/outro and caption look applied to every new edit.
+struct BrandKitSettings: View {
+    @EnvironmentObject var app: AppModel
+
+    var kit: Binding<BrandKit> { $app.settings.brandKit }
+
+    var body: some View {
+        SettingsGroup("Brand kit", footnote: "When on, new shorts and Edit My VOD videos get your look automatically. Apply it to any open edit from the Inspector (no clip selected).") {
+            SettingsRow("Use my brand kit on new edits") {
+                Toggle("", isOn: kit.enabled).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
+            }
+        }
+        SettingsGroup("Logo watermark", footnote: "A PNG with transparency looks best. On shorts it stays clear of the platform's top bar and the captions.") {
+            SettingsRow("Logo image") {
+                HStack(spacing: 8) {
+                    if !app.settings.brandKit.logoPath.isEmpty, let image = NSImage(contentsOfFile: app.settings.brandKit.logoPath) {
+                        Image(nsImage: image).resizable().aspectRatio(contentMode: .fit).frame(width: 40, height: 28)
+                            .background(RoundedRectangle(cornerRadius: 4).fill(Theme.well))
+                    }
+                    pickButton(kit.logoPath, types: ["png", "jpg", "jpeg", "heic", "tiff"])
+                }
+            }
+            SettingsRow("Corner") {
+                Picker("", selection: kit.logoCorner) {
+                    ForEach(BrandKit.Corner.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .labelsHidden().frame(width: 160)
+            }
+            LabeledSlider(label: "Size", value: Binding(get: { app.settings.brandKit.logoSize * 100 }, set: { app.settings.brandKit.logoSize = $0 / 100 }),
+                          range: 5...35, format: "%.0f", unit: "%")
+            LabeledSlider(label: "Opacity", value: Binding(get: { app.settings.brandKit.logoOpacity * 100 }, set: { app.settings.brandKit.logoOpacity = $0 / 100 }),
+                          range: 10...100, format: "%.0f", unit: "%")
+            SettingsRow("Show on shorts") { Toggle("", isOn: kit.logoOnShorts).labelsHidden().toggleStyle(.switch).tint(Theme.accent) }
+            SettingsRow("Show on YouTube edits") { Toggle("", isOn: kit.logoOnLongForm).labelsHidden().toggleStyle(.switch).tint(Theme.accent) }
+        }
+        SettingsGroup("Intro & outro", footnote: "Added to YouTube edits (Edit My VOD) only — an intro on a 30-second short costs viewers.") {
+            SettingsRow("Intro clip") { pickButton(kit.introPath, types: ["mov", "mp4", "m4v"]) }
+            SettingsRow("Outro clip") { pickButton(kit.outroPath, types: ["mov", "mp4", "m4v"]) }
+        }
+        SettingsGroup("Caption look") {
+            SettingsRow("Caption style") {
+                Picker("", selection: kit.captionPresetName) {
+                    Text("Use the AI setting").tag("")
+                    ForEach(CaptionStyle.presets, id: \.presetName) { Text($0.presetName).tag($0.presetName) }
+                }
+                .labelsHidden().frame(width: 200)
+            }
+            SettingsRow("Highlight color", detail: "The color of the word being spoken.") {
+                HStack(spacing: 8) {
+                    ColorPicker("", selection: Binding(get: { Color(app.settings.brandKit.highlightColor ?? .yellow) },
+                                                       set: { app.settings.brandKit.highlightColor = $0.rgba }), supportsOpacity: false)
+                        .labelsHidden()
+                    if app.settings.brandKit.highlightColor != nil {
+                        Button("Clear") { app.settings.brandKit.highlightColor = nil }.buttonStyle(.pulse(.ghost, compact: true))
+                    }
+                }
+            }
+        }
+        if let session = app.session, let timeline = session.activeTimeline {
+            SettingsGroup("Try it") {
+                SettingsRow("Apply to “\(timeline.name)”") {
+                    Button("Apply Now") { session.applyBrandKit(to: timeline.id) }.buttonStyle(.pulse(.primary, compact: true))
+                }
+            }
+        }
+    }
+
+    func pickButton(_ path: Binding<String>, types: [String]) -> some View {
+        HStack(spacing: 6) {
+            Text(path.wrappedValue.isEmpty ? "None" : (path.wrappedValue as NSString).lastPathComponent)
+                .font(.pulseCaption).foregroundStyle(path.wrappedValue.isEmpty ? Theme.textTertiary : Theme.textPrimary)
+                .lineLimit(1).frame(maxWidth: 180, alignment: .trailing)
+            Button("Choose…") {
+                let panel = NSOpenPanel()
+                panel.allowedContentTypes = types.compactMap { UTType(filenameExtension: $0) }
+                if panel.runModal() == .OK, let url = panel.url { path.wrappedValue = url.path }
+            }
+            .buttonStyle(.pulse(.secondary, compact: true))
+            if !path.wrappedValue.isEmpty {
+                Button { path.wrappedValue = "" } label: { Image(systemName: "xmark") }.buttonStyle(.pulse(.ghost, compact: true)).help("Remove")
             }
         }
     }
