@@ -235,9 +235,20 @@ struct ImportProjectView: View {
                 if let asset = session.document.primaryAsset {
                     if let progress = session.analysisProgress[asset.id] {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(progress.stage).font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                            HStack {
+                                Text(progress.stage).font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                                Spacer()
+                                Text("\(Int(progress.fraction * 100))%").font(.pulseMono).foregroundStyle(Theme.textTertiary)
+                            }
                             ThinProgressBar(progress: progress.fraction, color: Theme.ai)
+                            if let left = session.analysisRemaining[asset.id] {
+                                Text(DurationText.remaining(left)).font(.pulseMicro).foregroundStyle(Theme.ai)
+                            }
                         }
+                    } else if session.analyses[asset.id] == nil {
+                        Label("Takes \(DurationText.approximate(session.analysisEstimate(for: asset))) for this \(Timecode.short(asset.metadata.duration)) video on this Mac",
+                              systemImage: "clock")
+                            .font(.pulseMicro).foregroundStyle(Theme.textSecondary)
                     }
                     Button {
                         applySettings()
@@ -325,6 +336,9 @@ struct ImportedAssetRow: View {
             HStack(spacing: 6) {
                 ProgressRing(progress: progress.fraction, size: 12, color: Theme.ai)
                 Text(progress.stage).font(.pulseMicro).foregroundStyle(Theme.ai)
+                if let left = session.analysisRemaining[asset.id] {
+                    Text("· " + DurationText.remaining(left)).font(.pulseMicro).foregroundStyle(Theme.textSecondary)
+                }
             }
         } else if let analysis = session.analyses[asset.id] {
             HStack(spacing: 8) {

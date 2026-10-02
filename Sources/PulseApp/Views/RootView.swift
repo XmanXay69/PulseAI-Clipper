@@ -339,7 +339,11 @@ struct JobRow: View {
                 switch job.state {
                 case .running:
                     ThinProgressBar(progress: job.progress)
-                    if !job.detail.isEmpty { Text(job.detail).font(.pulseMicro).foregroundStyle(Theme.textTertiary) }
+                    HStack {
+                        if !job.detail.isEmpty { Text(job.detail).font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(1) }
+                        Spacer(minLength: 4)
+                        if let left = job.remainingText { Text(left).font(.pulseMicro).foregroundStyle(Theme.textSecondary).monospacedDigit() }
+                    }
                 case .finished:
                     Text("Done").font(.pulseMicro).foregroundStyle(Theme.success)
                 case .cancelled:

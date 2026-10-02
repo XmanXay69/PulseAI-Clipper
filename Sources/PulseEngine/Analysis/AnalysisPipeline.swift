@@ -14,15 +14,26 @@ public struct AnalysisPipeline: Sendable {
         public var importedTranscript: Transcript?
         /// Where the voice is when it was recorded separately (screen recording + mic/webcam file).
         public var voiceSource: VoiceSource?
+        /// This Mac's measured speed — weights progress so it tracks time.
+        public var speed: AnalysisSpeedProfile
 
         public init(transcribe: Bool = true, detectFaces: Bool = true, ai: AISettings = AISettings(), importedTranscript: Transcript? = nil,
-                    voiceSource: VoiceSource? = nil) {
+                    voiceSource: VoiceSource? = nil, speed: AnalysisSpeedProfile = AnalysisSpeedProfile()) {
             self.transcribe = transcribe
             self.detectFaces = detectFaces
             self.ai = ai
             self.importedTranscript = importedTranscript
             self.voiceSource = voiceSource
+            self.speed = speed
         }
+
+        /// Expected time for this asset before starting (shown on the Analyze button).
+        public func estimate(for asset: MediaAsset) -> AnalysisEstimate {
+            let hasAudio = voiceSource != nil || asset.metadata.hasAudio
+            return speed.estimate(duration: asset.metadata.duration, hasAudio: hasAudio,
+                                  transcribe: transcribe && importedTranscript == nil, hasVideo: asset.metadata.hasVideo && asset.kind == .video)
+        }
+    }
     }
 
     /// A companion recording carrying the speech. `delta` maps times: voiceTime = mainTime + delta.
@@ -72,6 +83,8 @@ public struct AnalysisPipeline: Sendable {
     public struct Output: Sendable {
         public var analysis: MediaAnalysis
         public var warnings: [String]
+        /// Wall-clock time each stage took (to learn this Mac's speed).
+        public var stageSeconds: [AnalysisStage: Seconds] = [:]
     }
 
     public var cacheDirectory: URL
@@ -91,11 +104,15 @@ public struct AnalysisPipeline: Sendable {
         let audioURL = options.voiceSource?.url ?? url
         let hasAudio = options.voiceSource != nil || meta.hasAudio
         let needsTranscription = options.transcribe && options.importedTranscript == nil && hasAudio
-        // Stage weights for overall progress.
-        let audioWeight = hasAudio ? 0.2 : 0
-        let speechWeight = needsTranscription ? 0.55 : 0
-        let videoWeight = meta.hasVideo ? 0.25 : 0
+        // Stage weights for overall progress: each stage's expected share of the time.
+        let estimate = options.speed.estimate(duration: meta.duration, hasAudio: hasAudio, transcribe: needsTranscription,
+                                              hasVideo: meta.hasVideo && asset.kind == .video)
+        let audioWeight = estimate.weight(.audio)
+        let speechWeight = estimate.weight(.transcription)
+        let videoWeight = estimate.weight(.video)
         let totalWeight = max(audioWeight + speechWeight + videoWeight, 0.001)
+        var stageSeconds: [AnalysisStage: Seconds] = [:]
+        var stageStart = Date()
         var completed = 0.0
         let report: @Sendable (String, Double, Double, Double) -> Void = { stage, fraction, base, weight in
             progress(EngineProgress(stage: stage, fraction: min(1, (base + fraction * weight) / totalWeight)))
@@ -122,6 +139,7 @@ public struct AnalysisPipeline: Sendable {
             } catch {
                 warnings.append("Audio analysis failed: \(error.localizedDescription)")
             }
+            if audioFeatures != nil { stageSeconds[.audio] = Date().timeIntervalSince(stageStart) }
             completed += audioWeight
         } else {
             warnings.append(EngineError.noAudioTrack(url).localizedDescription)
@@ -131,6 +149,7 @@ public struct AnalysisPipeline: Sendable {
         var transcript = options.importedTranscript
         if transcript != nil { processing["transcript"] = .local }
         if needsTranscription, let wavURL {
+            stageStart = Date()
             let engines = TranscriptionEngineFactory.candidates(settings: options.ai)
             if !engines.isEmpty {
                 let base = completed
@@ -172,6 +191,7 @@ public struct AnalysisPipeline: Sendable {
                     warnings.append("Speaker detection failed: \(error.localizedDescription)")
                 }
             }
+            if transcript != nil { stageSeconds[.transcription] = Date().timeIntervalSince(stageStart) }
             completed += speechWeight
             try? FileManager.default.removeItem(at: wavURL)
         }
@@ -180,6 +200,7 @@ public struct AnalysisPipeline: Sendable {
         // 3. Video.
         var visual: VisualFeatureSeries?
         if meta.hasVideo && asset.kind == .video {
+            stageStart = Date()
             let base = completed
             do {
                 visual = try await VisualAnalyzer().analyze(url: url, duration: meta.duration,
@@ -192,6 +213,7 @@ public struct AnalysisPipeline: Sendable {
             } catch {
                 warnings.append("Video analysis failed: \(error.localizedDescription)")
             }
+            if visual != nil { stageSeconds[.video] = Date().timeIntervalSince(stageStart) }
             completed += videoWeight
         }
 
@@ -200,6 +222,6 @@ public struct AnalysisPipeline: Sendable {
         let analysis = MediaAnalysis(assetID: asset.id, duration: meta.duration, audio: audioFeatures, visual: visual,
                                      transcript: transcript, webcam: webcam, profile: profile, processing: processing)
         progress(EngineProgress(stage: "Done", fraction: 1))
-        return Output(analysis: analysis, warnings: warnings)
+        return Output(analysis: analysis, warnings: warnings, stageSeconds: stageSeconds)
     }
 }

@@ -58,6 +58,8 @@ final class ProjectSession: ObservableObject, Identifiable {
     @Published var leftTab: LeftPanelTab = .media
     @Published var candidateSort: CandidateSort = .potential
     @Published var analysisProgress: [UUID: EngineProgress] = [:]
+    /// Estimated seconds left for each running analysis.
+    @Published var analysisRemaining: [UUID: Seconds] = [:]
     @Published var lastAIReport: String?
     /// Timelines we came from while inside compound clips (breadcrumb, outermost first).
     @Published var compoundPath: [UUID] = []
@@ -447,10 +449,11 @@ final class ProjectSession: ObservableObject, Identifiable {
         let ai = app.settings.ai
         let imported = analyses[assetID]?.transcript
         let voice = voiceCompanion(for: asset).map { AnalysisPipeline.VoiceSource(main: asset, voice: $0) }
-        let options = AnalysisPipeline.Options(transcribe: true, detectFaces: true, ai: ai, importedTranscript: imported, voiceSource: voice)
+        let options = AnalysisPipeline.Options(transcribe: true, detectFaces: true, ai: ai, importedTranscript: imported, voiceSource: voice,
+                                               speed: ai.analysisSpeed)
         let pipeline = AnalysisPipeline(cacheDirectory: PulseDirectories.cache("Analysis", root: app.cacheFolder))
         document.media.firstIndex { $0.id == assetID }.map { document.media[$0].preparation.analysisState = .running }
-        app.jobs.start("Analyze · \(asset.name)", kind: .analysis) { [weak self] job in
+        let job = app.jobs.start("Analyze · \(asset.name)", kind: .analysis) { [weak self] job in
             guard let self else { return }
             do {
                 let output = try await pipeline.run(asset: asset, options: options, progress: { p in
@@ -458,9 +461,13 @@ final class ProjectSession: ObservableObject, Identifiable {
                         job.progress = p.fraction
                         job.detail = p.stage
                         self?.analysisProgress[assetID] = p
+                        self?.analysisRemaining[assetID] = job.remaining
                     }
                 }, isCancelled: job.isCancelledCheck)
                 self.analysisProgress[assetID] = nil
+                self.analysisRemaining[assetID] = nil
+                // Learn this Mac's speed so the next estimate is closer.
+                self.app.settings.ai.analysisSpeed.learn(stageSeconds: output.stageSeconds, mediaDuration: asset.metadata.duration)
                 self.setAnalysis(output.analysis)
                 self.edit("Analyze Video") { doc in
                     doc.updateAsset(id: assetID) { $0.preparation.analysisState = .complete }
@@ -476,10 +483,21 @@ final class ProjectSession: ObservableObject, Identifiable {
                 if generateClips { self.generateCandidates(assetID: assetID) }
             } catch {
                 self.analysisProgress[assetID] = nil
+                self.analysisRemaining[assetID] = nil
                 self.document.media.firstIndex { $0.id == assetID }.map { self.document.media[$0].preparation.analysisState = .failed }
                 throw error
             }
         }
+        let expected = options.estimate(for: asset).total
+        job.expect(expected)
+        analysisRemaining[assetID] = expected
+    }
+
+    /// How long analyzing this asset should take on this Mac.
+    func analysisEstimate(for asset: MediaAsset) -> Seconds {
+        let voice = voiceCompanion(for: asset).map { AnalysisPipeline.VoiceSource(main: asset, voice: $0) }
+        return AnalysisPipeline.Options(ai: app.settings.ai, importedTranscript: analyses[asset.id]?.transcript, voiceSource: voice,
+                                        speed: app.settings.ai.analysisSpeed).estimate(for: asset).total
     }
 
     func generateCandidates(assetID: UUID, settings override: ClipGenerationSettings? = nil) {

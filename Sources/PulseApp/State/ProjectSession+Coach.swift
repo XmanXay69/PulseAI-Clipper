@@ -1,0 +1,61 @@
+import Foundation
+import PulseCore
+import PulseEngine
+
+/// The edit coach: a live performance prediction for the open edit plus suggestions with one-click fixes.
+extension ProjectSession {
+    func signals(for assetID: UUID) -> EngagementSignals? {
+        guard let analysis = analyses[assetID] else { return nil }
+        if let cached = signalCache[assetID], cached.count == max(1, Int((analysis.duration / cached.step).rounded(.up))) { return cached }
+        let signals = EngagementModel.compute(duration: analysis.duration, audio: analysis.audio, transcript: analysis.transcript, visual: analysis.visual)
+        signalCache[assetID] = signals
+        return signals
+    }
+
+    /// Review of the active edit (recomputed as you edit; cheap compared with rendering).
+    var activeReview: EditReview? {
+        guard let timeline = activeTimeline, timeline.duration > 0.5, !document.isCompound(timeline.id) else { return nil }
+        let analysis = analysis(for: timeline)
+        return EditCoach.review(timeline, analysis: analysis, signals: analysis.flatMap { signals(for: $0.assetID) })
+    }
+
+    func applyCoachFix(_ suggestion: EditSuggestion) {
+        guard let timeline = activeTimeline else { return }
+        var only = EntertainmentOptions()
+        only.jumpCuts = false
+        only.removeFillers = false
+        only.punchIns = false
+        only.captionEmphasis = false
+        only.reactionZooms = false
+        switch suggestion.fix {
+        case .trimStart(let seconds):
+            editTimeline("Trim Slow Start") { $0.rippleDelete(range: TimeRange(start: 0, end: seconds)) }
+            playback.seek(to: 0)
+        case .trimEnd(let seconds):
+            let d = timeline.duration
+            editTimeline("Trim Ending") { $0.rippleDelete(range: TimeRange(start: max(0, d - seconds), end: d)) }
+        case .removeDeadAir:
+            only.jumpCuts = true
+            only.silencePreset = .balanced
+            applyEntertainment(options: only)
+        case .addCaptions:
+            CaptionsWorkspace.generateCaptions(session: self)
+        case .addMusic:
+            only.music = true
+            makeMoreEntertainingWithLibrary(options: only)
+        case .addZooms:
+            only.punchIns = true
+            only.reactionZooms = true
+            applyEntertainment(options: only)
+        case .addSoundEffects:
+            only.soundEffects = true
+            makeMoreEntertainingWithLibrary(options: only)
+        case .coldOpen(let range):
+            editTimeline("Add Cold Open") { try $0.insertColdOpen(from: range) }
+            playback.seek(to: 0)
+        case .none:
+            return
+        }
+        app.logActivity(.autoEdit, title: "Coach: \(suggestion.title)", detail: timeline.name)
+    }
+}

@@ -113,3 +113,21 @@ final class ClipGenerationTests: XCTestCase {
         XCTAssertEqual(CandidateSort.category.sort([a, b]).map(\.title), ["B", "A"])
     }
 }
+
+final class ClipEndingTests: XCTestCase {
+    func testEndingRunsThroughTheLaughterAfterThePayoff() {
+        // A spike at 150 s followed by 8 s of laughing.
+        var special: [(Seconds, String)] = []
+        for t in stride(from: 150.5, to: 158, by: 0.5) { special.append((t, "hahaha")) }
+        let input = ClipGenerationInput(assetID: Fixtures.assetID, duration: 400,
+                                        audio: Fixtures.audio(duration: 400, spikes: [150]),
+                                        transcript: Fixtures.transcript(duration: 400, special: special), visual: nil)
+        let generator = ClipGenerator(input: input, settings: ClipGenerationSettings(targetDuration: 15, minimumPotential: 0))
+        let range = generator.window(forPayoff: 150.5)
+        XCTAssertGreaterThanOrEqual(range.end, 157.9, "the clip keeps the laugh")
+        XCTAssertLessThanOrEqual(range.duration, 15 * 1.25 + 0.3)
+        // And it never ends halfway through a word.
+        let words = input.transcript!.words
+        XCTAssertFalse(words.contains { $0.start < range.end - 0.3 && $0.end > range.end })
+    }
+}

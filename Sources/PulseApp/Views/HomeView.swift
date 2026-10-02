@@ -107,12 +107,7 @@ struct HomeView: View {
                     Image(systemName: "sparkles").foregroundStyle(Theme.ai)
                 }
                 ForEach(app.jobs.running) { job in
-                    HStack(spacing: 8) {
-                        ProgressRing(progress: job.progress, size: 14, color: Theme.ai)
-                        Text(job.title).font(.pulseCaption).foregroundStyle(Theme.textPrimary).lineLimit(1)
-                        Spacer()
-                        Text("\(Int(job.progress * 100))%").font(.pulseMono).foregroundStyle(Theme.textTertiary)
-                    }
+                    RunningJobLine(job: job)
                 }
                 if app.activity.isEmpty && app.jobs.running.isEmpty {
                     Text("Transcription, clip generation, captions, rendering and exports will show up here.")
@@ -277,5 +272,19 @@ struct CompactLabelStyle: LabelStyle {
         }
         .font(.pulseCaption)
         .foregroundStyle(Theme.textSecondary)
+    }
+}
+
+/// One running job in the AI Activity card: ring, title, time left.
+struct RunningJobLine: View {
+    @ObservedObject var job: BackgroundJob
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ProgressRing(progress: job.progress, size: 14, color: Theme.ai)
+            Text(job.title).font(.pulseCaption).foregroundStyle(Theme.textPrimary).lineLimit(1)
+            Spacer()
+            Text(job.remainingText ?? "\(Int(job.progress * 100))%").font(.pulseMono).foregroundStyle(Theme.textTertiary)
+        }
     }
 }

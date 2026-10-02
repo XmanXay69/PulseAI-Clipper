@@ -1,0 +1,416 @@
+import Foundation
+
+/// Options for "Edit My VOD": turn a long stream into a 10–20 minute YouTube video.
+public struct LongFormOptions: Codable, Hashable, Sendable {
+    /// Target length range; the edit lands inside it when the recording has enough good material.
+    public var minimumLength: Seconds
+    public var maximumLength: Seconds
+    public var coldOpen: Bool
+    public var cutDeadAir: Bool
+    public var zooms: Bool
+    public var captions: Bool
+    public var memes: Bool
+    public var soundEffects: Bool
+    public var music: Bool
+    /// "Don't over-edit": caps on zooms, memes and effects per minute.
+    public var restraint: Restraint
+
+    public enum Restraint: String, Codable, CaseIterable, Sendable {
+        case subtle, balanced, energetic
+
+        public var displayName: String { rawValue.capitalized }
+        /// Seconds between zooms.
+        var zoomSpacing: Seconds { self == .subtle ? 40 : (self == .balanced ? 22 : 12) }
+        /// Seconds between meme pop-ups.
+        var memeSpacing: Seconds { self == .subtle ? 180 : (self == .balanced ? 90 : 45) }
+        /// Seconds between transition whooshes.
+        var whooshSpacing: Seconds { self == .subtle ? 120 : (self == .balanced ? 60 : 30) }
+    }
+
+    public init(minimumLength: Seconds = 600, maximumLength: Seconds = 1200, coldOpen: Bool = true, cutDeadAir: Bool = true,
+                zooms: Bool = true, captions: Bool = true, memes: Bool = true, soundEffects: Bool = true, music: Bool = true,
+                restraint: Restraint = .balanced) {
+        self.minimumLength = minimumLength
+        self.maximumLength = max(maximumLength, minimumLength)
+        self.coldOpen = coldOpen
+        self.cutDeadAir = cutDeadAir
+        self.zooms = zooms
+        self.captions = captions
+        self.memes = memes
+        self.soundEffects = soundEffects
+        self.music = music
+        self.restraint = restraint
+    }
+
+    /// What the edit aims for, given how long the recording is.
+    public func targetLength(forSource duration: Seconds) -> Seconds {
+        if duration <= minimumLength * 1.25 { return duration * 0.6 }
+        return (duration * 0.15).clamped(minimumLength, maximumLength)
+    }
+}
+
+/// A kept stretch of the recording in the edit, in source time.
+public struct LongFormSegment: Hashable, Sendable {
+    public var range: TimeRange
+    public var payoff: Seconds
+    public var potential: Int
+    public var title: String
+    public var tags: [ClipTag]
+}
+
+/// Sounds the editor may place (already imported into the project). Keys: "whoosh", "boom", "impact",
+/// "rimshot", "sad trombone", "record scratch", "ding", "applause"… matched by name.
+public struct LongFormSounds: Sendable {
+    public var effects: [MediaAsset]
+
+    public init(effects: [MediaAsset] = []) {
+        self.effects = effects
+    }
+
+    func effect(_ keywords: [String]) -> MediaAsset? {
+        for k in keywords {
+            if let match = effects.first(where: { $0.name.lowercased().contains(k) || $0.tags.contains(k) }) { return match }
+        }
+        return nil
+    }
+}
+
+public struct LongFormResult: Sendable {
+    public var timeline: Timeline
+    public var segments: [LongFormSegment]
+    public var report: String
+    /// Where music beds go (one per "chapter"); the app composes a bed of each length.
+    public var musicChapters: [TimeRange]
+}
+
+/// Builds a YouTube-style edit from a long recording: cuts the dead time, keeps the funniest and most
+/// high-energy moments with enough context to follow, opens with a hook, and adds restrained zooms,
+/// captions, meme pop-ups, sound effects and music. Everything is a normal, editable clip.
+public enum LongFormEditor {
+    /// Picks the moments to keep (source time, chronological).
+    public static func selectSegments(analysis: MediaAnalysis, options: LongFormOptions) -> [LongFormSegment] {
+        let input = ClipGenerationInput(analysis: analysis)
+        let target = options.targetLength(forSource: analysis.duration)
+        let settings = ClipGenerationSettings(targetDuration: 45, aggressiveness: 1, minimumPotential: 0,
+                                              maxCandidates: max(8, Int(target / 25)))
+        let generator = ClipGenerator(input: input, settings: settings)
+        let candidates = generator.generate().sorted { $0.potential > $1.potential }
+        guard !candidates.isEmpty else {
+            // Nothing stood out (or no audio): keep the whole thing.
+            return [LongFormSegment(range: TimeRange(start: 0, end: analysis.duration), payoff: analysis.duration / 2, potential: 30, title: "", tags: [])]
+        }
+        // Dead air comes out later, so pick a bit more than the target.
+        let budget = target * (options.cutDeadAir ? 1.12 : 1)
+        var chosen: [LongFormSegment] = []
+        var total: Seconds = 0
+        for c in candidates {
+            if total >= budget { break }
+            // Weak moments only make it in while we're well short of the target.
+            if c.potential < 35 && total > target * 0.6 { continue }
+            // Overlapping picks merge into one longer stretch below.
+            chosen.append(LongFormSegment(range: c.range, payoff: c.payoffTime, potential: c.potential, title: c.title, tags: c.tags))
+            total = mergedLength(chosen)
+        }
+        return merge(chosen, gap: 8)
+    }
+
+    static func mergedLength(_ segments: [LongFormSegment]) -> Seconds {
+        segments.map(\.range).merged().reduce(0) { $0 + $1.duration }
+    }
+
+    /// Chronological, with overlapping or nearly touching stretches joined (a short gap is kept as context).
+    static func merge(_ segments: [LongFormSegment], gap: Seconds) -> [LongFormSegment] {
+        var result: [LongFormSegment] = []
+        for s in segments.sorted(by: { $0.range.start < $1.range.start }) {
+            if var last = result.last, s.range.start - last.range.end <= gap {
+                last.range = TimeRange(start: last.range.start, end: max(last.range.end, s.range.end))
+                if s.potential > last.potential {
+                    last.payoff = s.payoff
+                    last.title = s.title
+                    last.potential = s.potential
+                    last.tags = s.tags
+                }
+                result[result.count - 1] = last
+            } else {
+                result.append(s)
+            }
+        }
+        return result
+    }
+
+    public static func build(asset: MediaAsset, analysis: MediaAnalysis, options: LongFormOptions = LongFormOptions(),
+                             sounds: LongFormSounds = LongFormSounds()) -> LongFormResult {
+        let segments = selectSegments(analysis: analysis, options: options)
+        let size = asset.metadata.size.isEmpty ? Size2(1920, 1080) : asset.metadata.size
+        let landscape = size.aspect >= 1
+        let fps = min(asset.metadata.frameRate > 1 ? asset.metadata.frameRate.rounded() : 30, 60)
+        var canvas = landscape ? CanvasSettings.landscape1080 : CanvasSettings(width: 1080, height: 1920, frameRate: 30)
+        canvas.frameRate = fps
+        var timeline = Timeline(name: "\(asset.name) — YouTube Edit", canvas: canvas, tracks: [
+            Track(kind: .video, name: "V1 Stream"),
+            Track(kind: .text, name: "T1 Titles & Memes"),
+            Track(kind: .audio, name: "A1 Dialogue"),
+            Track(kind: .audio, name: "A2 Music"),
+            Track(kind: .audio, name: "A3 SFX"),
+        ])
+        timeline.origin = TimelineOrigin(candidateID: nil, assetID: asset.id, sourceRange: TimeRange(start: 0, end: analysis.duration))
+        let profile = analysis.profile
+        let mainRole: MediaRole = profile == .gameplay || profile == .gameplayWithFacecam ? .gameplay : .main
+        let hasAudio = asset.metadata.hasAudio || asset.metadata.audioTrackCount > 0
+
+        func place(_ range: TimeRange, at start: Seconds, name: String) {
+            let group = UUID()
+            if asset.metadata.hasVideo || asset.kind == .video {
+                timeline.tracks[0].clips.append(TimelineClip(name: name, content: .media(assetID: asset.id), start: start, sourceIn: range.start,
+                                                             sourceDuration: range.duration, linkGroup: group, role: mainRole, aiGenerated: true))
+            }
+            if hasAudio {
+                var audio = TimelineClip(name: name, content: .media(assetID: asset.id), start: start, sourceIn: range.start,
+                                         sourceDuration: range.duration, linkGroup: group, role: .microphone, aiGenerated: true)
+                audio.audio.normalize = true
+                timeline.tracks[2].clips.append(audio)
+            }
+        }
+
+        // Cold open: the single best moment, tight around the payoff.
+        var cursor: Seconds = 0
+        var hookRange: TimeRange?
+        if options.coldOpen, let best = segments.max(by: { $0.potential < $1.potential }), analysis.duration > 120 {
+            let range = hookWindow(around: best.payoff, analysis: analysis)
+            place(range, at: 0, name: "Hook")
+            hookRange = range
+            cursor = range.duration
+            timeline.markers.append(Marker(time: 0, name: "Hook", note: best.title, color: .orange, aiGenerated: true))
+            if !best.title.isEmpty {
+                var style = TextStyle(fontName: TextStyle.tiktokSans, fontSize: 92, weight: .black, textCase: .uppercase, color: .white,
+                                      strokeColor: .black, strokeWidth: 10, shadowOpacity: 0.5, shadowRadius: 8, shadowOffsetY: 6)
+                style.letterSpacing = 0.5
+                var title = TimelineClip(name: "Hook Title", content: .text(TextElement(text: best.title, style: style, animationIn: .pop,
+                                                                                         animationOut: .fadeIn, animationDuration: 0.25, maxWidth: 0.8)),
+                                         start: 0.15, sourceDuration: min(2.6, range.duration - 0.2), aiGenerated: true)
+                title.transform.positionY = AnimatedDouble(0.2)
+                timeline.tracks[1].clips.append(title)
+            }
+        }
+        let hookEnd = cursor
+
+        // The story, in order.
+        for (i, segment) in segments.enumerated() {
+            place(segment.range, at: cursor, name: segment.title.isEmpty ? "Part \(i + 1)" : segment.title)
+            cursor += segment.range.duration
+        }
+
+        // Dead air out (the hook is already tight; pauses inside the story get jump-cut).
+        var removed: Seconds = 0
+        if options.cutDeadAir {
+            var cuts: [TimeRange] = []
+            for s in segments {
+                cuts += SilenceDetector.detect(audio: analysis.audio, transcript: analysis.transcript, in: s.range, preset: .balanced)
+            }
+            if let hookRange { cuts.removeAll { $0.overlaps(hookRange) } }
+            if !cuts.isEmpty {
+                removed = timeline.removeSourceRanges(cuts, assetID: asset.id, reason: .silence, aiGenerated: true)
+            }
+        }
+
+        // Where each segment begins now (after the cuts) — chapters, transitions, music.
+        let storyClips = timeline.tracks[0].clips.isEmpty ? timeline.tracks[2].clips : timeline.tracks[0].clips
+        func timelineStart(of range: TimeRange) -> Seconds? {
+            storyClips.filter { $0.start >= hookEnd - 0.01 && $0.sourceRange.overlaps(range) }.map(\.start).min()
+        }
+        func timelineTime(ofSource t: Seconds) -> Seconds? {
+            storyClips.first { $0.start >= hookEnd - 0.01 && $0.sourceRange.contains(t) }.map { $0.timelineTime(atSource: t) }
+        }
+        let starts = segments.map { timelineStart(of: $0.range) }
+        for (i, segment) in segments.enumerated() {
+            guard let t = starts[i] else { continue }
+            let name = segment.title.isEmpty ? "Part \(i + 1)" : segment.title
+            timeline.markers.append(Marker(time: t, name: name, note: "From \(Timecode.short(segment.range.start)) of the stream", color: .blue, aiGenerated: true))
+        }
+
+        // Captions: easy-to-read subtitles low in frame.
+        if options.captions, let transcript = analysis.transcript, !transcript.isEmpty {
+            let lo = segments.map(\.range.start).min() ?? 0, hi = segments.map(\.range.end).max() ?? analysis.duration
+            let all = TimeRange(start: min(lo, hookRange?.start ?? lo), end: max(hi, hookRange?.end ?? hi))
+            var track = CaptionTrack.make(from: transcript, range: all, assetID: asset.id, style: landscape ? .youtube : .tiktok, emphasize: false)
+            track.colorBySpeaker()
+            timeline.captions = track
+        }
+
+        // Zooms on the big reactions only (spaced out — no zoom on every line).
+        var zooms = 0
+        if options.zooms, timeline.tracks[0].clips.count > 0 {
+            var moments: [PunchInGenerator.Moment] = []
+            for s in segments.sorted(by: { $0.potential > $1.potential }) where s.potential >= 45 {
+                if let t = timelineTime(ofSource: s.payoff) { moments.append(.reaction(t)) }
+            }
+            if let hookRange, hookRange.contains(segments.max(by: { $0.potential < $1.potential })?.payoff ?? -1) {
+                let payoff = segments.max(by: { $0.potential < $1.potential })!.payoff
+                moments.append(.reaction(payoff - hookRange.start))
+            }
+            var settings = PunchInSettings()
+            settings.reactionZoom = 1.16
+            settings.punchlineZoom = 1.1
+            settings.minimumSpacing = options.restraint.zoomSpacing
+            settings.holdDuration = 1.8
+            settings.rampDuration = 0.25
+            PunchInGenerator.apply(moments: moments, to: &timeline, trackID: timeline.tracks[0].id, settings: settings)
+            zooms = timeline.tracks[0].clips.reduce(0) { $0 + $1.transform.zoom.keyframes.filter(\.aiGenerated).count / 3 }
+        }
+
+        // Meme pop-ups + matching sound on the strongest reactions.
+        var memes = 0
+        if options.memes || options.soundEffects {
+            var lastMeme = -Double.infinity
+            for s in segments.sorted(by: { $0.potential > $1.potential }) where s.potential >= 55 {
+                guard let t = timelineTime(ofSource: s.payoff), t - lastMeme >= options.restraint.memeSpacing || lastMeme == -.infinity else { continue }
+                if timeline.tracks[1].clips.contains(where: { abs($0.start - t) < options.restraint.memeSpacing }) { continue }
+                let meme = memeFor(tags: s.tags)
+                if options.memes {
+                    let style = TextStyle(fontName: TextStyle.tiktokSans, fontSize: 120, weight: .black, textCase: .uppercase, color: meme.color,
+                                          strokeColor: .black, strokeWidth: 12, shadowOpacity: 0.6, shadowRadius: 0, shadowOffsetY: 8)
+                    var clip = TimelineClip(name: "Meme: \(meme.text)", content: .text(TextElement(text: meme.text, style: style, animationIn: .bounce,
+                                                                                                  animationOut: .fadeIn, animationDuration: 0.2, maxWidth: 0.6)),
+                                            start: t + 0.1, sourceDuration: 1.3, aiGenerated: true)
+                    clip.transform.positionY = AnimatedDouble(0.24)
+                    clip.transform.rotation = AnimatedDouble(meme.tilt)
+                    if (try? timeline.insert(clip, onTrack: timeline.tracks[1].id, mode: .overwrite)) != nil { memes += 1 }
+                }
+                if options.soundEffects, let sfx = sounds.effect(meme.sounds) {
+                    ShortBuilder.addPayoffHit(sfx, at: t + 0.05, to: &timeline)
+                }
+                lastMeme = t
+                if memes >= 12 { break }
+            }
+        }
+
+        // A whoosh where the story jumps ahead in the stream (sparingly), and one out of the hook.
+        var whooshes = 0
+        if options.soundEffects, let whoosh = sounds.effect(["whoosh", "swoosh"]) {
+            if hookRange != nil { ShortBuilder.addPayoffHit(whoosh, at: max(0, hookEnd - 0.25), to: &timeline); whooshes += 1 }
+            var last = hookEnd
+            for i in segments.indices.dropFirst() {
+                guard let t = starts[i], t - last >= options.restraint.whooshSpacing,
+                      segments[i].range.start - segments[i - 1].range.end > 60 else { continue }
+                ShortBuilder.addPayoffHit(whoosh, at: max(0, t - 0.2), to: &timeline)
+                last = t
+                whooshes += 1
+            }
+        }
+
+        // Soft fade at the very end.
+        if let last = timeline.tracks[0].clips.indices.last {
+            timeline.tracks[0].clips[last].transitionOut = ClipTransition(kind: .fadeToBlack, duration: 0.6, aiGenerated: true)
+        }
+
+        // YouTube chapters for the description.
+        timeline.notes = chapterList(timeline.markers.filter { $0.color == .blue }, hasHook: hookRange != nil)
+        timeline.copy = ClipCopy(titles: segments.sorted { $0.potential > $1.potential }.prefix(3).map(\.title).filter { !$0.isEmpty },
+                                 shortsTitle: "", tiktokCaption: "", instagramCaption: "", hashtags: [])
+        timeline.modifiedAt = Date()
+
+        let chapters = options.music ? musicChapters(for: timeline, hookEnd: hookEnd) : []
+        var parts = ["\(segments.count) moments", "\(Timecode.short(timeline.duration)) long"]
+        if removed > 1 { parts.append("\(Int(removed)) s of dead air cut") }
+        if hookRange != nil { parts.append("hook") }
+        if zooms > 0 { parts.append("\(zooms) zooms") }
+        if memes > 0 { parts.append("\(memes) memes") }
+        if whooshes > 0 { parts.append("\(whooshes) transitions") }
+        return LongFormResult(timeline: timeline, segments: segments, report: parts.joined(separator: " · "), musicChapters: chapters)
+    }
+
+    /// 4–7 s around the payoff: a beat of setup, the moment, the first reaction.
+    static func hookWindow(around payoff: Seconds, analysis: MediaAnalysis) -> TimeRange {
+        var start = max(0, payoff - 3.5), end = min(analysis.duration, payoff + 2.5)
+        if let words = analysis.transcript?.words {
+            // Don't start or stop inside a word.
+            if let w = words.first(where: { $0.start < start && $0.end > start }) { start = w.start }
+            if let w = words.first(where: { $0.start < end && $0.end > end }) { end = min(analysis.duration, w.end + 0.1) }
+        }
+        return TimeRange(start: start, end: end)
+    }
+
+    struct Meme {
+        var text: String
+        var sounds: [String]
+        var color: RGBAColor
+        var tilt: Double
+    }
+
+    static func memeFor(tags: [ClipTag]) -> Meme {
+        let yellow = RGBAColor(hex: "#FFD60A")!, pink = RGBAColor(hex: "#FF3D6E")!
+        switch tags.first {
+        case .funny: return Meme(text: "💀💀💀", sounds: ["rimshot", "boom"], color: .white, tilt: -4)
+        case .fail: return Meme(text: "BRUH", sounds: ["sad trombone", "trombone", "boom"], color: yellow, tilt: 3)
+        case .hype: return Meme(text: "LET'S GO", sounds: ["impact", "boom"], color: yellow, tilt: -3)
+        case .rage: return Meme(text: "😤", sounds: ["record scratch", "scratch", "boom"], color: .white, tilt: 0)
+        case .reaction: return Meme(text: "NO WAY", sounds: ["boom", "impact"], color: pink, tilt: -3)
+        case .story, .conversation, .question: return Meme(text: "👀", sounds: ["ding", "pop"], color: .white, tilt: 0)
+        default: return Meme(text: "W", sounds: ["boom", "impact"], color: yellow, tilt: -4)
+        }
+    }
+
+    /// Music sections (~3–4 min each) following the edit's chapters, after the cold open.
+    public static func musicChapters(for timeline: Timeline, hookEnd: Seconds) -> [TimeRange] {
+        let total = timeline.duration
+        guard total - hookEnd > 5 else { return [] }
+        let chapterStarts = timeline.markers.filter { $0.color == .blue }.map(\.time).sorted()
+        var cuts: [Seconds] = [hookEnd]
+        for t in chapterStarts where t - cuts.last! >= 150 && total - t >= 60 { cuts.append(t) }
+        cuts.append(total)
+        var ranges: [TimeRange] = []
+        for i in 0..<(cuts.count - 1) {
+            var a = cuts[i]
+            let b = cuts[i + 1]
+            // Very long chapters get split so a bed never runs more than ~5 minutes.
+            while b - a > 330 {
+                ranges.append(TimeRange(start: a, end: a + 240))
+                a += 240
+            }
+            ranges.append(TimeRange(start: a, end: b))
+        }
+        return ranges
+    }
+
+    /// Lays composed beds (one per chapter, same order) on A2, quiet and ducked under talking.
+    public static func addMusic(_ beds: [MediaAsset], chapters: [TimeRange], to timeline: inout Timeline) {
+        guard let ti = timeline.tracks.firstIndex(where: { $0.name.hasPrefix("A2") }) else { return }
+        timeline.tracks[ti].clips.removeAll { $0.role == .music && $0.aiGenerated }
+        for (range, bed) in zip(chapters, beds) {
+            let length = bed.metadata.duration > 0 ? min(bed.metadata.duration, range.duration) : range.duration
+            var clip = TimelineClip(name: bed.name, content: .media(assetID: bed.id), start: range.start, sourceDuration: length, role: .music, aiGenerated: true)
+            clip.audio.volume = AnimatedDouble(0.22)
+            clip.audio.duckUnderDialogue = true
+            clip.audio.fadeIn = 1.2
+            clip.audio.fadeOut = 1.5
+            timeline.tracks[ti].clips.append(clip)
+        }
+        timeline.tracks[ti].sortClips()
+    }
+
+    static func chapterList(_ markers: [Marker], hasHook: Bool) -> String {
+        var lines = ["Chapters"]
+        if hasHook { lines.append("0:00 Intro") }
+        for (i, m) in markers.sorted(by: { $0.time < $1.time }).enumerated() {
+            let t = i == 0 && !hasHook ? 0 : m.time
+            lines.append("\(youtubeTimestamp(t)) \(m.name)")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    static func youtubeTimestamp(_ t: Seconds) -> String {
+        let s = Int(t)
+        return s >= 3600 ? String(format: "%d:%02d:%02d", s / 3600, s / 60 % 60, s % 60) : String(format: "%d:%02d", s / 60, s % 60)
+    }
+}
+
+extension CaptionStyle {
+    /// Subtitles for landscape YouTube edits: readable, low in frame, not shouty.
+    public static let youtube = CaptionStyle(
+        presetName: "YouTube",
+        text: TextStyle(fontName: TextStyle.tiktokSans, fontSize: 44, weight: .semibold, textCase: .asTyped, color: .white,
+                        strokeColor: .black, strokeWidth: 0, shadowOpacity: 0, backgroundColor: RGBAColor(hex: "#0B0B0F")!,
+                        backgroundOpacity: 0.72, backgroundPadding: 12, backgroundCornerRadius: 10),
+        highlightColor: RGBAColor(hex: "#FFD60A")!, highlightMode: .none, animation: .fade, displayMode: .phrase,
+        maxWordsPerPage: 9, maxCharsPerLine: 42, maxLines: 2, positionY: 0.88, safeArea: nil)
+}

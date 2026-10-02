@@ -116,8 +116,14 @@ struct AIClipsView: View {
         VStack {
             if let asset = session.document.primaryAsset, let progress = session.analysisProgress[asset.id] {
                 VStack(spacing: 12) {
-                    ProgressRing(progress: progress.fraction, size: 44, color: Theme.ai)
+                    ZStack {
+                        ProgressRing(progress: progress.fraction, size: 64, color: Theme.ai)
+                        Text("\(Int(progress.fraction * 100))%").font(.pulseMono).foregroundStyle(Theme.textPrimary)
+                    }
                     Text(progress.stage).font(.pulseHeadline).foregroundStyle(Theme.textPrimary)
+                    if let left = session.analysisRemaining[asset.id] {
+                        Text(DurationText.remaining(left).capitalizedFirst).font(.pulseTitle).foregroundStyle(Theme.ai).monospacedDigit()
+                    }
                     Text("You can keep working — analysis runs in the background.").font(.pulseCaption).foregroundStyle(Theme.textTertiary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -185,6 +191,8 @@ struct ClipCandidateCard: View {
                 HStack(spacing: 4) {
                     ForEach(candidate.tags.prefix(3), id: \.self) { tag in TagChip(text: tag.displayName, color: Theme.ai) }
                     Spacer()
+                    Text(PerformanceTier(score: candidate.potential).emoji).font(.system(size: 10))
+                        .help(PerformanceTier(score: candidate.potential).displayName)
                     PotentialMeter(potential: candidate.potential)
                 }
                 HStack(spacing: 6) {
@@ -299,6 +307,9 @@ struct CandidateDetailPanel: View {
                 Spacer()
                 PotentialMeter(potential: candidate.potential)
             }
+            let tier = PerformanceTier(score: candidate.potential)
+            Text("\(tier.emoji) \(tier.displayName) — how well it may perform, from its hook, energy, reactions and ending")
+                .font(.pulseMicro).foregroundStyle(Theme.tierColor(tier)).fixedSize(horizontal: false, vertical: true)
             ForEach(candidate.scores.breakdown, id: \.name) { item in
                 HStack(spacing: 8) {
                     Text(item.name).font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 92, alignment: .leading)

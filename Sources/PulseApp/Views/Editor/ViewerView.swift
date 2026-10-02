@@ -140,6 +140,10 @@ struct ViewerView: View {
                 .frame(minWidth: 60, maxWidth: 260, alignment: .leading)
                 .layoutPriority(1)
                 if t.hasAIContent { AIBadge(label: "AI edit").fixedSize() }
+                if let review = session.activeReview {
+                    Button { session.selectedClipIDs = [] } label: { PerformanceBadge(prediction: review.prediction) }
+                        .buttonStyle(.plain).fixedSize()
+                }
             }
             Spacer(minLength: 4)
             // Full readout when there's room, shorter when the viewer is narrow, nothing when it's very narrow.

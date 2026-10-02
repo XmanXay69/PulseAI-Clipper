@@ -585,6 +585,7 @@ struct TimelineInspector: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if let review = session.activeReview { CoachSection(session: session, review: review) }
             InspectorSection("Canvas") {
                 HStack(spacing: 4) {
                     ForEach(AspectChoice.allCases, id: \.self) { choice in

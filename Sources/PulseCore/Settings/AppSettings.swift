@@ -58,6 +58,8 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var cloudModel: String = "claude-opus-5-5"
     public var openAIBaseURL: String = "http://localhost:1234/v1"
     public var openAIIsLocalServer: Bool = true
+    /// Learned analysis speed of this Mac (for time estimates).
+    public var analysisSpeed: AnalysisSpeedProfile = AnalysisSpeedProfile()
 
     public init() {}
 
@@ -96,6 +98,7 @@ public struct AISettings: Codable, Hashable, Sendable {
         cloudModel = c.decode(String.self, forKey: .cloudModel, default: d.cloudModel)
         openAIBaseURL = c.decode(String.self, forKey: .openAIBaseURL, default: d.openAIBaseURL)
         openAIIsLocalServer = c.decode(Bool.self, forKey: .openAIIsLocalServer, default: d.openAIIsLocalServer)
+        analysisSpeed = c.decode(AnalysisSpeedProfile.self, forKey: .analysisSpeed, default: d.analysisSpeed)
     }
 }
 

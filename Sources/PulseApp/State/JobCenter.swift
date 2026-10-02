@@ -19,8 +19,21 @@ final class BackgroundJob: ObservableObject, Identifiable {
     let location: ProcessingLocation
     let startedAt = Date()
     @Published var detail: String = ""
-    @Published var progress: Double = 0
+    @Published var progress: Double = 0 {
+        didSet { if state == .running { remaining = clock.remaining(elapsed: Date().timeIntervalSince(startedAt), fraction: progress) } }
+    }
+    /// Estimated seconds left (nil until there's enough to go on).
+    @Published var remaining: Seconds?
     @Published var state: State = .running
+    private var clock = ProgressClock(expectedTotal: nil)
+
+    /// Sets the up-front time estimate the countdown starts from.
+    func expect(_ total: Seconds) {
+        clock.expectedTotal = total
+        remaining = total
+    }
+
+    var remainingText: String? { remaining.map(DurationText.remaining) }
     var task: Task<Void, Never>?
     private let cancelFlag = CancelFlag()
 

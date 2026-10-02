@@ -214,11 +214,33 @@ public struct ClipGenerator: Sendable {
         }
         end = max(end, min(minEnd, input.duration))
         end = trimTrailingSilence(start: start, end: end, payoff: payoff)
+        end = extendThroughReaction(end: end, start: start)
         end = min(end + 0.25, input.duration)
         if end - start < 0.6 * d {
             end = min(input.duration, start + 0.6 * d)
         }
         return TimeRange(start: start, end: end)
+    }
+
+    /// Endings land after the reaction, not in the middle of it: if people are still laughing or the
+    /// moment is still peaking at the cut, keep going until it settles (up to 4 s / 1.25× the target),
+    /// and never stop halfway through a word.
+    func extendThroughReaction(end: Seconds, start: Seconds) -> Seconds {
+        guard signals.count > 0 else { return end }
+        let limit = min(input.duration, end + 4, max(end, start + 1.25 * settings.targetDuration - 0.3))
+        let hot = { (t: Seconds) -> Bool in
+            let i = self.signals.index(at: t)
+            return self.signals.laughter[i] > 0 || self.signals.excitement[i] > self.excitementP95 * 0.8
+        }
+        var e = end
+        if hot(e - 0.25) {
+            while e < limit && hot(e) { e += signals.step }
+            e = min(e + 0.3, limit)
+        }
+        if let word = input.transcript?.words.first(where: { $0.start < e - 0.02 && $0.end > e }) {
+            e = max(e, min(word.end + 0.12, max(limit, word.end + 0.12)))
+        }
+        return e
     }
 
     func speechOnset(near time: Seconds, radius: Seconds, audio: AudioFeatureSeries) -> Seconds {
