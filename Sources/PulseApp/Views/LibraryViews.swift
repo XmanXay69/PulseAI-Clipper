@@ -464,6 +464,13 @@ struct ExportsView: View {
             let preset = ExportPreset.preset(id: app.settings.defaultExportPresetID) ?? .tiktok
             settings = app.session?.document.exportSettings ?? ExportSettings(preset: preset)
             if settings.outputDirectory.isEmpty { settings.outputDirectory = app.exportFolder.path }
+            // A YouTube edit (Edit My VOD) shouldn't start on a vertical short-form preset.
+            if let timeline = app.session?.activeTimeline, EditFormat.of(timeline) == .longForm,
+               ["tiktok", "shorts", "reels"].contains(settings.presetID) {
+                let folder = settings.outputDirectory
+                settings = ExportSettings(preset: .youtube)
+                settings.outputDirectory = folder
+            }
             baseline = settings
         }
         .onChange(of: settings) { _, newValue in

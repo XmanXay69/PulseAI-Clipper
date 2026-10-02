@@ -9,8 +9,8 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
 
 ## Download
 
-**[⬇ Download PULSE 1.0](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
-(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.0.0/NOTES.md)
+**[⬇ Download PULSE 1.0.1](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
+(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.0.1/NOTES.md)
 
 1. Double-click **PULSE.dmg** and drag **PULSE** into **Applications**.
 2. Open PULSE from Launchpad or Applications.
