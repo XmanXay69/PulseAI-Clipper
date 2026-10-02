@@ -88,13 +88,13 @@ public struct LongFormResult: Sendable {
 /// captions, meme pop-ups, sound effects and music. Everything is a normal, editable clip.
 public enum LongFormEditor {
     /// Picks the moments to keep (source time, chronological).
-    public static func selectSegments(analysis: MediaAnalysis, options: LongFormOptions) -> [LongFormSegment] {
+    public static func selectSegments(analysis: MediaAnalysis, options: LongFormOptions, taste: TasteProfile = TasteProfile()) -> [LongFormSegment] {
         let input = ClipGenerationInput(analysis: analysis)
         let target = options.targetLength(forSource: analysis.duration)
         let settings = ClipGenerationSettings(targetDuration: 45, aggressiveness: 1, minimumPotential: 0,
                                               maxCandidates: max(8, Int(target / 25)))
         let generator = ClipGenerator(input: input, settings: settings)
-        let candidates = generator.generate().sorted { $0.potential > $1.potential }
+        let candidates = generator.generate().applyingTaste(taste).sorted { $0.potential > $1.potential }
         guard !candidates.isEmpty else {
             // Nothing stood out (or no audio): keep the whole thing.
             return [LongFormSegment(range: TimeRange(start: 0, end: analysis.duration), payoff: analysis.duration / 2, potential: 30, title: "", tags: [])]
@@ -139,8 +139,9 @@ public enum LongFormEditor {
     }
 
     public static func build(asset: MediaAsset, analysis: MediaAnalysis, options: LongFormOptions = LongFormOptions(),
-                             sounds: LongFormSounds = LongFormSounds()) -> LongFormResult {
-        let segments = selectSegments(analysis: analysis, options: options)
+                             sounds: LongFormSounds = LongFormSounds(), taste: TasteProfile = TasteProfile(),
+                             segments chosen: [LongFormSegment]? = nil) -> LongFormResult {
+        let segments = chosen.map { LongFormEditor.merge($0, gap: 8) } ?? selectSegments(analysis: analysis, options: options, taste: taste)
         let size = asset.metadata.size.isEmpty ? Size2(1920, 1080) : asset.metadata.size
         let landscape = size.aspect >= 1
         let fps = min(asset.metadata.frameRate > 1 ? asset.metadata.frameRate.rounded() : 30, 60)

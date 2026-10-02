@@ -74,6 +74,9 @@ struct AIClipsView: View {
                 if let asset = session.document.primaryAsset {
                     Text("from \(asset.name) · \(Timecode.duration(asset.metadata.duration))").font(.pulseCaption).foregroundStyle(Theme.textTertiary)
                 }
+                Label(app.settings.ai.taste.summary, systemImage: "hand.thumbsup")
+                    .font(.pulseMicro).foregroundStyle(Theme.ai).lineLimit(1)
+                    .help("Your 👍 / 👎 teach PULSE what you find entertaining. Reset in Settings → AI Features.")
             }
             Spacer()
             Picker("", selection: $lengthFilter) {
@@ -204,10 +207,23 @@ struct ClipCandidateCard: View {
                         .buttonStyle(.pulse(.ai, compact: true))
                         .fixedSize()
                     Spacer()
-                    IconButton(symbol: "minus.circle", help: "Shorten", size: 22) { session.reshapeCandidate(candidate.id, targetDuration: max(10, candidate.duration - 10), regenerate: false) }
-                    IconButton(symbol: "plus.circle", help: "Extend", size: 22) { session.reshapeCandidate(candidate.id, targetDuration: min(90, candidate.duration + 10), regenerate: false) }
-                    IconButton(symbol: "arrow.clockwise", help: "Regenerate", size: 22) { session.reshapeCandidate(candidate.id, targetDuration: nil, regenerate: true) }
-                    IconButton(symbol: "trash", help: "Delete", size: 22) { session.deleteCandidates([candidate.id]) }
+                    IconButton(symbol: candidate.feedback == 1 ? "hand.thumbsup.fill" : "hand.thumbsup", help: "More like this — PULSE learns your taste",
+                               isActive: candidate.feedback == 1, size: 22) {
+                        session.rateCandidate(candidate.id, liked: candidate.feedback == 1 ? nil : true)
+                    }
+                    IconButton(symbol: candidate.feedback == -1 ? "hand.thumbsdown.fill" : "hand.thumbsdown", help: "Less like this",
+                               isActive: candidate.feedback == -1, size: 22) {
+                        session.rateCandidate(candidate.id, liked: candidate.feedback == -1 ? nil : false)
+                    }
+                    Menu {
+                        Button("Shorten by 10 s") { session.reshapeCandidate(candidate.id, targetDuration: max(10, candidate.duration - 10), regenerate: false) }
+                        Button("Extend by 10 s") { session.reshapeCandidate(candidate.id, targetDuration: min(90, candidate.duration + 10), regenerate: false) }
+                        Button("Regenerate") { session.reshapeCandidate(candidate.id, targetDuration: nil, regenerate: true) }
+                        Divider()
+                        Button("Delete", role: .destructive) { session.deleteCandidates([candidate.id]) }
+                    } label: { Image(systemName: "ellipsis.circle").font(.system(size: 11)) }
+                        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                        .help("Shorten, extend, regenerate or delete")
                 }
             }
             .padding(10)

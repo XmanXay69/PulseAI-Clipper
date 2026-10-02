@@ -60,6 +60,8 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var openAIIsLocalServer: Bool = true
     /// Learned analysis speed of this Mac (for time estimates).
     public var analysisSpeed: AnalysisSpeedProfile = AnalysisSpeedProfile()
+    /// What you find entertaining, learned from 👍 / 👎.
+    public var taste: TasteProfile = TasteProfile()
 
     public init() {}
 
@@ -99,6 +101,7 @@ public struct AISettings: Codable, Hashable, Sendable {
         openAIBaseURL = c.decode(String.self, forKey: .openAIBaseURL, default: d.openAIBaseURL)
         openAIIsLocalServer = c.decode(Bool.self, forKey: .openAIIsLocalServer, default: d.openAIIsLocalServer)
         analysisSpeed = c.decode(AnalysisSpeedProfile.self, forKey: .analysisSpeed, default: d.analysisSpeed)
+        taste = c.decode(TasteProfile.self, forKey: .taste, default: d.taste)
     }
 }
 

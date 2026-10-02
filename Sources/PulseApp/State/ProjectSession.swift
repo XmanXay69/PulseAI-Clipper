@@ -609,8 +609,10 @@ final class ProjectSession: ObservableObject, Identifiable {
         app.jobs.start("Finding clips", kind: .clipGeneration) { [weak self] job in
             guard let self else { return }
             job.detail = "Scoring moments"
+            let taste = self.app.settings.ai.taste
             let candidates = await Task.detached(priority: .userInitiated) {
                 ClipGenerator(input: ClipGenerationInput(analysis: analysis), settings: settings).generate()
+                    .applyingTaste(taste).sorted { $0.potential > $1.potential }
             }.value
             self.edit("Generate AI Clips") { doc in
                 // Keep clips the user already worked with; replace the rest.
@@ -623,6 +625,20 @@ final class ProjectSession: ObservableObject, Identifiable {
             self.app.toast("\(candidates.count) potential clips found")
             self.app.section = .aiClips
         }
+    }
+
+    /// 👍 / 👎 on a clip: teaches your taste profile and re-ranks every clip with it.
+    func rateCandidate(_ id: UUID, liked: Bool?) {
+        guard let candidate = document.candidates.first(where: { $0.id == id }) else { return }
+        var taste = app.settings.ai.taste
+        if let old = candidate.feedback { taste.forget(liked: old > 0) }
+        if let liked { taste.learn(scores: candidate.scores, tags: candidate.tags, liked: liked) }
+        app.settings.ai.taste = taste
+        edit(liked == nil ? "Clear Rating" : (liked! ? "Like Clip" : "Dislike Clip")) { doc in
+            if let i = doc.candidates.firstIndex(where: { $0.id == id }) { doc.candidates[i].feedback = liked.map { $0 ? 1 : -1 } }
+            doc.candidates = doc.candidates.applyingTaste(taste)
+        }
+        PulseLog.info("Clip rated \(liked.map { $0 ? "up" : "down" } ?? "cleared") — taste now from \(taste.ratings) ratings")
     }
 
     func reshapeCandidate(_ id: UUID, targetDuration: Seconds?, regenerate: Bool) {

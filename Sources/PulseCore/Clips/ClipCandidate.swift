@@ -166,6 +166,10 @@ public struct ClipCandidate: Codable, Hashable, Identifiable, Sendable {
     public var generation: Int
     /// True after the user manually changed the range.
     public var userAdjusted: Bool
+    /// The AI's own score before your taste profile adjusted `potential`.
+    public var basePotential: Int?
+    /// Your rating: +1 👍, -1 👎, nil = not rated.
+    public var feedback: Int?
 
     public init(id: UUID = UUID(), assetID: UUID, range: TimeRange, payoffTime: Seconds, targetDuration: Seconds, potential: Int,
                 scores: ClipScores, tags: [ClipTag], title: String, copy: ClipCopy, transcriptSnippet: String,

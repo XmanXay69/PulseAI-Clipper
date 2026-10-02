@@ -317,6 +317,13 @@ struct AIFeatureSettings: View {
     @EnvironmentObject var app: AppModel
 
     var body: some View {
+        SettingsGroup("Your taste", footnote: "Every 👍 / 👎 on a clip teaches PULSE what you find entertaining. It re-ranks clips and guides Edit My VOD, shifting scores by up to 25 points once it has a few ratings.") {
+            SettingsRow("What PULSE has learned", detail: app.settings.ai.taste.summary) {
+                Button("Reset") { app.settings.ai.taste = TasteProfile() }
+                    .buttonStyle(.pulse(.secondary, compact: true))
+                    .disabled(app.settings.ai.taste.isEmpty)
+            }
+        }
         SettingsGroup("Clip finding") {
             SettingsRow("Default clip length") {
                 Picker("", selection: $app.settings.ai.defaultClipLength) {

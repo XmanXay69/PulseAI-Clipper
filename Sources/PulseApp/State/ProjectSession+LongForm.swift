@@ -17,14 +17,14 @@ extension ProjectSession {
         return 6 + music + (options.soundEffects || options.memes ? 6 : 0)
     }
 
-    func editMyVOD(options: LongFormOptions) {
+    func editMyVOD(options: LongFormOptions, segments: [LongFormSegment]? = nil) {
         guard let asset = document.primaryAsset else {
             app.presentMessage(title: "No recording yet", message: "Import a stream or long video first.")
             return
         }
         guard let analysis = analyses[asset.id], analysis.audio != nil || analysis.transcript != nil else {
             app.toast("Analyzing first — your edit starts right after")
-            analyze(assetID: asset.id, generateClips: false) { [weak self] in self?.editMyVOD(options: options) }
+            analyze(assetID: asset.id, generateClips: false) { [weak self] in self?.editMyVOD(options: options, segments: segments) }
             return
         }
         let job = app.jobs.start("Editing your VOD", kind: .autoEdit) { [weak self] job in
@@ -46,8 +46,9 @@ extension ProjectSession {
             // 2. Pick the moments and build the edit.
             job.detail = "Finding the best moments"
             let sounds = LongFormSounds(effects: effects)
+            let taste = self.app.settings.ai.taste
             var result = await Task.detached(priority: .userInitiated) {
-                LongFormEditor.build(asset: asset, analysis: analysis, options: options, sounds: sounds)
+                LongFormEditor.build(asset: asset, analysis: analysis, options: options, sounds: sounds, taste: taste, segments: segments)
             }.value
             job.progress = 0.3
             // 3. Music: one composed bed per chapter, changing style as the video goes on.
