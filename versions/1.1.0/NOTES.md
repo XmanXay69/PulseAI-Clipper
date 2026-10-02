@@ -1,6 +1,15 @@
 ## PULSE 1.1.0
 
 ### New
+- **Edit Like a Reference** (File → Edit Like a Reference, ⌥⌘R; AI Clips toolbar; Home) — drop in a video whose
+  editing you love (download it first; it's studied on your Mac, nothing is uploaded). PULSE measures how it's
+  cut: shots per minute, how tight the jump cuts are, punch-in zooms (how often and how strong), captions
+  (position, size, ALL-CAPS, words on screen), music under the voice, sound-effect hits, text/meme pop-ups,
+  fades and whether it opens with a fast hook. It shows you that "style fingerprint", asks a few questions —
+  how long, what to focus on (funny / hype / story), how closely to copy, hook or not, and which ingredients
+  to copy — then edits your VOD that way (or makes vertical shorts in that style). Styles are saved, so you can
+  reuse one on any VOD or pick it for the overnight batch.
+- **Version badge** — the app version now shows top right (click for release notes) and next to the logo.
 - **Teach it your taste** — 👍 / 👎 on any clip (or moment in the storyboard). PULSE learns which ingredients
   you actually like — hook, energy, laughs, reactions, story, and tags like Funny or Hype — and re-ranks clips
   and Edit My VOD's picks with it (up to ±25 points once it has a few ratings). Settings → AI Features shows

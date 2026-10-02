@@ -123,6 +123,14 @@ struct BatchSheet: View {
                 }
             }
             .toggleStyle(.switch).controlSize(.small).tint(Theme.ai)
+            if batch.options.makeYouTubeEdit, !app.settings.referenceStyles.isEmpty {
+                Picker("Style", selection: $batch.options.styleID) {
+                    Text("PULSE's own").tag(UUID?.none)
+                    ForEach(app.settings.referenceStyles) { Text("Like “\($0.name)”").tag(UUID?.some($0.id)) }
+                }
+                .font(.pulseCaption)
+                .help("Edit each YouTube video like a reference you studied (Edit Like a Reference)")
+            }
             Toggle(isOn: $batch.options.makeThumbnails) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Thumbnail designs").font(.pulseBody)

@@ -162,6 +162,12 @@ struct LongFormSheet: View {
                     .font(.pulseCaption).foregroundStyle(Theme.textSecondary)
             }
             Spacer()
+            Button {
+                dismiss()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { app.showReferenceSheet = true }
+            } label: { Label("Like a Reference…", systemImage: "wand.and.stars") }
+                .buttonStyle(.pulse(.ghost, compact: true))
+                .help("Copy the editing style of a video you love instead")
             Button("Cancel") { dismiss() }.buttonStyle(.pulseSecondary).keyboardShortcut(.cancelAction)
             let analyzed = session.document.primaryAsset.flatMap { session.analyses[$0.id] }.map { $0.audio != nil || $0.transcript != nil } ?? false
             Button { choosing = true } label: { Label("Choose Moments…", systemImage: "square.grid.3x2") }

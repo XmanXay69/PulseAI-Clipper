@@ -193,7 +193,15 @@ prompt), cloud AI providers with live keys.
   (frame picker, headline, the studio's `ThumbDocument` JSON format and three layouts),
   `PulseEngine/Support/ThumbnailStudioLink.swift` (writes frames to `~/Library/Application Support/VODEditor/ThumbAssets`
   and designs to `…/VODEditor/ThumbLab`, launches `com.xavier.thumbstudio` with `--open <design>`),
-  `ProjectSession+Thumbnails.swift`, `Views/ThumbnailSheet.swift`. The studio needed no changes — it re-reads its
+  `ProjectSession+Thumbnails.swift`, `Views/ThumbnailSheet.swift`. Edit Like a Reference:
+  `PulseCore/AutoEdit/ReferenceStyle.swift` (`ReferenceStyleAnalyzer.measure` — cuts, punch-ins from face-size
+  jumps, caption look/pop-ups from Vision text with persistent overlays removed, pauses from word gaps, music from
+  level between words, effect hits from spectral-flux spikes, dips to black; `ReferenceAnswers`; `StyleTuning`
+  carried in `LongFormOptions.style` and read by `LongFormEditor.build`; `shortOptions` for shorts),
+  `PulseEngine/Analysis/ReferenceScanner.swift` (pipeline + finer frame pass + `VNRecognizeTextRequest`),
+  `State/ReferenceController.swift`, `ProjectSession+Reference.swift`, `Views/ReferenceSheet.swift`. Saved styles
+  live in `AppSettings.referenceStyles`. It copies editing *rhythm and ingredients*, not specific shots, B-roll,
+  memes or music tracks from the reference — those can't be lifted from a finished video. The studio needed no changes — it re-reads its
   gallery folder when it comes to the front. If the studio's document format changes, update the `ThumbStudio*`
   structs (a test decodes PULSE's output with synthesized enum coding, the way the studio does). Not verified
   against a running Thumbnail Studio on a Mac yet. All tuned on synthetic data — real VODs/analytics will need tuning.

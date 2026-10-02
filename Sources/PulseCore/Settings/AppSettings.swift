@@ -210,8 +210,17 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var recentProjectPaths: [String] = []
     /// Logo, intro/outro and caption look applied to new edits.
     public var brandKit: BrandKit = BrandKit()
+    /// Editing styles measured from reference videos, newest first (reusable on any VOD).
+    public var referenceStyles: [ReferenceStyle] = []
 
     public init() {}
+
+    /// Keeps a measured style (replacing an older one with the same name), newest first, at most 12.
+    public mutating func rememberStyle(_ style: ReferenceStyle) {
+        referenceStyles.removeAll { $0.id == style.id || $0.name == style.name }
+        referenceStyles.insert(style, at: 0)
+        if referenceStyles.count > 12 { referenceStyles.removeLast(referenceStyles.count - 12) }
+    }
 
     public func layout(for preset: WorkspacePreset) -> WorkspaceLayout {
         workspaces[preset.rawValue] ?? preset.defaultLayout
@@ -244,6 +253,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
         showSafeAreas = c.decode(Bool.self, forKey: .showSafeAreas, default: d.showSafeAreas)
         safeAreaPlatform = c.decode(SafeAreaPlatform.self, forKey: .safeAreaPlatform, default: d.safeAreaPlatform)
         brandKit = c.decode(BrandKit.self, forKey: .brandKit, default: d.brandKit)
+        referenceStyles = c.decode([ReferenceStyle].self, forKey: .referenceStyles, default: d.referenceStyles)
         defaultExportPresetID = c.decode(String.self, forKey: .defaultExportPresetID, default: d.defaultExportPresetID)
         recentProjectPaths = c.decode([String].self, forKey: .recentProjectPaths, default: d.recentProjectPaths)
     }

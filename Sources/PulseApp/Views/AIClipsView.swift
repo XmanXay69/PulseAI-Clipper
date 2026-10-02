@@ -104,6 +104,10 @@ struct AIClipsView: View {
                 .buttonStyle(.pulseAI)
                 .disabled(session.document.primaryAsset == nil)
                 .help("Turn the whole stream into a 10–20 minute YouTube video")
+            Button { app.showReferenceSheet = true } label: { Label("Like a Reference", systemImage: "wand.and.stars") }
+                .buttonStyle(.pulseSecondary)
+                .disabled(session.document.primaryAsset == nil)
+                .help("Edit your VOD the way a video you love is edited (⌥⌘R)")
             Button { regenerateAll() } label: { Label("Find Again", systemImage: "arrow.clockwise") }
                 .buttonStyle(.pulseSecondary)
                 .disabled(session.document.primaryAsset == nil)

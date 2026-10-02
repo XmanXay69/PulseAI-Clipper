@@ -14,6 +14,14 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
     public var music: Bool
     /// "Don't over-edit": caps on zooms, memes and effects per minute.
     public var restraint: Restraint
+    /// Settings measured from a reference video ("edit it like this one"); nil = PULSE's own style.
+    public var style: StyleTuning?
+
+    /// Seconds between reaction zooms / meme pop-ups / transition whooshes.
+    public var zoomSpacing: Seconds { style?.zoomSpacing ?? restraint.zoomSpacing }
+    public var memeSpacing: Seconds { style?.memeSpacing ?? restraint.memeSpacing }
+    public var whooshSpacing: Seconds { style?.whooshSpacing ?? restraint.whooshSpacing }
+    public var silencePreset: SilencePreset { style?.silence ?? .balanced }
 
     public enum Restraint: String, Codable, CaseIterable, Sendable {
         case subtle, balanced, energetic
@@ -29,7 +37,7 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
 
     public init(minimumLength: Seconds = 600, maximumLength: Seconds = 1200, coldOpen: Bool = true, cutDeadAir: Bool = true,
                 zooms: Bool = true, captions: Bool = true, memes: Bool = true, soundEffects: Bool = true, music: Bool = true,
-                restraint: Restraint = .balanced) {
+                restraint: Restraint = .balanced, style: StyleTuning? = nil) {
         self.minimumLength = minimumLength
         self.maximumLength = max(maximumLength, minimumLength)
         self.coldOpen = coldOpen
@@ -40,6 +48,7 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
         self.soundEffects = soundEffects
         self.music = music
         self.restraint = restraint
+        self.style = style
     }
 
     /// What the edit aims for, given how long the recording is.
@@ -129,7 +138,15 @@ public enum LongFormEditor {
         let settings = ClipGenerationSettings(targetDuration: 45, aggressiveness: 1, minimumPotential: 0,
                                               maxCandidates: Int(Double(needed) * 1.6))
         let generator = ClipGenerator(input: input, settings: settings)
-        let candidates = generator.generate().applyingTaste(taste).sorted { $0.potential > $1.potential }
+        var candidates = generator.generate().applyingTaste(taste)
+        // "Focus on the funny bits": favour the moments the answers asked for.
+        if let focus = options.style?.focusTags, !focus.isEmpty {
+            for i in candidates.indices {
+                let hit = candidates[i].tags.contains { focus.contains($0) }
+                candidates[i].potential = (candidates[i].potential + (hit ? 12 : -6)).clamped(0, 100)
+            }
+        }
+        candidates.sort { $0.potential > $1.potential }
         guard !candidates.isEmpty else {
             // Nothing stood out (or no audio): keep the whole thing.
             let whole = LongFormSegment(range: TimeRange(start: 0, end: analysis.duration), payoff: analysis.duration / 2, potential: 30, title: "", tags: [])
@@ -186,7 +203,8 @@ public enum LongFormEditor {
         let fps = min(asset.metadata.frameRate > 1 ? asset.metadata.frameRate.rounded() : 30, 60)
         var canvas = landscape ? CanvasSettings.landscape1080 : CanvasSettings(width: 1080, height: 1920, frameRate: 30)
         canvas.frameRate = fps
-        var timeline = Timeline(name: "\(asset.name) — YouTube Edit", canvas: canvas, tracks: [
+        let editName = options.style.map { "\(asset.name) — like \($0.name)" } ?? "\(asset.name) — YouTube Edit"
+        var timeline = Timeline(name: editName, canvas: canvas, tracks: [
             Track(kind: .video, name: "V1 Stream"),
             Track(kind: .text, name: "T1 Titles & Memes"),
             Track(kind: .audio, name: "A1 Dialogue"),
@@ -252,7 +270,7 @@ public enum LongFormEditor {
         if options.cutDeadAir {
             var cuts: [TimeRange] = []
             for s in segments {
-                cuts += SilenceDetector.detect(audio: analysis.audio, transcript: analysis.transcript, in: s.range, preset: .balanced)
+                cuts += SilenceDetector.detect(audio: analysis.audio, transcript: analysis.transcript, in: s.range, preset: options.silencePreset)
             }
             if let hookRange { cuts.removeAll { $0.overlaps(hookRange) } }
             if !cuts.isEmpty {
@@ -279,7 +297,9 @@ public enum LongFormEditor {
         if options.captions, let transcript = analysis.transcript, !transcript.isEmpty {
             let lo = segments.map(\.range.start).min() ?? 0, hi = segments.map(\.range.end).max() ?? analysis.duration
             let all = TimeRange(start: min(lo, hookRange?.start ?? lo), end: max(hi, hookRange?.end ?? hi))
-            var track = CaptionTrack.make(from: transcript, range: all, assetID: asset.id, style: landscape ? .youtube : .tiktok, emphasize: false)
+            let captionStyle = options.style?.captionLook?.captionStyle(canvasHeight: Double(canvas.height), landscape: landscape)
+                ?? (landscape ? .youtube : .tiktok)
+            var track = CaptionTrack.make(from: transcript, range: all, assetID: asset.id, style: captionStyle, emphasize: false)
             track.colorBySpeaker()
             timeline.captions = track
         }
@@ -295,11 +315,25 @@ public enum LongFormEditor {
                 moments.append(.reaction(hookMoment - hookRange.start))
             }
             var settings = PunchInSettings()
-            settings.reactionZoom = 1.16
-            settings.punchlineZoom = 1.1
-            settings.minimumSpacing = options.restraint.zoomSpacing
+            settings.reactionZoom = options.style?.zoomScale ?? 1.16
+            settings.punchlineZoom = 1 + (settings.reactionZoom - 1) * 0.6
+            settings.minimumSpacing = options.zoomSpacing
             settings.holdDuration = 1.8
             settings.rampDuration = 0.25
+            // A fast reference punches in and out on the sentences too, not just the big reactions.
+            if let style = options.style, style.rhythmZooms, let words = analysis.transcript?.words {
+                settings.statementZoom = 1 + (settings.reactionZoom - 1) * 0.5
+                settings.minimumSpacing = min(options.zoomSpacing, style.rhythmSpacing)
+                settings.holdDuration = min(style.rhythmSpacing * 0.7, 6)
+                var last = -Double.infinity
+                for (i, word) in words.enumerated() {
+                    let startsSentence = i == 0 || word.start - words[i - 1].end > 0.45 || words[i - 1].text.hasSuffix(".")
+                        || words[i - 1].text.hasSuffix("?") || words[i - 1].text.hasSuffix("!")
+                    guard startsSentence, let t = timelineTime(ofSource: word.start), t - last >= style.rhythmSpacing else { continue }
+                    moments.append(.statement(t))
+                    last = t
+                }
+            }
             PunchInGenerator.apply(moments: moments, to: &timeline, trackID: timeline.tracks[0].id, settings: settings)
             zooms = timeline.tracks[0].clips.reduce(0) { $0 + $1.transform.zoom.keyframes.filter(\.aiGenerated).count / 3 }
         }
@@ -309,8 +343,8 @@ public enum LongFormEditor {
         if options.memes || options.soundEffects {
             var lastMeme = -Double.infinity
             for s in segments.sorted(by: { $0.potential > $1.potential }) where s.potential >= 55 {
-                guard let t = timelineTime(ofSource: s.payoff), t - lastMeme >= options.restraint.memeSpacing || lastMeme == -.infinity else { continue }
-                if timeline.tracks[1].clips.contains(where: { abs($0.start - t) < options.restraint.memeSpacing }) { continue }
+                guard let t = timelineTime(ofSource: s.payoff), t - lastMeme >= options.memeSpacing || lastMeme == -.infinity else { continue }
+                if timeline.tracks[1].clips.contains(where: { abs($0.start - t) < options.memeSpacing }) { continue }
                 let meme = memeFor(tags: s.tags)
                 if options.memes {
                     let style = TextStyle(fontName: TextStyle.tiktokSans, fontSize: 120, weight: .black, textCase: .uppercase, color: meme.color,
@@ -336,11 +370,24 @@ public enum LongFormEditor {
             if hookRange != nil { ShortBuilder.addPayoffHit(whoosh, at: max(0, hookEnd - 0.25), to: &timeline); whooshes += 1 }
             var last = hookEnd
             for i in segments.indices.dropFirst() {
-                guard let t = starts[i], t - last >= options.restraint.whooshSpacing,
+                guard let t = starts[i], t - last >= options.whooshSpacing,
                       segments[i].range.start - segments[i - 1].range.end > 60 else { continue }
                 ShortBuilder.addPayoffHit(whoosh, at: max(0, t - 0.2), to: &timeline)
                 last = t
                 whooshes += 1
+            }
+        }
+
+        // Dips to black between sections, when the reference uses them.
+        var fades = 0
+        if options.style?.fades == true {
+            for i in segments.indices.dropFirst() {
+                guard let t = starts[i], let ci = timeline.tracks[0].clips.firstIndex(where: { abs($0.timelineRange.end - t) < 0.05 }) else { continue }
+                timeline.tracks[0].clips[ci].transitionOut = ClipTransition(kind: .fadeToBlack, duration: 0.3, aiGenerated: true)
+                if let next = timeline.tracks[0].clips.firstIndex(where: { abs($0.start - t) < 0.05 }) {
+                    timeline.tracks[0].clips[next].transitionIn = ClipTransition(kind: .fadeToBlack, duration: 0.3, aiGenerated: true)
+                }
+                fades += 1
             }
         }
 
@@ -362,6 +409,8 @@ public enum LongFormEditor {
         if zooms > 0 { parts.append("\(zooms) zooms") }
         if memes > 0 { parts.append("\(memes) memes") }
         if whooshes > 0 { parts.append("\(whooshes) transitions") }
+        if fades > 0 { parts.append("\(fades) fades") }
+        if let style = options.style { parts.append("styled like “\(style.name)”") }
         return LongFormResult(timeline: timeline, segments: segments, report: parts.joined(separator: " · "), musicChapters: chapters)
     }
 

@@ -15,6 +15,8 @@ final class BatchController: ObservableObject {
         var exportEverything = false
         var exportPresetID = ExportPreset.tiktok.id
         var makeThumbnails = false
+        /// Edit the YouTube video like this saved reference style (nil = PULSE's own style).
+        var styleID: UUID?
 
         init() {}
 
@@ -26,6 +28,7 @@ final class BatchController: ObservableObject {
             exportEverything = (try? c.decodeIfPresent(Bool.self, forKey: .exportEverything)) ?? d.exportEverything
             exportPresetID = (try? c.decodeIfPresent(String.self, forKey: .exportPresetID)) ?? d.exportPresetID
             makeThumbnails = (try? c.decodeIfPresent(Bool.self, forKey: .makeThumbnails)) ?? d.makeThumbnails
+            styleID = try? c.decodeIfPresent(UUID.self, forKey: .styleID)
         }
     }
 
@@ -210,7 +213,13 @@ final class BatchController: ObservableObject {
         if options.makeYouTubeEdit, asset.metadata.duration >= 600 {
             set(index, .running("Editing the YouTube video"))
             let before = Set(session.document.timelines.map(\.id))
-            session.editMyVOD(options: LongFormOptions())
+            if let style = app.settings.referenceStyles.first(where: { $0.id == options.styleID }) {
+                var answers = ReferenceAnswers.recommended(for: style)
+                if answers.length == .shorts { answers.length = .youtube }
+                session.editMyVOD(options: style.longFormOptions(answers))
+            } else {
+                session.editMyVOD(options: LongFormOptions())
+            }
             _ = await waitUntilIdle(app)
             if let edit = session.document.timelines.first(where: { !before.contains($0.id) }) {
                 made.append("YouTube edit \(Timecode.short(edit.duration))")

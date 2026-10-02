@@ -47,6 +47,7 @@ struct RootView: View {
         .sheet(isPresented: $app.showRecordSheet) { RecordView(recorder: app.recording).environmentObject(app) }
         .sheet(isPresented: $app.showReportProblem) { ReportProblemSheet().environmentObject(app) }
         .sheet(isPresented: $app.showBatchSheet) { BatchSheet(batch: app.batch).environmentObject(app) }
+        .sheet(isPresented: $app.showReferenceSheet) { ReferenceSheet(reference: app.reference).environmentObject(app) }
         .sheet(item: $app.thumbnailRequest) { request in
             if let session = app.session { ThumbnailSheet(session: session, request: request).environmentObject(app) }
         }
@@ -123,6 +124,8 @@ struct Sidebar: View {
                 Image(nsImage: AppIcon.render(size: 64)).resizable().frame(width: 26, height: 26)
                 if !collapsed {
                     Text("PULSE").font(.system(size: 15, weight: .heavy)).tracking(2).foregroundStyle(Theme.textPrimary)
+                    Text(AppModel.shortVersion).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                        .help("PULSE \(AppModel.versionString)")
                     Spacer()
                 }
             }
@@ -333,12 +336,30 @@ struct TopBar: View {
                 Button { app.showImportPanel() } label: { Label("Import", systemImage: "plus") }
                     .buttonStyle(.pulse(.secondary, compact: true))
             }
+            VersionBadge()
         }
         .padding(.leading, 16)
         .padding(.trailing, 14)
         .frame(height: 50)
         .background(Theme.panel)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
+    }
+}
+
+/// The app version, top right — click for the release notes.
+struct VersionBadge: View {
+    static let releasesURL = URL(string: "https://github.com/XmanXay69/PulseAI-Clipper/releases")!
+
+    var body: some View {
+        Button { NSWorkspace.shared.open(Self.releasesURL) } label: {
+            Text(AppModel.shortVersion == "dev" ? "dev build" : "v\(AppModel.shortVersion)")
+                .font(.system(size: 10, weight: .semibold, design: .rounded)).monospacedDigit()
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.horizontal, 7).padding(.vertical, 3)
+                .background(Capsule().fill(Theme.control))
+        }
+        .buttonStyle(.plain)
+        .help("PULSE \(AppModel.versionString) — click for what's new")
     }
 }
 

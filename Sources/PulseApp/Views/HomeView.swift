@@ -69,7 +69,8 @@ struct HomeView: View {
     }
 
     var quickActions: some View {
-        HStack(spacing: 12) {
+        // Wraps onto a second row in narrower windows instead of squeezing the tiles.
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 12)], spacing: 12) {
             QuickActionTile(symbol: "plus.rectangle.on.folder", title: "New Project", subtitle: "Start from scratch", color: Theme.accent) {
                 app.showNewProjectSheet = true
             }
@@ -88,6 +89,9 @@ struct HomeView: View {
             }
             QuickActionTile(symbol: "moon.stars", title: "Overnight Batch", subtitle: "Queue several VODs", color: Theme.success) {
                 app.showBatchSheet = true
+            }
+            QuickActionTile(symbol: "wand.and.stars", title: "Like a Reference", subtitle: "Copy an edit you love", color: Theme.ai) {
+                app.showReferenceSheet = true
             }
             QuickActionTile(symbol: "play.rectangle.on.rectangle", title: "Sample Project", subtitle: "See PULSE in action", color: Theme.warning) {
                 app.openDemoProject()

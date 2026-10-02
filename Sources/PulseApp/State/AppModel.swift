@@ -113,6 +113,9 @@ final class AppModel: ObservableObject {
     @Published var showReportProblem = false
     @Published var showBatchSheet = false
     let batch = BatchController()
+    /// "Edit Like a Reference": studies a video whose editing you like.
+    let reference = ReferenceController()
+    @Published var showReferenceSheet = false
     private var recordingObserver: AnyCancellable?
     let store = ProjectStore()
     let recovery = RecoveryManager(directory: PulseDirectories.recovery)
@@ -158,6 +161,7 @@ final class AppModel: ObservableObject {
             }
         }
         batch.app = self
+        reference.app = self
         recordingObserver = recording.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         refreshProjects()
         refreshActivity()
@@ -547,6 +551,11 @@ final class AppModel: ObservableObject {
         settings.ai.coachCalibration = nil
         for i in performanceHistory.indices { performanceHistory[i].views = nil; performanceHistory[i].averagePercentViewed = nil }
         savePerformanceHistory()
+    }
+
+    /// "1.1.0" from the bundle, or "dev" when run from source.
+    static var shortVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
     }
 
     /// "1.0.1 (68)" from the bundle, or "dev" when run from source.

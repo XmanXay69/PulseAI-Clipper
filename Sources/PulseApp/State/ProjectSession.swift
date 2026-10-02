@@ -662,17 +662,24 @@ final class ProjectSession: ObservableObject, Identifiable {
 
     /// One-click short / Auto Edit: builds an editable timeline and opens it.
     @discardableResult
-    func createShort(from candidateID: UUID, mode: ShortBuildOptions.Mode = .oneClick, open: Bool = true) -> UUID? {
+    func createShort(from candidateID: UUID, mode: ShortBuildOptions.Mode = .oneClick, open: Bool = true,
+                     style: (ReferenceStyle, ReferenceAnswers)? = nil) -> UUID? {
         guard let candidate = document.candidates.first(where: { $0.id == candidateID }),
               let asset = document.asset(id: candidate.assetID) else { return nil }
-        if let existing = candidate.timelineID, document.timeline(id: existing) != nil, mode == .oneClick {
+        if let existing = candidate.timelineID, document.timeline(id: existing) != nil, mode == .oneClick, style == nil {
             if open { self.open(timelineID: existing) }
             return existing
         }
         var options = ShortBuildOptions(settings: app.settings.ai, mode: mode)
         options.canvasPresetID = app.settings.safeAreaPlatform == .youtubeShorts ? CanvasPreset.shorts.id : (app.settings.safeAreaPlatform == .instagramReels ? CanvasPreset.reels.id : CanvasPreset.tiktok.id)
+        // "Make shorts like this reference": its captions, zooms, pacing and effects.
+        var wantsMusic = app.settings.ai.aiMusic
+        if let style {
+            options = style.0.shortOptions(style.1, base: options)
+            wantsMusic = style.0.shortWantsMusic(style.1, default: wantsMusic)
+        }
         let sfx = document.media.filter { $0.role == .soundEffect }
-        let music = app.settings.ai.aiMusic ? document.media.first { $0.role == .music } : nil
+        let music = wantsMusic ? document.media.first { $0.role == .music } : nil
         let cam = webcamCompanion(for: asset)
         let input = ShortBuildInput(candidate: candidate, asset: asset, analysis: analyses[asset.id], soundEffects: sfx, music: music,
                                     companionWebcam: cam, companionVoice: voiceCompanion(for: asset),
@@ -688,7 +695,7 @@ final class ProjectSession: ObservableObject, Identifiable {
         }
         app.logActivity(.captions, title: "Captions + framing: \(timeline.name)", detail: "\(timeline.captions?.words.count ?? 0) caption words · \(timeline.layout?.displayName ?? "Full Frame")")
         // No music / effects of the project's own: use the built-in library.
-        addLibraryAudio(toShort: timeline.id, music: app.settings.ai.aiMusic && music == nil, effects: options.soundEffects && sfx.isEmpty)
+        addLibraryAudio(toShort: timeline.id, music: wantsMusic && music == nil, effects: options.soundEffects && sfx.isEmpty)
         autoApplyBrandKit(to: timeline.id)
         if open { self.open(timelineID: timeline.id) }
         return timeline.id
