@@ -52,7 +52,7 @@ final class BrandKitTests: XCTestCase {
         XCTAssertEqual(t.tracks[0].clips.last?.name, "Outro")
         XCTAssertEqual(t.tracks[0].clips[1].start, 3, accuracy: 1e-9, "the stream starts after the intro")
         XCTAssertEqual(t.markers[0].time, 103, accuracy: 1e-9)
-        XCTAssertTrue(t.tracks[3].clips.contains { $0.name == "Intro" }, "intro sound comes along")
+        XCTAssertTrue(t.tracks.first { $0.name == "A1" }?.clips.contains { $0.name == "Intro" } ?? false, "intro sound comes along")
         XCTAssertEqual(t.tracks.first { $0.name == "V Brand" }?.clips.first?.duration ?? 0, 307, accuracy: 1e-9)
 
         BrandKitApplier.apply(kit(), assets: assets, to: &t, longForm: true)

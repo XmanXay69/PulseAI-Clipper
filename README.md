@@ -9,8 +9,8 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
 
 ## Download
 
-**[⬇ Download PULSE 1.0.1](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
-(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.0.1/NOTES.md)
+**[⬇ Download PULSE 1.1](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
+(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.1.0/NOTES.md)
 
 1. Double-click **PULSE.dmg** and drag **PULSE** into **Applications**.
 2. Open PULSE from Launchpad or Applications.
@@ -49,6 +49,12 @@ the viewer actually shows is rendered separately below.
   captions, meme pop-ups, sound effects and music (Subtle / Balanced / Energetic). Chapters included.
 - **Edit coach.** A live performance prediction (🔥 Viral potential … 🛠 Needs work) with the reasons behind
   it, plus suggestions as you edit — most with a one-click fix.
+- **Learns your taste.** 👍 / 👎 on clips teach PULSE what you find funny; it re-ranks everything with it.
+- **Chat replay.** Import a Twitch or YouTube chat replay — chat explosions (KEKW, LUL, "clip it") mark the moments.
+- **Storyboard.** Review Edit My VOD's moments before it builds: swap them, pick the hook.
+- **Overnight batch.** Queue several VODs; wake up to shorts, YouTube edits and exports.
+- **Brand kit.** Your logo, intro/outro and caption look on every edit.
+- **Calibrated scores.** Import your YouTube Studio / TikTok analytics and the score learns what works for your channel.
 - **TikTok Sans captions.** TikTok's own open-source typeface is built in and used by default.
 - **Time estimates.** See how long analysis will take before you start, and a countdown while it runs.
 - **AI clip finding.** Analyzes speech, silence, loudness spikes, scene changes and faces. Each candidate

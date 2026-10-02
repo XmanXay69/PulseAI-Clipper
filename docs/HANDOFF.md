@@ -11,7 +11,7 @@ works on macOS 15). CI compiles, tests and screenshots the app on a GitHub Actio
 
 ## Versions
 
-`VERSION` holds the current version (1.0.1). Release notes per version live in `versions/<version>/NOTES.md`
+`VERSION` holds the current version (1.1.0). Release notes per version live in `versions/<version>/NOTES.md`
 (the Release workflow prepends them to the GitHub Release); `versions/README.md` explains how to cut a new one.
 
 ## Download (the easy way)
@@ -179,6 +179,17 @@ prompt), cloud AI providers with live keys.
   blends the prior with the observed rate for the countdown.
 - **TikTok Sans (1.0)** — `Resources/Fonts/TikTokSans.ttf` (variable, OFL) registered at launch by
   `BundledFonts`; weights/slant via variation axes. Default for new text and most caption presets.
+- **1.1.0 features** —
+  taste: `PulseCore/Clips/TasteProfile.swift` (logistic model over ClipScores + tags; `applyingTaste` keeps
+  `basePotential`); chat: `PulseCore/Chat/ChatReplay.swift` (parsers, lexicon, `ChatSignals` with 5 s lag)
+  feeding `EngagementModel.compute(analysis:)`, stored in `MediaAnalysis.chat`; storyboard:
+  `LongFormEditor.planMoments` + `Views/LongFormStoryboard.swift`; batch: `State/BatchController.swift`
+  (drives the normal session steps, waits for the job center to go idle); brand kit:
+  `PulseCore/Templates/BrandKit.swift` + `ProjectSession+Brand.swift`; calibration:
+  `PulseCore/AutoEdit/Calibration.swift` (CSV import, title matching, ridge fit) with history in
+  Application Support/PULSE/performance-history.json; resume: `AnalysisCheckpoint` in
+  `AnalysisPipeline.swift`; logging/report: `PulseEngine/Support/PulseLog.swift` (~/Library/Logs/PULSE) and
+  `PulseApp/Support/ProblemReporter.swift`. All tuned on synthetic data — real VODs/analytics will need tuning.
 - Cross-dissolves (video + linked audio crossfade) need media handles; at the very start/end of a recording they
   fall back to a fade over lower tracks.
 - whisper.cpp itself must be installed with Homebrew (`brew install whisper-cpp`); models download in-app
