@@ -16,6 +16,7 @@ struct LongFormSheet: View {
     @AppStorage("longForm.sfx") private var soundEffects = true
     @AppStorage("longForm.music") private var music = true
     @AppStorage("longForm.restraint") private var restraint = LongFormOptions.Restraint.balanced.rawValue
+    @State private var choosing = false
 
     var options: LongFormOptions {
         LongFormOptions(minimumLength: minMinutes * 60, maximumLength: max(maxMinutes, minMinutes) * 60, coldOpen: coldOpen,
@@ -24,6 +25,20 @@ struct LongFormSheet: View {
     }
 
     var body: some View {
+        if choosing {
+            LongFormStoryboard(session: session, options: options, onBack: { choosing = false }) { segments, hookPayoff in
+                session.editMyVOD(options: options, segments: segments, hookPayoff: hookPayoff)
+                dismiss()
+            }
+            .frame(width: 820, height: 680)
+            .background(Theme.panel)
+            .preferredColorScheme(.dark)
+        } else {
+            settingsPage
+        }
+    }
+
+    var settingsPage: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider().overlay(Theme.divider)
@@ -148,6 +163,11 @@ struct LongFormSheet: View {
             }
             Spacer()
             Button("Cancel") { dismiss() }.buttonStyle(.pulseSecondary).keyboardShortcut(.cancelAction)
+            let analyzed = session.document.primaryAsset.flatMap { session.analyses[$0.id] }.map { $0.audio != nil || $0.transcript != nil } ?? false
+            Button { choosing = true } label: { Label("Choose Moments…", systemImage: "square.grid.3x2") }
+                .buttonStyle(.pulseSecondary)
+                .disabled(!analyzed)
+                .help(analyzed ? "See every moment PULSE picked, swap some out and choose the hook" : "Analyze the video first (or just press Edit My VOD)")
             Button {
                 session.editMyVOD(options: options)
                 dismiss()

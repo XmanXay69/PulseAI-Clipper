@@ -50,12 +50,39 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
 }
 
 /// A kept stretch of the recording in the edit, in source time.
-public struct LongFormSegment: Hashable, Sendable {
+public struct LongFormSegment: Hashable, Identifiable, Sendable {
+    public var id: UUID
     public var range: TimeRange
     public var payoff: Seconds
     public var potential: Int
     public var title: String
     public var tags: [ClipTag]
+    public var scores: ClipScores
+
+    public init(id: UUID = UUID(), range: TimeRange, payoff: Seconds, potential: Int, title: String, tags: [ClipTag], scores: ClipScores = ClipScores()) {
+        self.id = id
+        self.range = range
+        self.payoff = payoff
+        self.potential = potential
+        self.title = title
+        self.tags = tags
+        self.scores = scores
+    }
+}
+
+/// Every moment Edit My VOD considered, with the ones it would keep switched on — for the storyboard.
+public struct LongFormPlan: Sendable {
+    public var moments: [LongFormSegment]
+    public var selected: Set<UUID>
+    public var target: Seconds
+    /// The suggested hook (the strongest selected moment).
+    public var hook: UUID?
+
+    /// Kept length if built now (overlaps counted once, before dead air is cut).
+    public func keptLength(_ selection: Set<UUID>? = nil) -> Seconds {
+        let ids = selection ?? selected
+        return LongFormEditor.mergedLength(moments.filter { ids.contains($0.id) })
+    }
 }
 
 /// Sounds the editor may place (already imported into the project). Keys: "whoosh", "boom", "impact",
@@ -89,29 +116,41 @@ public struct LongFormResult: Sendable {
 public enum LongFormEditor {
     /// Picks the moments to keep (source time, chronological).
     public static func selectSegments(analysis: MediaAnalysis, options: LongFormOptions, taste: TasteProfile = TasteProfile()) -> [LongFormSegment] {
+        let plan = planMoments(analysis: analysis, options: options, taste: taste)
+        return merge(plan.moments.filter { plan.selected.contains($0.id) }, gap: 8)
+    }
+
+    /// Every candidate moment (about 1.6× more than needed, so there are alternatives to swap in) and the
+    /// ones Edit My VOD would keep.
+    public static func planMoments(analysis: MediaAnalysis, options: LongFormOptions, taste: TasteProfile = TasteProfile()) -> LongFormPlan {
         let input = ClipGenerationInput(analysis: analysis)
         let target = options.targetLength(forSource: analysis.duration)
+        let needed = max(8, Int(target / 25))
         let settings = ClipGenerationSettings(targetDuration: 45, aggressiveness: 1, minimumPotential: 0,
-                                              maxCandidates: max(8, Int(target / 25)))
+                                              maxCandidates: Int(Double(needed) * 1.6))
         let generator = ClipGenerator(input: input, settings: settings)
         let candidates = generator.generate().applyingTaste(taste).sorted { $0.potential > $1.potential }
         guard !candidates.isEmpty else {
             // Nothing stood out (or no audio): keep the whole thing.
-            return [LongFormSegment(range: TimeRange(start: 0, end: analysis.duration), payoff: analysis.duration / 2, potential: 30, title: "", tags: [])]
+            let whole = LongFormSegment(range: TimeRange(start: 0, end: analysis.duration), payoff: analysis.duration / 2, potential: 30, title: "", tags: [])
+            return LongFormPlan(moments: [whole], selected: [whole.id], target: target, hook: nil)
+        }
+        let moments = candidates.map {
+            LongFormSegment(range: $0.range, payoff: $0.payoffTime, potential: $0.potential, title: $0.title, tags: $0.tags, scores: $0.scores)
         }
         // Dead air comes out later, so pick a bit more than the target.
         let budget = target * (options.cutDeadAir ? 1.12 : 1)
         var chosen: [LongFormSegment] = []
         var total: Seconds = 0
-        for c in candidates {
+        for m in moments {
             if total >= budget { break }
             // Weak moments only make it in while we're well short of the target.
-            if c.potential < 35 && total > target * 0.6 { continue }
-            // Overlapping picks merge into one longer stretch below.
-            chosen.append(LongFormSegment(range: c.range, payoff: c.payoffTime, potential: c.potential, title: c.title, tags: c.tags))
+            if m.potential < 35 && total > target * 0.6 { continue }
+            chosen.append(m)
             total = mergedLength(chosen)
         }
-        return merge(chosen, gap: 8)
+        return LongFormPlan(moments: moments.sorted { $0.range.start < $1.range.start }, selected: Set(chosen.map(\.id)),
+                            target: target, hook: chosen.max { $0.potential < $1.potential }?.id)
     }
 
     static func mergedLength(_ segments: [LongFormSegment]) -> Seconds {
@@ -140,7 +179,7 @@ public enum LongFormEditor {
 
     public static func build(asset: MediaAsset, analysis: MediaAnalysis, options: LongFormOptions = LongFormOptions(),
                              sounds: LongFormSounds = LongFormSounds(), taste: TasteProfile = TasteProfile(),
-                             segments chosen: [LongFormSegment]? = nil) -> LongFormResult {
+                             segments chosen: [LongFormSegment]? = nil, hookPayoff: Seconds? = nil) -> LongFormResult {
         let segments = chosen.map { LongFormEditor.merge($0, gap: 8) } ?? selectSegments(analysis: analysis, options: options, taste: taste)
         let size = asset.metadata.size.isEmpty ? Size2(1920, 1080) : asset.metadata.size
         let landscape = size.aspect >= 1
@@ -176,8 +215,15 @@ public enum LongFormEditor {
         // Cold open: the single best moment, tight around the payoff.
         var cursor: Seconds = 0
         var hookRange: TimeRange?
-        if options.coldOpen, let best = segments.max(by: { $0.potential < $1.potential }), analysis.duration > 120 {
+        var hookMoment: Seconds?
+        if options.coldOpen, var best = segments.max(by: { $0.potential < $1.potential }), analysis.duration > 120 {
+            // The storyboard can pick a different moment for the hook.
+            if let hookPayoff, let picked = segments.first(where: { $0.range.contains(hookPayoff) }) {
+                best = picked
+                best.payoff = hookPayoff
+            }
             let range = hookWindow(around: best.payoff, analysis: analysis)
+            hookMoment = best.payoff
             place(range, at: 0, name: "Hook")
             hookRange = range
             cursor = range.duration
@@ -245,9 +291,8 @@ public enum LongFormEditor {
             for s in segments.sorted(by: { $0.potential > $1.potential }) where s.potential >= 45 {
                 if let t = timelineTime(ofSource: s.payoff) { moments.append(.reaction(t)) }
             }
-            if let hookRange, hookRange.contains(segments.max(by: { $0.potential < $1.potential })?.payoff ?? -1) {
-                let payoff = segments.max(by: { $0.potential < $1.potential })!.payoff
-                moments.append(.reaction(payoff - hookRange.start))
+            if let hookRange, let hookMoment, hookRange.contains(hookMoment) {
+                moments.append(.reaction(hookMoment - hookRange.start))
             }
             var settings = PunchInSettings()
             settings.reactionZoom = 1.16

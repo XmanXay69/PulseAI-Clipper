@@ -116,4 +116,22 @@ final class LongFormEditorTests: XCTestCase {
         XCTAssertEqual(o.targetLength(forSource: 3600), 600, "an hour → 10 min")
         XCTAssertEqual(o.targetLength(forSource: 600), 360, accuracy: 1e-9, "short recordings keep 60 %")
     }
+
+    func testStoryboardPlanOffersAlternativesAndBuildsTheHandPickedMoments() throws {
+        let (asset, analysis) = stream()
+        let plan = LongFormEditor.planMoments(analysis: analysis, options: LongFormOptions())
+        XCTAssertGreaterThan(plan.moments.count, plan.selected.count, "there are alternatives to swap in")
+        XCTAssertTrue(zip(plan.moments, plan.moments.dropFirst()).allSatisfy { $0.range.start <= $1.range.start }, "listed in stream order")
+        XCTAssertNotNil(plan.hook)
+        XCTAssertGreaterThan(plan.keptLength(), 0)
+
+        // Keep just three moments and open with the second one.
+        let picked = Array(plan.moments.filter { plan.selected.contains($0.id) }.prefix(3))
+        let hook = picked[1]
+        let result = LongFormEditor.build(asset: asset, analysis: analysis, segments: picked, hookPayoff: hook.payoff)
+        let story = result.timeline.tracks[0].clips.dropFirst()
+        XCTAssertTrue(story.allSatisfy { clip in picked.contains { $0.range.expanded(by: 8).contains(clip.sourceIn) } }, "only the picked moments")
+        let opener = result.timeline.tracks[0].clips[0]
+        XCTAssertTrue(TimeRange(start: opener.sourceIn, end: opener.sourceOut).contains(hook.payoff), "the chosen hook opens the video")
+    }
 }
