@@ -58,6 +58,8 @@ final class ProjectSession: ObservableObject, Identifiable {
     @Published var leftTab: LeftPanelTab = .media
     @Published var candidateSort: CandidateSort = .potential
     @Published var analysisProgress: [UUID: EngineProgress] = [:]
+    /// Engagement curves per analyzed asset (the coach reads them on every edit).
+    var signalCache: [UUID: EngagementSignals] = [:]
     /// Estimated seconds left for each running analysis.
     @Published var analysisRemaining: [UUID: Seconds] = [:]
     @Published var lastAIReport: String?

@@ -15,7 +15,7 @@ struct CaptionsWorkspace: View {
         }
         let clipRanges = timeline.allClips.filter { $0.assetID == assetID }.map(\.sourceRange)
         let range = timeline.origin?.sourceRange ?? clipRanges.dropFirst().reduce(clipRanges.first ?? .zero) { $0.union($1) }
-        let style = CaptionStyle.preset(named: session.app.settings.ai.captionPresetName) ?? .bold
+        let style = CaptionStyle.preset(named: session.app.settings.ai.captionPresetName) ?? .tiktok
         session.editTimeline("Generate Captions") { t in
             t.captions = CaptionTrack.make(from: transcript, range: range, assetID: assetID, style: style, emphasize: true)
         }

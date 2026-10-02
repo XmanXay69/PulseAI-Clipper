@@ -17,6 +17,7 @@ struct RootView: View {
                 content
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.window)
+                if app.session != nil { PageBar() }
             }
         }
         .background(Theme.window)
@@ -106,8 +107,10 @@ final class URLCollector: @unchecked Sendable {
 
 struct Sidebar: View {
     @EnvironmentObject var app: AppModel
+    /// On the working pages the sidebar starts as an icon rail; this remembers if you opened it there.
+    @AppStorage("sidebarExpandedOnWorkspacePages") private var expandedOnWorkspace = false
 
-    var collapsed: Bool { app.settings.sidebarCollapsed }
+    var collapsed: Bool { app.section.isWorkspace ? !expandedOnWorkspace : app.settings.sidebarCollapsed }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -154,7 +157,9 @@ struct Sidebar: View {
             Spacer()
             SidebarItem(section: .settings, collapsed: collapsed)
             Button {
-                withAnimation(.easeOut(duration: 0.18)) { app.settings.sidebarCollapsed.toggle() }
+                withAnimation(.easeOut(duration: 0.18)) {
+                    if app.section.isWorkspace { expandedOnWorkspace.toggle() } else { app.settings.sidebarCollapsed.toggle() }
+                }
             } label: {
                 Image(systemName: collapsed ? "sidebar.right" : "sidebar.left")
                     .font(.system(size: 12))
@@ -212,6 +217,77 @@ struct SidebarItem: View {
         .opacity(disabled ? 0.45 : 1)
         .onHover { hovering = $0 }
         .help(collapsed ? section.title : "")
+    }
+}
+
+// MARK: Page bar
+
+/// The workflow along the bottom of the window, one click per stage — Media → AI Clips → Edit →
+/// Captions → Deliver — like the page bar of a pro editing suite.
+struct PageBar: View {
+    @EnvironmentObject var app: AppModel
+
+    static let pages: [(SidebarSection, String, String)] = [
+        (.media, "Media", "photo.stack"),
+        (.aiClips, "AI Clips", "sparkles"),
+        (.editor, "Edit", "timeline.selection"),
+        (.captions, "Captions", "captions.bubble"),
+        (.exports, "Deliver", "paperplane"),
+    ]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Button { app.section = .home } label: {
+                Image(systemName: "house").font(.system(size: 13)).foregroundStyle(Theme.textTertiary).frame(width: 40, height: 40)
+            }
+            .buttonStyle(.plain)
+            .help("Home")
+            Spacer(minLength: 8)
+            HStack(spacing: 4) {
+                ForEach(Self.pages, id: \.0) { page in
+                    PageBarItem(section: page.0, title: page.1, symbol: page.2)
+                }
+            }
+            Spacer(minLength: 8)
+            Button { app.showLongFormSheet = true } label: {
+                Label("Edit My VOD", systemImage: "film.stack").font(.system(size: 11, weight: .medium))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.ai)
+            .padding(.trailing, 14)
+            .help("Turn the whole stream into a 10–20 minute YouTube video")
+        }
+        .frame(height: 46)
+        .background(Theme.panel)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.divider).frame(height: 1) }
+    }
+}
+
+struct PageBarItem: View {
+    @EnvironmentObject var app: AppModel
+    let section: SidebarSection
+    let title: String
+    let symbol: String
+    @State private var hovering = false
+
+    var selected: Bool { app.section == section }
+
+    var body: some View {
+        Button { app.section = section } label: {
+            VStack(spacing: 3) {
+                Image(systemName: symbol).font(.system(size: 14, weight: selected ? .semibold : .regular))
+                Text(title).font(.system(size: 10, weight: selected ? .semibold : .medium))
+            }
+            .foregroundStyle(selected ? Theme.accent : (hovering ? Theme.textPrimary : Theme.textSecondary))
+            .frame(width: 74, height: 40)
+            .background(alignment: .bottom) {
+                if selected { Capsule().fill(Theme.accent).frame(width: 22, height: 2).offset(y: 1) }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help(title)
     }
 }
 

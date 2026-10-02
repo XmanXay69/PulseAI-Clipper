@@ -5,13 +5,13 @@ import SwiftUI
 /// PULSE design tokens. Dark, dense, professional — subtle borders, compact controls,
 /// a single energetic accent ("pulse") plus a violet reserved for AI features.
 enum Theme {
-    // Surfaces (darkest → lightest).
-    static let window = Color(hex: 0x0B0C0F)
-    static let panel = Color(hex: 0x121317)
-    static let panelRaised = Color(hex: 0x181A1F)
-    static let control = Color(hex: 0x20232A)
-    static let controlHover = Color(hex: 0x292D36)
-    static let well = Color(hex: 0x0E0F12)
+    // Surfaces (darkest → lightest): neutral graphite, like a pro grading/editing suite.
+    static let window = Color(hex: 0x151517)
+    static let panel = Color(hex: 0x1C1C1F)
+    static let panelRaised = Color(hex: 0x232327)
+    static let control = Color(hex: 0x2C2C31)
+    static let controlHover = Color(hex: 0x36363C)
+    static let well = Color(hex: 0x101012)
 
     static let border = Color.white.opacity(0.07)
     static let borderStrong = Color.white.opacity(0.13)

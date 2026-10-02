@@ -9,6 +9,7 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 hero
+                startHere
                 quickActions
                 HStack(alignment: .top, spacing: 18) {
                     recentProjects.frame(maxWidth: .infinity)
@@ -31,10 +32,10 @@ struct HomeView: View {
     var hero: some View {
         HStack(alignment: .center, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Turn long streams into shorts.")
+                Text("Turn long streams into shorts and YouTube videos.")
                     .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
-                Text("Drop in a VOD, podcast or gameplay recording. PULSE finds the moments, builds captioned 9:16 edits — and you stay in full control.")
+                Text("Drop in a VOD, podcast or gameplay recording. PULSE finds the moments and builds the edit — vertical shorts or a full YouTube video — and you stay in full control.")
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.textSecondary)
                     .frame(maxWidth: 560, alignment: .leading)
@@ -43,6 +44,26 @@ struct HomeView: View {
             HStack(spacing: 6) {
                 ProcessingBadge(location: .local)
                 Text("Runs on your Mac").font(.pulseCaption).foregroundStyle(Theme.textTertiary)
+            }
+        }
+    }
+
+    /// The two things people come here to do, front and center.
+    var startHere: some View {
+        HStack(spacing: 14) {
+            StartCard(symbol: "rectangle.portrait.on.rectangle.portrait.angled", title: "Make Shorts",
+                      subtitle: "Find the best moments and get captioned 9:16 clips for TikTok, Shorts and Reels.",
+                      step: app.session?.document.primaryAsset == nil ? "Import a video" : "Find clips", color: Theme.accent) {
+                if let session = app.session, let asset = session.document.primaryAsset {
+                    if session.document.visibleCandidates.isEmpty { session.generateCandidates(assetID: asset.id) } else { app.section = .aiClips }
+                } else {
+                    app.showImportPanel()
+                }
+            }
+            StartCard(symbol: "film.stack", title: "Make a YouTube Video",
+                      subtitle: "Cut the whole stream to 10–20 minutes with a hook, zooms, captions, memes, music and sound effects.",
+                      step: app.session?.document.primaryAsset == nil ? "Import a video" : "Edit My VOD", color: Theme.ai) {
+                if app.session?.document.primaryAsset != nil { app.showLongFormSheet = true } else { app.showImportPanel() }
             }
         }
     }
@@ -150,6 +171,48 @@ struct HomeView: View {
                 KeyValueRow(key: "Cache (proxies, thumbnails)", value: f.string(fromByteCount: info.cacheBytes))
             }
         }
+    }
+}
+
+struct StartCard: View {
+    let symbol: String
+    let title: String
+    let subtitle: String
+    let step: String
+    let color: Color
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .top, spacing: 16) {
+                Image(systemName: symbol)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(color)
+                    .frame(width: 54, height: 54)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(color.opacity(0.15)))
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title).font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.textPrimary)
+                    Text(subtitle).font(.system(size: 12)).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 4) {
+                        Text(step).font(.system(size: 12, weight: .semibold))
+                        Image(systemName: "arrow.right").font(.system(size: 10, weight: .bold))
+                    }
+                    .foregroundStyle(color)
+                    .padding(.top, 2)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 14).fill(LinearGradient(colors: [color.opacity(hovering ? 0.16 : 0.1), Theme.panelRaised],
+                                                                                startPoint: .topLeading, endPoint: .bottomTrailing)))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(hovering ? color.opacity(0.6) : color.opacity(0.25)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
     }
 }
 

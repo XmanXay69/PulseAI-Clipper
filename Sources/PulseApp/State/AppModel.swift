@@ -56,6 +56,14 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Full-width working pages: the sidebar folds to icons so the timeline gets the room.
+    var isWorkspace: Bool {
+        switch self {
+        case .aiClips, .editor, .captions: return true
+        default: return false
+        }
+    }
+
     var needsProject: Bool {
         switch self {
         case .aiClips, .editor, .captions, .media: return true
