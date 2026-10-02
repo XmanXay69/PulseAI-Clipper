@@ -34,7 +34,6 @@ public struct AnalysisPipeline: Sendable {
                                   transcribe: transcribe && importedTranscript == nil, hasVideo: asset.metadata.hasVideo && asset.kind == .video)
         }
     }
-    }
 
     /// A companion recording carrying the speech. `delta` maps times: voiceTime = mainTime + delta.
     public struct VoiceSource: Sendable {

@@ -444,7 +444,7 @@ final class ProjectSession: ObservableObject, Identifiable {
 
     // MARK: Analysis & clips
 
-    func analyze(assetID: UUID, generateClips: Bool = true) {
+    func analyze(assetID: UUID, generateClips: Bool = true, then followUp: (@MainActor () -> Void)? = nil) {
         guard let asset = document.asset(id: assetID) else { return }
         let ai = app.settings.ai
         let imported = analyses[assetID]?.transcript
@@ -480,7 +480,7 @@ final class ProjectSession: ObservableObject, Identifiable {
                 if !output.warnings.isEmpty {
                     self.app.presentMessage(title: "Analysis finished with notes", message: output.warnings.joined(separator: "\n\n"))
                 }
-                if generateClips { self.generateCandidates(assetID: assetID) }
+                if let followUp { followUp() } else if generateClips { self.generateCandidates(assetID: assetID) }
             } catch {
                 self.analysisProgress[assetID] = nil
                 self.analysisRemaining[assetID] = nil

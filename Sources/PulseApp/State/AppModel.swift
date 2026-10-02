@@ -98,6 +98,8 @@ final class AppModel: ObservableObject {
     let exports = ExportQueueController()
     let recording = RecordingController()
     @Published var showRecordSheet = false
+    /// "Edit My VOD" — the long-form YouTube edit sheet.
+    @Published var showLongFormSheet = false
     private var recordingObserver: AnyCancellable?
     let store = ProjectStore()
     let recovery = RecoveryManager(directory: PulseDirectories.recovery)

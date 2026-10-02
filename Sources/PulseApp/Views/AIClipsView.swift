@@ -80,7 +80,7 @@ struct AIClipsView: View {
                 ForEach(LengthFilter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
-            .frame(width: 250)
+            .frame(width: 210)
             Menu {
                 Button("All tags") { tagFilter = nil }
                 Divider()
@@ -97,6 +97,10 @@ struct AIClipsView: View {
             } label: { Label(session.candidateSort.displayName, systemImage: "arrow.up.arrow.down") }
                 .menuStyle(.borderlessButton)
                 .frame(width: 140)
+            Button { app.showLongFormSheet = true } label: { Label("Edit My VOD", systemImage: "film.stack") }
+                .buttonStyle(.pulseAI)
+                .disabled(session.document.primaryAsset == nil)
+                .help("Turn the whole stream into a 10–20 minute YouTube video")
             Button { regenerateAll() } label: { Label("Find Again", systemImage: "arrow.clockwise") }
                 .buttonStyle(.pulseSecondary)
                 .disabled(session.document.primaryAsset == nil)

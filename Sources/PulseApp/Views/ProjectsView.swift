@@ -263,6 +263,11 @@ struct ImportProjectView: View {
                     }
                     .buttonStyle(.pulseAI)
                     .disabled(session.analysisProgress[asset.id] != nil)
+                    Button { app.showLongFormSheet = true } label: {
+                        Label("Edit My VOD into a YouTube Video", systemImage: "film.stack").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.pulseSecondary)
+                    .help("Cut the stream down to a 10–20 minute video with a hook, zooms, captions, memes, music and sound effects")
                     Text("Main recording: \(asset.name)").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
                 } else {
                     Text("Import a video to analyze it.").font(.pulseCaption).foregroundStyle(Theme.textTertiary)

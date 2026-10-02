@@ -264,6 +264,35 @@ enum UISnapshotter {
                     await captureViewerFrame(app: app, name: "16-multicam-grid-viewer-frame", to: directory)
                 }
             }
+            // Edit My VOD: the options sheet, then the finished long-form edit with the coach.
+            if let session = app.session {
+                app.section = .aiClips
+                app.showLongFormSheet = true
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                capture(app: app, name: "17-longform-sheet", to: directory)
+                app.showLongFormSheet = false
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                let before = Set(session.document.timelines.map(\.id))
+                var options = LongFormOptions()
+                options.minimumLength = 20
+                session.editMyVOD(options: options)
+                var waited = 0.0
+                while !session.document.timelines.contains(where: { !before.contains($0.id) }) && waited < 120 {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    waited += 0.5
+                }
+                if let edit = session.document.timelines.first(where: { !before.contains($0.id) }) {
+                    FileHandle.standardError.write(Data("UI-LONGFORM \(Timecode.short(edit.duration)) after \(waited)s: \(session.lastAIReport ?? "")\n".utf8))
+                    if let review = session.activeReview {
+                        FileHandle.standardError.write(Data("UI-COACH score \(review.prediction.score) \(review.prediction.tier.displayName): \(review.suggestions.map(\.title).joined(separator: " | "))\n".utf8))
+                    }
+                    session.selectedClipIDs = []
+                    session.playback.seek(to: 1.2)
+                    try? await Task.sleep(nanoseconds: 2_500_000_000)
+                    capture(app: app, name: "18-longform-edit", to: directory)
+                    await captureViewerFrame(app: app, name: "18-longform-edit-viewer-frame", to: directory)
+                }
+            }
             NSApp.terminate(nil)
         }
     }
