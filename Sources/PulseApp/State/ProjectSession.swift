@@ -60,6 +60,8 @@ final class ProjectSession: ObservableObject, Identifiable {
     @Published var analysisProgress: [UUID: EngineProgress] = [:]
     /// Engagement curves per analyzed asset (the coach reads them on every edit).
     var signalCache: [UUID: EngagementSignals] = [:]
+    /// A chat replay dropped in before its video finished importing.
+    var pendingChat: ChatLog?
     /// Estimated seconds left for each running analysis.
     @Published var analysisRemaining: [UUID: Seconds] = [:]
     @Published var lastAIReport: String?
@@ -336,6 +338,12 @@ final class ProjectSession: ObservableObject, Identifiable {
     }
 
     func importMedia(_ urls: [URL]) {
+        // Chat replays (Twitch / YouTube exports) attach to the main recording instead of becoming media.
+        var urls = urls
+        let chatFiles = urls.filter { ["json", "csv", "txt", "log"].contains($0.pathExtension.lowercased()) && Self.readChat($0) != nil }
+        urls.removeAll { chatFiles.contains($0) }
+        for url in chatFiles { importChat(url, for: nil) }
+        if urls.isEmpty { return }
         let plan = ImportPlan.make(urls: urls, existingPaths: Set(document.media.map(\.path)))
         if !plan.rejected.isEmpty {
             app.presentMessage(title: "Some files weren't imported", message: plan.rejected.map { "\($0.url.lastPathComponent): \($0.reason)" }.joined(separator: "\n"))
@@ -371,6 +379,10 @@ final class ProjectSession: ObservableObject, Identifiable {
                     }
                 }
                 self.save()
+                if let chat = self.pendingChat, let main = self.document.primaryAsset {
+                    self.pendingChat = nil
+                    self.attachChat(chat, to: main.id)
+                }
                 // Offer proxies for heavy media.
                 for asset in imported where asset.kind == .video && self.app.settings.proxy.shouldGenerateProxy(sourceHeight: asset.metadata.height, duration: asset.metadata.duration) {
                     self.generateProxy(assetID: asset.id)
@@ -402,6 +414,60 @@ final class ProjectSession: ObservableObject, Identifiable {
         } catch {
             app.present(error, title: "Couldn't read the transcript")
         }
+    }
+
+    // MARK: Chat replay
+
+    static func readChat(_ url: URL) -> ChatLog? {
+        guard let data = try? Data(contentsOf: url), data.count < 400_000_000 else { return nil }
+        return try? ChatReplayParser.parse(data, fileName: url.lastPathComponent)
+    }
+
+    /// Adds a Twitch / YouTube chat replay to a recording; clips are re-scored with it.
+    func importChat(_ url: URL, for assetID: UUID?) {
+        guard let chat = Self.readChat(url) else {
+            app.present(ChatParseError.unrecognized, title: "Couldn't read the chat replay")
+            return
+        }
+        PulseLog.info("Chat replay imported: \(chat.messages.count) messages (\(chat.format))")
+        guard let target = assetID ?? document.primaryAsset?.id else {
+            pendingChat = chat
+            app.toast("Chat replay ready — it'll attach to the video once it's imported")
+            return
+        }
+        attachChat(chat, to: target)
+    }
+
+    func attachChat(_ chat: ChatLog, to assetID: UUID) {
+        var analysis = analyses[assetID] ?? MediaAnalysis(assetID: assetID, duration: document.asset(id: assetID)?.metadata.duration ?? (chat.messages.last?.time ?? 0))
+        analysis.chat = chat
+        setAnalysis(analysis)
+        signalCache[assetID] = nil
+        app.logActivity(.analysis, title: "Chat replay added", detail: "\(chat.messages.count) messages · \(chat.format)")
+        if analysis.audio != nil || analysis.transcript != nil {
+            app.toast("Chat replay added (\(chat.messages.count) messages) — re-scoring clips with it")
+            generateCandidates(assetID: assetID)
+        } else {
+            app.toast("Chat replay added (\(chat.messages.count) messages) — it'll be used when the video is analyzed")
+        }
+    }
+
+    /// Moves the chat earlier/later when it doesn't line up with the video (e.g. the VOD was trimmed).
+    func shiftChat(by seconds: Seconds, assetID: UUID) {
+        guard var analysis = analyses[assetID], var chat = analysis.chat else { return }
+        chat.offset += seconds
+        analysis.chat = chat
+        setAnalysis(analysis)
+        signalCache[assetID] = nil
+        app.toast(String(format: "Chat offset %+.0f s", chat.offset))
+    }
+
+    func removeChat(assetID: UUID) {
+        guard var analysis = analyses[assetID], analysis.chat != nil else { return }
+        analysis.chat = nil
+        setAnalysis(analysis)
+        signalCache[assetID] = nil
+        app.toast("Chat replay removed")
     }
 
     func setAnalysis(_ analysis: MediaAnalysis) {
@@ -499,7 +565,9 @@ final class ProjectSession: ObservableObject, Identifiable {
                 }
                 // Learn this Mac's speed so the next estimate is closer.
                 self.app.settings.ai.analysisSpeed.learn(stageSeconds: output.stageSeconds, mediaDuration: asset.metadata.duration)
-                self.setAnalysis(output.analysis)
+                var analysis = output.analysis
+                analysis.chat = self.analyses[assetID]?.chat // an imported chat replay survives re-analysis
+                self.setAnalysis(analysis)
                 self.edit("Analyze Video") { doc in
                     doc.updateAsset(id: assetID) { $0.preparation.analysisState = .complete }
                 }

@@ -120,7 +120,7 @@ public enum EditCoach {
         let duration = timeline.duration
         let program = Program(timeline: timeline, assetID: analysis?.assetID ?? timeline.origin?.assetID)
         let signals = precomputed ?? analysis.map {
-            EngagementModel.compute(duration: $0.duration, audio: $0.audio, transcript: $0.transcript, visual: $0.visual)
+            EngagementModel.compute(analysis: $0)
         }
         var suggestions: [EditSuggestion] = []
         var factors: [PerformancePrediction.Factor] = []

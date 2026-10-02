@@ -203,7 +203,7 @@ public enum ShortBuilder {
         timeline.layout = layout
 
         let signals: EngagementSignals? = analysis.map {
-            EngagementModel.compute(duration: $0.duration, audio: $0.audio, transcript: $0.transcript, visual: $0.visual)
+            EngagementModel.compute(analysis: $0)
         }
 
         // Dead air & fillers — recorded as restorable removed sections.
@@ -358,7 +358,7 @@ public enum ShortBuilder {
     public static func applyDynamicLayout(to timeline: inout Timeline, assetID: UUID, analysis: MediaAnalysis, context: LayoutContext) {
         let sources = timeline.allClips.filter { $0.assetID == assetID }.map(\.sourceRange)
         guard let lo = sources.map(\.start).min(), let hi = sources.map(\.end).max(), hi > lo else { return }
-        let signals = EngagementModel.compute(duration: analysis.duration, audio: analysis.audio, transcript: analysis.transcript, visual: analysis.visual)
+        let signals = EngagementModel.compute(analysis: analysis)
         applyDynamicLayout(to: &timeline, assetID: assetID, range: TimeRange(start: lo, end: hi), signals: signals, context: context)
     }
 }

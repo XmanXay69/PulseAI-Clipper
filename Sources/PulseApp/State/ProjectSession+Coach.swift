@@ -7,7 +7,7 @@ extension ProjectSession {
     func signals(for assetID: UUID) -> EngagementSignals? {
         guard let analysis = analyses[assetID] else { return nil }
         if let cached = signalCache[assetID], cached.count == max(1, Int((analysis.duration / cached.step).rounded(.up))) { return cached }
-        let signals = EngagementModel.compute(duration: analysis.duration, audio: analysis.audio, transcript: analysis.transcript, visual: analysis.visual)
+        let signals = EngagementModel.compute(analysis: analysis)
         signalCache[assetID] = signals
         return signals
     }

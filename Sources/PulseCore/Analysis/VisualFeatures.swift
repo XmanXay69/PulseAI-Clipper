@@ -179,6 +179,8 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
     public var profile: ContentProfile
     /// Which steps ran locally vs in the cloud (shown in the privacy badge).
     public var processing: [String: ProcessingLocation]
+    /// Imported chat replay (Twitch / YouTube), if any.
+    public var chat: ChatLog?
 
     public init(assetID: UUID, duration: Seconds, audio: AudioFeatureSeries? = nil, visual: VisualFeatureSeries? = nil,
                 transcript: Transcript? = nil, webcam: WebcamEstimate? = nil, profile: ContentProfile = .unknown,

@@ -55,8 +55,11 @@ public struct ClipGenerationInput: Sendable {
     public var transcript: Transcript?
     public var visual: VisualFeatureSeries?
     public var profile: ContentProfile
+    public var chat: ChatLog?
 
-    public init(assetID: UUID, duration: Seconds, audio: AudioFeatureSeries?, transcript: Transcript?, visual: VisualFeatureSeries?, profile: ContentProfile = .unknown) {
+    public init(assetID: UUID, duration: Seconds, audio: AudioFeatureSeries?, transcript: Transcript?, visual: VisualFeatureSeries?, profile: ContentProfile = .unknown,
+                chat: ChatLog? = nil) {
+        self.chat = chat
         self.assetID = assetID
         self.duration = duration
         self.audio = audio
@@ -66,7 +69,8 @@ public struct ClipGenerationInput: Sendable {
     }
 
     public init(analysis: MediaAnalysis) {
-        self.init(assetID: analysis.assetID, duration: analysis.duration, audio: analysis.audio, transcript: analysis.transcript, visual: analysis.visual, profile: analysis.profile)
+        self.init(assetID: analysis.assetID, duration: analysis.duration, audio: analysis.audio, transcript: analysis.transcript, visual: analysis.visual, profile: analysis.profile,
+                  chat: analysis.chat)
     }
 }
 
@@ -83,7 +87,7 @@ public struct ClipGenerator: Sendable {
     public init(input: ClipGenerationInput, settings: ClipGenerationSettings) {
         self.input = input
         self.settings = settings
-        self.signals = EngagementModel.compute(duration: input.duration, audio: input.audio, transcript: input.transcript, visual: input.visual)
+        self.signals = EngagementModel.compute(duration: input.duration, audio: input.audio, transcript: input.transcript, visual: input.visual, chat: input.chat)
         self.sentences = input.transcript?.sentences() ?? []
         self.excitementP95 = max(SeriesMath.percentile(signals.excitement, 0.95), 0.05)
         self.excitementP99 = max(SeriesMath.percentile(signals.excitement, 0.99), 0.08)

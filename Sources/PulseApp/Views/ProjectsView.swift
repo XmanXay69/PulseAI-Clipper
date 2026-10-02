@@ -322,6 +322,15 @@ struct ImportedAssetRow: View {
                 Button("Set as Main Recording") { session.edit("Set Main Recording") { $0.primaryAssetID = asset.id } }
                 Button("Analyze") { session.analyze(assetID: asset.id) }
                 Button("Import Transcript (SRT/VTT)…") { pickTranscript() }
+                Button("Import Chat Replay (Twitch / YouTube)…") { pickChat() }
+                if session.analyses[asset.id]?.chat != nil {
+                    Menu("Chat Replay") {
+                        Button("Chat 5 s Earlier") { session.shiftChat(by: -5, assetID: asset.id) }
+                        Button("Chat 5 s Later") { session.shiftChat(by: 5, assetID: asset.id) }
+                        Divider()
+                        Button("Remove Chat Replay") { session.removeChat(assetID: asset.id) }
+                    }
+                }
                 Button("Generate Proxy") { session.generateProxy(assetID: asset.id) }
                 Button("Add to Timeline") { session.placeAsset(asset.id) }
                 if asset.availability == .missing { Button("Relink…") { relink() } }
@@ -352,11 +361,19 @@ struct ImportedAssetRow: View {
                 if analysis.audio != nil { TagChip(text: "Audio", color: Theme.success, symbol: "waveform") }
                 if let v = analysis.visual { TagChip(text: "\(v.sceneCuts.count) cuts", color: Theme.success, symbol: "film") }
                 if analysis.webcam != nil { TagChip(text: "Facecam", color: Theme.success, symbol: "person.crop.square") }
+                if let chat = analysis.chat { TagChip(text: "\(chat.messages.count) chat", color: Theme.info, symbol: "bubble.left.and.bubble.right") }
                 TagChip(text: analysis.profile.displayName, color: Theme.ai)
             }
         } else {
             Text("Not analyzed").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
         }
+    }
+
+    func pickChat() {
+        let panel = NSOpenPanel()
+        panel.message = "Choose a chat replay: TwitchDownloader JSON, chat-downloader JSON/CSV, YouTube .live_chat.json, or a text log."
+        panel.allowedContentTypes = ["json", "csv", "txt", "log"].compactMap { UTType(filenameExtension: $0) }
+        if panel.runModal() == .OK, let url = panel.url { session.importChat(url, for: asset.id) }
     }
 
     func pickTranscript() {

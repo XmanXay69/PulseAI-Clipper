@@ -56,6 +56,8 @@ public struct EngagementSignals: Sendable {
     public var speech: [Float]
     /// Combined excitement curve (smoothed), 0…~1.
     public var excitement: [Float]
+    /// Chat bursts (0…1), when a chat replay was imported; empty otherwise.
+    public var chat: [Float] = []
 
     public func index(at time: Seconds) -> Int {
         Int((time / step).rounded(.down)).clamped(0, Swift.max(count - 1, 0))
@@ -91,7 +93,13 @@ public struct EngagementSignals: Sendable {
 }
 
 public enum EngagementModel {
-    public static func compute(duration: Seconds, audio: AudioFeatureSeries?, transcript: Transcript?, visual: VisualFeatureSeries?, step: Seconds = 0.5) -> EngagementSignals {
+    /// All the signals of an analysis (including an imported chat replay).
+    public static func compute(analysis: MediaAnalysis, step: Seconds = 0.5) -> EngagementSignals {
+        compute(duration: analysis.duration, audio: analysis.audio, transcript: analysis.transcript, visual: analysis.visual, chat: analysis.chat, step: step)
+    }
+
+    public static func compute(duration: Seconds, audio: AudioFeatureSeries?, transcript: Transcript?, visual: VisualFeatureSeries?,
+                               chat: ChatLog? = nil, step: Seconds = 0.5) -> EngagementSignals {
         let n = max(1, Int((duration / step).rounded(.up)))
         var loudnessDB = [Float](repeating: -60, count: n)
         var flux = [Float](repeating: 0, count: n)
@@ -176,6 +184,14 @@ public enum EngagementModel {
             }
         }
 
+        // Chat: a burst of messages (especially laugh/hype emotes) is one of the clearest signs a moment landed.
+        var chatActivity: [Float] = []
+        if let chat, !chat.isEmpty {
+            let c = ChatSignals.compute(chat, duration: duration, step: step)
+            chatActivity = c.activity
+            for i in 0..<n where i < c.laughter.count { laughter[i] += c.laughter[i] }
+        }
+
         var excitement = [Float](repeating: 0, count: n)
         for i in 0..<n {
             let l = loudness[i].clamped(0, 4) / 4
@@ -186,11 +202,12 @@ public enum EngagementModel {
             let la = Swift.min(laughter[i], 1)
             let m = motion[i].clamped(0, 3) / 3
             excitement[i] = 0.26 * l + 0.16 * s + 0.08 * f + 0.12 * r + 0.2 * k + 0.14 * la + 0.08 * m + 0.04 * cuts[i]
+            if i < chatActivity.count { excitement[i] = excitement[i] * 0.75 + chatActivity[i] * 0.45 }
         }
         excitement = SeriesMath.smooth(excitement, sigma: 1.5 / step)
 
         return EngagementSignals(step: step, count: n, loudness: loudness, surprise: surprise, speechRate: speechRate,
                                  keywords: keywords, laughter: laughter, questions: questions, profanity: profanity,
-                                 motion: motion, cuts: cuts, speech: speech, excitement: excitement)
+                                 motion: motion, cuts: cuts, speech: speech, excitement: excitement, chat: chatActivity)
     }
 }
