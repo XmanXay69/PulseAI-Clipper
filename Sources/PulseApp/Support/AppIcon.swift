@@ -293,6 +293,67 @@ enum UISnapshotter {
                     await captureViewerFrame(app: app, name: "18-longform-edit-viewer-frame", to: directory)
                 }
             }
+            // Edit Like a Reference: study the sample video itself, show the questions, then edit with the answers.
+            if let session = app.session, let asset = session.document.primaryAsset {
+                app.section = .aiClips
+                app.reference.current = nil
+                app.showReferenceSheet = true
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                capture(app: app, name: "19-reference-pick", to: directory)
+                app.reference.study(session.url(for: asset))
+                var waited = 0.0
+                while (app.reference.isStudying || (app.reference.current == nil && app.reference.failure == nil)) && waited < 240 {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    waited += 0.5
+                }
+                if let style = app.reference.current {
+                    let line = String(format: "UI-REFERENCE after %.0fs: %@ · %.1f cuts/min · %.1f zooms/min (×%.2f) · captions %@ · music %.2f · %.1f sfx/min · %.1f pop-ups/min · pauses %@\n",
+                                      waited, style.summary, style.cutsPerMinute, style.zoomsPerMinute, style.zoomScale, style.hasCaptions ? "yes" : "no",
+                                      style.musicBed, style.effectsPerMinute, style.popupsPerMinute, style.pauseRatio.map { String(format: "%.2f", $0) } ?? "–")
+                    FileHandle.standardError.write(Data(line.utf8))
+                } else {
+                    FileHandle.standardError.write(Data("UI-REFERENCE failed after \(waited)s: \(app.reference.failure ?? "no style")\n".utf8))
+                }
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                capture(app: app, name: "20-reference-questions", to: directory)
+                app.showReferenceSheet = false
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                if let style = app.reference.current {
+                    var answers = ReferenceAnswers.recommended(for: style)
+                    answers.length = .short
+                    let before = Set(session.document.timelines.map(\.id))
+                    session.editLikeReference(style, answers: answers)
+                    var editWait = 0.0
+                    while !session.document.timelines.contains(where: { !before.contains($0.id) }) && editWait < 120 {
+                        try? await Task.sleep(nanoseconds: 500_000_000)
+                        editWait += 0.5
+                    }
+                    let made = session.document.timelines.first { !before.contains($0.id) }
+                    FileHandle.standardError.write(Data("UI-REFERENCE-EDIT \(made.map { "\($0.name) · \(Timecode.short($0.duration)) · captions \($0.captions?.style.presetName ?? "none")" } ?? "none") · \(session.lastAIReport ?? "")\n".utf8))
+                }
+            }
+            // Thumbnail Studio tie-in: the sheet, then real designs written in the studio's format.
+            if let session = app.session {
+                app.thumbnailRequest = ThumbnailRequest()
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                capture(app: app, name: "21-thumbnail-sheet", to: directory)
+                app.thumbnailRequest = nil
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                if let setup = session.thumbnailSetup(for: ThumbnailRequest()) {
+                    do {
+                        let designs = try await session.writeThumbnailDesigns(asset: setup.asset, picks: Array(setup.picks.prefix(2)),
+                                                                              layouts: ThumbnailLayout.allCases)
+                        let decoded = designs.compactMap { try? JSONDecoder().decode(ThumbStudioDocument.self, from: Data(contentsOf: $0)) }
+                        let frames = Set(decoded.compactMap { doc -> String? in
+                            if case .image(let image)? = doc.layers.first?.kind { return image.path } else { return nil }
+                        })
+                        let framesExist = frames.allSatisfy { FileManager.default.fileExists(atPath: $0) }
+                        FileHandle.standardError.write(Data("UI-THUMBNAIL \(designs.count) designs (\(decoded.count) decode), \(frames.count) frames on disk: \(framesExist) — \(designs.map(\.lastPathComponent).joined(separator: " | "))\n".utf8))
+                    } catch {
+                        FileHandle.standardError.write(Data("UI-THUMBNAIL failed: \(error.localizedDescription)\n".utf8))
+                    }
+                }
+            }
             NSApp.terminate(nil)
         }
     }
