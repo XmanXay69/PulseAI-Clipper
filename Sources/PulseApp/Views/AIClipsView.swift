@@ -37,7 +37,7 @@ struct AIClipsView: View {
                     emptyState
                 } else {
                     ScrollView {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 250, maximum: 330), spacing: 14)], spacing: 14) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 270, maximum: 340), spacing: 14)], spacing: 14) {
                             ForEach(candidates) { candidate in
                                 ClipCandidateCard(session: session, candidate: candidate, isSelected: session.selectedCandidateIDs.contains(candidate.id))
                                     .onTapGesture {
@@ -193,15 +193,16 @@ struct ClipCandidateCard: View {
                     Text(candidate.transcriptSnippet).font(.pulseCaption).foregroundStyle(Theme.textSecondary).lineLimit(2)
                 }
                 HStack(spacing: 4) {
-                    ForEach(candidate.tags.prefix(3), id: \.self) { tag in TagChip(text: tag.displayName, color: Theme.ai) }
-                    Spacer()
+                    ForEach(candidate.tags.prefix(2), id: \.self) { tag in TagChip(text: tag.displayName, color: Theme.ai) }
+                    Spacer(minLength: 2)
                     Text(PerformanceTier(score: candidate.potential).emoji).font(.system(size: 10))
                         .help(PerformanceTier(score: candidate.potential).displayName)
                     PotentialMeter(potential: candidate.potential)
                 }
                 HStack(spacing: 6) {
-                    Button { session.createShort(from: candidate.id) } label: { Label("Open in Editor", systemImage: "wand.and.stars") }
+                    Button { session.createShort(from: candidate.id) } label: { Label("Open in Editor", systemImage: "wand.and.stars").lineLimit(1) }
                         .buttonStyle(.pulse(.ai, compact: true))
+                        .fixedSize()
                     Spacer()
                     IconButton(symbol: "minus.circle", help: "Shorten", size: 22) { session.reshapeCandidate(candidate.id, targetDuration: max(10, candidate.duration - 10), regenerate: false) }
                     IconButton(symbol: "plus.circle", help: "Extend", size: 22) { session.reshapeCandidate(candidate.id, targetDuration: min(90, candidate.duration + 10), regenerate: false) }

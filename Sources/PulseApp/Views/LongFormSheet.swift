@@ -74,7 +74,7 @@ struct LongFormSheet: View {
             }
             if let asset = session.document.primaryAsset {
                 let target = options.targetLength(forSource: asset.metadata.duration)
-                Text("From \(Timecode.duration(asset.metadata.duration)) of stream → about \(DurationText.approximate(target).replacingOccurrences(of: "about ", with: "")) of video.")
+                Text("From \(Timecode.duration(asset.metadata.duration)) of stream → \(target < 55 ? "under a minute" : DurationText.approximate(target)) of video.")
                     .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
             }
         }

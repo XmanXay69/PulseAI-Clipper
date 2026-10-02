@@ -456,7 +456,7 @@ struct ToastView: View {
             .padding(.vertical, 9)
             .background(Capsule().fill(Theme.panelRaised).shadow(color: .black.opacity(0.4), radius: 16, y: 6))
             .overlay(Capsule().strokeBorder(Theme.borderStrong))
-            .padding(.bottom, 24)
+            .padding(.bottom, app.session != nil ? 62 : 24) // clear of the page bar
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .id(toast.id)
             .animation(.spring(response: 0.3, dampingFraction: 0.85), value: toast.id)

@@ -167,12 +167,13 @@ struct TagChip: View {
     var body: some View {
         HStack(spacing: 3) {
             if let symbol { Image(systemName: symbol).font(.system(size: 8, weight: .bold)) }
-            Text(text).font(.pulseMicro)
+            Text(text).font(.pulseMicro).lineLimit(1)
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
         .foregroundStyle(color)
         .background(Capsule().fill(color.opacity(0.14)))
+        .fixedSize()
     }
 }
 

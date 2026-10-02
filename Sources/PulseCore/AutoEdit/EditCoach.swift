@@ -5,8 +5,9 @@ public enum EditFormat: String, Codable, Sendable {
     case short
     case longForm
 
+    /// Over 3 minutes, or a landscape edit over 90 s, is judged as a YouTube video.
     public static func of(_ timeline: Timeline) -> EditFormat {
-        timeline.duration > 180 ? .longForm : .short
+        timeline.duration > 180 || (timeline.canvas.aspect > 1.2 && timeline.duration > 90) ? .longForm : .short
     }
 }
 
