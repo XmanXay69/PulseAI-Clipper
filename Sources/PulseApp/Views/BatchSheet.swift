@@ -123,6 +123,13 @@ struct BatchSheet: View {
                 }
             }
             .toggleStyle(.switch).controlSize(.small).tint(Theme.ai)
+            Toggle(isOn: $batch.options.makeThumbnails) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Thumbnail designs").font(.pulseBody)
+                    Text("Best reaction frames, waiting in Thumbnail Studio").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                }
+            }
+            .toggleStyle(.switch).controlSize(.small).tint(Theme.ai)
             Toggle(isOn: $batch.options.exportEverything) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Export everything").font(.pulseBody)

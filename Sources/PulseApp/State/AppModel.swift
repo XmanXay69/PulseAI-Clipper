@@ -108,6 +108,8 @@ final class AppModel: ObservableObject {
     @Published var showRecordSheet = false
     /// "Edit My VOD" — the long-form YouTube edit sheet.
     @Published var showLongFormSheet = false
+    /// Set to open the "Make Thumbnail" sheet (Thumbnail Studio tie-in).
+    @Published var thumbnailRequest: ThumbnailRequest?
     @Published var showReportProblem = false
     @Published var showBatchSheet = false
     let batch = BatchController()

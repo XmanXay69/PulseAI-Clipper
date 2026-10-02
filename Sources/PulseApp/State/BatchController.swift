@@ -14,6 +14,19 @@ final class BatchController: ObservableObject {
         var makeYouTubeEdit = true
         var exportEverything = false
         var exportPresetID = ExportPreset.tiktok.id
+        var makeThumbnails = false
+
+        init() {}
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            let d = Options()
+            shortsPerVOD = (try? c.decodeIfPresent(Int.self, forKey: .shortsPerVOD)) ?? d.shortsPerVOD
+            makeYouTubeEdit = (try? c.decodeIfPresent(Bool.self, forKey: .makeYouTubeEdit)) ?? d.makeYouTubeEdit
+            exportEverything = (try? c.decodeIfPresent(Bool.self, forKey: .exportEverything)) ?? d.exportEverything
+            exportPresetID = (try? c.decodeIfPresent(String.self, forKey: .exportPresetID)) ?? d.exportPresetID
+            makeThumbnails = (try? c.decodeIfPresent(Bool.self, forKey: .makeThumbnails)) ?? d.makeThumbnails
+        }
     }
 
     enum Status: Equatable {
@@ -201,6 +214,16 @@ final class BatchController: ObservableObject {
             _ = await waitUntilIdle(app)
             if let edit = session.document.timelines.first(where: { !before.contains($0.id) }) {
                 made.append("YouTube edit \(Timecode.short(edit.duration))")
+            }
+        }
+
+        if options.makeThumbnails {
+            set(index, .running("Making thumbnail designs"))
+            let target = session.document.timelines.first { EditFormat.of($0) == .longForm }
+            if let setup = session.thumbnailSetup(for: ThumbnailRequest(timelineID: target?.id)),
+               let designs = try? await session.writeThumbnailDesigns(asset: setup.asset, picks: Array(setup.picks.prefix(3)),
+                                                                    layouts: [.fullFrame, .faceZoom]), !designs.isEmpty {
+                made.append("\(designs.count) thumbnail designs")
             }
         }
 

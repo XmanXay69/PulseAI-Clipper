@@ -23,5 +23,12 @@
   factors actually drove your views, and re-weights the coach (after 5 matched videos of a format).
 - **Picks up where it left off** — quitting mid-analysis keeps the finished steps (audio, speech-to-text,
   video); reopening the project resumes automatically.
+- **Thumbnail Studio tie-in** (File → Make Thumbnail, ⇧⌘T; AI clip ⋯ menu; Inspector → Thumbnail → Make…) —
+  PULSE picks the best reaction frames (at each clip's payoff, nudged to the biggest, stillest face), suggests
+  2–4 words of thumbnail text from the clip title, and writes ready-made designs — Full Frame, Face Zoom,
+  Color Panel — straight into [Thumbnail Studio](https://github.com/XmanXay69/ThumbnailStudio)'s gallery,
+  then opens it. Everything stays an ordinary, editable studio design (remove background, restyle text…).
+  Text is kept clear of YouTube's duration badge; your brand kit color and logo are used. The overnight batch
+  can make the designs too. If the studio isn't installed, the designs are saved and appear once it is.
 - **Report a Problem** (Help menu, Settings → General) — bundles the app log, system info and recent crash
   reports (never your media) into a zip on your Desktop and opens a pre-filled GitHub issue.

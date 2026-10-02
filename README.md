@@ -54,6 +54,8 @@ the viewer actually shows is rendered separately below.
 - **Storyboard.** Review Edit My VOD's moments before it builds: swap them, pick the hook.
 - **Overnight batch.** Queue several VODs; wake up to shorts, YouTube edits and exports.
 - **Brand kit.** Your logo, intro/outro and caption look on every edit.
+- **Thumbnail Studio tie-in.** One click turns the best reaction frames into editable designs in
+  [Thumbnail Studio](https://github.com/XmanXay69/ThumbnailStudio).
 - **Calibrated scores.** Import your YouTube Studio / TikTok analytics and the score learns what works for your channel.
 - **TikTok Sans captions.** TikTok's own open-source typeface is built in and used by default.
 - **Time estimates.** See how long analysis will take before you start, and a countdown while it runs.

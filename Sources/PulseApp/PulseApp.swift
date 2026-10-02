@@ -92,6 +92,9 @@ struct PulseCommands: Commands {
             Button("Open Project…") { app.showOpenPanel() }.keyboardShortcut("o")
             Button("Overnight Batch…") { app.showBatchSheet = true }.keyboardShortcut("b", modifiers: [.command, .option])
             Button("Open Sample Project") { app.openDemoProject() }
+            Button("Make Thumbnail…") { app.thumbnailRequest = ThumbnailRequest(timelineID: app.session?.selectedTimelineID) }
+                .keyboardShortcut("t", modifiers: [.command, .shift])
+                .disabled(app.session?.document.primaryAsset == nil)
             Divider()
             Button("Import Media…") { app.showImportPanel() }.keyboardShortcut("i")
             Button(app.recording.isCapturing ? "Stop Recording" : "New Recording…") {

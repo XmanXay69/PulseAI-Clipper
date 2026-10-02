@@ -189,7 +189,14 @@ prompt), cloud AI providers with live keys.
   `PulseCore/AutoEdit/Calibration.swift` (CSV import, title matching, ridge fit) with history in
   Application Support/PULSE/performance-history.json; resume: `AnalysisCheckpoint` in
   `AnalysisPipeline.swift`; logging/report: `PulseEngine/Support/PulseLog.swift` (~/Library/Logs/PULSE) and
-  `PulseApp/Support/ProblemReporter.swift`. All tuned on synthetic data — real VODs/analytics will need tuning.
+  `PulseApp/Support/ProblemReporter.swift`; Thumbnail Studio tie-in: `PulseCore/Thumbnails/ThumbnailDesigns.swift`
+  (frame picker, headline, the studio's `ThumbDocument` JSON format and three layouts),
+  `PulseEngine/Support/ThumbnailStudioLink.swift` (writes frames to `~/Library/Application Support/VODEditor/ThumbAssets`
+  and designs to `…/VODEditor/ThumbLab`, launches `com.xavier.thumbstudio` with `--open <design>`),
+  `ProjectSession+Thumbnails.swift`, `Views/ThumbnailSheet.swift`. The studio needed no changes — it re-reads its
+  gallery folder when it comes to the front. If the studio's document format changes, update the `ThumbStudio*`
+  structs (a test decodes PULSE's output with synthesized enum coding, the way the studio does). Not verified
+  against a running Thumbnail Studio on a Mac yet. All tuned on synthetic data — real VODs/analytics will need tuning.
 - Cross-dissolves (video + linked audio crossfade) need media handles; at the very start/end of a recording they
   fall back to a fade over lower tracks.
 - whisper.cpp itself must be installed with Homebrew (`brew install whisper-cpp`); models download in-app

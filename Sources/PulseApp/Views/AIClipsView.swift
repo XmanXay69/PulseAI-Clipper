@@ -151,6 +151,7 @@ struct AIClipsView: View {
 }
 
 struct ClipCandidateCard: View {
+    @EnvironmentObject var app: AppModel
     @ObservedObject var session: ProjectSession
     let candidate: ClipCandidate
     let isSelected: Bool
@@ -219,11 +220,12 @@ struct ClipCandidateCard: View {
                         Button("Shorten by 10 s") { session.reshapeCandidate(candidate.id, targetDuration: max(10, candidate.duration - 10), regenerate: false) }
                         Button("Extend by 10 s") { session.reshapeCandidate(candidate.id, targetDuration: min(90, candidate.duration + 10), regenerate: false) }
                         Button("Regenerate") { session.reshapeCandidate(candidate.id, targetDuration: nil, regenerate: true) }
+                        Button("Make Thumbnail…") { app.thumbnailRequest = ThumbnailRequest(candidateID: candidate.id) }
                         Divider()
                         Button("Delete", role: .destructive) { session.deleteCandidates([candidate.id]) }
                     } label: { Image(systemName: "ellipsis.circle").font(.system(size: 11)) }
                         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                        .help("Shorten, extend, regenerate or delete")
+                        .help("Shorten, extend, regenerate, make a thumbnail or delete")
                 }
             }
             .padding(10)

@@ -613,6 +613,13 @@ struct TimelineInspector: View {
                         .buttonStyle(.pulse(.secondary, compact: true))
                         .help("Add your logo, intro/outro and caption look (Settings → Brand Kit)")
                 }
+                HStack {
+                    Text("Thumbnail").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    Spacer()
+                    Button("Make…") { app.thumbnailRequest = ThumbnailRequest(timelineID: timeline.id) }
+                        .buttonStyle(.pulse(.secondary, compact: true))
+                        .help("PULSE picks this edit's best reaction frames and opens them as designs in Thumbnail Studio (⇧⌘T)")
+                }
             }
             InspectorSection("Layout", isAI: timeline.layout == .dynamic) {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 80), spacing: 6)], spacing: 6) {

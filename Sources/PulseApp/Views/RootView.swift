@@ -47,6 +47,9 @@ struct RootView: View {
         .sheet(isPresented: $app.showRecordSheet) { RecordView(recorder: app.recording).environmentObject(app) }
         .sheet(isPresented: $app.showReportProblem) { ReportProblemSheet().environmentObject(app) }
         .sheet(isPresented: $app.showBatchSheet) { BatchSheet(batch: app.batch).environmentObject(app) }
+        .sheet(item: $app.thumbnailRequest) { request in
+            if let session = app.session { ThumbnailSheet(session: session, request: request).environmentObject(app) }
+        }
         .sheet(isPresented: $app.showLongFormSheet) {
             if let session = app.session { LongFormSheet(session: session).environmentObject(app) }
         }
