@@ -19,8 +19,8 @@ final class AnalysisTimeEstimateTests: XCTestCase {
         speed.learn(stageSeconds: [.transcription: 60], mediaDuration: 3600)
         XCTAssertLessThan(speed.transcription, 2.2)
         XCTAssertEqual(speed.samples, 1)
-        for _ in 0..<6 { speed.learn(stageSeconds: [.transcription: 60], mediaDuration: 3600) }
-        XCTAssertEqual(speed.transcription, 1, accuracy: 0.05)
+        for _ in 0..<10 { speed.learn(stageSeconds: [.transcription: 60], mediaDuration: 3600) }
+        XCTAssertEqual(speed.transcription, 1, accuracy: 0.02)
         // Tiny clips don't teach anything.
         let before = speed
         speed.learn(.video, mediaDuration: 5, wallSeconds: 100)

@@ -156,7 +156,7 @@ public enum EditCoach {
             hook = (energy * 0.75 + (talks ? 0.25 : 0)).clamped(0, 1)
             // A slow start: find where things actually begin.
             let window = min(6, duration * 0.25)
-            if let firstGood = samples.first(where: { $0.t < window && ($0.excitement >= 0.55 * p95 || $0.speech > 0.5) }),
+            if let firstGood = samples.first(where: { $0.t < window && !$0.silent && ($0.excitement >= 0.55 * p95 || $0.speech > 0.5) }),
                firstGood.t > 1.2, format == .short {
                 let cut = max(0, firstGood.t - 0.35)
                 suggestions.append(EditSuggestion(id: "hook-trim", title: "Start \(String(format: "%.1f", cut)) s later",

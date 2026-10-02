@@ -10,9 +10,24 @@ final class LongFormEditorTests: XCTestCase {
         for s in spikes { for k in 0..<4 { special.append((s + 1 + Double(k) * 0.5, "hahaha")) } }
         special.append((spikes[3] + 0.2, "insane!"))
         let silences = stride(from: 60.0, to: 2950, by: 97).map { TimeRange(start: $0, end: $0 + 4) }
+        // Talking everywhere except the quiet stretches.
+        var words: [TranscriptWord] = []
+        var t = 0.5, i = 0
+        while t < duration - 1 {
+            if !silences.contains(where: { $0.contains(t) || $0.contains(t + 0.35) }) {
+                words.append(TranscriptWord(text: (i + 1) % 8 == 0 ? "okay." : "so", start: t, end: t + 0.32))
+                i += 1
+            }
+            t += 0.4
+        }
+        for (time, text) in special {
+            words.removeAll { abs($0.start - time) < 0.3 }
+            words.append(TranscriptWord(text: text, start: time, end: time + 0.3))
+        }
+        let transcript = Transcript(language: "en", words: words.sorted { $0.start < $1.start }, source: .demo)
         let analysis = MediaAnalysis(assetID: Fixtures.assetID, duration: duration,
                                      audio: Fixtures.audio(duration: duration, spikes: spikes, silences: silences),
-                                     transcript: Fixtures.transcript(duration: duration, special: special), profile: .gameplay)
+                                     transcript: transcript, profile: .gameplay)
         return (Fixtures.mediaAsset(duration: duration), analysis)
     }
 

@@ -9,8 +9,8 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
 
 ## Download
 
-**[⬇ Download PULSE.dmg](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
-(macOS 14 or later, Apple Silicon and Intel) · [all releases](https://github.com/XmanXay69/PulseAI-Clipper/releases)
+**[⬇ Download PULSE 1.0](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
+(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.0.0/NOTES.md)
 
 1. Double-click **PULSE.dmg** and drag **PULSE** into **Applications**.
 2. Open PULSE from Launchpad or Applications.
@@ -42,6 +42,13 @@ the viewer actually shows is rendered separately below.
 
 ## Features
 
+- **Edit My VOD.** One click turns a whole stream into a 10–20 minute YouTube video: dead time cut, the
+  funniest and highest-energy moments kept with enough context, a fire hook up front, and restrained zooms,
+  captions, meme pop-ups, sound effects and music (Subtle / Balanced / Energetic). Chapters included.
+- **Edit coach.** A live performance prediction (🔥 Viral potential … 🛠 Needs work) with the reasons behind
+  it, plus suggestions as you edit — most with a one-click fix.
+- **TikTok Sans captions.** TikTok's own open-source typeface is built in and used by default.
+- **Time estimates.** See how long analysis will take before you start, and a countdown while it runs.
 - **AI clip finding.** Analyzes speech, silence, loudness spikes, scene changes and faces. Each candidate
   follows HOOK → CONTEXT → PAYOFF → END and gets an *AI Potential* score, tags, titles and hook advice.
 - **One-click shorts.** Builds a 9:16 edit with a gameplay + facecam layout, AI reframing, animated

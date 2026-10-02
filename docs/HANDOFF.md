@@ -9,6 +9,11 @@
 works on macOS 15). CI compiles, tests and screenshots the app on a GitHub Actions `macos-15` runner
 (`.github/workflows/ci.yml`) because the cloud dev box used to write it is Linux.
 
+## Versions
+
+`VERSION` holds the current version (1.0.0). Release notes per version live in `versions/<version>/NOTES.md`
+(the Release workflow prepends them to the GitHub Release); `versions/README.md` explains how to cut a new one.
+
 ## Download (the easy way)
 
 `PULSE.dmg` is published by `.github/workflows/release.yml` on commits containing `[release]` (or a manual
@@ -157,6 +162,23 @@ prompt), cloud AI providers with live keys.
   out first). Checked on CI at a 1280 × 720 window; very small windows (< ~1000 pt) will still crowd.
 - README screenshots in `docs/screenshots/` are copied from CI snapshots; refresh them from a newer run after
   UI changes (decode the `SNAPSHOT` lines as described below).
+- **Edit My VOD (1.0)** — `PulseCore/AutoEdit/LongFormEditor.swift`: picks moments with `ClipGenerator`
+  (45 s windows, potential-ranked) until the 10–20 min target (15 % of the source, clamped; 60 % for short
+  recordings), merges near-touching picks, orders them chronologically, opens with a 4–7 s cold-open hook +
+  title, jump-cuts silences (balanced), adds spaced reaction zooms, meme pop-ups (text/emoji + matching library
+  SFX) and transition whooshes with per-minute caps (`Restraint`), YouTube subtitles, chapter markers and a
+  chapter list in `timeline.notes`. The app (`ProjectSession+LongForm`) renders library SFX, composes one music
+  bed per ~4-min chapter, then `LongFormEditor.addMusic`. Tuned on synthetic streams only — real VODs will
+  need taste tuning (what counts as "funny" comes from laughter words, loudness spikes and keywords).
+- **Edit coach (1.0)** — `EditCoach.review` samples the engagement curve through the edit (timeline → source
+  via the main clips) and scores hook / energy / payoff / pacing / ending / length / polish with format-specific
+  weights; suggestions carry `Fix` values the app applies (`ProjectSession+Coach`). It's a heuristic
+  prediction, not trained on real view data.
+- **Time estimates (1.0)** — `AnalysisSpeedProfile` (seconds per media-minute per stage, learned with an EMA
+  after each analysis, stored in AI settings) weights pipeline progress by expected stage time; `ProgressClock`
+  blends the prior with the observed rate for the countdown.
+- **TikTok Sans (1.0)** — `Resources/Fonts/TikTokSans.ttf` (variable, OFL) registered at launch by
+  `BundledFonts`; weights/slant via variation axes. Default for new text and most caption presets.
 - Cross-dissolves (video + linked audio crossfade) need media handles; at the very start/end of a recording they
   fall back to a fade over lower tracks.
 - whisper.cpp itself must be installed with Homebrew (`brew install whisper-cpp`); models download in-app
