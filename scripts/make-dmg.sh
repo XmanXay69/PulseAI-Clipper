@@ -29,8 +29,19 @@ tiffutil -cathidpicheck "$ROOT/build/dmg-bg/background.png" "$ROOT/build/dmg-bg/
 
 echo "▸ Creating disk image"
 SIZE_MB=$(( $(du -sm "$STAGE" | cut -f1) + 40 ))
-hdiutil create -quiet -srcfolder "$STAGE" -volname "$VOLUME" -fs HFS+ -format UDRW -size "${SIZE_MB}m" "$RW"
-MOUNT_DIR="$(hdiutil attach -readwrite -noverify -noautoopen "$RW" | grep -E '/Volumes/' | sed -E 's|.*(/Volumes/.*)$|\1|')"
+# hdiutil on CI runners sometimes fails with "Resource busy" — show the error and retry.
+retry() {
+  local n
+  for n in 1 2 3 4 5; do
+    if "$@"; then return 0; fi
+    echo "  (attempt $n failed, retrying)"; sleep $((n * 3))
+  done
+  return 1
+}
+rm -f "$RW"
+retry hdiutil create -srcfolder "$STAGE" -volname "$VOLUME" -fs HFS+ -format UDRW -size "${SIZE_MB}m" -ov "$RW"
+ATTACH_OUT="$(retry hdiutil attach -readwrite -noverify -noautoopen "$RW")"
+MOUNT_DIR="$(echo "$ATTACH_OUT" | grep -E '/Volumes/' | sed -E 's|.*(/Volumes/.*)$|\1|')"
 echo "  mounted at $MOUNT_DIR"
 
 # Window layout through Finder. Cosmetic: if Finder can't be scripted (some CI machines), the image
@@ -73,7 +84,7 @@ for attempt in 1 2 3 4 5; do
 done
 
 echo "▸ Compressing"
-hdiutil convert -quiet "$RW" -format UDZO -imagekey zlib-level=9 -o "$DMG"
+retry hdiutil convert -quiet "$RW" -format UDZO -imagekey zlib-level=9 -ov -o "$DMG"
 rm -f "$RW"
 
 if [ -n "${SIGN_IDENTITY:-}" ] && [ "$SIGN_IDENTITY" != "-" ]; then
