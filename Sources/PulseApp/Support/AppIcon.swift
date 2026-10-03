@@ -283,6 +283,8 @@ enum UISnapshotter {
                 }
                 if let edit = session.document.timelines.first(where: { !before.contains($0.id) }) {
                     FileHandle.standardError.write(Data("UI-LONGFORM \(Timecode.short(edit.duration)) after \(waited)s: \(session.lastAIReport ?? "")\n".utf8))
+                    let music = edit.allClips.filter { $0.role == .music }.map(\.name)
+                    FileHandle.standardError.write(Data("UI-MUSIC \(music.count) clips: \(Array(Set(music)).joined(separator: " | ")) · credits: \(edit.notes.contains("Creative Commons") ? "yes" : "no")\n".utf8))
                     // How long until the finished edit is actually in the viewer.
                     let shown = Date()
                     while (session.playback.isBuilding || abs(session.playback.duration - edit.duration) > 0.5) && Date().timeIntervalSince(shown) < 60 {

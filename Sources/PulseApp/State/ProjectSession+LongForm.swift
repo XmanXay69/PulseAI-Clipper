@@ -56,9 +56,19 @@ extension ProjectSession {
             if options.music, !result.musicChapters.isEmpty {
                 let tags = Array(result.segments.flatMap(\.tags).prefix(6))
                 var beds: [MediaAsset] = []
-                for (i, chapter) in result.musicChapters.enumerated() {
+                // Real Creative Commons tracks from YouTube when allowed; the built-in calm beds otherwise.
+                if self.app.settings.ai.onlineMusic {
+                    let found = await self.onlineMusicBeds(tags: tags, count: min(result.musicChapters.count, 4), job: job)
+                    beds = found.assets
+                    newAssets += found.assets.filter { a in !self.document.media.contains { $0.id == a.id } }
+                    if !found.tracks.isEmpty {
+                        result.timeline.notes += "\n\n" + MusicPicker.creditBlock(found.tracks)
+                    }
+                }
+                let builtInChapters = beds.isEmpty ? result.musicChapters : []
+                for (i, chapter) in builtInChapters.enumerated() {
                     if job.state != .running { return }
-                    let sound = SoundLibrary.recommendedMusic(for: tags, seed: i)
+                    let sound = SoundLibrary.backgroundMusic(seed: i)
                     job.detail = "Composing music \(i + 1) of \(result.musicChapters.count) (\(sound.name))"
                     let prepared = try await self.prepareLibrarySound(sound, duration: max(3, chapter.duration))
                     beds.append(prepared.asset)
@@ -80,5 +90,37 @@ extension ProjectSession {
             self.app.toast("Your edit is ready — \(result.report)")
         }
         job.expect(longFormEstimate(options: options))
+    }
+
+    /// Creative Commons tracks for the edit, imported as project media.
+    func onlineMusicBeds(tags: [ClipTag], count: Int, job: BackgroundJob) async -> (assets: [MediaAsset], tracks: [OnlineTrack]) {
+        job.detail = "Finding Creative Commons music"
+        let tracks: [OnlineTrack]
+        do {
+            tracks = try await OnlineMusicLibrary.shared.tracks(for: tags, count: max(1, count)) { status in
+                Task { @MainActor in job.detail = status }
+            }
+        } catch {
+            PulseLog.warning("Online music unavailable, using built-in beds: \(error.localizedDescription)")
+            return ([], [])
+        }
+        var assets: [MediaAsset] = []
+        var used: [OnlineTrack] = []
+        for track in tracks {
+            guard let url = await OnlineMusicLibrary.shared.fileURL(for: track) else { continue }
+            if let existing = document.media.first(where: { $0.path == url.path }) {
+                assets.append(existing)
+                used.append(track)
+                continue
+            }
+            let plan = ImportPlan.make(urls: [url], existingPaths: [])
+            guard let item = plan.items.first, var asset = try? await MediaImporter.makeAsset(for: item, cacheRoot: app.cacheFolder) else { continue }
+            asset.name = track.title
+            asset.role = .music
+            asset.tags.append("creative-commons")
+            assets.append(asset)
+            used.append(track)
+        }
+        return (assets, used)
     }
 }

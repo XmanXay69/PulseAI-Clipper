@@ -95,11 +95,12 @@ public struct EngagementSignals: Sendable {
 public enum EngagementModel {
     /// All the signals of an analysis (including an imported chat replay).
     public static func compute(analysis: MediaAnalysis, step: Seconds = 0.5) -> EngagementSignals {
-        compute(duration: analysis.duration, audio: analysis.audio, transcript: analysis.transcript, visual: analysis.visual, chat: analysis.chat, step: step)
+        compute(duration: analysis.duration, audio: analysis.audio, transcript: analysis.transcript, visual: analysis.visual, chat: analysis.chat,
+                step: step, gameplay: analysis.profile == .gameplay || analysis.profile == .gameplayWithFacecam)
     }
 
     public static func compute(duration: Seconds, audio: AudioFeatureSeries?, transcript: Transcript?, visual: VisualFeatureSeries?,
-                               chat: ChatLog? = nil, step: Seconds = 0.5) -> EngagementSignals {
+                               chat: ChatLog? = nil, step: Seconds = 0.5, gameplay: Bool = false) -> EngagementSignals {
         let n = max(1, Int((duration / step).rounded(.up)))
         var loudnessDB = [Float](repeating: -60, count: n)
         var flux = [Float](repeating: 0, count: n)
@@ -201,7 +202,10 @@ public enum EngagementModel {
             let k = Swift.min(keywords[i] / 2.5, 1)
             let la = Swift.min(laughter[i], 1)
             let m = motion[i].clamped(0, 3) / 3
-            excitement[i] = 0.26 * l + 0.16 * s + 0.08 * f + 0.12 * r + 0.2 * k + 0.14 * la + 0.08 * m + 0.04 * cuts[i]
+            excitement[i] = gameplay
+                // Gameplay: the action on screen (fights, kills, chaos) matters as much as the voice.
+                ? 0.22 * l + 0.14 * s + 0.08 * f + 0.08 * r + 0.16 * k + 0.12 * la + 0.16 * m + 0.04 * cuts[i]
+                : 0.26 * l + 0.16 * s + 0.08 * f + 0.12 * r + 0.2 * k + 0.14 * la + 0.08 * m + 0.04 * cuts[i]
             if i < chatActivity.count { excitement[i] = excitement[i] * 0.75 + chatActivity[i] * 0.45 }
         }
         excitement = SeriesMath.smooth(excitement, sigma: 1.5 / step)

@@ -100,10 +100,15 @@ struct LongFormSheet: View {
             SectionLabel(text: "Add")
             touch("Fire hook", "flame.fill", "Opens with a teaser of the best moment", $coldOpen)
             touch("Zooms", "plus.magnifyingglass", "Punch-ins on the big reactions", $zooms)
-            touch("Captions", "captions.bubble", "Clean subtitles, TikTok Sans", $captions)
+            touch("Captions", "captions.bubble", "Clean subtitles — outlined, no box, easy to read", $captions)
             touch("Memes", "face.smiling", "Pop-up text on the funniest moments", $memes)
             touch("Sound effects", "speaker.wave.2.fill", "Whooshes, booms and comedy stings", $soundEffects)
-            touch("Music", "music.note", "A quiet bed under each chapter, ducked under talking", $music)
+            touch("Music", "music.note", "A quiet, calm bed under each chapter, ducked under talking", $music)
+            if music {
+                touch("Find music on YouTube", "globe", "Creative Commons tracks via the built-in downloader (credits go in the description)",
+                      Binding(get: { app.settings.ai.onlineMusic }, set: { app.settings.ai.onlineMusic = $0 }))
+                    .padding(.leading, 20)
+            }
         }
     }
 

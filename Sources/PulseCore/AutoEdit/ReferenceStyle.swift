@@ -618,7 +618,12 @@ extension ReferenceStyle.CaptionLook {
         style.presetName = "Matched"
         style.positionY = positionY.clamped(0.12, 0.9)
         // Vision's line box is roughly the font size; caption sizes are in canvas pixels.
-        style.text.fontSize = (lineHeight * canvasHeight * 0.85).clamped(28, 150)
+        style.text.fontSize = (lineHeight * canvasHeight * 0.85).clamped(28, landscape ? 56 : 84)
+        // Always readable on any footage: no box, a dark outline and a soft shadow.
+        style.text.backgroundOpacity = 0
+        style.text.strokeColor = .black
+        style.text.strokeWidth = max(style.text.strokeWidth, 4)
+        style.text.shadowOpacity = max(style.text.shadowOpacity, 0.6)
         style.text.textCase = uppercase ? .uppercase : .asTyped
         style.maxWordsPerPage = Int(wordsOnScreen.rounded()).clamped(1, 10)
         if style.maxWordsPerPage == 1 {

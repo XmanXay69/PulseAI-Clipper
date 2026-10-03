@@ -16,12 +16,19 @@ public actor AudioEnhancer {
 
     /// Returns the processed file (rendering it on first use).
     public func render(sourceURL: URL, range: TimeRange, settings: AudioSettings, cacheDirectory: URL,
-                       priority: TaskPriority = .userInitiated) async throws -> URL {
+                       priority: TaskPriority = .userInitiated, progress: (@Sendable (Double) -> Void)? = nil) async throws -> URL {
         let (key, output) = Self.cacheEntry(sourceURL: sourceURL, range: range, settings: settings, cacheDirectory: cacheDirectory)
         if FileManager.default.fileExists(atPath: output.path) { return output }
         if let running = inFlight[key] { return try await running.value }
         let task = Task.detached(priority: priority) {
-            try await AudioEnhancer.process(sourceURL: sourceURL, range: range, settings: settings, output: output)
+            let started = Date()
+            do {
+                try await AudioEnhancer.process(sourceURL: sourceURL, range: range, settings: settings, output: output, progress: progress)
+                PulseLog.info(String(format: "Enhance render %.0f s of %@ in %.1f s", range.duration, sourceURL.lastPathComponent, Date().timeIntervalSince(started)))
+            } catch {
+                PulseLog.warning("Enhance render failed (\(sourceURL.lastPathComponent) \(Timecode.short(range.start))): \(error.localizedDescription)")
+                throw error
+            }
             return output
         }
         inFlight[key] = task
@@ -58,7 +65,8 @@ public actor AudioEnhancer {
     }
 
     /// Decodes the range to float PCM, runs the chain, writes a CAF next to other caches.
-    static func process(sourceURL: URL, range: TimeRange, settings: AudioSettings, output: URL) async throws {
+    static func process(sourceURL: URL, range: TimeRange, settings: AudioSettings, output: URL,
+                        progress: (@Sendable (Double) -> Void)? = nil) async throws {
         // One parsed asset per source file: re-opening a multi-hour VOD re-reads its whole index.
         let asset = sourceAsset(sourceURL)
         guard let track = try await asset.loadTracks(withMediaType: .audio).first else { throw EngineError.noAudioTrack(sourceURL) }
@@ -91,6 +99,10 @@ public actor AudioEnhancer {
             let interleaved = SampleBufferReader.floats(from: buffer)
             guard channelCount > 0 else { continue }
             let frames = interleaved.count / channelCount
+            if let progress, let first = channels.first, first.count % 480_000 < frames {
+                // Decoding is most of the work; report it about every 10 s of audio.
+                progress(min(0.95, Double(first.count) / max(range.duration * sampleRate, 1)))
+            }
             for c in 0..<channelCount {
                 var i = c
                 for _ in 0..<frames {

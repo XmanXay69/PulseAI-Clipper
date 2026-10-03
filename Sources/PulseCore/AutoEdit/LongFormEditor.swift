@@ -468,17 +468,31 @@ public enum LongFormEditor {
     }
 
     /// Lays composed beds (one per chapter, same order) on A2, quiet and ducked under talking.
+    /// Music sits about 22 dB under the (−14 LUFS) dialogue before ducking.
+    public static let musicLevel = 0.08
+
     public static func addMusic(_ beds: [MediaAsset], chapters: [TimeRange], to timeline: inout Timeline) {
-        guard let ti = timeline.tracks.firstIndex(where: { $0.name.hasPrefix("A2") }) else { return }
+        guard let ti = timeline.tracks.firstIndex(where: { $0.name.hasPrefix("A2") }), !beds.isEmpty else { return }
         timeline.tracks[ti].clips.removeAll { $0.role == .music && $0.aiGenerated }
-        for (range, bed) in zip(chapters, beds) {
-            let length = bed.metadata.duration > 0 ? min(bed.metadata.duration, range.duration) : range.duration
-            var clip = TimelineClip(name: bed.name, content: .media(assetID: bed.id), start: range.start, sourceDuration: length, role: .music, aiGenerated: true)
-            clip.audio.volume = AnimatedDouble(0.22)
-            clip.audio.duckUnderDialogue = true
-            clip.audio.fadeIn = 1.2
-            clip.audio.fadeOut = 1.5
-            timeline.tracks[ti].clips.append(clip)
+        for (index, range) in chapters.enumerated() {
+            // Fewer tracks than chapters: cycle; a track shorter than its chapter repeats.
+            let bed = beds[index % beds.count]
+            let length = bed.metadata.duration > 3 ? bed.metadata.duration : range.duration
+            var t = range.start
+            while range.end - t > 1 {
+                let piece = min(length, range.end - t)
+                var clip = TimelineClip(name: bed.name, content: .media(assetID: bed.id), start: t, sourceDuration: piece, role: .music, aiGenerated: true)
+                // A bed, not a feature: leveled first (so loud and quiet tracks sit the same), then well under
+                // the voice and ducked further while anyone talks.
+                clip.audio.normalize = true
+                clip.audio.volume = AnimatedDouble(musicLevel)
+                clip.audio.duckUnderDialogue = true
+                clip.audio.duckAmountDB = -14
+                clip.audio.fadeIn = t == range.start ? 2.5 : 1
+                clip.audio.fadeOut = t + piece >= range.end - 1 ? 3 : 1
+                timeline.tracks[ti].clips.append(clip)
+                t += piece
+            }
         }
         timeline.tracks[ti].sortClips()
     }
@@ -500,12 +514,12 @@ public enum LongFormEditor {
 }
 
 extension CaptionStyle {
-    /// Subtitles for landscape YouTube edits: readable, low in frame, not shouty.
+    /// Subtitles for landscape YouTube edits: no box behind them — white with a dark outline and a soft
+    /// shadow reads on bright and dark footage alike — modest size, low in frame, a few words at a time.
     public static let youtube = CaptionStyle(
         presetName: "YouTube",
-        text: TextStyle(fontName: TextStyle.tiktokSans, fontSize: 44, weight: .semibold, textCase: .asTyped, color: .white,
-                        strokeColor: .black, strokeWidth: 0, shadowOpacity: 0, backgroundColor: RGBAColor(hex: "#0B0B0F")!,
-                        backgroundOpacity: 0.72, backgroundPadding: 12, backgroundCornerRadius: 10),
+        text: TextStyle(fontName: TextStyle.tiktokSans, fontSize: 42, weight: .bold, textCase: .asTyped, color: .white,
+                        strokeColor: .black, strokeWidth: 4, shadowOpacity: 0.7, shadowRadius: 6, shadowOffsetY: 2),
         highlightColor: RGBAColor(hex: "#FFD60A")!, highlightMode: .none, animation: .fade, displayMode: .phrase,
-        maxWordsPerPage: 9, maxCharsPerLine: 42, maxLines: 2, positionY: 0.88, safeArea: nil)
+        maxWordsPerPage: 7, maxCharsPerLine: 34, maxLines: 2, positionY: 0.86, safeArea: nil)
 }

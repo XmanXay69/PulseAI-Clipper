@@ -105,6 +105,8 @@ jobs:
           lipo -info "$APP/Contents/MacOS/PULSE"
           lipo -info "$APP/Contents/MacOS/whisper-cli"
           ls -la "$APP/Contents/Resources"
+          # The YouTube downloader's resources must ship inside the app (Bundle.module looks in Resources).
+          test -d "$APP/Contents/Resources/YouTubeKit_YouTubeKit.bundle" && echo "YouTubeKit resources present"
           echo "Gatekeeper assessment (expected to be rejected unless notarized):"
           spctl --assess --type execute --verbose "$APP" 2>&1 || true
           # The app binary runs from the image (renders its icon set and exits).

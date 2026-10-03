@@ -130,8 +130,8 @@ public struct CaptionStyle: Codable, Hashable, Sendable {
     /// TikTok's own look: TikTok Sans Bold, white with a thin dark outline, sentence case, two short lines.
     public static let tiktok = CaptionStyle(
         presetName: "TikTok",
-        text: TextStyle(fontName: TextStyle.tiktokSans, fontSize: 76, weight: .bold, textCase: .asTyped, color: .white,
-                        strokeColor: .black, strokeWidth: 5, shadowOpacity: 0.45, shadowRadius: 6, shadowOffsetY: 3),
+        text: TextStyle(fontName: TextStyle.tiktokSans, fontSize: 66, weight: .bold, textCase: .asTyped, color: .white,
+                        strokeColor: .black, strokeWidth: 5, shadowOpacity: 0.6, shadowRadius: 6, shadowOffsetY: 3),
         highlightColor: RGBAColor(hex: "#FE2C55")!, highlightMode: .color, animation: .pop, displayMode: .phrase,
         maxWordsPerPage: 4, maxCharsPerLine: 18, maxLines: 2, positionY: 0.66)
 

@@ -102,18 +102,18 @@ public final class PlaybackController: ObservableObject {
     /// Renders the enhance chains a few at a time (each is one decode + DSP pass of a short range).
     nonisolated static func render(_ requests: [BuiltComposition.EnhanceRequest], progress: @escaping @Sendable (Double) -> Void) async {
         // Few at a time and below playback's priority, so the viewer stays responsive meanwhile.
-        let width = max(2, min(3, ProcessInfo.processInfo.activeProcessorCount / 4))
-        let total = Double(max(requests.count, 1))
-        let done = ProgressTally()
+        let width = max(2, min(4, ProcessInfo.processInfo.activeProcessorCount / 3))
+        let tally = ProgressTally(count: requests.count)
         await withTaskGroup(of: Void.self) { group in
             for (i, r) in requests.enumerated() {
                 if Task.isCancelled { break }
                 // Keep at most `width` renders in flight.
                 if i >= width { _ = await group.next() }
-                group.addTask(priority: .utility) {
+                group.addTask(priority: .medium) {
                     _ = try? await AudioEnhancer.shared.render(sourceURL: r.sourceURL, range: r.range, settings: r.settings,
-                                                               cacheDirectory: r.cacheDirectory, priority: .utility)
-                    progress(Double(done.increment()) / total)
+                                                               cacheDirectory: r.cacheDirectory, priority: .medium,
+                                                               progress: { f in progress(tally.set(i, f)) })
+                    progress(tally.set(i, 1))
                 }
             }
             await group.waitForAll()
@@ -201,11 +201,15 @@ public final class PlaybackController: ObservableObject {
 /// Thread-safe tally for background progress.
 final class ProgressTally: @unchecked Sendable {
     private let lock = NSLock()
-    private var value = 0
-    func increment() -> Int {
+    private var parts: [Double]
+
+    init(count: Int) { parts = Array(repeating: 0, count: max(count, 1)) }
+
+    /// Records one job's fraction and returns the overall fraction.
+    func set(_ index: Int, _ fraction: Double) -> Double {
         lock.lock()
         defer { lock.unlock() }
-        value += 1
-        return value
+        if parts.indices.contains(index) { parts[index] = max(parts[index], fraction) }
+        return parts.reduce(0, +) / Double(parts.count)
     }
 }

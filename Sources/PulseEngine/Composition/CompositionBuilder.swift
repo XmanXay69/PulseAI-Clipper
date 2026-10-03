@@ -515,8 +515,8 @@ public enum CompositionBuilder {
     }
 
     /// Joins clips of the same source and settings whose source ranges are close (≤ 20 s apart) into
-    /// stretches of at most 10 minutes. Returns each clip's stretch.
-    static func enhanceSpans(_ inputs: [EnhanceSpanInput], gap: Seconds = 20, maxLength: Seconds = 600) -> [UUID: TimeRange] {
+    /// stretches of at most 2 minutes (short enough that progress moves). Returns each clip's stretch.
+    static func enhanceSpans(_ inputs: [EnhanceSpanInput], gap: Seconds = 20, maxLength: Seconds = 120) -> [UUID: TimeRange] {
         var result: [UUID: TimeRange] = [:]
         for (_, items) in Dictionary(grouping: inputs, by: \.group) {
             var current: (range: TimeRange, ids: [UUID])?

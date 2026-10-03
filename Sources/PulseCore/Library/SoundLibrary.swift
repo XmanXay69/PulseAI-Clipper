@@ -161,6 +161,12 @@ public enum SoundLibrary {
         return sound(id: id) ?? music[0]
     }
 
+    /// Calm beds for long YouTube edits (music sits under the talking, never over it).
+    public static func backgroundMusic(seed: Int = 0) -> LibrarySound {
+        let ids = ["music.lofi.sunday", "music.lofi.midnight", "music.ambient.calm", "music.acoustic.sunny"]
+        return sound(id: ids[abs(seed) % ids.count]) ?? music[0]
+    }
+
     /// The effects AI edits use when the project has none of its own.
     public static let aiEffectIDs = ["sfx.whoosh", "sfx.impact", "sfx.pop"]
 }
