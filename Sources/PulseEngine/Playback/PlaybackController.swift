@@ -13,6 +13,8 @@ public final class PlaybackController: ObservableObject {
     @Published public private(set) var isBuilding = false
     /// Processed audio for the open edit is still rendering (the picture is already showing).
     @Published public private(set) var isEnhancingAudio = false
+    /// 0…1 while leveled audio renders.
+    @Published public private(set) var enhanceProgress: Double = 0
     @Published public private(set) var missingAssetIDs: Set<UUID> = []
     @Published public private(set) var lastError: String?
     @Published public var loopEnabled = false
@@ -27,6 +29,7 @@ public final class PlaybackController: ObservableObject {
     private var buildTask: Task<Void, Never>?
     private var buildGeneration = 0
     private var endObserver: NSObjectProtocol?
+    private var statusObservation: NSKeyValueObservation?
     /// A seek requested while a composition is building; applied once it's installed.
     private var pendingSeek: Seconds?
 
@@ -68,7 +71,13 @@ public final class PlaybackController: ObservableObject {
                 let pending = built.pendingEnhancements
                 guard !pending.isEmpty else { return }
                 self.isEnhancingAudio = true
-                await Self.render(pending)
+                self.enhanceProgress = 0
+                await Self.render(pending) { fraction in
+                    Task { @MainActor [weak self] in
+                        guard let self, generation == self.buildGeneration else { return }
+                        self.enhanceProgress = fraction
+                    }
+                }
                 guard !Task.isCancelled, generation == self.buildGeneration else { return }
                 let finished = try await CompositionBuilder.build(timeline: timeline, assets: assets,
                                                                   options: Self.options(useProxies: useProxies, safeArea: safeArea, compounds: compounds))
@@ -91,15 +100,20 @@ public final class PlaybackController: ObservableObject {
     }
 
     /// Renders the enhance chains a few at a time (each is one decode + DSP pass of a short range).
-    nonisolated static func render(_ requests: [BuiltComposition.EnhanceRequest]) async {
-        let width = max(2, min(6, ProcessInfo.processInfo.activeProcessorCount / 2))
+    nonisolated static func render(_ requests: [BuiltComposition.EnhanceRequest], progress: @escaping @Sendable (Double) -> Void) async {
+        // Few at a time and below playback's priority, so the viewer stays responsive meanwhile.
+        let width = max(2, min(3, ProcessInfo.processInfo.activeProcessorCount / 4))
+        let total = Double(max(requests.count, 1))
+        let done = ProgressTally()
         await withTaskGroup(of: Void.self) { group in
             for (i, r) in requests.enumerated() {
                 if Task.isCancelled { break }
                 // Keep at most `width` renders in flight.
                 if i >= width { _ = await group.next() }
-                group.addTask {
-                    _ = try? await AudioEnhancer.shared.render(sourceURL: r.sourceURL, range: r.range, settings: r.settings, cacheDirectory: r.cacheDirectory)
+                group.addTask(priority: .utility) {
+                    _ = try? await AudioEnhancer.shared.render(sourceURL: r.sourceURL, range: r.range, settings: r.settings,
+                                                               cacheDirectory: r.cacheDirectory, priority: .utility)
+                    progress(Double(done.increment()) / total)
                 }
             }
             await group.waitForAll()
@@ -118,6 +132,15 @@ public final class PlaybackController: ObservableObject {
                 self.player.play()
             }
         }
+        // A composition AVFoundation can't play would otherwise just sit there: say why.
+        statusObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
+            guard item.status == .failed else { return }
+            let message = item.error?.localizedDescription ?? "Playback failed"
+            Task { @MainActor in
+                PulseLog.error("Viewer item failed: \(message)")
+                self?.lastError = message
+            }
+        }
         player.replaceCurrentItem(with: item)
         duration = built.duration
         missingAssetIDs = built.missingAssetIDs
@@ -134,7 +157,17 @@ public final class PlaybackController: ObservableObject {
 
     public func play() {
         if currentTime >= duration - 0.05 { seek(to: 0) }
-        player.play()
+        player.playImmediately(atRate: 1)
+    }
+
+    /// For diagnostics: what the player item is doing.
+    public var itemStatusDescription: String {
+        guard let item = player.currentItem else { return "no item" }
+        switch item.status {
+        case .readyToPlay: return "ready"
+        case .failed: return "failed: \(item.error?.localizedDescription ?? "?")"
+        default: return "loading"
+        }
     }
 
     public func pause() { player.pause() }
@@ -163,4 +196,16 @@ public final class PlaybackController: ObservableObject {
 
     public func goToStart() { seek(to: 0) }
     public func goToEnd() { seek(to: duration) }
+}
+
+/// Thread-safe tally for background progress.
+final class ProgressTally: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    func increment() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        value += 1
+        return value
+    }
 }

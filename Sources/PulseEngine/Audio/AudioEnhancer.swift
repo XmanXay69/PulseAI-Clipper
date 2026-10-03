@@ -15,11 +15,12 @@ public actor AudioEnhancer {
     public init() {}
 
     /// Returns the processed file (rendering it on first use).
-    public func render(sourceURL: URL, range: TimeRange, settings: AudioSettings, cacheDirectory: URL) async throws -> URL {
+    public func render(sourceURL: URL, range: TimeRange, settings: AudioSettings, cacheDirectory: URL,
+                       priority: TaskPriority = .userInitiated) async throws -> URL {
         let (key, output) = Self.cacheEntry(sourceURL: sourceURL, range: range, settings: settings, cacheDirectory: cacheDirectory)
         if FileManager.default.fileExists(atPath: output.path) { return output }
         if let running = inFlight[key] { return try await running.value }
-        let task = Task.detached(priority: .userInitiated) {
+        let task = Task.detached(priority: priority) {
             try await AudioEnhancer.process(sourceURL: sourceURL, range: range, settings: settings, output: output)
             return output
         }
@@ -43,9 +44,23 @@ public actor AudioEnhancer {
         return (key, directory.appendingPathComponent("enh-\(key).caf"))
     }
 
+    private nonisolated static let assetLock = NSLock()
+    private nonisolated(unsafe) static var assets: [URL: AVURLAsset] = [:]
+
+    nonisolated static func sourceAsset(_ url: URL) -> AVURLAsset {
+        assetLock.lock()
+        defer { assetLock.unlock() }
+        if let cached = assets[url] { return cached }
+        if assets.count > 8 { assets.removeAll() }
+        let asset = AVURLAsset(url: url)
+        assets[url] = asset
+        return asset
+    }
+
     /// Decodes the range to float PCM, runs the chain, writes a CAF next to other caches.
     static func process(sourceURL: URL, range: TimeRange, settings: AudioSettings, output: URL) async throws {
-        let asset = AVURLAsset(url: sourceURL)
+        // One parsed asset per source file: re-opening a multi-hour VOD re-reads its whole index.
+        let asset = sourceAsset(sourceURL)
         guard let track = try await asset.loadTracks(withMediaType: .audio).first else { throw EngineError.noAudioTrack(sourceURL) }
         let reader = try AVAssetReader(asset: asset)
         reader.timeRange = CMTimeRange(start: .seconds(range.start), duration: .seconds(range.duration))

@@ -86,13 +86,23 @@ struct ViewerView: View {
                         if playback.isBuilding {
                             ProgressView().controlSize(.small).padding(8).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                         } else if playback.isEnhancingAudio {
-                            Label("Leveling audio…", systemImage: "waveform")
-                                .font(.pulseMicro).foregroundStyle(.white.opacity(0.85))
-                                .padding(.horizontal, 8).padding(.vertical, 4)
-                                .background(Capsule().fill(.black.opacity(0.55)))
-                                .padding(8)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                                .help("The edit plays with the original audio until the volume-leveled audio is ready (a few seconds)")
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "waveform")
+                                    Text("Leveling audio")
+                                    Spacer(minLength: 6)
+                                    Text("\(Int((playback.enhanceProgress * 100).rounded()))%").monospacedDigit()
+                                }
+                                ProgressView(value: playback.enhanceProgress).progressViewStyle(.linear).tint(Theme.accent).controlSize(.mini)
+                            }
+                            .font(.pulseMicro).foregroundStyle(.white.opacity(0.9))
+                            .frame(width: 150)
+                            .padding(.horizontal, 9).padding(.vertical, 6)
+                            .background(RoundedRectangle(cornerRadius: 7).fill(.black.opacity(0.6)))
+                            .padding(8)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                            .allowsHitTesting(false)
+                            .help("You can play and edit right away — the original audio plays until the leveled audio is ready")
                         }
                         if !playback.missingAssetIDs.isEmpty {
                             MediaOfflineBanner(session: session, missing: playback.missingAssetIDs)

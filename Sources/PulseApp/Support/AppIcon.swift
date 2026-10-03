@@ -289,6 +289,16 @@ enum UISnapshotter {
                         try? await Task.sleep(nanoseconds: 50_000_000)
                     }
                     let viewerSeconds = Date().timeIntervalSince(shown)
+                    // Press play while the audio is still being leveled: the playhead must move.
+                    let leveling = session.playback.isEnhancingAudio
+                    let before = session.playback.currentTime
+                    session.playback.play()
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    let moved = session.playback.currentTime - before
+                    session.playback.pause()
+                    FileHandle.standardError.write(Data(String(format: "UI-PLAY during leveling=%@: playhead moved %.2fs in 2s, item %@, rate %.1f\n",
+                                                               leveling ? "yes" : "no", moved, session.playback.itemStatusDescription,
+                                                               session.playback.player.rate).utf8))
                     let levelStart = Date()
                     while session.playback.isEnhancingAudio && Date().timeIntervalSince(levelStart) < 120 {
                         try? await Task.sleep(nanoseconds: 100_000_000)

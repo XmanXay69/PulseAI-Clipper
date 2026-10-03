@@ -358,8 +358,9 @@ struct VersionBadge: View {
             HStack(spacing: 4) {
                 if update != nil { Image(systemName: "arrow.down.circle.fill").font(.system(size: 10)) }
                 Text(update.map { "Update to \($0.version.description)" } ?? (AppModel.shortVersion == "dev" ? "dev build" : "v\(AppModel.shortVersion)"))
-                    .font(.system(size: 10, weight: .semibold, design: .rounded)).monospacedDigit()
+                    .font(.system(size: update != nil ? 11 : 10, weight: update != nil ? .bold : .semibold, design: .rounded)).monospacedDigit()
             }
+            .padding(.horizontal, update != nil ? 4 : 0).padding(.vertical, update != nil ? 2 : 0)
             .foregroundStyle(update != nil ? Color.white : Theme.textSecondary)
             .padding(.horizontal, 7).padding(.vertical, 3)
             .background(Capsule().fill(update != nil ? Theme.accent : Theme.control))

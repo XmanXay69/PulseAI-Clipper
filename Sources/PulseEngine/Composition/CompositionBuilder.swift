@@ -388,6 +388,14 @@ public enum CompositionBuilder {
             var handleTrack: AVMutableCompositionTrack?
             var ramps: [(time: Seconds, gain: Double)] = []
             var handleRamps: [(time: Seconds, gain: Double)] = []
+            // Enhance renders cover whole stretches of the source, not each jump-cut piece: a long edit
+            // has hundreds of pieces but only a few dozen stretches, and every render costs a decode.
+            let spans = Self.enhanceSpans(track.clips.filter { $0.isEnabled }.compactMap { clip -> EnhanceSpanInput? in
+                guard clip.audio.needsEnhanceRender, case .media(let id) = clip.content else { return nil }
+                let tailLength = crossfades.tail[clip.id]?.sourceLength ?? 0
+                return EnhanceSpanInput(clipID: clip.id, group: "\(id)|\(clip.audio.enhanceFingerprint)",
+                                        range: TimeRange(start: clip.sourceIn, end: clip.sourceOut + tailLength))
+            })
             for original in track.clips.sorted(by: { $0.start < $1.start }) where original.isEnabled {
                 var clip = original
                 if let fade = crossfades.fadeIn[clip.id] { clip.audio.fadeIn = max(clip.audio.fadeIn, fade) }
@@ -408,14 +416,15 @@ public enum CompositionBuilder {
                 // Enhance chain: use the cached processed render of exactly this range (plus any
                 // crossfade tail). Decoding can end a few samples short, so clamp to what was
                 // rendered; on any problem fall back to the original audio.
-                let renderRange = TimeRange(start: clip.sourceIn, end: clip.sourceOut + (tail?.sourceLength ?? 0))
+                let renderRange = spans[clip.id] ?? TimeRange(start: clip.sourceIn, end: clip.sourceOut + (tail?.sourceLength ?? 0))
+                let offset = max(0, clip.sourceIn - renderRange.start)
                 var enhancedFile: URL?
                 if clip.audio.needsEnhanceRender, let cacheDirectory = options.enhanceCacheDirectory {
                     if options.renderEnhancements {
                         enhancedFile = try? await AudioEnhancer.shared.render(sourceURL: fileURL, range: renderRange, settings: clip.audio, cacheDirectory: cacheDirectory)
                     } else {
                         enhancedFile = AudioEnhancer.cachedRender(sourceURL: fileURL, range: renderRange, settings: clip.audio, cacheDirectory: cacheDirectory)
-                        if enhancedFile == nil {
+                        if enhancedFile == nil, !pending.contains(where: { $0.sourceURL == fileURL && $0.range == renderRange && $0.settings.enhanceFingerprint == clip.audio.enhanceFingerprint }) {
                             pending.append(BuiltComposition.EnhanceRequest(sourceURL: fileURL, range: renderRange, settings: clip.audio, cacheDirectory: cacheDirectory))
                         }
                     }
@@ -424,11 +433,11 @@ public enum CompositionBuilder {
                    // Tracks only weakly reference their asset, so keep it in the builder's cache.
                    let enhancedTrack = try? await avAsset(enhancedURL).loadTracks(withMediaType: .audio).first,
                    let available = try? await enhancedTrack.load(.timeRange) {
-                    let duration = CMTimeMinimum(CMTime.seconds(clip.sourceDuration), available.duration)
+                    let duration = CMTimeMinimum(CMTime.seconds(clip.sourceDuration), available.duration - CMTime.seconds(offset))
                     if duration.secondsValue > 0.01,
-                       (try? compTrack.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: enhancedTrack, at: at)) != nil {
+                       (try? compTrack.insertTimeRange(CMTimeRange(start: .seconds(offset), duration: duration), of: enhancedTrack, at: at)) != nil {
                         insertedDuration = duration
-                        tailSource = (enhancedTrack, .seconds(clip.sourceDuration))
+                        tailSource = (enhancedTrack, .seconds(offset + clip.sourceDuration))
                     }
                 }
                 if insertedDuration == nil {
@@ -496,6 +505,37 @@ public enum CompositionBuilder {
         struct Tail { var duration: Seconds; var sourceLength: Seconds }
         var tail: [UUID: Tail] = [:]
         var fadeIn: [UUID: Seconds] = [:]
+    }
+
+    struct EnhanceSpanInput {
+        var clipID: UUID
+        /// Same source + same enhance settings.
+        var group: String
+        var range: TimeRange
+    }
+
+    /// Joins clips of the same source and settings whose source ranges are close (≤ 20 s apart) into
+    /// stretches of at most 10 minutes. Returns each clip's stretch.
+    static func enhanceSpans(_ inputs: [EnhanceSpanInput], gap: Seconds = 20, maxLength: Seconds = 600) -> [UUID: TimeRange] {
+        var result: [UUID: TimeRange] = [:]
+        for (_, items) in Dictionary(grouping: inputs, by: \.group) {
+            var current: (range: TimeRange, ids: [UUID])?
+            func flush() {
+                if let current { for id in current.ids { result[id] = current.range } }
+            }
+            for item in items.sorted(by: { $0.range.start < $1.range.start }) {
+                if var c = current, item.range.start - c.range.end <= gap, max(c.range.end, item.range.end) - c.range.start <= maxLength {
+                    c.range = TimeRange(start: c.range.start, end: max(c.range.end, item.range.end))
+                    c.ids.append(item.clipID)
+                    current = c
+                } else {
+                    flush()
+                    current = (item.range, [item.clipID])
+                }
+            }
+            flush()
+        }
+        return result
     }
 
     static func audioCrossfades(on track: Track, allClips: [TimelineClip], assets: [UUID: MediaAsset]) -> AudioCrossfades {

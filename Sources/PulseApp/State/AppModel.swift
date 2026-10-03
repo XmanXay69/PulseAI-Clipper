@@ -167,8 +167,12 @@ final class AppModel: ObservableObject {
         reference.app = self
         updaterObserver = updater.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 4_000_000_000)
-            self?.updater.checkOnLaunch()
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            guard let self else { return }
+            self.updater.onFound = { [weak self] release in
+                self?.toast("PULSE \(release.version.description) is out — click Update (top right) to install")
+            }
+            self.updater.startWatching()
         }
         recordingObserver = recording.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         refreshProjects()

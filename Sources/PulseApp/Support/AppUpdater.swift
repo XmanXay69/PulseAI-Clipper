@@ -46,18 +46,34 @@ final class AppUpdater: NSObject, ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: "updates.autoCheck"); objectWillChange.send() }
     }
 
-    /// At launch: once a day, quietly.
-    func checkOnLaunch() {
+    private var timer: Timer?
+    private var activeObserver: NSObjectProtocol?
+    /// Called once when a newer release is first seen (for the "update ready" notice).
+    var onFound: ((ReleaseInfo) -> Void)?
+    private var announced: String?
+
+    /// Checks at launch, every 30 minutes, and when you switch back to PULSE (at most every 10 min).
+    func startWatching() {
         guard autoCheck, canInstall else { return }
-        let last = UserDefaults.standard.object(forKey: "updates.lastCheck") as? Date ?? .distantPast
-        guard Date().timeIntervalSince(last) > 20 * 3600 else { return }
         Task { await check(userInitiated: false) }
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 30 * 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.check(userInitiated: false) }
+        }
+        activeObserver = NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.autoCheck else { return }
+                let last = UserDefaults.standard.object(forKey: "updates.lastCheck") as? Date ?? .distantPast
+                if Date().timeIntervalSince(last) > 10 * 60 { await self.check(userInitiated: false) }
+            }
+        }
     }
 
     func check(userInitiated: Bool) async {
         if case .downloading = state { return }
         if case .installing = state { return }
-        state = .checking
+        let previous: State? = available.map { .available($0) }
+        if userInitiated || previous == nil { state = .checking }
         UserDefaults.standard.set(Date(), forKey: "updates.lastCheck")
         var request = URLRequest(url: Self.latestURL, timeoutInterval: 20)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
@@ -65,17 +81,21 @@ final class AppUpdater: NSObject, ObservableObject {
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard (response as? HTTPURLResponse)?.statusCode == 200, let release = ReleaseInfo.parse(data) else {
-                state = userInitiated ? .failed("Couldn't read the latest release from GitHub.") : .idle
+                state = userInitiated ? .failed("Couldn't read the latest release from GitHub.") : (previous ?? .idle)
                 return
             }
             if current < release.version {
                 state = .available(release)
+                if announced != release.tag {
+                    announced = release.tag
+                    onFound?(release)
+                }
                 PulseLog.info("Update available: \(release.version) build \(release.version.build) (running \(current) build \(current.build))")
             } else {
                 state = userInitiated ? .upToDate : .idle
             }
         } catch {
-            state = userInitiated ? .failed("Couldn't reach GitHub: \(error.localizedDescription)") : .idle
+            state = userInitiated ? .failed("Couldn't reach GitHub: \(error.localizedDescription)") : (previous ?? .idle)
         }
     }
 
