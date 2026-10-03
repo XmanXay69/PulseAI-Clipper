@@ -11,6 +11,16 @@ public final class BuiltComposition: @unchecked Sendable {
     public let scene: RenderScene
     /// Clips whose media couldn't be found (shown as "Media Offline").
     public let missingAssetIDs: Set<UUID>
+    /// Enhance renders that weren't cached yet (`Options.renderEnhancements == false`): the clips
+    /// play their original audio until these are rendered and the composition is rebuilt.
+    public internal(set) var pendingEnhancements: [EnhanceRequest] = []
+
+    public struct EnhanceRequest: Sendable {
+        public var sourceURL: URL
+        public var range: TimeRange
+        public var settings: AudioSettings
+        public var cacheDirectory: URL
+    }
 
     init(composition: AVComposition, videoComposition: AVVideoComposition, audioMix: AVAudioMix, duration: Seconds, scene: RenderScene, missingAssetIDs: Set<UUID>) {
         self.composition = composition
@@ -44,6 +54,10 @@ public enum CompositionBuilder {
         public var enhanceCacheDirectory: URL?
         /// Nested timelines of compound clips (`ProjectDocument.compounds`).
         public var compounds: [UUID: Timeline] = [:]
+        /// false = use only enhance renders that are already cached and report the rest as
+        /// `pendingEnhancements` (the viewer: picture first, processed audio a moment later).
+        /// Exports keep true and wait for every render.
+        public var renderEnhancements = true
 
         public init(renderSize: CGSize? = nil, useProxies: Bool = false, includeCaptions: Bool = true, showSafeArea: SafeAreaPlatform? = nil,
                     enhanceCacheDirectory: URL? = PulseDirectories.cache("Enhanced Audio")) {
@@ -79,6 +93,7 @@ public enum CompositionBuilder {
             }
         }
 
+        var pending: [BuiltComposition.EnhanceRequest] = []
         var assetCache: [URL: AVURLAsset] = [:]
         func avAsset(_ url: URL) -> AVURLAsset {
             if let a = assetCache[url] { return a }
@@ -394,8 +409,18 @@ public enum CompositionBuilder {
                 // crossfade tail). Decoding can end a few samples short, so clamp to what was
                 // rendered; on any problem fall back to the original audio.
                 let renderRange = TimeRange(start: clip.sourceIn, end: clip.sourceOut + (tail?.sourceLength ?? 0))
-                if clip.audio.needsEnhanceRender, let cacheDirectory = options.enhanceCacheDirectory,
-                   let enhancedURL = try? await AudioEnhancer.shared.render(sourceURL: fileURL, range: renderRange, settings: clip.audio, cacheDirectory: cacheDirectory),
+                var enhancedFile: URL?
+                if clip.audio.needsEnhanceRender, let cacheDirectory = options.enhanceCacheDirectory {
+                    if options.renderEnhancements {
+                        enhancedFile = try? await AudioEnhancer.shared.render(sourceURL: fileURL, range: renderRange, settings: clip.audio, cacheDirectory: cacheDirectory)
+                    } else {
+                        enhancedFile = AudioEnhancer.cachedRender(sourceURL: fileURL, range: renderRange, settings: clip.audio, cacheDirectory: cacheDirectory)
+                        if enhancedFile == nil {
+                            pending.append(BuiltComposition.EnhanceRequest(sourceURL: fileURL, range: renderRange, settings: clip.audio, cacheDirectory: cacheDirectory))
+                        }
+                    }
+                }
+                if let enhancedURL = enhancedFile,
                    // Tracks only weakly reference their asset, so keep it in the builder's cache.
                    let enhancedTrack = try? await avAsset(enhancedURL).loadTracks(withMediaType: .audio).first,
                    let available = try? await enhancedTrack.load(.timeRange) {
@@ -458,8 +483,10 @@ public enum CompositionBuilder {
         }
         audioMix.inputParameters = mixParameters
 
-        return BuiltComposition(composition: composition.copy() as! AVComposition, videoComposition: videoComposition.copy() as! AVVideoComposition,
-                                audioMix: audioMix.copy() as! AVAudioMix, duration: duration, scene: scene, missingAssetIDs: missing)
+        let built = BuiltComposition(composition: composition.copy() as! AVComposition, videoComposition: videoComposition.copy() as! AVVideoComposition,
+                                     audioMix: audioMix.copy() as! AVAudioMix, duration: duration, scene: scene, missingAssetIDs: missing)
+        built.pendingEnhancements = pending
+        return built
     }
 
     /// Audio crossfades under video dissolves. For adjacent clips A → B on an audio track where B (or

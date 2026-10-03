@@ -16,12 +16,7 @@ public actor AudioEnhancer {
 
     /// Returns the processed file (rendering it on first use).
     public func render(sourceURL: URL, range: TimeRange, settings: AudioSettings, cacheDirectory: URL) async throws -> URL {
-        let attributes = try? FileManager.default.attributesOfItem(atPath: sourceURL.path)
-        let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
-        let modified = (attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-        let key = StableHash.fnv1a("\(sourceURL.path)|\(size)|\(modified)|\(String(format: "%.4f-%.4f", range.start, range.end))|\(settings.enhanceFingerprint)")
-        let directory = PulseDirectories.ensure(cacheDirectory)
-        let output = directory.appendingPathComponent("enh-\(key).caf")
+        let (key, output) = Self.cacheEntry(sourceURL: sourceURL, range: range, settings: settings, cacheDirectory: cacheDirectory)
         if FileManager.default.fileExists(atPath: output.path) { return output }
         if let running = inFlight[key] { return try await running.value }
         let task = Task.detached(priority: .userInitiated) {
@@ -31,6 +26,21 @@ public actor AudioEnhancer {
         inFlight[key] = task
         defer { inFlight[key] = nil }
         return try await task.value
+    }
+
+    /// The cached render, only if it already exists — never renders (keeps the viewer instant).
+    public nonisolated static func cachedRender(sourceURL: URL, range: TimeRange, settings: AudioSettings, cacheDirectory: URL) -> URL? {
+        let output = cacheEntry(sourceURL: sourceURL, range: range, settings: settings, cacheDirectory: cacheDirectory).output
+        return FileManager.default.fileExists(atPath: output.path) ? output : nil
+    }
+
+    nonisolated static func cacheEntry(sourceURL: URL, range: TimeRange, settings: AudioSettings, cacheDirectory: URL) -> (key: String, output: URL) {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: sourceURL.path)
+        let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
+        let modified = (attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        let key = StableHash.fnv1a("\(sourceURL.path)|\(size)|\(modified)|\(String(format: "%.4f-%.4f", range.start, range.end))|\(settings.enhanceFingerprint)")
+        let directory = PulseDirectories.ensure(cacheDirectory)
+        return (key, directory.appendingPathComponent("enh-\(key).caf"))
     }
 
     /// Decodes the range to float PCM, runs the chain, writes a CAF next to other caches.

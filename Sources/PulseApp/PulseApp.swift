@@ -121,7 +121,11 @@ struct PulseCommands: Commands {
                 .keyboardShortcut("z", modifiers: [.command, .shift])
                 .disabled(!(app.session?.canRedo ?? false))
         }
+        CommandGroup(after: .appInfo) {
+            Button("Check for Updates…") { app.updater.showSheet = true }
+        }
         CommandGroup(replacing: .help) {
+            Button("Check for Updates…") { app.updater.showSheet = true }
             Button("Report a Problem…") { app.showReportProblem = true }
             Button("Open Log Folder") { NSWorkspace.shared.open(PulseLog.directory) }
             Divider()

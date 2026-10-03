@@ -11,7 +11,7 @@ works on macOS 15). CI compiles, tests and screenshots the app on a GitHub Actio
 
 ## Versions
 
-`VERSION` holds the current version (1.1.0). Release notes per version live in `versions/<version>/NOTES.md`
+`VERSION` holds the current version (1.1.1). Release notes per version live in `versions/<version>/NOTES.md`
 (the Release workflow prepends them to the GitHub Release); `versions/README.md` explains how to cut a new one.
 
 ## Download (the easy way)
@@ -205,6 +205,13 @@ prompt), cloud AI providers with live keys.
   gallery folder when it comes to the front. If the studio's document format changes, update the `ThumbStudio*`
   structs (a test decodes PULSE's output with synthesized enum coding, the way the studio does). Not verified
   against a running Thumbnail Studio on a Mac yet. All tuned on synthetic data — real VODs/analytics will need tuning.
+- **Viewer speed / updates (1.1.1)** — the viewer builds with `CompositionBuilder.Options.renderEnhancements =
+  false` (only already-cached Enhance renders are used; the rest come back as `pendingEnhancements`), installs that,
+  renders the pending ones in parallel and rebuilds. Exports keep rendering everything. In-app updates:
+  `PulseCore/Settings/AppUpdate.swift` (version compare, release parsing) + `PulseApp/Support/AppUpdater.swift`
+  (GitHub latest release → DMG → SHA-256 check → hdiutil/ditto beside the app → a shell helper swaps bundles after
+  quit and reopens). Needs the app's folder to be writable; ad-hoc signing means macOS may re-ask for
+  Screen Recording/Microphone permission after an update.
 - Cross-dissolves (video + linked audio crossfade) need media handles; at the very start/end of a recording they
   fall back to a fade over lower tracks.
 - whisper.cpp itself must be installed with Homebrew (`brew install whisper-cpp`); models download in-app

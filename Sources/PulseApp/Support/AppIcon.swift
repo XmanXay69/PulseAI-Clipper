@@ -283,6 +283,18 @@ enum UISnapshotter {
                 }
                 if let edit = session.document.timelines.first(where: { !before.contains($0.id) }) {
                     FileHandle.standardError.write(Data("UI-LONGFORM \(Timecode.short(edit.duration)) after \(waited)s: \(session.lastAIReport ?? "")\n".utf8))
+                    // How long until the finished edit is actually in the viewer.
+                    let shown = Date()
+                    while (session.playback.isBuilding || abs(session.playback.duration - edit.duration) > 0.5) && Date().timeIntervalSince(shown) < 60 {
+                        try? await Task.sleep(nanoseconds: 50_000_000)
+                    }
+                    let viewerSeconds = Date().timeIntervalSince(shown)
+                    let levelStart = Date()
+                    while session.playback.isEnhancingAudio && Date().timeIntervalSince(levelStart) < 120 {
+                        try? await Task.sleep(nanoseconds: 100_000_000)
+                    }
+                    FileHandle.standardError.write(Data(String(format: "UI-VIEWER edit in the viewer after %.2fs; leveled audio swapped in %.1fs later\n",
+                                                               viewerSeconds, Date().timeIntervalSince(levelStart)).utf8))
                     if let review = session.activeReview {
                         FileHandle.standardError.write(Data("UI-COACH score \(review.prediction.score) \(review.prediction.tier.displayName): \(review.suggestions.map(\.title).joined(separator: " | "))\n".utf8))
                     }

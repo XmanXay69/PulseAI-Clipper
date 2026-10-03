@@ -189,6 +189,10 @@ struct GeneralSettings: View {
             }
         }
         SettingsGroup("Help") {
+            SettingsRow("Software update", detail: "You have PULSE \(AppModel.versionString). Updates install from inside the app and keep your projects, settings and caption models.") {
+                Button(app.updater.available.map { "Update to \($0.version.description)…" } ?? "Check for Updates…") { app.updater.showSheet = true }
+                    .buttonStyle(.pulse(.secondary, compact: true))
+            }
             SettingsRow("Something not working?", detail: "Bundles the app log and system info (never your media) and opens a GitHub issue.") {
                 Button("Report a Problem…") { app.showReportProblem = true }.buttonStyle(.pulse(.secondary, compact: true))
             }

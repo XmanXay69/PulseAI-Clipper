@@ -115,6 +115,9 @@ final class AppModel: ObservableObject {
     let batch = BatchController()
     /// "Edit Like a Reference": studies a video whose editing you like.
     let reference = ReferenceController()
+    /// In-app updates from GitHub Releases.
+    let updater = AppUpdater()
+    private var updaterObserver: AnyCancellable?
     @Published var showReferenceSheet = false
     private var recordingObserver: AnyCancellable?
     let store = ProjectStore()
@@ -162,6 +165,11 @@ final class AppModel: ObservableObject {
         }
         batch.app = self
         reference.app = self
+        updaterObserver = updater.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            self?.updater.checkOnLaunch()
+        }
         recordingObserver = recording.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         refreshProjects()
         refreshActivity()

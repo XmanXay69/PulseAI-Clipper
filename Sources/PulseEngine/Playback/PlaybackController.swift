@@ -11,6 +11,8 @@ public final class PlaybackController: ObservableObject {
     @Published public private(set) var duration: Seconds = 0
     @Published public private(set) var isPlaying = false
     @Published public private(set) var isBuilding = false
+    /// Processed audio for the open edit is still rendering (the picture is already showing).
+    @Published public private(set) var isEnhancingAudio = false
     @Published public private(set) var missingAssetIDs: Set<UUID> = []
     @Published public private(set) var lastError: String?
     @Published public var loopEnabled = false
@@ -48,6 +50,7 @@ public final class PlaybackController: ObservableObject {
                      safeArea: SafeAreaPlatform? = nil, debounce: Double = 0.08) {
         buildTask?.cancel()
         buildGeneration += 1
+        isEnhancingAudio = false
         let generation = buildGeneration
         frameRate = timeline.canvas.frameRate
         isBuilding = true
@@ -58,7 +61,20 @@ public final class PlaybackController: ObservableObject {
                 let built = try await CompositionBuilder.build(timeline: timeline, assets: assets,
                                                                options: Self.options(useProxies: useProxies, safeArea: safeArea, compounds: compounds))
                 guard let self, !Task.isCancelled, generation == self.buildGeneration else { return }
+                // Picture first: the edit shows immediately with the original audio…
                 self.install(built)
+                // …then any processed ("Enhance"/normalized) audio renders in the background and is
+                // swapped in without moving the playhead.
+                let pending = built.pendingEnhancements
+                guard !pending.isEmpty else { return }
+                self.isEnhancingAudio = true
+                await Self.render(pending)
+                guard !Task.isCancelled, generation == self.buildGeneration else { return }
+                let finished = try await CompositionBuilder.build(timeline: timeline, assets: assets,
+                                                                  options: Self.options(useProxies: useProxies, safeArea: safeArea, compounds: compounds))
+                guard !Task.isCancelled, generation == self.buildGeneration else { return }
+                self.install(finished)
+                self.isEnhancingAudio = false
             } catch {
                 guard let self, generation == self.buildGeneration else { return }
                 self.lastError = error.localizedDescription
@@ -70,7 +86,24 @@ public final class PlaybackController: ObservableObject {
     nonisolated static func options(useProxies: Bool, safeArea: SafeAreaPlatform?, compounds: [UUID: Timeline]) -> CompositionBuilder.Options {
         var options = CompositionBuilder.Options(useProxies: useProxies, showSafeArea: safeArea)
         options.compounds = compounds
+        options.renderEnhancements = false
         return options
+    }
+
+    /// Renders the enhance chains a few at a time (each is one decode + DSP pass of a short range).
+    nonisolated static func render(_ requests: [BuiltComposition.EnhanceRequest]) async {
+        let width = max(2, min(6, ProcessInfo.processInfo.activeProcessorCount / 2))
+        await withTaskGroup(of: Void.self) { group in
+            for (i, r) in requests.enumerated() {
+                if Task.isCancelled { break }
+                // Keep at most `width` renders in flight.
+                if i >= width { _ = await group.next() }
+                group.addTask {
+                    _ = try? await AudioEnhancer.shared.render(sourceURL: r.sourceURL, range: r.range, settings: r.settings, cacheDirectory: r.cacheDirectory)
+                }
+            }
+            await group.waitForAll()
+        }
     }
 
     private func install(_ built: BuiltComposition) {

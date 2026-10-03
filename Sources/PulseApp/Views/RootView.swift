@@ -47,6 +47,7 @@ struct RootView: View {
         .sheet(isPresented: $app.showRecordSheet) { RecordView(recorder: app.recording).environmentObject(app) }
         .sheet(isPresented: $app.showReportProblem) { ReportProblemSheet().environmentObject(app) }
         .sheet(isPresented: $app.showBatchSheet) { BatchSheet(batch: app.batch).environmentObject(app) }
+        .sheet(isPresented: Binding(get: { app.updater.showSheet }, set: { app.updater.showSheet = $0 })) { UpdateSheet(updater: app.updater) }
         .sheet(isPresented: $app.showReferenceSheet) { ReferenceSheet(reference: app.reference).environmentObject(app) }
         .sheet(item: $app.thumbnailRequest) { request in
             if let session = app.session { ThumbnailSheet(session: session, request: request).environmentObject(app) }
@@ -346,20 +347,25 @@ struct TopBar: View {
     }
 }
 
-/// The app version, top right — click for the release notes.
+/// The app version, top right. Turns into "Update to x.y" when a newer release is out; click for
+/// the update sheet (check, what's new, install & relaunch).
 struct VersionBadge: View {
-    static let releasesURL = URL(string: "https://github.com/XmanXay69/PulseAI-Clipper/releases")!
+    @EnvironmentObject var app: AppModel
 
     var body: some View {
-        Button { NSWorkspace.shared.open(Self.releasesURL) } label: {
-            Text(AppModel.shortVersion == "dev" ? "dev build" : "v\(AppModel.shortVersion)")
-                .font(.system(size: 10, weight: .semibold, design: .rounded)).monospacedDigit()
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.horizontal, 7).padding(.vertical, 3)
-                .background(Capsule().fill(Theme.control))
+        let update = app.updater.available
+        Button { app.updater.showSheet = true } label: {
+            HStack(spacing: 4) {
+                if update != nil { Image(systemName: "arrow.down.circle.fill").font(.system(size: 10)) }
+                Text(update.map { "Update to \($0.version.description)" } ?? (AppModel.shortVersion == "dev" ? "dev build" : "v\(AppModel.shortVersion)"))
+                    .font(.system(size: 10, weight: .semibold, design: .rounded)).monospacedDigit()
+            }
+            .foregroundStyle(update != nil ? Color.white : Theme.textSecondary)
+            .padding(.horizontal, 7).padding(.vertical, 3)
+            .background(Capsule().fill(update != nil ? Theme.accent : Theme.control))
         }
         .buttonStyle(.plain)
-        .help("PULSE \(AppModel.versionString) — click for what's new")
+        .help(update != nil ? "A new version of PULSE is ready — click to see what's new and install" : "PULSE \(AppModel.versionString) — click to check for updates")
     }
 }
 

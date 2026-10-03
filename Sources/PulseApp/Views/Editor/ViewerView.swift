@@ -85,6 +85,14 @@ struct ViewerView: View {
                         CanvasHandlesOverlay(session: session, playback: playback, frameSize: frameSize)
                         if playback.isBuilding {
                             ProgressView().controlSize(.small).padding(8).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        } else if playback.isEnhancingAudio {
+                            Label("Leveling audio…", systemImage: "waveform")
+                                .font(.pulseMicro).foregroundStyle(.white.opacity(0.85))
+                                .padding(.horizontal, 8).padding(.vertical, 4)
+                                .background(Capsule().fill(.black.opacity(0.55)))
+                                .padding(8)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                                .help("The edit plays with the original audio until the volume-leveled audio is ready (a few seconds)")
                         }
                         if !playback.missingAssetIDs.isEmpty {
                             MediaOfflineBanner(session: session, missing: playback.missingAssetIDs)
