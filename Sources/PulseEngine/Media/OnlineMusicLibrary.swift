@@ -41,7 +41,13 @@ public actor OnlineMusicLibrary {
         var candidates: [VideoSearchResult] = []
         for query in queries where candidates.count < count * 3 {
             progress?("Searching Creative Commons music (\(mood))")
-            if let found = try? await search(query) { candidates += found.filter { r in !candidates.contains { $0.videoID == r.videoID } } }
+            do {
+                let found = try await search(query)
+                PulseLog.info("Music search “\(query)”: \(found.count) results")
+                candidates += found.filter { r in !candidates.contains { $0.videoID == r.videoID } }
+            } catch {
+                PulseLog.warning("Music search failed: \(error.localizedDescription)")
+            }
         }
         let known = Set(downloaded.map(\.videoID))
         for result in MusicPicker.rank(candidates, count: count * 2) where chosen.count < count {
@@ -50,7 +56,11 @@ public actor OnlineMusicLibrary {
                 continue
             }
             progress?("Downloading “\(result.title)”")
-            if let track = try? await download(result, mood: mood) { chosen.append(track) }
+            do {
+                chosen.append(try await download(result, mood: mood))
+            } catch {
+                PulseLog.warning("Music download failed for \(result.videoID) (“\(result.title)”): \(error.localizedDescription)")
+            }
         }
         // Offline, or YouTube refused: reuse what's already in the library (same mood first).
         if chosen.count < count {
@@ -68,7 +78,10 @@ public actor OnlineMusicLibrary {
         request.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
         request.httpShouldHandleCookies = false
         let (data, response) = try await session.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { return [] }
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw EngineError.readerFailed("YouTube search returned \((response as? HTTPURLResponse)?.statusCode ?? 0)")
+        }
+        _ = http
         return YouTubeSearchParser.results(fromHTML: String(decoding: data, as: UTF8.self))
     }
 
