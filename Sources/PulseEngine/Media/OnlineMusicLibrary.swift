@@ -50,7 +50,7 @@ public actor OnlineMusicLibrary {
             }
         }
         let known = Set(downloaded.map(\.videoID))
-        for result in MusicPicker.rank(candidates, count: count * 2) where chosen.count < count {
+        for result in MusicPicker.rank(candidates, count: count * 4 + 2) where chosen.count < count {
             if known.contains(result.videoID), let existing = downloaded.first(where: { $0.videoID == result.videoID }) {
                 chosen.append(existing)
                 continue

@@ -11,7 +11,7 @@ works on macOS 15). CI compiles, tests and screenshots the app on a GitHub Actio
 
 ## Versions
 
-`VERSION` holds the current version (1.1.2). Release notes per version live in `versions/<version>/NOTES.md`
+`VERSION` holds the current version (1.2.0). Release notes per version live in `versions/<version>/NOTES.md`
 (the Release workflow prepends them to the GitHub Release); `versions/README.md` explains how to cut a new one.
 
 ## Download (the easy way)
@@ -212,6 +212,11 @@ prompt), cloud AI providers with live keys.
   (checked at launch, every 30 min and on app activation; GitHub latest release → DMG → SHA-256 check → hdiutil/ditto beside the app → a shell helper swaps bundles after
   quit and reopens). Needs the app's folder to be writable; ad-hoc signing means macOS may re-ask for
   Screen Recording/Microphone permission after an update.
+- **Online music (1.2.0)** — `PulseCore/Library/OnlineMusic.swift` (YouTube search-page parsing, Creative Commons
+  filter `sp=EgIwAQ%3D%3D`, calm-track ranking, credits) + `PulseEngine/Media/OnlineMusicLibrary.swift` (YouTubeKit
+  ≥ 0.4.9 local extraction like TubeGrab, 1 MiB parallel ranged downloads, library.json). YouTube may block
+  extraction from data-center IPs (GitHub runners); it falls back to built-in beds and logs why. "Creative
+  Commons" is YouTube's filter — uploaders' claims aren't verified by PULSE.
 - Cross-dissolves (video + linked audio crossfade) need media handles; at the very start/end of a recording they
   fall back to a fade over lower tracks.
 - whisper.cpp itself must be installed with Homebrew (`brew install whisper-cpp`); models download in-app
