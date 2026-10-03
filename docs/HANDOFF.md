@@ -11,7 +11,7 @@ works on macOS 15). CI compiles, tests and screenshots the app on a GitHub Actio
 
 ## Versions
 
-`VERSION` holds the current version (1.1.1). Release notes per version live in `versions/<version>/NOTES.md`
+`VERSION` holds the current version (1.1.2). Release notes per version live in `versions/<version>/NOTES.md`
 (the Release workflow prepends them to the GitHub Release); `versions/README.md` explains how to cut a new one.
 
 ## Download (the easy way)
@@ -207,9 +207,9 @@ prompt), cloud AI providers with live keys.
   against a running Thumbnail Studio on a Mac yet. All tuned on synthetic data — real VODs/analytics will need tuning.
 - **Viewer speed / updates (1.1.1)** — the viewer builds with `CompositionBuilder.Options.renderEnhancements =
   false` (only already-cached Enhance renders are used; the rest come back as `pendingEnhancements`), installs that,
-  renders the pending ones in parallel and rebuilds. Exports keep rendering everything. In-app updates:
+  renders the pending ones (one per source stretch via `CompositionBuilder.enhanceSpans`, shared parsed asset, utility priority, `enhanceProgress`) and rebuilds. Exports keep rendering everything. In-app updates:
   `PulseCore/Settings/AppUpdate.swift` (version compare, release parsing) + `PulseApp/Support/AppUpdater.swift`
-  (GitHub latest release → DMG → SHA-256 check → hdiutil/ditto beside the app → a shell helper swaps bundles after
+  (checked at launch, every 30 min and on app activation; GitHub latest release → DMG → SHA-256 check → hdiutil/ditto beside the app → a shell helper swaps bundles after
   quit and reopens). Needs the app's folder to be writable; ad-hoc signing means macOS may re-ask for
   Screen Recording/Microphone permission after an update.
 - Cross-dissolves (video + linked audio crossfade) need media handles; at the very start/end of a recording they
