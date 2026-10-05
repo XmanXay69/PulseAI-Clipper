@@ -46,6 +46,9 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var aiMusic: Bool = false
     /// Edit My VOD finds Creative Commons background music on YouTube (else the built-in calm beds).
     public var onlineMusic: Bool = true
+    /// Your last answers to Edit My VOD's "Extras" question (the starting ticks next time; the overnight
+    /// batch uses them as they are).
+    public var editExtras: EditExtras = EditExtras()
     public var aiFraming: Bool = true
     /// Label who is talking after transcription (local diarization).
     public var detectSpeakers: Bool = true
@@ -93,6 +96,7 @@ public struct AISettings: Codable, Hashable, Sendable {
         aiSoundEffects = c.decode(Bool.self, forKey: .aiSoundEffects, default: d.aiSoundEffects)
         aiMusic = c.decode(Bool.self, forKey: .aiMusic, default: d.aiMusic)
         onlineMusic = c.decode(Bool.self, forKey: .onlineMusic, default: d.onlineMusic)
+        editExtras = c.decode(EditExtras.self, forKey: .editExtras, default: d.editExtras)
         aiFraming = c.decode(Bool.self, forKey: .aiFraming, default: d.aiFraming)
         detectSpeakers = c.decode(Bool.self, forKey: .detectSpeakers, default: d.detectSpeakers)
         speakerCount = c.decode(Int.self, forKey: .speakerCount, default: d.speakerCount)

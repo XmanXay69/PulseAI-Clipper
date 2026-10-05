@@ -41,6 +41,34 @@ final class LongFormEditorTests: XCTestCase {
         return LongFormSounds(effects: ["Whoosh", "Boom", "Rimshot", "Impact", "Sad Trombone"].map(sfx))
     }
 
+    func testExtrasHappenOnlyWhenAskedFor() {
+        var (asset, analysis) = stream()
+        analysis.profile = .gameplayWithFacecam
+        analysis.webcam = WebcamEstimate(region: NormRect(x: 0.72, y: 0.62, width: 0.25, height: 0.3),
+                                         face: NormRect(x: 0.8, y: 0.68, width: 0.1, height: 0.15), persistence: 0.9, profile: .gameplayWithFacecam)
+        let plain = LongFormEditor.build(asset: asset, analysis: analysis, sounds: sounds())
+        XCTAssertFalse(plain.timeline.allClips.contains { $0.name == "Title Card" })
+        XCTAssertTrue(plain.brollMoments.isEmpty)
+        XCTAssertFalse(plain.timeline.tracks[0].clips.contains { $0.transform.panX.isAnimated }, "no facecam punch-ins unless asked")
+
+        var options = LongFormOptions()
+        options.extras = EditExtras(facecamPunchIns: true, brollClips: true, speakerAware: true, titleCards: true)
+        let extra = LongFormEditor.build(asset: asset, analysis: analysis, options: options, sounds: sounds())
+        XCTAssertTrue(extra.timeline.allClips.contains { $0.name == "Title Card" }, extra.report)
+        XCTAssertFalse(extra.brollMoments.isEmpty, extra.report)
+        XCTAssertTrue(extra.timeline.tracks[0].clips.contains { $0.transform.panX.isAnimated }, extra.report)
+        XCTAssertTrue(extra.report.contains("facecam punch-ins"), extra.report)
+        // Sections start on whole sentences.
+        let words = analysis.transcript!.words
+        let onSentence = extra.segments.filter { segment in
+            guard let i = words.firstIndex(where: { $0.start >= segment.range.start - 0.01 }) else { return false }
+            return i == 0 || words[i - 1].text.hasSuffix(".") || words[i].start - words[i - 1].end > 0.6
+        }
+        XCTAssertGreaterThanOrEqual(Double(onSentence.count), Double(extra.segments.count) * 0.8,
+                                    "\(onSentence.count) of \(extra.segments.count) sections start a sentence")
+        XCTAssertGreaterThanOrEqual(extra.timeline.duration, 8 * 60, extra.report)
+    }
+
     func testBuildsATenToTwentyMinuteEditWithAHookAndRestrainedEffects() throws {
         let (asset, analysis) = stream()
         let result = LongFormEditor.build(asset: asset, analysis: analysis, sounds: sounds())

@@ -54,10 +54,9 @@ final class EditPolishTests: XCTestCase {
         // 40–50 s: no talking, nothing happening. 60–70 s: no talking but a big moment on screen.
         for i in 120..<140 { excitement[i] = 0.9 }
         var words: [TranscriptWord] = []
-        var t = 0.0
-        while t < 100 {
+        for i in 0..<250 {
+            let t = Double(i) * 0.4   // (adding 0.4 repeatedly drifts past the 40 s / 50 s edges)
             if !(40..<50).contains(t) && !(60..<70).contains(t) { words.append(TranscriptWord(text: "so", start: t, end: t + 0.3)) }
-            t += 0.4
         }
         let spans = EditPolish.deadSpans(in: TimeRange(start: 0, end: 100), words: words, excitement: excitement, step: step)
         XCTAssertEqual(spans.count, 1)
@@ -75,6 +74,8 @@ final class EditPolishTests: XCTestCase {
         XCTAssertEqual(v.value(at: 20), 0.08, accuracy: 1e-6)
         XCTAssertEqual(v.value(at: 30.5), 0, accuracy: 1e-6)
         XCTAssertEqual(v.value(at: 40), 0.08, accuracy: 1e-6)
+        XCTAssertEqual(v.value(at: 80.5), 0, accuracy: 1e-6, "the second drop is there too")
+        XCTAssertEqual(v.value(at: 90), 0.08, accuracy: 1e-6)
     }
 
     func testCheckFindsAndFixesMechanicalProblems() {

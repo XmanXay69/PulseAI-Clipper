@@ -126,17 +126,18 @@ public enum EditPolish {
         for ti in timeline.tracks.indices where timeline.tracks[ti].kind == .audio {
             for ci in timeline.tracks[ti].clips.indices where timeline.tracks[ti].clips[ci].role == .music {
                 let clip = timeline.tracks[ti].clips[ci]
-                for t in times where t > clip.start + 1 && t + length < clip.end - 1 {
+                // Every drop in this clip goes onto the same curve (each one builds on the last).
+                var volume = clip.audio.volume
+                let base = volume.value
+                for t in times.sorted() where t > clip.start + 1 && t + length < clip.end - 1 {
                     let local = t - clip.start
-                    var volume = clip.audio.volume
-                    let base = volume.value
                     volume.setKeyframe(at: local - 0.15, value: base, interpolation: .linear, aiGenerated: true)
                     volume.setKeyframe(at: local, value: 0, interpolation: .hold, aiGenerated: true)
                     volume.setKeyframe(at: local + length, value: 0, interpolation: .easeIn, aiGenerated: true)
                     volume.setKeyframe(at: local + length + 0.8, value: base, interpolation: .linear, aiGenerated: true)
-                    timeline.tracks[ti].clips[ci].audio.volume = volume
                     placed += 1
                 }
+                timeline.tracks[ti].clips[ci].audio.volume = volume
             }
         }
         return placed

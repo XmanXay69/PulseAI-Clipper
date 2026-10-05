@@ -1,13 +1,16 @@
+import AVFoundation
 import PulseCore
 import PulseEngine
 import SwiftUI
 
-/// Edit My VOD, step 2: every moment PULSE considered, in stream order. Switch moments on/off, pick the
-/// hook, rate them (that also teaches your taste) — then build.
+/// Edit My VOD, step 2: every moment PULSE considered, in stream order. Switch moments on/off, preview them,
+/// trim their edges, pick the hook, rate them (that also teaches your taste) — then build. With the
+/// "Approve the cut" extra this is the review step before anything is built.
 struct LongFormStoryboard: View {
     @EnvironmentObject var app: AppModel
     @ObservedObject var session: ProjectSession
     let options: LongFormOptions
+    var approving = false
     let onBack: () -> Void
     let onBuild: ([LongFormSegment], Seconds?) -> Void
 
@@ -15,6 +18,9 @@ struct LongFormStoryboard: View {
     @State private var selected: Set<UUID> = []
     @State private var hook: UUID?
     @State private var ratings: [UUID: Bool] = [:]
+    /// Edges you moved, by moment.
+    @State private var trims: [UUID: TimeRange] = [:]
+    @State private var previewing: UUID?
 
     var asset: MediaAsset? { session.document.primaryAsset }
 
@@ -56,17 +62,33 @@ struct LongFormStoryboard: View {
 
     var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Choose the moments").font(.pulseTitle).foregroundStyle(Theme.textPrimary)
-            Text("PULSE picked these for your video. Untick anything you don't want, tick alternatives, and choose the moment that opens the video.")
+            Text(approving ? "Approve the cut" : "Choose the moments").font(.pulseTitle).foregroundStyle(Theme.textPrimary)
+            Text(approving
+                 ? "Nothing is built yet. Preview each section (▶), keep or drop it, move its start and end, and choose the moment that opens the video — then build."
+                 : "PULSE picked these for your video. Untick anything you don't want, tick alternatives, and choose the moment that opens the video.")
                 .font(.pulseCaption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
     }
 
+    /// The moment's range with your trims.
+    func range(of moment: LongFormSegment) -> TimeRange { trims[moment.id] ?? moment.range }
+
+    /// Moves one edge by `delta` (kept ≥ 3 s long and inside the recording).
+    func trim(_ moment: LongFormSegment, start delta: Seconds = 0, end endDelta: Seconds = 0) {
+        let r = range(of: moment)
+        let limit = asset?.metadata.duration ?? r.end
+        var start = max(0, r.start + delta), end = min(max(limit, r.end), r.end + endDelta)
+        if end - start < 3 { if delta != 0 { start = end - 3 } else { end = start + 3 } }
+        trims[moment.id] = TimeRange(start: start, end: end)
+        selected.insert(moment.id)
+    }
+
     func row(_ moment: LongFormSegment) -> some View {
         let on = selected.contains(moment.id)
         let isHook = hook == moment.id
+        let r = range(of: moment)
         return HStack(spacing: 12) {
             Toggle("", isOn: Binding(get: { on }, set: { value in
                 if value { selected.insert(moment.id) } else {
@@ -79,17 +101,29 @@ struct LongFormStoryboard: View {
                 .frame(width: 120, height: 68)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .overlay(alignment: .bottomLeading) {
-                    Text(Timecode.short(moment.range.duration)).font(.pulseMicro).padding(.horizontal, 4).padding(.vertical, 1)
+                    Text(Timecode.short(r.duration)).font(.pulseMicro).padding(.horizontal, 4).padding(.vertical, 1)
                         .background(Capsule().fill(.black.opacity(0.65))).foregroundStyle(.white).padding(4)
                 }
                 .opacity(on ? 1 : 0.45)
             VStack(alignment: .leading, spacing: 4) {
                 Text(moment.title.isEmpty ? "Moment at \(Timecode.short(moment.payoff))" : moment.title)
                     .font(.system(size: 13, weight: .semibold)).foregroundStyle(on ? Theme.textPrimary : Theme.textTertiary).lineLimit(1)
-                Text("\(Timecode.short(moment.range.start)) → \(Timecode.short(moment.range.end)) in the stream")
-                    .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                Text("\(Timecode.short(r.start)) → \(Timecode.short(r.end)) in the stream\(trims[moment.id] != nil ? " · trimmed" : "")")
+                    .font(.pulseMicro).foregroundStyle(trims[moment.id] != nil ? Theme.ai : Theme.textTertiary)
                 HStack(spacing: 4) {
                     ForEach(moment.tags.prefix(3), id: \.self) { TagChip(text: $0.displayName, color: Theme.ai) }
+                }
+                HStack(spacing: 6) {
+                    Button { previewing = moment.id } label: { Label("Preview", systemImage: "play.fill").font(.system(size: 10, weight: .medium)) }
+                        .buttonStyle(.pulse(.ghost, compact: true))
+                        .popover(isPresented: Binding(get: { previewing == moment.id }, set: { if !$0 { previewing = nil } })) {
+                            if let asset { RangePreview(url: session.url(for: asset), range: r) }
+                        }
+                    trimControl("Start", earlier: { trim(moment, start: -2) }, later: { trim(moment, start: 2) })
+                    trimControl("End", earlier: { trim(moment, end: -2) }, later: { trim(moment, end: 2) })
+                    if trims[moment.id] != nil {
+                        Button("Reset") { trims[moment.id] = nil }.buttonStyle(.plain).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                    }
                 }
             }
             Spacer(minLength: 8)
@@ -116,6 +150,14 @@ struct LongFormStoryboard: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(isHook ? Theme.accent : (on ? Theme.border : Theme.divider)))
     }
 
+    func trimControl(_ title: String, earlier: @escaping () -> Void, later: @escaping () -> Void) -> some View {
+        HStack(spacing: 2) {
+            Text(title).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            IconButton(symbol: "minus", help: "\(title) 2 s earlier", size: 18, action: earlier)
+            IconButton(symbol: "plus", help: "\(title) 2 s later", size: 18, action: later)
+        }
+    }
+
     /// Ratings here teach the same taste profile as 👍/👎 on clips.
     func rate(_ moment: LongFormSegment, liked: Bool) {
         guard ratings[moment.id] != liked else { return }
@@ -131,7 +173,8 @@ struct LongFormStoryboard: View {
         HStack(spacing: 12) {
             Button { onBack() } label: { Label("Back", systemImage: "chevron.left") }.buttonStyle(.pulseSecondary)
             if let plan {
-                let kept = plan.keptLength(selected) * (options.cutDeadAir ? 0.9 : 1)
+                let keptRanges: [TimeRange] = plan.moments.filter { selected.contains($0.id) }.map { range(of: $0) }.merged()
+                let kept: Seconds = keptRanges.reduce(0.0) { $0 + $1.duration } * (options.cutDeadAir ? 0.9 : 1)
                 let lo = options.minimumLength, hi = options.maximumLength
                 let ok = kept >= min(lo, plan.target) * 0.9 && kept <= hi * 1.05
                 VStack(alignment: .leading, spacing: 2) {
@@ -144,14 +187,46 @@ struct LongFormStoryboard: View {
             Spacer()
             Button {
                 guard let plan else { return }
-                let chosen = plan.moments.filter { selected.contains($0.id) }
-                let hookPayoff = plan.moments.first { $0.id == hook }?.payoff
+                let chosen = plan.moments.filter { selected.contains($0.id) }.map { moment -> LongFormSegment in
+                    var m = moment
+                    m.range = range(of: moment)
+                    m.payoff = min(max(m.payoff, m.range.start), m.range.end)
+                    return m
+                }
+                let hookPayoff = chosen.first { $0.id == hook }?.payoff
                 onBuild(chosen, hookPayoff)
-            } label: { Label("Build My Video", systemImage: "wand.and.stars") }
+            } label: { Label(approving ? "Approve & Build" : "Build My Video", systemImage: "wand.and.stars") }
                 .buttonStyle(.pulseAI)
                 .keyboardShortcut(.defaultAction)
                 .disabled(selected.isEmpty || plan == nil)
         }
         .padding(16)
+    }
+}
+
+/// Plays one stretch of the recording (the storyboard's ▶ Preview).
+struct RangePreview: View {
+    let url: URL
+    let range: TimeRange
+    @State private var player = AVPlayer()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            PlayerView(player: player)
+                .frame(width: 480, height: 270)
+                .background(Color.black)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.radius))
+            Text("\(Timecode.short(range.start)) → \(Timecode.short(range.end)) · \(Int(range.duration.rounded())) s")
+                .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+        }
+        .padding(10)
+        .task {
+            let item = AVPlayerItem(url: url)
+            item.forwardPlaybackEndTime = .seconds(range.end)
+            player.replaceCurrentItem(with: item)
+            _ = await player.seek(to: .seconds(range.start), toleranceBefore: .zero, toleranceAfter: .zero)
+            player.play()
+        }
+        .onDisappear { player.pause() }
     }
 }

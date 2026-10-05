@@ -17,25 +17,67 @@ struct LongFormSheet: View {
     @AppStorage("longForm.music") private var music = true
     @AppStorage("longForm.restraint") private var restraint = LongFormOptions.Restraint.balanced.rawValue
     @State private var choosing = false
+    /// The extras question is showing (asked before anything is built).
+    @State private var askingExtras = false
+    /// Your answer, once given (the storyboard then builds straight away).
+    @State private var extras: EditExtras?
+    /// Moments picked in the storyboard while the extras question is open.
+    @State private var pendingSegments: [LongFormSegment]?
+    @State private var pendingHook: Seconds?
 
     var options: LongFormOptions {
-        LongFormOptions(minimumLength: minMinutes * 60, maximumLength: max(maxMinutes, minMinutes) * 60, coldOpen: coldOpen,
-                        cutDeadAir: true, zooms: zooms, captions: captions, memes: memes, soundEffects: soundEffects, music: music,
-                        restraint: LongFormOptions.Restraint(rawValue: restraint) ?? .balanced)
+        var options = LongFormOptions(minimumLength: minMinutes * 60, maximumLength: max(maxMinutes, minMinutes) * 60, coldOpen: coldOpen,
+                                      cutDeadAir: true, zooms: zooms, captions: captions, memes: memes, soundEffects: soundEffects, music: music,
+                                      restraint: LongFormOptions.Restraint(rawValue: restraint) ?? .balanced)
+        options.extras = extras ?? EditExtras()
+        return options
     }
 
     var body: some View {
-        if choosing {
-            LongFormStoryboard(session: session, options: options, onBack: { choosing = false }) { segments, hookPayoff in
-                session.editMyVOD(options: options, segments: segments, hookPayoff: hookPayoff)
-                dismiss()
+        Group {
+            if choosing {
+                LongFormStoryboard(session: session, options: options, approving: extras?.approveCut == true,
+                                   onBack: { choosing = false; extras = nil }) { segments, hookPayoff in
+                    if extras != nil {
+                        build(segments: segments, hookPayoff: hookPayoff)
+                    } else {
+                        // Picked the moments first: ask about the extras before building.
+                        pendingSegments = segments
+                        pendingHook = hookPayoff
+                        askingExtras = true
+                    }
+                }
+                .frame(width: 820, height: 680)
+                .background(Theme.panel)
+                .preferredColorScheme(.dark)
+            } else {
+                settingsPage
             }
-            .frame(width: 820, height: 680)
-            .background(Theme.panel)
-            .preferredColorScheme(.dark)
-        } else {
-            settingsPage
         }
+        .sheet(isPresented: $askingExtras) {
+            EditExtrasSheet(session: session, offerApproveCut: !choosing, musicOn: music,
+                            onCancel: { askingExtras = false; pendingSegments = nil }) { answer in
+                askingExtras = false
+                extras = answer
+                // Let the question close before this sheet does.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    if let segments = pendingSegments {
+                        build(segments: segments, hookPayoff: pendingHook)
+                    } else if answer.approveCut {
+                        // Approve the cut: review every section before anything is built.
+                        choosing = true
+                    } else {
+                        build(segments: nil, hookPayoff: nil)
+                    }
+                }
+            }
+            .environmentObject(app)
+        }
+    }
+
+    func build(segments: [LongFormSegment]?, hookPayoff: Seconds?) {
+        session.editMyVOD(options: options, segments: segments, hookPayoff: hookPayoff)
+        dismiss()
     }
 
     var settingsPage: some View {
@@ -153,6 +195,7 @@ struct LongFormSheet: View {
                 Label("Keeps the funniest, highest-energy moments with enough context to follow", systemImage: "sparkles")
                 Label("Builds chapters and a YouTube chapter list for your description", systemImage: "list.bullet")
                 Label("Everything lands on the timeline — change anything afterwards", systemImage: "slider.horizontal.3")
+                Label("Next, PULSE asks which extras you want — nothing extra happens unless you say yes", systemImage: "questionmark.bubble")
             }
             .font(.pulseCaption).foregroundStyle(Theme.textSecondary)
         }
@@ -180,9 +223,9 @@ struct LongFormSheet: View {
                 .disabled(!analyzed)
                 .help(analyzed ? "See every moment PULSE picked, swap some out and choose the hook" : "Analyze the video first (or just press Edit My VOD)")
             Button {
-                session.editMyVOD(options: options)
-                dismiss()
-            } label: { Label("Edit My VOD", systemImage: "wand.and.stars") }
+                extras = nil
+                askingExtras = true
+            } label: { Label("Edit My VOD…", systemImage: "wand.and.stars") }
                 .buttonStyle(.pulseAI)
                 .keyboardShortcut(.defaultAction)
                 .disabled(session.document.primaryAsset == nil)

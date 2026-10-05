@@ -213,12 +213,20 @@ final class BatchController: ObservableObject {
         if options.makeYouTubeEdit, asset.metadata.duration >= 600 {
             set(index, .running("Editing the YouTube video"))
             let before = Set(session.document.timelines.map(\.id))
+            // Nobody is there to answer the extras question overnight: use your last answers (never "Approve the
+            // cut", which needs you).
+            var extras = app.settings.ai.editExtras
+            extras.approveCut = false
             if let style = app.settings.referenceStyles.first(where: { $0.id == options.styleID }) {
                 var answers = ReferenceAnswers.recommended(for: style)
                 if answers.length == .shorts { answers.length = .youtube }
-                session.editMyVOD(options: style.longFormOptions(answers))
+                var longForm = style.longFormOptions(answers)
+                longForm.extras = extras
+                session.editMyVOD(options: longForm)
             } else {
-                session.editMyVOD(options: LongFormOptions())
+                var longForm = LongFormOptions()
+                longForm.extras = extras
+                session.editMyVOD(options: longForm)
             }
             _ = await waitUntilIdle(app)
             if let edit = session.document.timelines.first(where: { !before.contains($0.id) }) {

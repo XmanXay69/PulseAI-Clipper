@@ -77,6 +77,26 @@ extension ProjectSession {
                 }
                 LongFormEditor.addMusic(beds, chapters: result.musicChapters, to: &result.timeline, drops: result.musicDrops)
             }
+            // 4. The extras you said yes to.
+            if options.extras.beatSync {
+                if job.state != .running { return }
+                job.detail = "Finding the beat"
+                let known = Dictionary((self.document.media + newAssets).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+                let report = await self.syncToBeats(&result.timeline, assets: known)
+                if !report.isEmpty { result.report += " · " + report }
+            }
+            if options.extras.brollClips, !result.brollMoments.isEmpty {
+                if job.state != .running { return }
+                let found = await self.brollCutaways(result.brollMoments, job: job)
+                let placed = BrollPlacer.place(&result.timeline, clips: found.placements)
+                if placed > 0 {
+                    newAssets += found.placements.map { $0.asset }.filter { a in !self.document.media.contains { $0.id == a.id } }
+                    result.timeline.notes += "\n\n" + BrollPlacer.creditBlock(found.clips)
+                    result.report += " · \(placed) B-roll cutaway\(placed == 1 ? "" : "s")"
+                } else {
+                    result.report += " · no B-roll found (offline?)"
+                }
+            }
             let timeline = result.timeline
             self.edit("Edit My VOD") { doc in
                 doc.media.append(contentsOf: newAssets.filter { a in !doc.media.contains { $0.id == a.id } })
@@ -90,6 +110,63 @@ extension ProjectSession {
             self.app.toast("Your edit is ready — \(result.report)")
         }
         job.expect(longFormEstimate(options: options))
+    }
+
+    /// "Beat-synced music & zooms": music pieces start on a beat, AI zooms land on beats.
+    func syncToBeats(_ timeline: inout Timeline, assets: [UUID: MediaAsset]) async -> String {
+        let musicIDs = Set(timeline.tracks.filter { $0.kind == .audio }.flatMap(\.clips).filter { $0.role == .music }.compactMap(\.content.assetID))
+        var beats: [UUID: [Seconds]] = [:]
+        var durations: [UUID: Seconds] = [:]
+        for id in musicIDs {
+            guard let asset = assets[id] else { continue }
+            do {
+                let grid = try await BeatDetector.shared.beats(url: asset.url)
+                if grid.count >= 8 {
+                    beats[id] = grid
+                    durations[id] = asset.metadata.duration
+                }
+            } catch {
+                PulseLog.warning("Beat detection failed for “\(asset.name)”: \(error.localizedDescription)")
+            }
+        }
+        guard !beats.isEmpty else {
+            PulseLog.info("Beat sync: no steady beat found in the music")
+            return musicIDs.isEmpty ? "" : "no clear beat in the music"
+        }
+        let aligned = BeatSync.alignMusic(&timeline, beats: beats, durations: durations)
+        let snapped = BeatSync.snapZooms(&timeline, beats: BeatSync.timelineBeats(timeline, beats: beats))
+        PulseLog.info("Beat sync: \(aligned) music pieces on the beat, \(snapped) zooms moved onto beats")
+        return "\(snapped) zooms on the beat"
+    }
+
+    /// "B-roll cutaways": one Creative Commons clip per moment, downloaded and imported as project media.
+    func brollCutaways(_ moments: [BrollPlacer.Moment], job: BackgroundJob) async -> (placements: [(asset: MediaAsset, at: Seconds)], clips: [OnlineTrack]) {
+        var placements: [(asset: MediaAsset, at: Seconds)] = []
+        var clips: [OnlineTrack] = []
+        var used = Set<String>()
+        for (i, moment) in moments.enumerated() {
+            if job.state != .running { break }
+            job.detail = "Finding B-roll \(i + 1) of \(moments.count)"
+            guard let found = await OnlineMusicLibrary.shared.brollClip(query: moment.query, avoiding: used, progress: { status in
+                Task { @MainActor in job.detail = status }
+            }) else { continue }
+            used.insert(found.clip.videoID)
+            if let existing = (document.media + placements.map { $0.asset }).first(where: { $0.path == found.url.path }) {
+                placements.append((existing, moment.time))
+                clips.append(found.clip)
+                continue
+            }
+            let plan = ImportPlan.make(urls: [found.url], existingPaths: [])
+            guard let item = plan.items.first, var asset = try? await MediaImporter.makeAsset(for: item, cacheRoot: app.cacheFolder) else { continue }
+            asset.name = found.clip.title
+            asset.role = .graphic
+            asset.tags.append("b-roll")
+            asset.tags.append("creative-commons")
+            placements.append((asset, moment.time))
+            clips.append(found.clip)
+        }
+        PulseLog.info("B-roll: \(placements.count) of \(moments.count) cutaways found")
+        return (placements, clips)
     }
 
     /// Creative Commons tracks for the edit, imported as project media.

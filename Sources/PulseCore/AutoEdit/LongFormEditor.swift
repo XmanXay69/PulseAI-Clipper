@@ -21,6 +21,8 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
     public var polish = true
     /// A 10-second end screen with room for YouTube's end-screen cards.
     public var endScreen = true
+    /// Opt-in extras (asked before every edit; nothing here is on unless you said yes).
+    public var extras = EditExtras()
 
     /// Seconds between reaction zooms / meme pop-ups / transition whooshes.
     public var zoomSpacing: Seconds { style?.zoomSpacing ?? restraint.zoomSpacing }
@@ -126,6 +128,8 @@ public struct LongFormResult: Sendable {
     public var musicDrops: [Seconds] = []
     /// The automatic edit check (fixed + open issues).
     public var checks = EditCheckReport()
+    /// Where B-roll cutaways would go (only when the B-roll extra is on; the app downloads and places them).
+    public var brollMoments: [BrollPlacer.Moment] = []
 }
 
 /// Builds a YouTube-style edit from a long recording: cuts the dead time, keeps the funniest and most
@@ -206,7 +210,12 @@ public enum LongFormEditor {
     public static func build(asset: MediaAsset, analysis: MediaAnalysis, options: LongFormOptions = LongFormOptions(),
                              sounds: LongFormSounds = LongFormSounds(), taste: TasteProfile = TasteProfile(),
                              segments chosen: [LongFormSegment]? = nil, hookPayoff: Seconds? = nil) -> LongFormResult {
-        let segments = chosen.map { LongFormEditor.merge($0, gap: 8) } ?? selectSegments(analysis: analysis, options: options, taste: taste)
+        var segments = chosen.map { LongFormEditor.merge($0, gap: 8) } ?? selectSegments(analysis: analysis, options: options, taste: taste)
+        let words = analysis.transcript?.words ?? []
+        // Extra: whole sentences only — sections start where a thought starts and end where it ends.
+        if options.extras.speakerAware, !words.isEmpty {
+            segments = LongFormEditor.merge(SpeakerAware.snapToSentences(segments, words: words, duration: analysis.duration), gap: 0.5)
+        }
         let size = asset.metadata.size.isEmpty ? Size2(1920, 1080) : asset.metadata.size
         let landscape = size.aspect >= 1
         let fps = min(asset.metadata.frameRate > 1 ? asset.metadata.frameRate.rounded() : 30, 60)
@@ -293,6 +302,15 @@ public enum LongFormEditor {
                 removed = timeline.removeSourceRanges(cuts, assetID: asset.id, reason: .silence, aiGenerated: true)
             }
         }
+        // Extra: people talking over each other (needs speaker labels), away from each section's payoff.
+        var crosstalk: Seconds = 0
+        if options.extras.speakerAware {
+            var cuts = segments.flatMap { SpeakerAware.crosstalk(in: $0.range, words: words, protect: $0.payoff) }.merged()
+            if let hookRange { cuts.removeAll { $0.overlaps(hookRange) } }
+            if !cuts.isEmpty {
+                crosstalk = timeline.removeSourceRanges(cuts, assetID: asset.id, reason: .silence, aiGenerated: true)
+            }
+        }
         // Flash frames and half-breaths left between cuts.
         var slivers = 0
         if options.polish {
@@ -366,6 +384,18 @@ public enum LongFormEditor {
             zooms = timeline.tracks[0].clips.reduce(0) { $0 + $1.transform.zoom.keyframes.filter(\.aiGenerated).count / 3 }
         }
 
+        // Extra: on gameplay with a facecam, the biggest reactions push in on the face, not the game.
+        var facecamZooms = 0
+        if options.extras.facecamPunchIns, profile == .gameplayWithFacecam, let webcam = analysis.webcam, timeline.tracks[0].clips.count > 0 {
+            var times: [Seconds] = []
+            for s in segments.sorted(by: { $0.potential > $1.potential }) where s.potential >= 55 && times.count < 6 {
+                guard !Set(s.tags).isDisjoint(with: [.reaction, .funny, .fail, .rage, .hype, .highEnergy]),
+                      let t = timelineTime(ofSource: s.payoff), !times.contains(where: { abs($0 - t) < 45 }) else { continue }
+                times.append(t)
+            }
+            facecamZooms = FacecamPunchIn.apply(&timeline, at: times, region: webcam.region)
+        }
+
         // Meme pop-ups + matching sound on the strongest reactions.
         var memes = 0
         if options.memes || options.soundEffects {
@@ -390,6 +420,12 @@ public enum LongFormEditor {
                 lastMeme = t
                 if memes >= 12 { break }
             }
+        }
+
+        // Extra: "THEN THIS HAPPENED…" cards where the video jumps ahead in the stream.
+        var cards = 0
+        if options.extras.titleCards {
+            cards = RetentionCards.add(&timeline, segments: segments, starts: starts, hookEnd: hookEnd)
         }
 
         // A whoosh where the story jumps ahead in the stream (sparingly), and one out of the hook.
@@ -458,6 +494,8 @@ public enum LongFormEditor {
         timeline.modifiedAt = Date()
 
         let chapters = options.music ? musicChapters(for: timeline, hookEnd: hookEnd) : []
+        let broll = options.extras.brollClips
+            ? BrollPlacer.moments(segments: segments, timelineTime: timelineTime(ofSource:), hookEnd: hookEnd, duration: timeline.duration) : []
         var parts = ["\(segments.count) moments", "\(Timecode.short(timeline.duration)) long"]
         if removed > 1 { parts.append("\(Int(removed)) s of dead air cut") }
         if hookRange != nil { parts.append("hook") }
@@ -468,10 +506,13 @@ public enum LongFormEditor {
         if transitions > 0 { parts.append("\(transitions) chapter transitions") }
         if jumpZooms > 0 { parts.append("\(jumpZooms) jump-cut zooms") }
         if slivers > 0 { parts.append("\(slivers) slivers removed") }
+        if crosstalk > 0.5 { parts.append("\(Int(crosstalk.rounded())) s of crosstalk trimmed") }
+        if facecamZooms > 0 { parts.append("\(facecamZooms) facecam punch-ins") }
+        if cards > 0 { parts.append("\(cards) title cards") }
         if let style = options.style { parts.append("styled like “\(style.name)”") }
         parts.append(checks.summary.lowercased())
         return LongFormResult(timeline: timeline, segments: segments, report: parts.joined(separator: " · "), musicChapters: chapters,
-                              musicDrops: drops, checks: checks)
+                              musicDrops: drops, checks: checks, brollMoments: broll)
     }
 
     /// 4–7 s around the payoff: a beat of setup, the moment, the first reaction.

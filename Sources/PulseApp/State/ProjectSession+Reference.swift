@@ -4,12 +4,14 @@ import PulseEngine
 
 /// "Edit Like a Reference": edit this project's recording the way a reference video is edited.
 extension ProjectSession {
-    func editLikeReference(_ style: ReferenceStyle, answers: ReferenceAnswers) {
+    func editLikeReference(_ style: ReferenceStyle, answers: ReferenceAnswers, extras: EditExtras = EditExtras()) {
         PulseLog.info("Edit like reference “\(style.name)”: length \(answers.length.rawValue), focus \(answers.focus.rawValue), \(answers.closeness.rawValue)")
         if answers.length == .shorts {
             makeShortsLikeReference(style, answers: answers)
         } else {
-            editMyVOD(options: style.longFormOptions(answers))
+            var options = style.longFormOptions(answers)
+            options.extras = extras
+            editMyVOD(options: options)
         }
     }
 

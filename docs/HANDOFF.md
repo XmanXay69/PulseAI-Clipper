@@ -223,6 +223,20 @@ prompt), cloud AI providers with live keys.
   `LongFormEditor.build` and from Edit → Check Edit. Timeline performance: `PlaybackController.clock`/`slowClock`
   carry the playhead (not `@Published` on the controller), `TimelineClipView` is `Equatable` and doesn't observe the
   session/player, lanes only build clips inside the visible window, the ruler scrubs with chase seeking.
+- **Ask-first extras (1.3.0)** — `PulseCore/AutoEdit/EditExtras.swift` (`EditExtras` answers, saved in
+  `AISettings.editExtras`; `SpeakerAware`, `RetentionCards`, `FacecamPunchIn`, `BeatSync`, `BrollPlacer`,
+  `StreamingLoudness`, `LoudnessVerdict`), wired into `LongFormEditor.build` via `LongFormOptions.extras`. Engine:
+  `BeatDetector` (onset envelope → autocorrelation tempo + local beat tracking), `OnlineBrollLibrary` (extension
+  of `OnlineMusicLibrary`; progressive MP4 ≤ 720p), `MixLoudness` (AVAssetReaderAudioMixOutput over the export
+  composition). App: `EditExtrasSheet` (the question), storyboard ▶ preview / trims / approve mode, export
+  loudness alert in `ExportsView`. Limits: B-roll and music downloads depend on YouTube allowing extraction
+  (blocked from GitHub runners, so CI only sees search + fallback); "Creative Commons" is YouTube's filter, not
+  verified by PULSE; facecam punch-ins need the facecam detected at analysis; crosstalk trimming needs speaker
+  labels; the loudness fix can lower or level but can't boost an already-leveled quiet mix (AVAudioMix caps at
+  1.0); beat detection is a lightweight tempo tracker (steady-beat music; ambient beds may have no clear beat).
+- **Local core check (no Mac needed)** — PulseCore and its tests compile on Linux with a swift.org toolchain if
+  `Audio/SpectralDenoiser.swift` (Accelerate) is stubbed and `AudioDSPTests.swift` left out; everything else in
+  the core is portable. Useful when CI is down.
 - Cross-dissolves (video + linked audio crossfade) need media handles; at the very start/end of a recording they
   fall back to a fade over lower tracks.
 - whisper.cpp itself must be installed with Homebrew (`brew install whisper-cpp`); models download in-app

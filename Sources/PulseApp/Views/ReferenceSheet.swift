@@ -12,6 +12,8 @@ struct ReferenceSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var answers = ReferenceAnswers()
     @State private var dropTargeted = false
+    /// The extras question before a long-form edit.
+    @State private var askingExtras = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -268,8 +270,12 @@ struct ReferenceSheet: View {
             Button("Close") { dismiss() }.buttonStyle(.pulseSecondary).keyboardShortcut(.cancelAction)
             if let style = reference.current, !reference.isStudying {
                 Button {
-                    app.session?.editLikeReference(style, answers: answers)
-                    dismiss()
+                    if answers.length == .shorts {
+                        app.session?.editLikeReference(style, answers: answers)
+                        dismiss()
+                    } else {
+                        askingExtras = true
+                    }
                 } label: {
                     Label(answers.length == .shorts ? "Make \(answers.shortsCount) Short\(answers.shortsCount == 1 ? "" : "s") Like This" : "Edit My VOD Like This",
                           systemImage: "wand.and.stars")
@@ -277,6 +283,19 @@ struct ReferenceSheet: View {
                 .buttonStyle(.pulseAI)
                 .keyboardShortcut(.defaultAction)
                 .disabled(app.session?.document.primaryAsset == nil)
+                .sheet(isPresented: $askingExtras) {
+                    if let session = app.session {
+                        EditExtrasSheet(session: session, offerApproveCut: false, musicOn: style.longFormOptions(answers).music,
+                                        onCancel: { askingExtras = false }) { extras in
+                            askingExtras = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                                session.editLikeReference(style, answers: answers, extras: extras)
+                                dismiss()
+                            }
+                        }
+                        .environmentObject(app)
+                    }
+                }
             }
         }
         .padding(16)

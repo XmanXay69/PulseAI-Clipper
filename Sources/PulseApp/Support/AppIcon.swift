@@ -320,6 +320,48 @@ enum UISnapshotter {
                     await captureViewerFrame(app: app, name: "18-longform-edit-viewer-frame", to: directory)
                 }
             }
+            // The extras question, the "Approve the cut" review, then an edit with the extras on.
+            if let session = app.session {
+                await captureHosted(EditExtrasSheet(session: session, onCancel: {}, onDone: { _ in }).environmentObject(app),
+                                    size: CGSize(width: 540, height: 600), name: "18b-extras-question", to: directory)
+                var review = LongFormOptions()
+                review.minimumLength = 20
+                await captureHosted(LongFormStoryboard(session: session, options: review, approving: true, onBack: {}, onBuild: { _, _ in })
+                                        .environmentObject(app).background(Theme.panel).preferredColorScheme(.dark),
+                                    size: CGSize(width: 820, height: 680), name: "18c-approve-the-cut", to: directory)
+                let before = Set(session.document.timelines.map(\.id))
+                var options = LongFormOptions()
+                options.minimumLength = 20
+                options.extras = EditExtras(facecamPunchIns: true, brollClips: true, beatSync: true, speakerAware: true, titleCards: true)
+                let started = Date()
+                session.editMyVOD(options: options)
+                while !session.document.timelines.contains(where: { !before.contains($0.id) }) && Date().timeIntervalSince(started) < 180 {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                }
+                if let edit = session.document.timelines.first(where: { !before.contains($0.id) }) {
+                    let broll = edit.tracks.first { $0.name == "V2 B-roll" }?.clips.count ?? 0
+                    let cards = edit.allClips.filter { $0.name == "Title Card" }.count
+                    let facecam = edit.tracks.first { $0.kind == .video }?.clips.reduce(0) { $0 + $1.transform.panX.keyframes.filter(\.aiGenerated).count / 4 } ?? 0
+                    FileHandle.standardError.write(Data(String(format: "UI-EXTRAS edit %@ in %.0fs · %d B-roll · %d title cards · %d facecam punch-ins · %@\n",
+                                                               Timecode.short(edit.duration), Date().timeIntervalSince(started), broll, cards, facecam,
+                                                               session.lastAIReport ?? "").utf8))
+                    for line in PulseLog.tail(400) where ["Beat", "B-roll", "Edit extras"].contains(where: { line.contains($0) }) {
+                        FileHandle.standardError.write(Data("UI-EXTRASLOG \(line)\n".utf8))
+                    }
+                    // Export loudness check: measure the finished mix and show what PULSE would ask.
+                    let assets = Dictionary(session.document.media.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+                    let measureStart = Date()
+                    do {
+                        let m = try await MixLoudness.measure(timeline: edit, assets: assets, compounds: session.document.compoundsByID)
+                        let verdict = LoudnessVerdict(lufs: m.lufs, peakDB: m.peakDB, unleveledDialogue: LoudnessVerdict.hasUnleveledDialogue(edit))
+                        FileHandle.standardError.write(Data(String(format: "UI-LOUDNESS measured in %.1fs: %@\n", Date().timeIntervalSince(measureStart), verdict.summary).utf8))
+                    } catch {
+                        FileHandle.standardError.write(Data("UI-LOUDNESS failed: \(error.localizedDescription)\n".utf8))
+                    }
+                } else {
+                    FileHandle.standardError.write(Data("UI-EXTRAS no edit after \(Int(Date().timeIntervalSince(started)))s\n".utf8))
+                }
+            }
             // Edit Like a Reference: study the sample video itself, show the questions, then edit with the answers.
             if let session = app.session, let asset = session.document.primaryAsset {
                 app.section = .aiClips
@@ -383,6 +425,24 @@ enum UISnapshotter {
             }
             NSApp.terminate(nil)
         }
+    }
+
+    /// Renders a view in its own window (for sheets inside sheets, which `capture` can't reach).
+    static func captureHosted<V: View>(_ view: V, size: CGSize, name: String, to directory: URL) async {
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let host = NSHostingView(rootView: view)
+        host.frame = NSRect(origin: .zero, size: size)
+        window.contentView = host
+        window.orderFront(nil)
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+            host.cacheDisplay(in: host.bounds, to: rep)
+            if let data = rep.representation(using: .png, properties: [:]) {
+                try? data.write(to: directory.appendingPathComponent(name + ".png"))
+            }
+        }
+        window.orderOut(nil)
     }
 
     static func capture(app: AppModel, name: String, to directory: URL) {

@@ -431,6 +431,15 @@ struct ExportsView: View {
     @State private var loaded = false
     /// Settings as loaded; changes equal to it are not user edits.
     @State private var baseline: ExportSettings?
+    /// Loudness check: measuring progress, then the question (if the mix needs a change).
+    @State private var measuring: Double?
+    @State private var loudnessAsk: LoudnessAsk?
+
+    struct LoudnessAsk: Identifiable {
+        let id = UUID()
+        var timeline: Timeline
+        var verdict: LoudnessVerdict
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -441,10 +450,24 @@ struct ExportsView: View {
                     HStack(spacing: 10) {
                         Button { exportCurrent() } label: { Label("Export Current Timeline", systemImage: "square.and.arrow.up") }
                             .buttonStyle(.pulsePrimary)
-                            .disabled(app.session?.activeTimeline == nil)
+                            .disabled(app.session?.activeTimeline == nil || measuring != nil)
                         Button { exportAllShorts() } label: { Label("Export All Shorts (\(app.session?.document.timelines.count ?? 0))", systemImage: "square.and.arrow.up.on.square") }
                             .buttonStyle(.pulseSecondary)
                             .disabled((app.session?.document.timelines.isEmpty ?? true))
+                    }
+                    Toggle(isOn: Binding(get: { app.settings.ai.editExtras.loudnessCheck }, set: { app.settings.ai.editExtras.loudnessCheck = $0 })) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Check loudness first").font(.pulseBody).foregroundStyle(Theme.textPrimary)
+                            Text("Measures the finished mix against YouTube's −14 LUFS and asks before changing anything.")
+                                .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                        }
+                    }
+                    .toggleStyle(.checkbox)
+                    if let measuring {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Checking loudness… \(Int(measuring * 100))%").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                            ThinProgressBar(progress: measuring)
+                        }
                     }
                     if let problem = settings.validationError(for: app.session?.activeTimeline?.canvas ?? .vertical1080) {
                         Label(problem, systemImage: "exclamationmark.triangle").font(.pulseCaption).foregroundStyle(Theme.warning)
@@ -479,12 +502,65 @@ struct ExportsView: View {
             app.session?.edit("Export Settings", coalesce: "export-settings") { $0.exportSettings = newValue }
             app.settings.defaultExportPresetID = newValue.presetID
         }
+        .alert("Loudness check", isPresented: Binding(get: { loudnessAsk != nil }, set: { if !$0 { loudnessAsk = nil } }), presenting: loudnessAsk) { ask in
+            switch ask.verdict.action {
+            case .lower, .levelDialogue:
+                Button("Fix & Export") { fixLoudness(ask) }
+                Button("Export As Is") { queue(ask.timeline) }
+                Button("Cancel", role: .cancel) {}
+            case .fine, .quietButLeveled:
+                Button("Export") { queue(ask.timeline) }
+                Button("Cancel", role: .cancel) {}
+            }
+        } message: { ask in
+            Text(ask.verdict.summary)
+        }
     }
 
     func exportCurrent() {
         guard let session = app.session, let timeline = session.activeTimeline else { return }
+        guard app.settings.ai.editExtras.loudnessCheck else { return queue(timeline) }
+        measuring = 0
+        let document = session.document
+        let assets = Dictionary(document.media.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        Task {
+            do {
+                let measured = try await MixLoudness.measure(timeline: timeline, assets: assets, compounds: document.compoundsByID) { p in
+                    Task { @MainActor in if measuring != nil { measuring = p } }
+                }
+                measuring = nil
+                let verdict = LoudnessVerdict(lufs: measured.lufs, peakDB: measured.peakDB, unleveledDialogue: LoudnessVerdict.hasUnleveledDialogue(timeline))
+                if verdict.action == .fine {
+                    app.toast(verdict.summary)
+                    queue(timeline)
+                } else {
+                    loudnessAsk = LoudnessAsk(timeline: timeline, verdict: verdict)
+                }
+            } catch {
+                measuring = nil
+                PulseLog.warning("Loudness check failed: \(error.localizedDescription)")
+                app.toast("Couldn't measure the loudness — exporting as is")
+                queue(timeline)
+            }
+        }
+    }
+
+    func queue(_ timeline: Timeline) {
+        guard let session = app.session else { return }
         app.exports.enqueue(timelines: [timeline], document: session.document, settings: settings)
         app.toast("Added “\(timeline.name)” to the export queue")
+    }
+
+    /// Yes to the loudness fix: change the timeline (undoable), then export it.
+    func fixLoudness(_ ask: LoudnessAsk) {
+        guard let session = app.session else { return }
+        var fixed = ask.timeline
+        let changed = ask.verdict.apply(to: &fixed)
+        if changed > 0 {
+            session.edit("Fix Loudness") { doc in doc.editTimeline(id: fixed.id) { $0 = fixed } }
+            PulseLog.info("Loudness fix: \(ask.verdict.summary) → changed \(changed) clips")
+        }
+        queue(fixed)
     }
 
     func exportAllShorts() {
