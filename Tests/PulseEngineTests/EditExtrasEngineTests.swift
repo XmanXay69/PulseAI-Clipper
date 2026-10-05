@@ -60,9 +60,10 @@ final class EditExtrasEngineTests: XCTestCase {
         timeline.tracks[0].clips = [TimelineClip(name: "tone", content: .media(assetID: asset.id), start: 0, sourceDuration: 8)]
 
         let full = try await MixLoudness.measure(timeline: timeline, assets: [asset.id: asset])
-        // A 0.2-amplitude 1 kHz sine is about −17 LUFS mono; the mix plays it on both channels (≈ +3 dB).
-        XCTAssertEqual(full.lufs, -14, accuracy: 2, "measured \(full.lufs) LUFS")
-        XCTAssertEqual(full.peakDB, 20 * log10(0.2), accuracy: 0.3)
+        // A 0.2-amplitude 1 kHz sine is about −17.7 LUFS mono; on both channels of the mix ≈ −14.7 (−17.7 if the
+        // upmix uses a −3 dB pan law).
+        XCTAssertTrue((-18.5)...(-13.5) ~= full.lufs, "measured \(full.lufs) LUFS")
+        XCTAssertTrue((-17.5)...(-13.5) ~= full.peakDB, "peak \(full.peakDB) dB")
 
         // The loudness fix's "lower by N dB" really lowers the exported mix by N dB.
         var fixed = timeline
@@ -71,5 +72,6 @@ final class EditExtrasEngineTests: XCTestCase {
         verdict.apply(to: &fixed)
         let lowered = try await MixLoudness.measure(timeline: fixed, assets: [asset.id: asset])
         XCTAssertEqual(full.lufs - lowered.lufs, 6, accuracy: 0.3, "\(full.lufs) → \(lowered.lufs)")
+        XCTAssertEqual(full.peakDB - lowered.peakDB, 6, accuracy: 0.3)
     }
 }
