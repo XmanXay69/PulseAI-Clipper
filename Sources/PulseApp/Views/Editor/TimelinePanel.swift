@@ -388,7 +388,7 @@ struct TimelineClipView: View, Equatable {
     let asset: MediaAsset?
     let color: Color
 
-    static func == (a: TimelineClipView, b: TimelineClipView) -> Bool {
+    nonisolated static func == (a: TimelineClipView, b: TimelineClipView) -> Bool {
         a.clip == b.clip && a.pps == b.pps && a.isSelected == b.isSelected && a.trackLocked == b.trackLocked
             && a.trackKind == b.trackKind && a.asset?.id == b.asset?.id && a.asset?.path == b.asset?.path && a.color == b.color
     }
