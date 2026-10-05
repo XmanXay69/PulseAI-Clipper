@@ -16,6 +16,11 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
     public var restraint: Restraint
     /// Settings measured from a reference video ("edit it like this one"); nil = PULSE's own style.
     public var style: StyleTuning?
+    /// Editor finishing passes: boring-stretch trims, sliver removal, clean audio cuts, hidden jump cuts,
+    /// chapter transitions, a gentle grade and music drops on punchlines.
+    public var polish = true
+    /// A 10-second end screen with room for YouTube's end-screen cards.
+    public var endScreen = true
 
     /// Seconds between reaction zooms / meme pop-ups / transition whooshes.
     public var zoomSpacing: Seconds { style?.zoomSpacing ?? restraint.zoomSpacing }
@@ -117,6 +122,10 @@ public struct LongFormResult: Sendable {
     public var report: String
     /// Where music beds go (one per "chapter"); the app composes a bed of each length.
     public var musicChapters: [TimeRange]
+    /// Timeline times of the biggest punchlines — the music drops out there (see `addMusic`).
+    public var musicDrops: [Seconds] = []
+    /// The automatic edit check (fixed + open issues).
+    public var checks = EditCheckReport()
 }
 
 /// Builds a YouTube-style edit from a long recording: cuts the dead time, keeps the funniest and most
@@ -269,13 +278,25 @@ public enum LongFormEditor {
         var removed: Seconds = 0
         if options.cutDeadAir {
             var cuts: [TimeRange] = []
+            // Long stretches where nobody talks and nothing happens (game audio keeps the silence
+            // detector from seeing them) — the parts a viewer would skip.
+            let signals = options.polish ? EngagementModel.compute(analysis: analysis) : nil
             for s in segments {
                 cuts += SilenceDetector.detect(audio: analysis.audio, transcript: analysis.transcript, in: s.range, preset: options.silencePreset)
+                if let signals {
+                    cuts += EditPolish.deadSpans(in: s.range, words: analysis.transcript?.words ?? [], excitement: signals.excitement, step: signals.step)
+                }
             }
+            cuts = cuts.merged()
             if let hookRange { cuts.removeAll { $0.overlaps(hookRange) } }
             if !cuts.isEmpty {
                 removed = timeline.removeSourceRanges(cuts, assetID: asset.id, reason: .silence, aiGenerated: true)
             }
+        }
+        // Flash frames and half-breaths left between cuts.
+        var slivers = 0
+        if options.polish {
+            slivers = EditPolish.removeMicroFragments(&timeline, words: analysis.transcript?.words ?? [], after: hookEnd)
         }
 
         // Where each segment begins now (after the cuts) — chapters, transitions, music.
@@ -291,6 +312,13 @@ public enum LongFormEditor {
             guard let t = starts[i] else { continue }
             let name = segment.title.isEmpty ? "Part \(i + 1)" : segment.title
             timeline.markers.append(Marker(time: t, name: name, note: "From \(Timecode.short(segment.range.start)) of the stream", color: .blue, aiGenerated: true))
+        }
+
+        // Hide the jump cuts: every other cut inside a stretch steps the framing in a little.
+        var jumpZooms = 0
+        if options.polish, options.zooms, timeline.tracks[0].clips.count > 0 {
+            let scale: Double = options.style?.rhythmZooms == true ? 1.08 : (options.restraint == .subtle ? 1 : (options.restraint == .energetic ? 1.08 : 1.06))
+            jumpZooms = EditPolish.jumpCutZooms(&timeline, from: hookEnd, segmentStarts: starts.compactMap { $0 }, scale: scale)
         }
 
         // Captions: easy-to-read subtitles low in frame.
@@ -391,10 +419,37 @@ public enum LongFormEditor {
             }
         }
 
-        // Soft fade at the very end.
-        if let last = timeline.tracks[0].clips.indices.last {
+        // Chapter changes (a big jump in the stream) get a quick zoom-through instead of a hard cut.
+        var transitions = 0
+        if options.polish, options.style?.fades != true, options.restraint != .subtle {
+            for i in segments.indices.dropFirst() {
+                guard let t = starts[i], segments[i].range.start - segments[i - 1].range.end > 60,
+                      let ci = timeline.tracks[0].clips.firstIndex(where: { abs($0.start - t) < 0.05 }) else { continue }
+                timeline.tracks[0].clips[ci].transitionIn = ClipTransition(kind: .zoomIn, duration: 0.3, aiGenerated: true)
+                transitions += 1
+            }
+        }
+
+        if options.polish { EditPolish.grade(&timeline) }
+
+        // Ending: an end screen for YouTube's cards, or a soft fade.
+        if options.endScreen && landscape && analysis.duration > 120 {
+            EditPolish.addEndScreen(&timeline)
+        } else if let last = timeline.tracks[0].clips.indices.last {
             timeline.tracks[0].clips[last].transitionOut = ClipTransition(kind: .fadeToBlack, duration: 0.6, aiGenerated: true)
         }
+
+        // The music gets out of the way of the three biggest punchlines.
+        var drops: [Seconds] = []
+        if options.polish {
+            for s in segments.sorted(by: { $0.potential > $1.potential }) where s.potential >= 70 && drops.count < 3 {
+                if let t = timelineTime(ofSource: s.payoff), !drops.contains(where: { abs($0 - t) < 30 }) { drops.append(t) }
+            }
+        }
+
+        // What an editor checks before exporting; mechanical problems are fixed here.
+        let checks = EditQualityCheck.run(&timeline, words: analysis.transcript?.words ?? [],
+                                          target: options.polish ? (options.minimumLength * 0.8)...(options.maximumLength * 1.15) : nil)
 
         // YouTube chapters for the description.
         timeline.notes = chapterList(timeline.markers.filter { $0.color == .blue }, hasHook: hookRange != nil)
@@ -410,8 +465,13 @@ public enum LongFormEditor {
         if memes > 0 { parts.append("\(memes) memes") }
         if whooshes > 0 { parts.append("\(whooshes) transitions") }
         if fades > 0 { parts.append("\(fades) fades") }
+        if transitions > 0 { parts.append("\(transitions) chapter transitions") }
+        if jumpZooms > 0 { parts.append("\(jumpZooms) jump-cut zooms") }
+        if slivers > 0 { parts.append("\(slivers) slivers removed") }
         if let style = options.style { parts.append("styled like “\(style.name)”") }
-        return LongFormResult(timeline: timeline, segments: segments, report: parts.joined(separator: " · "), musicChapters: chapters)
+        parts.append(checks.summary.lowercased())
+        return LongFormResult(timeline: timeline, segments: segments, report: parts.joined(separator: " · "), musicChapters: chapters,
+                              musicDrops: drops, checks: checks)
     }
 
     /// 4–7 s around the payoff: a beat of setup, the moment, the first reaction.
@@ -471,7 +531,7 @@ public enum LongFormEditor {
     /// Music sits about 22 dB under the (−14 LUFS) dialogue before ducking.
     public static let musicLevel = 0.08
 
-    public static func addMusic(_ beds: [MediaAsset], chapters: [TimeRange], to timeline: inout Timeline) {
+    public static func addMusic(_ beds: [MediaAsset], chapters: [TimeRange], to timeline: inout Timeline, drops: [Seconds] = []) {
         guard let ti = timeline.tracks.firstIndex(where: { $0.name.hasPrefix("A2") }), !beds.isEmpty else { return }
         timeline.tracks[ti].clips.removeAll { $0.role == .music && $0.aiGenerated }
         for (index, range) in chapters.enumerated() {
@@ -495,6 +555,7 @@ public enum LongFormEditor {
             }
         }
         timeline.tracks[ti].sortClips()
+        EditPolish.musicDrops(&timeline, at: drops)
     }
 
     static func chapterList(_ markers: [Marker], hasHook: Bool) -> String {

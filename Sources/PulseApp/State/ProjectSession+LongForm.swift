@@ -75,7 +75,7 @@ extension ProjectSession {
                     if prepared.isNew { newAssets.append(prepared.asset) }
                     job.progress = 0.3 + 0.65 * Double(i + 1) / Double(result.musicChapters.count)
                 }
-                LongFormEditor.addMusic(beds, chapters: result.musicChapters, to: &result.timeline)
+                LongFormEditor.addMusic(beds, chapters: result.musicChapters, to: &result.timeline, drops: result.musicDrops)
             }
             let timeline = result.timeline
             self.edit("Edit My VOD") { doc in
@@ -122,5 +122,19 @@ extension ProjectSession {
             used.append(track)
         }
         return (assets, used)
+    }
+
+    /// Edit → Check Edit: the same checks Edit My VOD runs (slivers, clicks at cuts, gaps, loud music,
+    /// overlapping text, busy zooms, pacing, chapter length), fixing what's mechanical.
+    func checkEdit() {
+        guard let timeline = activeTimeline else { return }
+        let words = analysis(for: timeline)?.transcript?.words ?? []
+        var checked = timeline
+        let report = EditQualityCheck.run(&checked, words: words)
+        if !report.fixed.isEmpty {
+            edit("Check Edit") { doc in doc.editTimeline(id: timeline.id) { $0 = checked } }
+        }
+        PulseLog.info("Check Edit on “\(timeline.name)”: \(report.summary)")
+        app.presentMessage(title: report.issues.isEmpty ? "Edit check: all clear" : report.summary, message: report.text)
     }
 }

@@ -172,6 +172,12 @@ struct TimelineCanvas: View {
     @ObservedObject var playback: PlaybackController
     let timeline: Timeline
 
+    /// The visible stretch of the timeline (seconds), widened by a margin and snapped to coarse steps so
+    /// scrolling doesn't re-render the lanes on every pixel.
+    @State private var window: ClosedRange<Double> = 0...120
+    @State private var scrollX: CGFloat = 0
+    @State private var viewportWidth: CGFloat = 1200
+
     var pps: CGFloat { CGFloat(session.pixelsPerSecond) }
     var contentWidth: CGFloat { max(CGFloat(max(timeline.duration, playback.duration) + 20) * pps, 900) }
 
@@ -181,7 +187,7 @@ struct TimelineCanvas: View {
                 VStack(spacing: 0) {
                     TimelineRuler(session: session, playback: playback, timeline: timeline, pps: pps, width: contentWidth)
                     ForEach(timeline.tracks) { track in
-                        TrackLane(session: session, playback: playback, timeline: timeline, track: track, pps: pps, width: contentWidth)
+                        TrackLane(session: session, playback: playback, track: track, pps: pps, width: contentWidth, window: window)
                     }
                 }
                 if let a = session.inPoint, let b = session.outPoint, b > a {
@@ -191,22 +197,81 @@ struct TimelineCanvas: View {
                         .offset(x: CGFloat(a) * pps)
                         .allowsHitTesting(false)
                 }
-                // Playhead.
-                Rectangle()
-                    .fill(Theme.accent)
-                    .frame(width: 1.5)
-                    .offset(x: CGFloat(playback.currentTime) * pps)
-                    .allowsHitTesting(false)
+                // Playhead: the only part of the timeline that redraws while playing.
+                PlayheadLine(clock: playback.clock, pps: pps)
             }
             .frame(width: contentWidth, alignment: .topLeading)
+            .background(GeometryReader { geo in
+                Color.clear.preference(key: TimelineScrollKey.self, value: -geo.frame(in: .named("timelineScroll")).minX)
+            })
         }
+        .coordinateSpace(name: "timelineScroll")
+        .background(GeometryReader { geo in Color.clear.preference(key: TimelineViewportKey.self, value: geo.size.width) })
+        .onPreferenceChange(TimelineScrollKey.self) { x in scrollX = x; updateWindow() }
+        .onPreferenceChange(TimelineViewportKey.self) { w in viewportWidth = w; updateWindow() }
+        .onChange(of: session.pixelsPerSecond) { _, _ in updateWindow() }
+        .onAppear { updateWindow() }
         .background(Theme.window)
+    }
+
+    private func updateWindow() {
+        guard pps > 0 else { return }
+        let visible = Double(viewportWidth / pps)
+        let step = max(visible / 2, 1)
+        // Snap the window to half-viewport steps, with a full viewport of margin either side.
+        let lo = (Double(max(0, scrollX) / pps) / step).rounded(.down) * step - visible
+        let hi = lo + visible * 3 + step
+        let next = max(0, lo)...max(1, hi)
+        if next != window { window = next }
+    }
+}
+
+private struct TimelineScrollKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+private struct TimelineViewportKey: PreferenceKey {
+    static let defaultValue: CGFloat = 1200
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+struct PlayheadLine: View {
+    @ObservedObject var clock: PlayheadClock
+    let pps: CGFloat
+
+    var body: some View {
+        Rectangle()
+            .fill(Theme.accent)
+            .frame(width: 1.5)
+            .offset(x: CGFloat(clock.time) * pps)
+            .allowsHitTesting(false)
+    }
+}
+
+struct PlayheadHead: View {
+    @ObservedObject var clock: PlayheadClock
+    let pps: CGFloat
+
+    var body: some View {
+        Path { head in
+            head.move(to: CGPoint(x: -6, y: 0))
+            head.addLine(to: CGPoint(x: 6, y: 0))
+            head.addLine(to: CGPoint(x: 6, y: 12))
+            head.addLine(to: CGPoint(x: 0, y: 20))
+            head.addLine(to: CGPoint(x: -6, y: 12))
+            head.closeSubpath()
+        }
+        .fill(Theme.accent)
+        .frame(width: 12, height: 20)
+        .offset(x: CGFloat(clock.time) * pps - 6)
+        .allowsHitTesting(false)
     }
 }
 
 struct TimelineRuler: View {
-    @ObservedObject var session: ProjectSession
-    @ObservedObject var playback: PlaybackController
+    let session: ProjectSession
+    let playback: PlaybackController
     let timeline: Timeline
     let pps: CGFloat
     let width: CGFloat
@@ -245,40 +310,41 @@ struct TimelineRuler: View {
                 let w = max(CGFloat(change.duration) * pps, 3)
                 ctx.fill(Path(roundedRect: CGRect(x: x0, y: 22, width: w, height: 5), cornerRadius: 2), with: .color(Theme.ai))
             }
-            // Playhead head.
-            let px = CGFloat(playback.currentTime) * pps
-            var head = Path()
-            head.move(to: CGPoint(x: px - 6, y: 0))
-            head.addLine(to: CGPoint(x: px + 6, y: 0))
-            head.addLine(to: CGPoint(x: px + 6, y: 12))
-            head.addLine(to: CGPoint(x: px, y: 20))
-            head.addLine(to: CGPoint(x: px - 6, y: 12))
-            head.closeSubpath()
-            ctx.fill(head, with: .color(Theme.accent))
         }
         .frame(width: width, height: TimelineMetrics.rulerHeight)
+        .overlay(alignment: .topLeading) { PlayheadHead(clock: playback.clock, pps: pps) }
         .background(Theme.panel)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
         .contentShape(Rectangle())
-        .gesture(DragGesture(minimumDistance: 0).onChanged { value in
-            var t = Double(value.location.x / pps)
-            if session.app.settings.snapping {
-                t = Timeline.snap(t, to: timeline.snapPoints(), tolerance: Double(6 / pps))
+        .gesture(DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                playback.pause()
+                playback.scrub(to: max(0, time(at: value.location.x)))
             }
-            playback.pause()
-            playback.seek(to: max(0, t))
-        })
+            .onEnded { value in
+                // Land exactly on the frame under the mouse.
+                playback.seek(to: max(0, time(at: value.location.x)))
+            })
         .help("Drag to scrub")
+    }
+
+    private func time(at x: CGFloat) -> Double {
+        var t = Double(x / pps)
+        if session.app.settings.snapping {
+            t = Timeline.snap(t, to: timeline.snapPoints(), tolerance: Double(6 / pps))
+        }
+        return t
     }
 }
 
 struct TrackLane: View {
     @ObservedObject var session: ProjectSession
-    @ObservedObject var playback: PlaybackController
-    let timeline: Timeline
+    let playback: PlaybackController
     let track: Track
     let pps: CGFloat
     let width: CGFloat
+    /// Only clips overlapping this stretch (seconds) are built.
+    let window: ClosedRange<Double>
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -294,8 +360,12 @@ struct TrackLane: View {
                     session.placeAsset(id, at: max(0, Double(location.x / pps)), trackID: track.id)
                     return true
                 }
-            ForEach(track.clips) { clip in
-                TimelineClipView(session: session, playback: playback, timeline: timeline, track: track, clip: clip, pps: pps)
+            ForEach(track.clips.filter { $0.end >= window.lowerBound && $0.start <= window.upperBound }) { clip in
+                TimelineClipView(session: session, playback: playback, trackID: track.id, trackKind: track.kind, trackLocked: track.isLocked,
+                                 clip: clip, pps: pps, isSelected: session.selectedClipIDs.contains(clip.id),
+                                 asset: clip.assetID.flatMap { session.document.asset(id: $0) },
+                                 color: Theme.clipColor(for: clip, track: track))
+                    .equatable()
             }
         }
         .frame(width: width, height: TimelineMetrics.laneHeight(track.kind), alignment: .topLeading)
@@ -304,23 +374,35 @@ struct TrackLane: View {
     }
 }
 
-struct TimelineClipView: View {
-    @EnvironmentObject var app: AppModel
-    @ObservedObject var session: ProjectSession
-    @ObservedObject var playback: PlaybackController
-    let timeline: Timeline
-    let track: Track
+/// One clip block. Deliberately doesn't observe the session or the player: the lane passes in
+/// everything it shows, and `Equatable` lets SwiftUI skip clips that didn't change.
+struct TimelineClipView: View, Equatable {
+    let session: ProjectSession
+    let playback: PlaybackController
+    let trackID: UUID
+    let trackKind: TrackKind
+    let trackLocked: Bool
     let clip: TimelineClip
     let pps: CGFloat
+    let isSelected: Bool
+    let asset: MediaAsset?
+    let color: Color
+
+    static func == (a: TimelineClipView, b: TimelineClipView) -> Bool {
+        a.clip == b.clip && a.pps == b.pps && a.isSelected == b.isSelected && a.trackLocked == b.trackLocked
+            && a.trackKind == b.trackKind && a.asset?.id == b.asset?.id && a.asset?.path == b.asset?.path && a.color == b.color
+    }
+
+    var app: AppModel { session.app }
+    /// The live timeline, read when a gesture needs it (not stored, so clips don't re-render on every edit).
+    var timeline: Timeline { session.activeTimeline ?? Timeline(name: "", canvas: .landscape1080, tracks: []) }
 
     @State private var moveOffset: CGSize = .zero
     @State private var trimLeading: CGFloat = 0
     @State private var trimTrailing: CGFloat = 0
     @State private var hovering = false
 
-    var isSelected: Bool { session.selectedClipIDs.contains(clip.id) }
-    var height: CGFloat { TimelineMetrics.laneHeight(track.kind) - 6 }
-    var color: Color { Theme.clipColor(for: clip, track: track) }
+    var height: CGFloat { TimelineMetrics.laneHeight(trackKind) - 6 }
 
     var body: some View {
         let x = CGFloat(clip.start) * pps + moveOffset.width + trimLeading
@@ -343,7 +425,7 @@ struct TimelineClipView: View {
             RoundedRectangle(cornerRadius: 4)
                 .strokeBorder(isSelected ? Color.white : color.opacity(0.9), lineWidth: isSelected ? 2 : 1)
             // Trim handles.
-            if !track.isLocked {
+            if !trackLocked {
                 trimHandle(leading: true).frame(width: 7, height: height).offset(x: 0)
                 trimHandle(leading: false).frame(width: 7, height: height).offset(x: w - 7)
             }
@@ -352,7 +434,7 @@ struct TimelineClipView: View {
         .offset(x: x, y: 3 + moveOffset.height)
         .zIndex(moveOffset == .zero ? 0 : 10)
         .onHover { hovering = $0 }
-        .gesture(moveGesture, including: track.isLocked ? .none : .all)
+        .gesture(moveGesture, including: trackLocked ? .none : .all)
         .simultaneousGesture(SpatialTapGesture().onEnded { value in select(atX: value.location.x) })
         .simultaneousGesture(TapGesture(count: 2).onEnded {
             if clip.content.compoundID != nil { session.openCompound(clipID: clip.id) }
@@ -377,8 +459,8 @@ struct TimelineClipView: View {
     func clipContent(width: CGFloat) -> some View {
         switch clip.content {
         case .media(let assetID):
-            if let asset = session.document.asset(id: assetID) {
-                if track.kind == .audio {
+            if let asset, asset.id == assetID {
+                if trackKind == .audio {
                     WaveformStrip(url: session.url(for: asset), sourceRange: clip.sourceRange, color: color)
                         .padding(.top, 14)
                 } else if asset.kind == .video || asset.kind == .image {
@@ -499,8 +581,8 @@ struct TimelineClipView: View {
                 let newStart = max(0, clip.start + Double(moveOffset.width / pps))
                 // Vertical drag → move to a neighbouring compatible track.
                 var destination: UUID?
-                let lanes = Int((value.translation.height / TimelineMetrics.laneHeight(track.kind)).rounded())
-                if lanes != 0, let index = timeline.trackIndex(id: track.id) {
+                let lanes = Int((value.translation.height / TimelineMetrics.laneHeight(trackKind)).rounded())
+                if lanes != 0, let index = timeline.trackIndex(id: trackID) {
                     let target = index + lanes
                     if timeline.tracks.indices.contains(target), timeline.tracks[target].kind.accepts(clip.content) {
                         destination = timeline.tracks[target].id
@@ -556,7 +638,7 @@ struct TimelineClipView: View {
             session.editClip(clip.id, "Toggle Clip") { $0.isEnabled.toggle() }
         }
         Divider()
-        if case .media = clip.content, track.kind == .video {
+        if case .media = clip.content, trackKind == .video {
             Button("Auto Reframe (follow face)") { autoReframe() }
             Button("Remove AI Keyframes") { session.editClip(clip.id, "Remove AI Keyframes") { $0.transform.removeAIKeyframes() } }
         }

@@ -11,7 +11,7 @@ works on macOS 15). CI compiles, tests and screenshots the app on a GitHub Actio
 
 ## Versions
 
-`VERSION` holds the current version (1.2.0). Release notes per version live in `versions/<version>/NOTES.md`
+`VERSION` holds the current version (1.3.0). Release notes per version live in `versions/<version>/NOTES.md`
 (the Release workflow prepends them to the GitHub Release); `versions/README.md` explains how to cut a new one.
 
 ## Download (the easy way)
@@ -217,6 +217,12 @@ prompt), cloud AI providers with live keys.
   ≥ 0.4.9 local extraction like TubeGrab, 1 MiB parallel ranged downloads, library.json). YouTube may block
   extraction from data-center IPs (GitHub runners); it falls back to built-in beds and logs why. "Creative
   Commons" is YouTube's filter — uploaders' claims aren't verified by PULSE.
+- **Editing polish & checks (1.3.0)** — `PulseCore/AutoEdit/EditPolish.swift`: dead-span trimming (no words ≥ 3.5 s
+  and excitement ≤ the segment median), sliver removal (< 350 ms without a whole word), 30 ms cut fades, alternating
+  jump-cut zooms, music drops, grade, end screen; `EditQualityCheck.run` (fix + report) runs at the end of
+  `LongFormEditor.build` and from Edit → Check Edit. Timeline performance: `PlaybackController.clock`/`slowClock`
+  carry the playhead (not `@Published` on the controller), `TimelineClipView` is `Equatable` and doesn't observe the
+  session/player, lanes only build clips inside the visible window, the ruler scrubs with chase seeking.
 - Cross-dissolves (video + linked audio crossfade) need media handles; at the very start/end of a recording they
   fall back to a fade over lower tracks.
 - whisper.cpp itself must be installed with Homebrew (`brew install whisper-cpp`); models download in-app

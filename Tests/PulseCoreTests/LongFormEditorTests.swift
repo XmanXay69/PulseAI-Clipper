@@ -53,7 +53,7 @@ final class LongFormEditorTests: XCTestCase {
         let hookEnd = t.markers.first { $0.name == "Hook" }.map { _ in t.tracks[0].clips[0].duration } ?? 0
         XCTAssertGreaterThan(hookEnd, 3, "opens with a cold-open hook")
         XCTAssertLessThan(hookEnd, 9)
-        let story = t.tracks[0].clips.filter { $0.start >= hookEnd - 0.01 }
+        let story = t.tracks[0].clips.filter { $0.start >= hookEnd - 0.01 && $0.content.assetID != nil }
         XCTAssertTrue(zip(story, story.dropFirst()).allSatisfy { $0.sourceIn < $1.sourceIn })
         XCTAssertTrue(t.tracks[1].clips.contains { $0.name == "Hook Title" })
 
@@ -129,7 +129,7 @@ final class LongFormEditorTests: XCTestCase {
         let picked = Array(plan.moments.filter { plan.selected.contains($0.id) }.prefix(3))
         let hook = picked[1]
         let result = LongFormEditor.build(asset: asset, analysis: analysis, segments: picked, hookPayoff: hook.payoff)
-        let story = result.timeline.tracks[0].clips.dropFirst()
+        let story = result.timeline.tracks[0].clips.dropFirst().filter { $0.content.assetID != nil }
         XCTAssertTrue(story.allSatisfy { clip in picked.contains { $0.range.expanded(by: 8).contains(clip.sourceIn) } }, "only the picked moments")
         let opener = result.timeline.tracks[0].clips[0]
         XCTAssertTrue(TimeRange(start: opener.sourceIn, end: opener.sourceOut).contains(hook.payoff), "the chosen hook opens the video")

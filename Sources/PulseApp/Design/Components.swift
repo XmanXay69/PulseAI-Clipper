@@ -432,3 +432,12 @@ extension View {
         if condition { transform(self) } else { self }
     }
 }
+
+/// Re-renders only its content when the playhead clock ticks — the surrounding view stays put.
+/// Use it around the parts that show live time (timecode, playhead, handles, word highlights).
+struct ClockObserving<Content: View>: View {
+    @ObservedObject var clock: PlayheadClock
+    @ViewBuilder let content: () -> Content
+
+    var body: some View { content() }
+}

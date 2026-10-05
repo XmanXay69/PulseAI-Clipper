@@ -239,7 +239,9 @@ struct CanvasHandlesOverlay: View {
     let frameSize: CGSize
     @State private var dragStart: (x: Double, y: Double, scale: Double)?
 
-    var body: some View {
+    var body: some View { ClockObserving(clock: playback.clock) { clockedBody } }
+
+    @ViewBuilder var clockedBody: some View {
         GeometryReader { _ in
             if let timeline = session.activeTimeline, session.selectedClipIDs.count == 1, let id = session.selectedClipIDs.first,
                let clip = timeline.clip(id: id), let rect = layerRect(clip, timeline: timeline) {
@@ -364,11 +366,13 @@ struct TransportBar: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(Timecode.string(playback.currentTime, fps: playback.frameRate))
-                .font(.pulseTimecode)
-                .foregroundStyle(Theme.accent)
-                .fixedSize()
-                .frame(minWidth: 120, maxWidth: 130, alignment: .leading)
+            ClockObserving(clock: playback.clock) {
+                Text(Timecode.string(playback.currentTime, fps: playback.frameRate))
+                    .font(.pulseTimecode)
+                    .foregroundStyle(Theme.accent)
+                    .fixedSize()
+                    .frame(minWidth: 120, maxWidth: 130, alignment: .leading)
+            }
             Spacer(minLength: 4)
             IconButton(symbol: "backward.end.fill", help: "Go to start (Home)") { playback.goToStart() }
             IconButton(symbol: "backward.frame.fill", help: "Previous frame (←)") { playback.step(frames: -1) }

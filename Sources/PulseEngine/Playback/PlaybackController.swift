@@ -5,9 +5,29 @@ import PulseCore
 
 /// Drives the editor viewer: rebuilds the live composition when the timeline changes (debounced),
 /// keeps the playhead, and offers frame-accurate transport.
+/// The playhead position, published on its own so only the few views that show live time (playhead,
+/// timecode, handles) redraw while playing or scrubbing — not the whole timeline and inspector.
+@MainActor
+public final class PlayheadClock: ObservableObject {
+    @Published public internal(set) var time: Seconds = 0
+    public init() {}
+}
+
 @MainActor
 public final class PlaybackController: ObservableObject {
-    @Published public private(set) var currentTime: Seconds = 0
+    /// ~30 updates a second: playhead line, timecode, canvas handles.
+    public let clock = PlayheadClock()
+    /// About 4 updates a second: heavier panels (transcript, captions word list, inspector).
+    public let slowClock = PlayheadClock()
+
+    /// Not @Published on purpose (see `clock`).
+    public private(set) var currentTime: Seconds {
+        get { clock.time }
+        set {
+            clock.time = newValue
+            if abs(newValue - slowClock.time) >= 0.25 { slowClock.time = newValue }
+        }
+    }
     @Published public private(set) var duration: Seconds = 0
     @Published public private(set) var isPlaying = false
     @Published public private(set) var isBuilding = false
@@ -39,7 +59,9 @@ public final class PlaybackController: ObservableObject {
         let interval = CMTime(value: 1, timescale: 30)
         timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             MainActor.assumeIsolated {
-                self?.currentTime = time.secondsValue
+                // While scrubbing the playhead already shows where the mouse is.
+                guard let self, !self.isSeekingForScrub else { return }
+                self.currentTime = time.secondsValue
             }
         }
         rateObservation = player.observe(\.rate, options: [.new]) { [weak self] player, _ in
@@ -181,7 +203,32 @@ public final class PlaybackController: ObservableObject {
         if isBuilding { pendingSeek = max(0, seconds) }
         let t = max(0, min(seconds, duration))
         currentTime = t
+        chaseTarget = nil
         player.seek(to: .seconds(t), toleranceBefore: .zero, toleranceAfter: .zero)
+    }
+
+    /// Scrubbing: the playhead follows the mouse instantly; the picture follows as fast as the decoder can.
+    /// Only one seek is in flight — while it runs, newer targets replace each other and the latest is
+    /// sought next ("chase" seeking), so dragging never queues up a backlog of exact-frame decodes.
+    public func scrub(to seconds: Seconds) {
+        let t = max(0, min(seconds, duration))
+        currentTime = t
+        if isBuilding { pendingSeek = t; return }
+        chaseTarget = t
+        guard !isSeekingForScrub else { return }
+        chaseNext()
+    }
+
+    private var chaseTarget: Seconds?
+    private var isSeekingForScrub = false
+
+    private func chaseNext() {
+        guard let target = chaseTarget else { isSeekingForScrub = false; return }
+        chaseTarget = nil
+        isSeekingForScrub = true
+        player.seek(to: .seconds(target), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
+            Task { @MainActor in self?.chaseNext() }
+        }
     }
 
     public func step(frames: Int) {

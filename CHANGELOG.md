@@ -2,6 +2,7 @@
 
 Release notes live in [`versions/`](versions/README.md), one folder per version:
 
+- [1.3.0](versions/1.3.0/NOTES.md) — editor-grade Edit My VOD (polish passes + automatic edit check), smooth timeline.
 - [1.2.0](versions/1.2.0/NOTES.md) — Creative Commons music from YouTube, calmer quieter music, outlined captions, gameplay moments, live leveling %.
 - [1.1.2](versions/1.1.2/NOTES.md) — playable while audio levels (with a % bar), faster leveling, updates appear right away.
 - [1.1.1](versions/1.1.1/NOTES.md) — edits appear in the viewer instantly; update from inside the app.

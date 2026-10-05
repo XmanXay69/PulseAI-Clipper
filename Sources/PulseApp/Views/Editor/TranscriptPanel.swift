@@ -64,7 +64,9 @@ struct TranscriptPanel: View {
 
     var transcript: Transcript? { assetID.flatMap { session.analyses[$0]?.transcript } }
 
-    var body: some View {
+    var body: some View { ClockObserving(clock: playback.slowClock) { clockedBody } }
+
+    @ViewBuilder var clockedBody: some View {
         VStack(spacing: 0) {
             HStack(spacing: 6) {
                 TextField("Search transcript", text: $query).textFieldStyle(.roundedBorder).controlSize(.small)

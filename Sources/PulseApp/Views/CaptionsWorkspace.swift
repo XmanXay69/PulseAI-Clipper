@@ -248,7 +248,9 @@ struct CaptionWordEditor: View {
         self.playback = session.playback
     }
 
-    var body: some View {
+    var body: some View { ClockObserving(clock: playback.slowClock) { clockedBody } }
+
+    @ViewBuilder var clockedBody: some View {
         VStack(spacing: 0) {
             PanelHeader("Caption Text", subtitle: "Double-click a word to edit · ★ emphasise · eye hides") {
                 if let word = selectedWord {

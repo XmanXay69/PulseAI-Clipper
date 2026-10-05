@@ -23,7 +23,9 @@ struct AnglesPanel: View {
         }
     }
 
-    var body: some View {
+    var body: some View { ClockObserving(clock: playback.slowClock) { clockedBody } }
+
+    @ViewBuilder var clockedBody: some View {
         if let group = session.activeMulticamGroup {
             let clip = currentClip
             let sessionTime = clip.flatMap { MulticamEditor.sessionTime(of: $0, atTimeline: playback.currentTime, group: group) }

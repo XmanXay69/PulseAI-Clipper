@@ -108,7 +108,9 @@ struct ClipInspector: View {
 
     var b: ClipBindings { ClipBindings(session: session, clipID: clip.id, local: max(0, playback.currentTime - clip.start)) }
 
-    var body: some View {
+    var body: some View { ClockObserving(clock: playback.slowClock) { clockedBody } }
+
+    @ViewBuilder var clockedBody: some View {
         VStack(spacing: 0) {
             InspectorSection("Clip", isAI: clip.aiGenerated) {
                 HStack {

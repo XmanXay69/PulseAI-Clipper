@@ -94,6 +94,9 @@ struct PulseCommands: Commands {
             Button("Open Sample Project") { app.openDemoProject() }
             Button("Edit Like a Reference…") { app.showReferenceSheet = true }
                 .keyboardShortcut("r", modifiers: [.command, .option])
+            Button("Check Edit") { app.session?.checkEdit() }
+                .keyboardShortcut("k", modifiers: [.command, .shift])
+                .disabled(app.session?.activeTimeline == nil)
             Button("Make Thumbnail…") { app.thumbnailRequest = ThumbnailRequest(timelineID: app.session?.selectedTimelineID) }
                 .keyboardShortcut("t", modifiers: [.command, .shift])
                 .disabled(app.session?.document.primaryAsset == nil)
