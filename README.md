@@ -9,8 +9,15 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
 
 ## Download
 
-**[⬇ Download PULSE 1.1](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
-(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.1.0/NOTES.md)
+**[⬇ Download PULSE 1.3.0](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
+(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.3.0/NOTES.md)
+
+Already installed? PULSE shows an **Update** button when a new version is out — no need to download again.
+
+**New in 1.3.0:** Edit My VOD asks which extras you want before it edits — facecam punch-ins, B-roll
+cutaways, beat-synced music & zooms, speaker-aware cuts, "approve the cut" review, retention title cards and
+an export loudness check (nothing happens unless you tick it). Plus editor-grade polish with an automatic
+edit check, and a much smoother timeline.
 
 1. Double-click **PULSE.dmg** and drag **PULSE** into **Applications**.
 2. Open PULSE from Launchpad or Applications.

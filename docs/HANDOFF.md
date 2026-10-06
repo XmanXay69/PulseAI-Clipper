@@ -244,6 +244,10 @@ prompt), cloud AI providers with live keys.
 
 ## CI tricks (for the next Claude session)
 
+- **Every release updates the README:** the download link text ("Download PULSE x.y.z"), the release-notes link,
+  the "New in x.y.z" summary at the top of `README.md`, and the bold top row in `versions/README.md`. The
+  release workflow's first step fails the release if any of these don't match `VERSION`.
+
 - Artifact/log blob URLs are blocked from the cloud box. Read CI output with the GitHub MCP tool
   `get_job_logs` (`return_content: true`). The workflow prints `SNAPSHOT <name> <base64 jpeg>` lines;
   decode them with a small Python script to view engine stills and `ui-*.png` app screenshots.

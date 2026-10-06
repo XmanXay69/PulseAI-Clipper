@@ -39,6 +39,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: README mentions this version
+        run: |
+          v=$(cat VERSION)
+          grep -q "Download PULSE $v" README.md || { echo "::error::README.md download link doesn't say PULSE $v — update README before releasing"; exit 1; }
+          grep -q "versions/$v/NOTES.md" README.md || { echo "::error::README.md doesn't link versions/$v/NOTES.md"; exit 1; }
+          grep -q "| \*\*$v\*\* |" versions/README.md || { echo "::error::versions/README.md has no row for $v"; exit 1; }
+
       - name: Cache whisper.cpp build
         uses: actions/cache@v4
         with:
