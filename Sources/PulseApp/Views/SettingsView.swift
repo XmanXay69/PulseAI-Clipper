@@ -110,8 +110,8 @@ struct SettingsGroup<Content: View>: View {
             VStack(alignment: .leading, spacing: 10) { content() }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(Theme.panelRaised))
-                .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(Theme.border))
+                .raisedSurface()
+                .elevation(1)
             if let footnote {
                 Text(footnote).font(.pulseCaption).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
             }

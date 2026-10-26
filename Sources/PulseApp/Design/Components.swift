@@ -199,6 +199,7 @@ struct TagChip: View {
         .padding(.vertical, 2)
         .foregroundStyle(color)
         .background(Capsule().fill(color.opacity(0.14)))
+        .overlay(Capsule().strokeBorder(color.opacity(0.22)))
         .fixedSize()
     }
 }
