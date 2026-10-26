@@ -77,7 +77,7 @@ struct EditExtrasSheet: View {
             }
             .padding(16)
         }
-        .frame(width: 540, height: 600)
+        .frame(width: 540, height: 660)
         .background(Theme.panel)
         .preferredColorScheme(.dark)
         .onAppear { extras = app.settings.ai.editExtras }

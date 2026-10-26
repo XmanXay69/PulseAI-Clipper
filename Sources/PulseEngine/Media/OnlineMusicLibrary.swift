@@ -110,11 +110,11 @@ public actor OnlineMusicLibrary {
         probe.setValue("bytes=0-0", forHTTPHeaderField: "Range")
         let (_, probeResponse) = try await session.data(for: probe)
         guard let http = probeResponse as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-            throw EngineError.readerFailed("Music download refused")
+            throw EngineError.readerFailed("Download refused")
         }
         var total: Int64 = 0
         if let range = http.value(forHTTPHeaderField: "Content-Range"), let last = range.split(separator: "/").last { total = Int64(last) ?? 0 }
-        guard total > 0, total < 60 << 20 else { throw EngineError.readerFailed("Unexpected music file size") }
+        guard total > 0, total < 60 << 20 else { throw EngineError.readerFailed("Unexpected file size") }
         let chunk: Int64 = 1 << 20
         let ranges = stride(from: Int64(0), to: total, by: Int(chunk)).map { ($0, min($0 + chunk, total) - 1) }
         let session = self.session
@@ -134,7 +134,7 @@ public actor OnlineMusicLibrary {
                         }
                         try await Task.sleep(nanoseconds: UInt64(attempt + 1) * 500_000_000)
                     }
-                    throw EngineError.readerFailed("Music download interrupted")
+                    throw EngineError.readerFailed("Download interrupted")
                 }
             }
             for try await done in group { collected.append(done) }
