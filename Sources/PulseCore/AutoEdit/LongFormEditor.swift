@@ -146,12 +146,20 @@ public struct LongFormPlan: Sendable {
 /// "rimshot", "sad trombone", "record scratch", "ding", "applause"… matched by name.
 public struct LongFormSounds: Sendable {
     public var effects: [MediaAsset]
+    /// Settings → AI Features choices per job ("hit", "whoosh" → a sound's name) (#105).
+    public var preferred: [String: String]
 
-    public init(effects: [MediaAsset] = []) {
+    public init(effects: [MediaAsset] = [], preferred: [String: String] = [:]) {
         self.effects = effects
+        self.preferred = preferred
     }
 
     func effect(_ keywords: [String]) -> MediaAsset? {
+        let job = keywords.contains(where: { ["whoosh", "swoosh"].contains($0) }) ? "whoosh" : (keywords.contains(where: { ["impact", "boom", "hit"].contains($0) }) ? "hit" : nil)
+        if let job, let chosen = preferred[job], !chosen.isEmpty,
+           let match = effects.first(where: { $0.name.caseInsensitiveCompare(chosen) == .orderedSame || $0.tags.contains("library:" + chosen) }) {
+            return match
+        }
         for k in keywords {
             if let match = effects.first(where: { $0.name.lowercased().contains(k) || $0.tags.contains(k) }) { return match }
         }

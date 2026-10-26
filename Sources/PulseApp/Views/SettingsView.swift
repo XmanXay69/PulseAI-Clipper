@@ -541,6 +541,8 @@ struct AIFeatureSettings: View {
             SettingsRow("Whoosh on the hook", detail: "A quiet whoosh under the first words of every short (#77). Needs sound effects on.") {
                 Toggle("", isOn: $app.settings.ai.hookSting).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
             }
+            EffectChoiceRow(job: "hit", category: "Impacts", title: "Payoff hit", detail: "Which impact lands on a short's payoff and on replays (#105).")
+            EffectChoiceRow(job: "whoosh", category: "Transitions", title: "Whoosh", detail: "Which sweep PULSE uses for the hook, replays and cutaways.")
             SettingsRow("End of every short", detail: app.settings.ai.shortsEndCTA.detail) {
                 Picker("", selection: $app.settings.ai.shortsEndCTA) {
                     ForEach(EndCTA.allCases, id: \.self) { Text($0.displayName).tag($0) }
@@ -1193,5 +1195,29 @@ struct MonitoringNoteRow: View {
     var detail: String {
         guard let reading else { return "Couldn't read the output device." }
         return MixingAdvice.line(outputName: reading.name, kind: reading.kind) ?? "Listening through \(reading.name) — fine for judging a mix."
+    }
+}
+
+/// Which library sound PULSE uses for a job (#105).
+struct EffectChoiceRow: View {
+    @EnvironmentObject var app: AppModel
+    let job: String
+    let category: String
+    let title: String
+    let detail: String
+
+    var choice: Binding<String> {
+        Binding(get: { app.settings.ai.preferredEffects[job] ?? "" },
+                set: { app.settings.ai.preferredEffects[job] = $0.isEmpty ? nil : $0 })
+    }
+
+    var body: some View {
+        SettingsRow(title, detail: detail) {
+            Picker("", selection: choice) {
+                Text("PULSE’s pick").tag("")
+                ForEach(SoundLibrary.effects.filter { $0.category == category }) { Text($0.name).tag($0.name) }
+            }
+            .labelsHidden().frame(width: 170)
+        }
     }
 }

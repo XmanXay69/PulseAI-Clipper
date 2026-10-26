@@ -20,7 +20,9 @@ markers for the music, a progress bar for long videos, a whoosh on the hook, mus
 rate, humanized sound-effect levels, frame-locked stepping, an accent colour choice, reduce-motion support, a
 command palette with loose matching, export into iCloud/Dropbox/Google Drive, a queue-time estimate, a beta
 update channel with everything-since release notes, a monitoring note for laptop speakers and Bluetooth, safe
-mode, and VoiceOver labels on every control ([notes](versions/1.6.1/NOTES.md)).
+mode, VoiceOver labels on every control, moved files that relink themselves plus a relink-all button, transcript
+and chat sidecars picked up on import, replace-a-clip-by-drop, an insert/overwrite toggle, a blade preview, a
+cold-open card, your choice of impact and whoosh, and a project status board ([notes](versions/1.6.1/NOTES.md)).
 
 **New in 1.6.0:** a studio look (lit surfaces, gradient controls, grouped sidebar, breadcrumb, pill page bar,
 richer timeline), instant replays on the biggest plays, and more than 250 items from the

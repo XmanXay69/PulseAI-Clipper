@@ -79,6 +79,8 @@ public struct ImportPlan: Sendable {
     public var transcripts: [URL]
     public var rejected: [Rejection]
     public var duplicates: [URL]
+    /// Chat replays found next to the recordings (#13): `<name>.json`, `<name>-chat.json`, `<name>_chat.json`.
+    public var chatLogs: [URL] = []
 
     /// True when the batch looks like a multi-source recording (e.g. gameplay + webcam + mic).
     public var isMultiSourceSession: Bool {
@@ -111,7 +113,9 @@ public struct ImportPlan: Sendable {
         return out
     }
 
-    public static func make(urls: [URL], existingPaths: Set<String>) -> ImportPlan {
+    /// `siblings` lists the files in a recording's folder (the default reads the disk); a transcript or chat
+    /// replay with the recording's name beside it comes along without being dropped (#13, #14).
+    public static func make(urls: [URL], existingPaths: Set<String>, siblings: (URL) -> [URL] = ImportPlan.diskSiblings) -> ImportPlan {
         var items: [Item] = []
         var transcripts: [URL] = []
         var rejected: [Rejection] = []
@@ -139,6 +143,42 @@ public struct ImportPlan: Sendable {
             let role = MediaTypes.suggestedRole(forFilename: url.lastPathComponent, kind: kind)
             items.append(Item(url: url, kind: kind, role: role, needsConversion: MediaTypes.needsConversionExtensions.contains(ext)))
         }
-        return ImportPlan(items: items, transcripts: transcripts, rejected: rejected, duplicates: duplicates)
+        // Sidecars beside each recording (#13, #14).
+        var chatLogs: [URL] = []
+        for item in items where item.kind == .video || item.kind == .audio {
+            for (transcript, chat) in sidecars(for: item.url, siblings: siblings) {
+                if let transcript, !seen.contains(transcript.standardizedFileURL.path) {
+                    seen.insert(transcript.standardizedFileURL.path)
+                    transcripts.append(transcript)
+                }
+                if let chat, !seen.contains(chat.standardizedFileURL.path) {
+                    seen.insert(chat.standardizedFileURL.path)
+                    chatLogs.append(chat)
+                }
+            }
+        }
+        return ImportPlan(items: items, transcripts: transcripts, rejected: rejected, duplicates: duplicates, chatLogs: chatLogs)
+    }
+
+    /// The files next to a recording that belong to it: `<name>.srt` / `.vtt` are transcripts; `<name>.json`,
+    /// `<name>-chat.json`, `<name>_chat.json`, `<name>.chat.json` are chat replays.
+    static func sidecars(for url: URL, siblings: (URL) -> [URL]) -> [(transcript: URL?, chat: URL?)] {
+        let base = url.deletingPathExtension().lastPathComponent.lowercased()
+        var out: [(URL?, URL?)] = []
+        for file in siblings(url) where file.standardizedFileURL != url.standardizedFileURL {
+            let ext = file.pathExtension.lowercased()
+            let stem = file.deletingPathExtension().lastPathComponent.lowercased()
+            if ["srt", "vtt"].contains(ext), stem == base { out.append((file, nil)); continue }
+            if ["json", "csv"].contains(ext) {
+                let chatStems = [base, base + "-chat", base + "_chat", base + ".chat", base + " chat"]
+                if chatStems.contains(stem) { out.append((nil, file)) }
+            }
+        }
+        return out
+    }
+
+    public static func diskSiblings(_ url: URL) -> [URL] {
+        let folder = url.deletingLastPathComponent()
+        return (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []
     }
 }

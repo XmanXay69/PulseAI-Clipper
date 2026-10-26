@@ -116,6 +116,7 @@ public final class LibraryDatabase: @unchecked Sendable {
         // Columns added in 1.6 (#475, #477); harmless when they already exist.
         try? execute("ALTER TABLE projects ADD COLUMN deadline REAL")
         try? execute("ALTER TABLE projects ADD COLUMN editing REAL")
+        try? execute("ALTER TABLE projects ADD COLUMN workflow TEXT")
     }
 
     // MARK: Low level
@@ -191,12 +192,12 @@ public final class LibraryDatabase: @unchecked Sendable {
     public func index(_ document: ProjectDocument, path: String, thumbnailPath: String?) {
         let s = document.summary
         try? run("""
-        INSERT OR REPLACE INTO projects (id, name, path, modified, created, duration, resolution, clip_count, timeline_count, status, thumbnail, favorite, trashed, deadline, editing)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        INSERT OR REPLACE INTO projects (id, name, path, modified, created, duration, resolution, clip_count, timeline_count, status, thumbnail, favorite, trashed, deadline, editing, workflow)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, [.text(s.id.uuidString), .text(s.name), .text(path), .double(s.modifiedAt.timeIntervalSince1970), .double(s.createdAt.timeIntervalSince1970),
               .double(s.duration), .text(s.resolution), .int(Int64(s.clipCount)), .int(Int64(s.timelineCount)), .text(s.status.rawValue),
               .text(thumbnailPath), .int(s.isFavorite ? 1 : 0), .int(s.isTrashed ? 1 : 0),
-              .double(s.deadline?.timeIntervalSince1970 ?? 0), .double(s.editingSeconds ?? 0)])
+              .double(s.deadline?.timeIntervalSince1970 ?? 0), .double(s.editingSeconds ?? 0), .text(s.workflowStage?.rawValue)])
         try? run("DELETE FROM media WHERE project_id = ?", [.text(s.id.uuidString)])
         for m in document.media {
             try? run("INSERT OR REPLACE INTO media (id, project_id, name, path, kind, role, duration, width, height, fps, size) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
@@ -221,7 +222,7 @@ public final class LibraryDatabase: @unchecked Sendable {
     }
 
     public func projects(includeTrashed: Bool = false) -> [ProjectSummary] {
-        query("SELECT id, name, path, modified, created, duration, resolution, clip_count, timeline_count, status, thumbnail, favorite, trashed, deadline, editing FROM projects ORDER BY modified DESC", []) { st in
+        query("SELECT id, name, path, modified, created, duration, resolution, clip_count, timeline_count, status, thumbnail, favorite, trashed, deadline, editing, workflow FROM projects ORDER BY modified DESC", []) { st in
             guard let idText = LibraryDatabase.text(st, 0), let id = UUID(uuidString: idText) else { return nil }
             let trashed = sqlite3_column_int(st, 12) != 0
             if trashed && !includeTrashed { return nil }
@@ -233,7 +234,8 @@ public final class LibraryDatabase: @unchecked Sendable {
                                   status: ProjectStatus(rawValue: LibraryDatabase.text(st, 9) ?? "") ?? .empty,
                                   thumbnailPath: LibraryDatabase.text(st, 10), isFavorite: sqlite3_column_int(st, 11) != 0, isTrashed: trashed,
                                   deadline: sqlite3_column_double(st, 13) > 0 ? Date(timeIntervalSince1970: sqlite3_column_double(st, 13)) : nil,
-                                  editingSeconds: sqlite3_column_double(st, 14) > 0 ? sqlite3_column_double(st, 14) : nil)
+                                  editingSeconds: sqlite3_column_double(st, 14) > 0 ? sqlite3_column_double(st, 14) : nil,
+                                  workflowStage: LibraryDatabase.text(st, 15).flatMap(WorkflowStage.init(rawValue:)))
         }
     }
 

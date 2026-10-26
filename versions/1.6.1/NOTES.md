@@ -78,10 +78,46 @@ The sixteenth batch from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of
   all along (#312, #313); frame stepping is frame-accurate (#186), safe areas have per-platform overlays (#189)
   and captions have max-lines and max-characters controls (#235).
 
+### Batch 18
+
+#### Media
+- **Moved files find themselves** (#6) — when a project opens with missing media, PULSE looks where the
+  file used to be, one folder up, beside the project and in the last import folder, and relinks what it finds.
+- **Relink all at once** (#7) — a "Relink N Missing…" button in the media panel: pick the folder the files
+  moved to and every missing file inside it is reconnected by name (and by size when names repeat).
+- **Sidecars come along** (#13, #14) — import a recording and the `.srt` / `.vtt` with the same name beside
+  it becomes its transcript (no transcription needed), and a `<name>.json` / `<name>-chat.json` beside it is
+  taken as the chat replay.
+
+#### Editing
+- **Replace a clip by dropping on it** (#164) — drop a media item from the panel onto a clip: the clip keeps
+  its place and length and the file behind it changes; its linked sound follows (or goes, for a silent file).
+- **Insert or overwrite** (#163) — a toolbar toggle: in insert mode, media you add pushes what follows along
+  instead of covering it.
+- **Blade preview** (#146) — with the blade tool, a line follows the mouse where the cut will land.
+- **Link badge** (#173) — clips linked to a sound piece show a small link mark in their name chip.
+
+#### AI Clips
+- **Cold-open card** (#90) — shorts that open cold get a quick line over the teaser — "WAIT FOR IT", "OH
+  NO…", "WATCH THIS", "GUESS WHAT HAPPENED" — chosen from the moment's tags.
+- **Your sounds** (#105) — AI Features → One-click shorts: pick which impact lands on the payoff and which
+  whoosh PULSE uses for hooks, replays and cutaways; the YouTube edit uses the same choices.
+
+#### Projects
+- **Status board** (#474) — Projects gets a board view: Editing, Ready, Exported and Posted columns; drag a
+  card between them. A project you haven't placed sits where its contents put it.
+
+#### Already there, now on the list
+- Analysis resumes from its last checkpoint after a crash, transcription included (#36); the first analysis
+  calibrates the time estimates for your Mac (#55); with a second feed, multicam's AI switching cuts to whoever
+  is talking (#98); ProRes 422 is an export preset (#345); the reference style card shows the measured stats
+  (#365); striking words in the Transcript panel cuts them from the edit (#499).
+
 ### Under the hood
 - `CaptionWord.pageBreakAfter` and `TimelineClip.labelColor` are decoded tolerantly, so 1.6.0 projects open
   unchanged; `Batch16Tests` covers the release-list parser, caption keyboard edits, the bumper's ripple, the
   pace mapping, the monitoring note, labels, humanized levels and 1,000 frame steps at 29.97.
 - `Batch17Tests` covers mid-sentence detection (and the splits and pause removals it must ignore), drop
   markers, the progress bar's keyframes, the hook sting, fuzzy ranking, cloud-folder detection and the spelling
-  candidates; 331 core tests in all.
+  candidates. `Batch18Tests` covers relink matching, import sidecars, clip replacement, the cold-open card,
+  preferred sounds and the board's stages; 337 core tests in all.

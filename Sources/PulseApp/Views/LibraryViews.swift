@@ -41,6 +41,14 @@ struct MediaView: View {
         return list
     }
 
+    func relinkAll() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.message = "Choose the folder the missing files moved to — PULSE searches inside it"
+        if panel.runModal() == .OK, let url = panel.url { session.relinkMissingMedia(in: url) }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
@@ -55,6 +63,12 @@ struct MediaView: View {
                 Toggle(isOn: $unusedOnly) { Label("Unused", systemImage: "tray") }
                     .toggleStyle(.button).buttonStyle(.plain).font(.pulseCaption).padding(.horizontal, 12)
                     .help("Files no timeline or clip card uses (#17)")
+                let missing = session.document.media.filter { $0.availability == .missing && !$0.isTrashed }.count
+                if missing > 0 {
+                    Button { relinkAll() } label: { Label("Relink \(missing) Missing…", systemImage: "link.badge.plus") }
+                        .buttonStyle(.plain).font(.pulseCaption).foregroundStyle(Theme.warning).padding(.horizontal, 12)
+                        .help("Pick a folder once; every missing file inside it (by name, and size when names repeat) is reconnected (#7)")
+                }
                 let trashed = session.document.trashedMedia.count
                 Toggle(isOn: $showTrash) { Label("Trash\(trashed > 0 ? " (\(trashed))" : "")", systemImage: "trash") }
                     .toggleStyle(.button).buttonStyle(.plain).font(.pulseCaption).padding(.horizontal, 12)

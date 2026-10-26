@@ -76,6 +76,9 @@ struct TimelineToolbar: View {
             IconButton(symbol: "scissors.badge.ellipsis", help: "Split at playhead (⌘K)") { session.splitAtPlayhead() }
             IconButton(symbol: "delete.left", help: "Ripple delete (⇧⌫)") { session.deleteSelection(ripple: true) }
             IconButton(symbol: "plus.square.on.square", help: "Duplicate (⌘D)") { session.duplicateSelection() }
+            IconButton(symbol: session.insertMode ? "arrow.right.to.line" : "rectangle.on.rectangle",
+                       help: session.insertMode ? "Insert mode — media you add pushes what follows along (click for overwrite)" : "Overwrite mode — media you add covers what's there (click for insert)",
+                       isActive: session.insertMode) { session.insertMode.toggle() }
             IconButton(symbol: "textformat", help: "Add text (⌥⌘T)") { session.addText() }
             IconButton(symbol: "bookmark", help: "Add marker (M)") { session.addMarker() }
             IconButton(symbol: "list.bullet.rectangle", help: "Markers list", isActive: showMarkers) { showMarkers.toggle() }
@@ -531,6 +534,8 @@ struct TimelineCanvas: View {
     @State private var window: ClosedRange<Double> = 0...120
     @State private var scrollX: CGFloat = 0
     @State private var viewportWidth: CGFloat = 1200
+    /// Where the blade would cut (#146), in content coordinates.
+    @State private var bladeX: CGFloat?
 
     var pps: CGFloat { CGFloat(session.pixelsPerSecond) }
     var contentWidth: CGFloat { max(CGFloat(max(timeline.duration, playback.duration) + 20) * pps, 900) }
@@ -568,6 +573,15 @@ struct TimelineCanvas: View {
                 }
                 // Playhead: the only part of the timeline that redraws while playing.
                 PlayheadLine(clock: playback.clock, pps: pps)
+                if session.tool == .blade, let bladeX {
+                    Rectangle().fill(Theme.accent.opacity(0.9)).frame(width: 1).offset(x: bladeX).allowsHitTesting(false)
+                }
+            }
+            .onContinuousHover { phase in
+                switch phase {
+                case .active(let point): bladeX = point.x
+                case .ended: bladeX = nil
+                }
             }
             .frame(width: contentWidth, alignment: .topLeading)
             .background(GeometryReader { geo in
@@ -878,6 +892,7 @@ struct TimelineClipView: View, Equatable {
                 .clipShape(RoundedRectangle(cornerRadius: 5))
             HStack(spacing: 4) {
                 if clip.aiGenerated { Image(systemName: "sparkles").font(.system(size: 8, weight: .bold)).foregroundStyle(Theme.ai) }
+                if clip.linkGroup != nil { Image(systemName: "link").font(.system(size: 7, weight: .bold)).foregroundStyle(.white.opacity(0.55)) }
                 Text(label).font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.94)).lineLimit(1)
                 if clip.speed != 1 { Text(String(format: "%.2g×", clip.speed)).font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.warning) }
             }
@@ -912,6 +927,12 @@ struct TimelineClipView: View, Equatable {
             if clip.content.compoundID != nil { session.openCompound(clipID: clip.id) }
         })
         .contextMenu { contextMenu }
+        .dropDestination(for: String.self) { items, _ in
+            // A media item dropped on a clip replaces what's behind it, keeping its place and length (#164).
+            guard trackKind != .text, let first = items.first, let id = UUID(uuidString: first) else { return false }
+            session.replaceClip(clip.id, with: id)
+            return true
+        }
         .help(helpText)
     }
 

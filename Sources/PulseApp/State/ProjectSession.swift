@@ -76,6 +76,10 @@ final class ProjectSession: ObservableObject, Identifiable {
     @Published var focusedCaptionWordID: UUID?
     /// Show only clips with this label; others dim (#177).
     @Published var labelFilter: MarkerColor?
+    /// Insert mode (#163): media added to the timeline pushes what follows instead of covering it.
+    @Published var insertMode: Bool = UserDefaults.standard.bool(forKey: "timeline.insertMode") {
+        didSet { UserDefaults.standard.set(insertMode, forKey: "timeline.insertMode") }
+    }
     @Published var tool: EditTool = .select
     @Published var pixelsPerSecond: Double = 60
     @Published var inPoint: Seconds?
@@ -511,6 +515,10 @@ final class ProjectSession: ObservableObject, Identifiable {
                 }
             }
             for url in plan.transcripts { self.importTranscript(url, for: nil) }
+            // Chat replays found beside the recordings (#13); a `.json` that isn't chat is tried as a transcript.
+            for url in plan.chatLogs {
+                if Self.readChat(url) != nil { self.importChat(url, for: nil) } else if url.pathExtension.lowercased() == "json" { self.importTranscript(url, for: nil) }
+            }
             if !failures.isEmpty {
                 self.app.presentMessage(title: "Some files couldn't be imported", message: failures.joined(separator: "\n\n"))
             }
@@ -646,6 +654,92 @@ final class ProjectSession: ObservableObject, Identifiable {
                 }
             }
             self.app.toast(lowConfidence.isEmpty ? "Recordings synchronized" : "Synchronized — low confidence for \(lowConfidence.joined(separator: ", ")). Check alignment.")
+        }
+    }
+
+    /// Drop a media item onto a clip (#164): the clip keeps its place and length, the file behind it changes.
+    func replaceClip(_ clipID: UUID, with assetID: UUID) {
+        guard let asset = document.asset(id: assetID), asset.kind != .image else { return }
+        let duration = max(asset.metadata.duration, 0.1)
+        let hasAudio = asset.metadata.hasAudio || asset.kind == .audio
+        editTimeline("Replace Clip") { $0.replaceContent(clipID: clipID, assetID: assetID, assetDuration: duration, name: asset.name, hasAudio: hasAudio) }
+    }
+
+    /// Relinks every missing file found under `folder` by name (and size when names repeat) (#7).
+    func relinkMissingMedia(in folder: URL) {
+        let missing = document.media.filter { $0.availability == .missing }
+        guard !missing.isEmpty else { return }
+        app.jobs.start("Looking for \(missing.count) missing file\(missing.count == 1 ? "" : "s")", kind: .importMedia) { [weak self] job in
+            guard let self else { return }
+            let wanted = Set(missing.map { ($0.path as NSString).lastPathComponent.lowercased() })
+            let candidates = await Task.detached(priority: .userInitiated) { () -> [MediaRelinker.Candidate] in
+                var out: [MediaRelinker.Candidate] = []
+                let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey, .isPackageKey]
+                guard let walker = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return out }
+                for case let url as URL in walker {
+                    guard wanted.contains(url.lastPathComponent.lowercased()),
+                          let values = try? url.resourceValues(forKeys: Set(keys)), values.isRegularFile == true else { continue }
+                    out.append(MediaRelinker.Candidate(path: url.path, size: Int64(values.fileSize ?? 0)))
+                    if out.count > 5_000 { break }
+                }
+                return out
+            }.value
+            let matches = MediaRelinker.matches(missing: missing, files: candidates)
+            guard !matches.isEmpty else {
+                self.app.toast("None of the missing files are in \(folder.lastPathComponent)")
+                return
+            }
+            self.edit("Relink Media") { doc in
+                for (id, path) in matches {
+                    let url = URL(fileURLWithPath: path)
+                    doc.updateAsset(id: id) {
+                        $0.path = url.path
+                        $0.bookmark = MediaAccess.bookmark(for: url)
+                        $0.availability = .online
+                    }
+                }
+            }
+            self.save()
+            self.app.toast("Relinked \(matches.count) of \(missing.count) missing file\(missing.count == 1 ? "" : "s")")
+            job.progress = 1
+        }
+    }
+
+    /// On open (#6): missing files are looked for where they used to be, one folder up, beside the project
+    /// and in the last import folder — quietly, without a scan of the whole disk.
+    func autoRelinkMissing() {
+        let missing = document.media.filter { $0.availability == .missing }
+        guard !missing.isEmpty else { return }
+        let projectFolder = package.url.deletingLastPathComponent().path
+        let lastImport = document.lastImportFolder
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            var candidates: [MediaRelinker.Candidate] = []
+            var roots: [String] = []
+            for asset in missing { for root in MediaRelinker.searchRoots(for: asset, projectFolder: projectFolder, lastImportFolder: lastImport) where !roots.contains(root) { roots.append(root) } }
+            let wanted = Set(missing.map { ($0.path as NSString).lastPathComponent.lowercased() })
+            for root in roots.prefix(12) {
+                let names = (try? FileManager.default.contentsOfDirectory(atPath: root)) ?? []
+                for name in names where wanted.contains(name.lowercased()) {
+                    let path = (root as NSString).appendingPathComponent(name)
+                    let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? Int64) ?? 0
+                    candidates.append(MediaRelinker.Candidate(path: path, size: size))
+                }
+            }
+            let matches = MediaRelinker.matches(missing: missing, files: candidates)
+            guard !matches.isEmpty else { return }
+            self.edit("Relink Media") { doc in
+                for (id, path) in matches {
+                    let url = URL(fileURLWithPath: path)
+                    doc.updateAsset(id: id) {
+                        $0.path = url.path
+                        $0.bookmark = MediaAccess.bookmark(for: url)
+                        $0.availability = .online
+                    }
+                }
+            }
+            self.save()
+            self.app.toast("Found \(matches.count) moved file\(matches.count == 1 ? "" : "s") and relinked \(matches.count == 1 ? "it" : "them")")
         }
     }
 
@@ -1365,6 +1459,7 @@ final class ProjectSession: ObservableObject, Identifiable {
         guard let asset = document.asset(id: assetID) else { return }
         let start = time ?? playhead
         let duration = asset.kind == .image ? 5 : max(asset.metadata.duration, 0.1)
+        let mode: InsertMode = insertMode ? .insert : .overwrite
         editTimeline("Add \(asset.name)") { t in
             let group = UUID()
             if asset.kind == .video || asset.kind == .image {
@@ -1373,7 +1468,7 @@ final class ProjectSession: ObservableObject, Identifiable {
                 var video = TimelineClip(name: asset.name, content: .media(assetID: asset.id), start: start, sourceDuration: duration,
                                          linkGroup: asset.metadata.hasAudio ? group : nil, role: asset.role == .webcam ? .webcam : (asset.role == .gameplay ? .gameplay : .main))
                 video.transform.fit = .fill
-                try t.insert(video, onTrack: vt)
+                try t.insert(video, onTrack: vt, mode: mode)
             }
             if asset.metadata.hasAudio || asset.kind == .audio {
                 let range = TimeRange(start: start, duration: duration)
@@ -1384,7 +1479,7 @@ final class ProjectSession: ObservableObject, Identifiable {
                     audio.audio.duckUnderDialogue = true
                     audio.audio.volume = AnimatedDouble(0.35)
                 }
-                try t.insert(audio, onTrack: at)
+                try t.insert(audio, onTrack: at, mode: mode)
             }
         }
     }

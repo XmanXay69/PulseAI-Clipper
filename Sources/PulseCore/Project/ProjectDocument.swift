@@ -1,6 +1,35 @@
 import Foundation
 
 /// Progress status shown on project cards.
+/// Where a project is on the way out the door (#474): the status board's columns. Set by hand on the board;
+/// until then it follows what the project contains (exported → Exported, anything with an edit → Editing).
+public enum WorkflowStage: String, Codable, CaseIterable, Sendable {
+    case editing, ready, exported, posted
+
+    public var displayName: String {
+        switch self {
+        case .editing: return "Editing"
+        case .ready: return "Ready"
+        case .exported: return "Exported"
+        case .posted: return "Posted"
+        }
+    }
+
+    public var symbol: String {
+        switch self {
+        case .editing: return "scissors"
+        case .ready: return "checkmark.seal"
+        case .exported: return "square.and.arrow.up"
+        case .posted: return "paperplane"
+        }
+    }
+
+    /// The column a project lands in when nobody has placed it (#474).
+    public static func derived(from status: ProjectStatus) -> WorkflowStage {
+        status == .exported ? .exported : .editing
+    }
+}
+
 public enum ProjectStatus: String, Codable, Sendable {
     case empty
     case imported
@@ -62,6 +91,8 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
     public var editingSeconds: Seconds = 0
     /// What to do when the loudness check finds a problem, remembered per project (#358): "fix" or "asIs".
     public var loudnessChoice: String?
+    /// The status-board column you put this in (#474); nil = wherever its contents say.
+    public var workflowStage: WorkflowStage?
 
     public init(id: UUID = UUID(), name: String, createdAt: Date = Date()) {
         self.id = id
@@ -112,6 +143,7 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
         lastImportFolder = c.decode(String.self, forKey: .lastImportFolder, default: "")
         extrasAnswered = c.decode(Bool.self, forKey: .extrasAnswered, default: false)
         deadline = c.decode(Date?.self, forKey: .deadline, default: nil)
+        workflowStage = c.decode(WorkflowStage?.self, forKey: .workflowStage, default: nil)
         editingSeconds = c.decode(Seconds.self, forKey: .editingSeconds, default: 0)
         loudnessChoice = c.decode(String?.self, forKey: .loudnessChoice, default: nil)
     }
@@ -149,7 +181,7 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
                               duration: main?.metadata.duration ?? 0, resolution: main?.metadata.resolutionLabel ?? "—",
                               clipCount: visibleCandidates.count, timelineCount: timelines.count, status: status,
                               thumbnailPath: thumbnailPath, isFavorite: isFavorite, isTrashed: isTrashed,
-                              deadline: deadline, editingSeconds: editingSeconds > 0 ? editingSeconds : nil)
+                              deadline: deadline, editingSeconds: editingSeconds > 0 ? editingSeconds : nil, workflowStage: workflowStage)
     }
 
     public mutating func touch() {
@@ -206,12 +238,18 @@ public struct ProjectSummary: Codable, Hashable, Identifiable, Sendable {
     public var deadline: Date?
     /// Time spent editing (#477).
     public var editingSeconds: Seconds?
+    /// The status-board column (#474), when placed by hand.
+    public var workflowStage: WorkflowStage?
+
+    /// The board column this project shows in (#474).
+    public var boardStage: WorkflowStage { workflowStage ?? WorkflowStage.derived(from: status) }
 
     public init(id: UUID, name: String, path: String, modifiedAt: Date, createdAt: Date, duration: Seconds, resolution: String,
                 clipCount: Int, timelineCount: Int, status: ProjectStatus, thumbnailPath: String?, isFavorite: Bool, isTrashed: Bool,
-                deadline: Date? = nil, editingSeconds: Seconds? = nil) {
+                deadline: Date? = nil, editingSeconds: Seconds? = nil, workflowStage: WorkflowStage? = nil) {
         self.deadline = deadline
         self.editingSeconds = editingSeconds
+        self.workflowStage = workflowStage
         self.id = id
         self.name = name
         self.path = path

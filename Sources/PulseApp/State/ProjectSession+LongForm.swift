@@ -50,7 +50,7 @@ extension ProjectSession {
             job.progress = 0.1
             // 2. Pick the moments and build the edit.
             job.detail = "Finding the best moments"
-            let sounds = LongFormSounds(effects: effects)
+            let sounds = LongFormSounds(effects: effects, preferred: self.app.settings.ai.preferredEffects)
             let taste = self.app.settings.ai.taste
             var result = await Task.detached(priority: .userInitiated) {
                 LongFormEditor.build(asset: asset, analysis: analysis, options: options, sounds: sounds, taste: taste,

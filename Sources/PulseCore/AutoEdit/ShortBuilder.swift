@@ -31,6 +31,10 @@ public struct ShortBuildOptions: Codable, Hashable, Sendable {
     public var coldOpen: Bool = false
     /// A whoosh under the first words (#77).
     public var hookSting: Bool = false
+    /// A "WAIT FOR IT" line over the cold open (#90).
+    public var coldOpenCard: Bool = true
+    /// Which library sound to use per job (#105): "hit", "whoosh" → a sound's name; missing = PULSE's pick.
+    public var preferredEffects: [String: String] = [:]
     /// What the last two seconds ask for (#71, #76).
     public var endCTA: EndCTA = .none
     /// Your handle for the follow card (from the Brand Kit).
@@ -86,6 +90,7 @@ public struct ShortBuildOptions: Codable, Hashable, Sendable {
         speedRamp = settings.speedRamp
         coldOpen = settings.coldOpenShorts
         hookSting = settings.hookSting
+        preferredEffects = settings.preferredEffects
         endCTA = settings.shortsEndCTA
         ctaHandle = settings.socialHandle
         if mode == .autoEdit {
@@ -269,8 +274,8 @@ public enum ShortBuilder {
         if options.speedRamp {
             EditPolish.speedRamp(&timeline, assetID: asset.id, payoffAtSource: candidate.payoffTime)
         }
-        if options.coldOpen {
-            EditPolish.coldOpen(&timeline, assetID: asset.id, payoffAtSource: candidate.payoffTime)
+        if options.coldOpen, EditPolish.coldOpen(&timeline, assetID: asset.id, payoffAtSource: candidate.payoffTime), options.coldOpenCard {
+            ColdOpenCard.add(&timeline, text: ColdOpenCard.text(tags: candidate.tags, seed: candidate.generation))
         }
         if options.punchIns {
             var moments: [PunchInGenerator.Moment] = []
@@ -297,11 +302,11 @@ public enum ShortBuilder {
         }
 
         // Sound effects (the project's own, or the built-in library's that the app imported).
-        if options.soundEffects, let payoffTimeline, let sfx = pickSoundEffect(input.soundEffects, preferring: ["impact", "boom", "hit", "pop", "whoosh"]) {
+        if options.soundEffects, let payoffTimeline, let sfx = pickSoundEffect(input.soundEffects, preferring: ["impact", "boom", "hit", "pop", "whoosh"], chosen: options.preferredEffects["hit"]) {
             addPayoffHit(sfx, at: payoffTimeline, to: &timeline)
         }
         // A whoosh as the hook lands (#77): quieter than the payoff hit, right at the top.
-        if options.hookSting, let whoosh = pickSoundEffect(input.soundEffects, preferring: ["whoosh", "swoosh", "swipe", "transition"]) {
+        if options.hookSting, let whoosh = pickSoundEffect(input.soundEffects, preferring: ["whoosh", "swoosh", "swipe", "transition"], chosen: options.preferredEffects["whoosh"]) {
             addHookSting(whoosh, to: &timeline)
         }
 
@@ -372,8 +377,13 @@ public enum ShortBuilder {
         }
     }
 
-    static func pickSoundEffect(_ library: [MediaAsset], preferring keywords: [String]) -> MediaAsset? {
+    /// `chosen` is a sound's name from Settings (#105); when it's in the project it wins over the keywords.
+    static func pickSoundEffect(_ library: [MediaAsset], preferring keywords: [String], chosen: String? = nil) -> MediaAsset? {
         let sfx = library.filter { $0.role == .soundEffect || $0.category == .sfx }
+        if let chosen = chosen?.trimmingCharacters(in: .whitespaces), !chosen.isEmpty,
+           let match = sfx.first(where: { $0.name.caseInsensitiveCompare(chosen) == .orderedSame || $0.tags.contains("library:" + chosen) }) {
+            return match
+        }
         for k in keywords {
             if let match = sfx.first(where: { $0.name.lowercased().contains(k) || $0.tags.contains(k) }) { return match }
         }

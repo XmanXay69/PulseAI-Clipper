@@ -322,6 +322,7 @@ final class AppModel: ObservableObject {
         let newSession = ProjectSession(package: package, document: document, app: self)
         session = newSession
         newSession.startEditingClock()
+        newSession.autoRelinkMissing()
         // Menus, sidebar badges and the top bar reflect session state (undo labels, clip counts…).
         sessionObserver = newSession.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         library?.index(document, path: package.url.path, thumbnailPath: document.thumbnailPath.map { package.url.appendingPathComponent($0).path })
@@ -697,6 +698,20 @@ final class AppModel: ObservableObject {
     }
 
     /// When the project needs to be posted (#475); nil clears it.
+    /// Moves a project between the status board's columns (#474).
+    func setWorkflowStage(_ summary: ProjectSummary, _ stage: WorkflowStage?) {
+        let package = ProjectPackage(url: URL(fileURLWithPath: summary.path))
+        if session?.package == package {
+            session?.edit("Status") { $0.workflowStage = stage }
+            session?.save()
+        } else if var doc = try? store.load(package).document {
+            doc.workflowStage = stage
+            try? store.save(doc, to: package)
+            library?.index(doc, path: package.url.path, thumbnailPath: summary.thumbnailPath)
+        }
+        refreshProjects()
+    }
+
     func setDeadline(_ summary: ProjectSummary, _ deadline: Date?) {
         let package = ProjectPackage(url: URL(fileURLWithPath: summary.path))
         if session?.package == package {

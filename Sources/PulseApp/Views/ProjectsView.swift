@@ -8,6 +8,7 @@ struct ProjectsView: View {
     @State private var query = ""
     @State private var filter: Filter = .all
     @State private var sort: Sort = .modified
+    @AppStorage("projects.board") private var board = false
 
     enum Filter: String, CaseIterable { case all = "All", favorites = "Favorites", thisWeek = "This Week", inProgress = "In Progress", exported = "Exported", dueSoon = "Due Soon", trash = "Trash" }
     enum Sort: String, CaseIterable { case modified = "Last Edited", name = "Name", duration = "Duration", clips = "Clips" }
@@ -52,6 +53,7 @@ struct ProjectsView: View {
                 } label: { Label("Sort: \(sort.rawValue)", systemImage: "arrow.up.arrow.down") }
                     .menuStyle(.borderlessButton)
                     .frame(width: 170)
+                IconButton(symbol: board ? "rectangle.split.3x1.fill" : "rectangle.split.3x1", help: board ? "Grid" : "Status board — Editing, Ready, Exported, Posted; drag to move (#474)", isActive: board) { board.toggle() }
                 Button { app.showOpenPanel() } label: { Label("Open…", systemImage: "folder") }.buttonStyle(.pulseSecondary)
                 Button { app.showNewProjectSheet = true } label: { Label("New Project", systemImage: "plus") }.buttonStyle(.pulsePrimary)
             }
@@ -64,6 +66,8 @@ struct ProjectsView: View {
                                title: filter == .trash ? "Trash is empty" : "No projects",
                                message: filter == .trash ? "Projects you move to the Trash appear here until you delete them." : "Projects live in \(app.projectsFolder.path). Create one or open the sample project.",
                                actionTitle: filter == .trash ? nil : "New Project") { app.showNewProjectSheet = true }
+            } else if board {
+                ProjectBoard(projects: filtered)
             } else {
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 230, maximum: 320), spacing: 16)], spacing: 16) {
@@ -393,3 +397,51 @@ struct ImportedAssetRow: View {
     }
 }
 
+
+/// Projects as columns on their way out the door (#474). Drag a card to another column; a project that was
+/// never placed shows where its contents put it (exported or editing).
+struct ProjectBoard: View {
+    @EnvironmentObject var app: AppModel
+    let projects: [ProjectSummary]
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            ForEach(WorkflowStage.allCases, id: \.self) { stage in column(stage) }
+        }
+        .padding(16)
+    }
+
+    func column(_ stage: WorkflowStage) -> some View {
+        let items = projects.filter { $0.boardStage == stage }
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: stage.symbol).font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                Text(stage.displayName).font(.pulseHeadline).foregroundStyle(Theme.textPrimary)
+                Text("\(items.count)").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+            ScrollView {
+                LazyVStack(spacing: 10) {
+                    ForEach(items) { project in
+                        ProjectCard(project: project)
+                            .draggable(project.id.uuidString)
+                    }
+                    if items.isEmpty {
+                        Text(stage == .ready ? "Drag an edit here when it's ready to export" : (stage == .posted ? "Drag here once it's up" : "Nothing here"))
+                            .font(.pulseMicro).foregroundStyle(Theme.textTertiary).padding(12)
+                    }
+                }
+                .padding(4)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(Theme.border))
+        .dropDestination(for: String.self) { items, _ in
+            guard let first = items.first, let id = UUID(uuidString: first), let project = app.projects.first(where: { $0.id == id }) else { return false }
+            app.setWorkflowStage(project, stage)
+            return true
+        }
+    }
+}
