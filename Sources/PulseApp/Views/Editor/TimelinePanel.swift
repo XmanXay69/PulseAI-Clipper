@@ -1,3 +1,4 @@
+import AppKit
 import PulseCore
 import PulseEngine
 import SwiftUI
