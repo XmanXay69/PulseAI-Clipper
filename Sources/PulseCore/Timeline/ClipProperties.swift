@@ -566,6 +566,9 @@ public struct AudioSettings: Codable, Hashable, Sendable {
     public var censorTone: Double = 1000
     /// Play one channel through both ears when only one has sound (#272).
     public var monoSource: MonoSource = .stereo
+    /// How fast the duck goes down when dialogue starts, and comes back after (#268).
+    public var duckAttack: Seconds = 0.15
+    public var duckRelease: Seconds = 0.4
 
     public init(volume: Double = 1) {
         self.volume = AnimatedDouble(volume)
@@ -609,6 +612,8 @@ public struct AudioSettings: Codable, Hashable, Sendable {
         censorRanges = c.decode([TimeRange].self, forKey: .censorRanges, default: [])
         censorTone = c.decode(Double.self, forKey: .censorTone, default: 1000)
         monoSource = c.decode(MonoSource.self, forKey: .monoSource, default: .stereo)
+        duckAttack = c.decode(Seconds.self, forKey: .duckAttack, default: 0.15).clamped(0.02, 2)
+        duckRelease = c.decode(Seconds.self, forKey: .duckRelease, default: 0.4).clamped(0.05, 3)
     }
 
     /// True when swear words are muted or bleeped in this clip.

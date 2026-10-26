@@ -1,5 +1,6 @@
 import Foundation
 import PulseCore
+import YouTubeKit
 
 /// A YouTube VOD by link (#1, #467), the way the B-roll and music libraries fetch clips: YouTube's own
 /// progressive MP4 with sound, saved under ~/Movies/PULSE Downloads and imported like any recording.

@@ -465,6 +465,8 @@ extension ProjectSession {
             edit("Check Edit") { doc in doc.editTimeline(id: timeline.id) { $0 = checked } }
         }
         PulseLog.info("Check Edit on “\(timeline.name)”: \(report.summary)")
-        app.presentMessage(title: report.issues.isEmpty ? "Edit check: all clear" : report.summary, message: report.text)
+        lastEditCheck = report
+        showEditCheck = true
+        if report.issues.isEmpty { app.toast("Edit check: all clear") }
     }
 }

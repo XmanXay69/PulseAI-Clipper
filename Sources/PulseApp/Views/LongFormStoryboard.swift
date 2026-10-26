@@ -19,6 +19,62 @@ struct LongFormStoryboard: View {
 
     /// The main recording's words, for chapter names (#86).
     var words: [TranscriptWord] { session.document.primaryAsset.flatMap { session.analyses[$0.id]?.transcript?.words } ?? [] }
+    @State private var focusedMoment: UUID?
+    @State private var addQuery = ""
+
+    /// Keyboard on the list (#111): ↑↓ move, space previews, return keeps or drops, ⌫ drops.
+    func handleKey(_ press: KeyPress) -> KeyPress.Result {
+        guard let plan else { return .ignored }
+        let ids = plan.moments.map(\.id)
+        let index = focusedMoment.flatMap { ids.firstIndex(of: $0) }
+        switch press.key {
+        case .downArrow:
+            focusedMoment = ids[min((index ?? -1) + 1, ids.count - 1)]
+            return .handled
+        case .upArrow:
+            focusedMoment = ids[max((index ?? 1) - 1, 0)]
+            return .handled
+        case .space:
+            guard let id = focusedMoment else { return .ignored }
+            previewing = previewing == id ? nil : id
+            return .handled
+        case .return:
+            guard let id = focusedMoment else { return .ignored }
+            if selected.contains(id) { selected.remove(id); if hook == id { hook = nil } } else { selected.insert(id) }
+            return .handled
+        case .delete:
+            guard let id = focusedMoment else { return .ignored }
+            selected.remove(id)
+            if hook == id { hook = nil }
+            return .handled
+        default:
+            return .ignored
+        }
+    }
+
+    /// A moment from what was said (#110): the first place the words appear becomes a kept moment.
+    func addMomentFromWords() {
+        let terms = addQuery.lowercased().split(separator: " ").map { TranscriptWord.normalize(String($0)) }.filter { !$0.isEmpty }
+        guard !terms.isEmpty, var current = plan else { return }
+        let normalized = words.map(\.normalized)
+        var hit: Int?
+        for i in normalized.indices where i + terms.count <= normalized.count {
+            if zip(terms, normalized[i..<(i + terms.count)]).allSatisfy({ $1.contains($0) }) { hit = i; break }
+        }
+        guard let i = hit else { app.toast("Nobody said “\(addQuery)” in this recording"); return }
+        let t = words[i].start
+        let limit = asset?.metadata.duration ?? t + 30
+        let moment = LongFormSegment(range: TimeRange(start: max(0, t - 15), end: min(limit, t + 30)), payoff: t, potential: 55,
+                                     title: words[i..<min(words.count, i + 8)].map(\.text).joined(separator: " "), tags: [.story])
+        current.moments.append(moment)
+        current.moments.sort { $0.range.start < $1.range.start }
+        current.selected.insert(moment.id)
+        plan = current
+        selected.insert(moment.id)
+        focusedMoment = moment.id
+        addQuery = ""
+        app.toast("Added a moment at \(Timecode.short(t))")
+    }
     @State private var hook: UUID?
     @State private var lengthScale = 1.0
     @State private var ratings: [UUID: Bool] = [:]
@@ -36,10 +92,18 @@ struct LongFormStoryboard: View {
             if let plan {
                 ScrollView {
                     LazyVStack(spacing: 8) {
-                        ForEach(plan.moments) { moment in row(moment) }
+                        ForEach(plan.moments) { moment in
+                            row(moment)
+                                .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(focusedMoment == moment.id ? Theme.accent : .clear, lineWidth: 1.5))
+                                .onTapGesture { focusedMoment = moment.id }
+                                .id(moment.id)
+                        }
                     }
                     .padding(16)
                 }
+                .focusable()
+                .onKeyPress(handleKey)
+                .help("↑ ↓ move · space previews · return keeps or drops · ⌫ drops (#111)")
             } else {
                 VStack(spacing: 10) {
                     ProgressView().controlSize(.large)
@@ -79,7 +143,15 @@ struct LongFormStoryboard: View {
 
     var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(approving ? "Approve the cut" : "Choose the moments").font(.pulseTitle).foregroundStyle(Theme.textPrimary)
+            HStack {
+                Text(approving ? "Approve the cut" : "Choose the moments").font(.pulseTitle).foregroundStyle(Theme.textPrimary)
+                Spacer()
+                if plan != nil {
+                    TextField("Add a moment by what was said…", text: $addQuery, onCommit: addMomentFromWords)
+                        .textFieldStyle(.roundedBorder).font(.pulseCaption).frame(width: 240)
+                        .help("Type a few words that were said; the first place they appear becomes a kept moment (#110)")
+                }
+            }
             Text(approving
                  ? "Nothing is built yet. Preview each section (▶), keep or drop it, move its start and end, and choose the moment that opens the video — then build."
                  : "PULSE picked these for your video. Untick anything you don't want, tick alternatives, and choose the moment that opens the video.")

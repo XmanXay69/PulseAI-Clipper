@@ -565,7 +565,7 @@ public enum CompositionBuilder {
 
     /// Samples a clip's gain (volume keyframes, gain, fades, ducking) into ramp points.
     static func gainAutomation(for clip: TimelineClip, trackGain: Double, dialogue: [TimeRange]) -> [(time: Seconds, gain: Double)] {
-        let ducking = clip.audio.duckUnderDialogue ? DuckingPlanner.envelope(for: clip, dialogue: dialogue) : []
+        let ducking = clip.audio.duckUnderDialogue ? DuckingPlanner.envelope(for: clip, dialogue: dialogue, attack: clip.audio.duckAttack, release: clip.audio.duckRelease) : []
         func duckGain(at t: Seconds) -> Double {
             guard !ducking.isEmpty else { return 1 }
             guard let upper = ducking.firstIndex(where: { $0.time >= t }) else { return ducking.last!.gain }

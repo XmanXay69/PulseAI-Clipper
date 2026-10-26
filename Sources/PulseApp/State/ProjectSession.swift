@@ -70,6 +70,9 @@ final class ProjectSession: ObservableObject, Identifiable {
     @Published var selectedCandidateIDs: Set<UUID> = []
     /// Series labels for the current set of cards (#66).
     var seriesCache: (key: Int, labels: [UUID: String])?
+    /// The last Check Edit result, shown as a panel instead of an alert (#436).
+    @Published var lastEditCheck: EditCheckReport?
+    @Published var showEditCheck = false
     @Published var focusedCaptionWordID: UUID?
     @Published var tool: EditTool = .select
     @Published var pixelsPerSecond: Double = 60
@@ -1008,6 +1011,23 @@ final class ProjectSession: ObservableObject, Identifiable {
             }
         }
         app.toast(changed == 0 ? "No clips of this recording on a timeline yet — set Channels in the clip's Audio section later" : "\(changed) clip\(changed == 1 ? "" : "s") now play the \(source == .left ? "left" : "right") channel through both ears", undo: changed > 0)
+    }
+
+    /// Media out of the panel but not gone (#22).
+    func trashMedia(_ id: UUID) {
+        guard let asset = document.asset(id: id) else { return }
+        edit("Trash Media") { $0.trashMedia(id: id) }
+        app.toast("“\(asset.name)” moved to the media trash — its clips still play", undo: true)
+    }
+
+    func restoreMedia(_ id: UUID) {
+        edit("Restore Media") { $0.restoreMedia(id: id) }
+    }
+
+    func emptyMediaTrash() {
+        var gone: [MediaAsset] = []
+        edit("Empty Media Trash") { gone = $0.emptyMediaTrash() }
+        app.toast(gone.isEmpty ? "Everything in the trash is still used by a timeline" : "Removed \(gone.count) file\(gone.count == 1 ? "" : "s") from the project", undo: !gone.isEmpty)
     }
 
     /// Every undo step, oldest first (#175).

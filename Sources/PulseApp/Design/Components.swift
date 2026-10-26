@@ -276,7 +276,39 @@ struct KeyValueRow: View {
 
 // MARK: Inspector controls
 
+/// What's typed into the inspector's search field (#224); sections that don't match hide.
+private struct InspectorQueryKey: EnvironmentKey {
+    static let defaultValue = ""
+}
+
+extension EnvironmentValues {
+    var inspectorQuery: String {
+        get { self[InspectorQueryKey.self] }
+        set { self[InspectorQueryKey.self] = newValue }
+    }
+}
+
+/// Words that land on a section besides its title (#224).
+enum InspectorKeywords {
+    static let bySection: [String: String] = [
+        "Transform": "position scale rotation opacity flip x y", "Crop & Zoom": "crop zoom pan reframe", "Shape & Border": "mask round circle border shadow",
+        "Speed": "speed slow fast freeze reverse", "Transitions": "dissolve fade cut transition", "AI Framing": "framing reframe face follow",
+        "Text": "font size weight color outline shadow background", "Look": "mask border shadow rounded circle", "Animation": "keyframe animate pop slide in out",
+        "Volume": "gain mute fade pan loud quiet channels mono", "Auto Ducking": "duck music under dialogue attack release",
+        "Enhance": "noise voice isolate eq compressor limiter de-esser deess hum normalize loudness", "Color": "exposure contrast saturation temperature tint grade lut bypass look",
+        "Effects": "blur sharpen glow vignette grain shake", "Canvas": "resolution frame rate background blur fill", "Layout": "split facecam corner full",
+        "Captions": "captions subtitles style", "Markers": "chapter marker todo", "Removed Sections": "restore cut silence filler", "Clip": "name enabled role",
+    ]
+
+    static func matches(_ title: String, _ query: String) -> Bool {
+        guard !query.isEmpty else { return true }
+        let haystack = (title + " " + (bySection[title] ?? "")).lowercased()
+        return query.split(separator: " ").allSatisfy { haystack.contains($0) }
+    }
+}
+
 struct InspectorSection<Content: View>: View {
+    @Environment(\.inspectorQuery) private var query
     let title: String
     var isAI = false
     /// Remembered per section title, so a section you collapsed stays collapsed across clips and launches.
@@ -293,6 +325,13 @@ struct InspectorSection<Content: View>: View {
     }
 
     var body: some View {
+        if InspectorKeywords.matches(title, query) { section } else { EmptyView() }
+    }
+
+    /// Open when searched for, so the matching controls show straight away.
+    var isOpen: Bool { expanded || !query.isEmpty }
+
+    var section: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
                 withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() }
@@ -300,7 +339,7 @@ struct InspectorSection<Content: View>: View {
                 HStack(spacing: 6) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 8, weight: .bold))
-                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                        .rotationEffect(.degrees(isOpen ? 90 : 0))
                         .foregroundStyle(Theme.textTertiary)
                     SectionLabel(text: title)
                     if isAI { AIBadge() }
@@ -312,7 +351,7 @@ struct InspectorSection<Content: View>: View {
             .buttonStyle(.plain)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            if expanded {
+            if isOpen {
                 VStack(alignment: .leading, spacing: 8) { content() }
                     .padding(.horizontal, 12)
                     .padding(.bottom, 12)

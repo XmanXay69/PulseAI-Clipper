@@ -79,6 +79,11 @@ public struct CaptionTrack: Codable, Hashable, Sendable {
         }
         var track = CaptionTrack(sourceAssetID: assetID, words: words, style: style, aiGenerated: aiGenerated)
         for speaker in transcript.speakers { track.speakerNames[speaker.id] = speaker.name }
+        // Two or more voices: each gets its own colour and a name tag from the start (#236).
+        if track.captionSpeakers.count >= 2 {
+            track.colorBySpeaker()
+            track.showSpeakerLabels = true
+        }
         return track
     }
 

@@ -12,6 +12,7 @@ struct MediaView: View {
     @State private var query = ""
     @State private var favoritesOnly = false
     @State private var unusedOnly = false
+    @State private var showTrash = false
     @State private var sort: Sort = .imported
     @State private var selectedID: UUID?
     @State private var newTag = ""
@@ -21,7 +22,7 @@ struct MediaView: View {
     enum Sort: String, CaseIterable { case imported = "Date Imported", name = "Name", duration = "Duration", size = "Size" }
 
     var assets: [MediaAsset] {
-        var list = session.document.media
+        var list = session.document.media.filter { $0.isTrashed == showTrash }
         if let category { list = list.filter { $0.category == category } }
         if favoritesOnly { list = list.filter(\.isFavorite) }
         if unusedOnly {
@@ -54,6 +55,14 @@ struct MediaView: View {
                 Toggle(isOn: $unusedOnly) { Label("Unused", systemImage: "tray") }
                     .toggleStyle(.button).buttonStyle(.plain).font(.pulseCaption).padding(.horizontal, 12)
                     .help("Files no timeline or clip card uses (#17)")
+                let trashed = session.document.trashedMedia.count
+                Toggle(isOn: $showTrash) { Label("Trash\(trashed > 0 ? " (\(trashed))" : "")", systemImage: "trash") }
+                    .toggleStyle(.button).buttonStyle(.plain).font(.pulseCaption).padding(.horizontal, 12)
+                    .help("Media you set aside; its clips still play, and Restore brings it back (#22)")
+                if showTrash, trashed > 0 {
+                    Button("Empty Trash") { session.emptyMediaTrash() }.buttonStyle(.pulse(.ghost, compact: true)).padding(.horizontal, 12)
+                        .help("Deletes trashed media nothing uses; files on disk are untouched")
+                }
                 Spacer()
             }
             .frame(width: 180)
@@ -213,6 +222,14 @@ struct MediaView: View {
                     Button("Analyze") { session.analyze(assetID: asset.id) }.buttonStyle(.pulse(.ai, compact: true))
                     Button("Proxy") { session.generateProxy(assetID: asset.id) }.buttonStyle(.pulse(.secondary, compact: true))
                     Button("Reveal") { NSWorkspace.shared.activateFileViewerSelecting([session.url(for: asset)]) }.buttonStyle(.pulse(.ghost, compact: true))
+                }
+                HStack {
+                    if asset.isTrashed {
+                        Button { session.restoreMedia(asset.id) } label: { Label("Restore", systemImage: "arrow.uturn.backward") }.buttonStyle(.pulse(.secondary, compact: true))
+                    } else {
+                        Button { session.trashMedia(asset.id); selectedID = nil } label: { Label("Move to Trash", systemImage: "trash") }.buttonStyle(.pulse(.ghost, compact: true))
+                            .help("Out of the panel; its clips keep playing and Restore brings it back (#22)")
+                    }
                 }
                 let unused = session.document.unusedMedia.count
                 if unused > 0 {

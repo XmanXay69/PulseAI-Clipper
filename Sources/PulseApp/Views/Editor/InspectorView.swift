@@ -57,6 +57,7 @@ struct GradePresetsRow: View {
 struct InspectorView: View {
     @ObservedObject var session: ProjectSession
     @ObservedObject var playback: PlaybackController
+    @State private var query = ""
 
     init(session: ProjectSession) {
         self.session = session
@@ -66,6 +67,11 @@ struct InspectorView: View {
     var body: some View {
         VStack(spacing: 0) {
             PanelHeader("Inspector", subtitle: subtitle)
+            TextField("Find a control (opac, duck, lut…)", text: $query)
+                .textFieldStyle(.roundedBorder)
+                .font(.pulseCaption)
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .help("Type part of a control's name; only the sections that have it stay, opened (#224)")
             GeometryReader { geo in
                 ScrollView {
                     VStack(spacing: 0) {
@@ -81,6 +87,7 @@ struct InspectorView: View {
                     }
                     // Lay everything out at the column's real width so rows never run past its edge.
                     .frame(width: geo.size.width)
+                    .environment(\.inspectorQuery, query.trimmingCharacters(in: .whitespaces).lowercased())
                 }
             }
         }
@@ -485,6 +492,8 @@ struct AudioInspector: View {
             ToggleRow(label: "Lower under dialogue", isOn: b.value("Ducking", \.audio.duckUnderDialogue, fallback: false),
                       help: "Automatically lowers this clip (music, game audio) whenever someone speaks")
             b.plainSlider("Duck by", \.audio.duckAmountDB, range: -30...0, format: "%.0f", unit: " dB")
+            b.plainSlider("Attack", \.audio.duckAttack, range: 0.02...1, format: "%.2f", unit: " s")
+            b.plainSlider("Release", \.audio.duckRelease, range: 0.05...3, format: "%.2f", unit: " s")
         }
         InspectorSection("Enhance", expanded: clip.audio.needsEnhanceRender) {
             HStack(spacing: 6) {

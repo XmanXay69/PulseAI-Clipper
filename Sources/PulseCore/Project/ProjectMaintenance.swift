@@ -77,3 +77,40 @@ extension ProjectDocument {
         media.first { $0.contentHash == contentHash }
     }
 }
+
+extension ProjectDocument {
+    /// Media in the panel (not trashed).
+    public var visibleMedia: [MediaAsset] { media.filter { !$0.isTrashed } }
+    public var trashedMedia: [MediaAsset] { media.filter(\.isTrashed) }
+
+    /// Out of the panel, clips untouched (#22).
+    @discardableResult
+    public mutating func trashMedia(id: UUID) -> Bool {
+        guard let i = media.firstIndex(where: { $0.id == id }), !media[i].isTrashed else { return false }
+        media[i].isTrashed = true
+        if primaryAssetID == id { primaryAssetID = visibleMedia.first { $0.kind == .video }?.id ?? visibleMedia.first?.id }
+        touch()
+        return true
+    }
+
+    @discardableResult
+    public mutating func restoreMedia(id: UUID) -> Bool {
+        guard let i = media.firstIndex(where: { $0.id == id }), media[i].isTrashed else { return false }
+        media[i].isTrashed = false
+        if primaryAssetID == nil { primaryAssetID = id }
+        touch()
+        return true
+    }
+
+    /// Deletes trashed media nothing uses; what a timeline still needs stays in the trash. Returns what went.
+    @discardableResult
+    public mutating func emptyMediaTrash() -> [MediaAsset] {
+        let used = usedAssetIDs
+        let gone = media.filter { $0.isTrashed && !used.contains($0.id) }
+        guard !gone.isEmpty else { return [] }
+        let ids = Set(gone.map(\.id))
+        media.removeAll { ids.contains($0.id) }
+        touch()
+        return gone
+    }
+}

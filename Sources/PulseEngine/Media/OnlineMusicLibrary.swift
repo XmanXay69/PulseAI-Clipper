@@ -56,7 +56,10 @@ public actor OnlineMusicLibrary {
             do {
                 let found = try await search(query)
                 PulseLog.info("Music search “\(query)”: \(found.count) results")
-                candidates += found.filter { r in !candidates.contains { $0.videoID == r.videoID } }
+                // The same track under two names (#301): a re-upload with "(official)" or "[free]" added, the same length.
+                candidates += found.filter { r in
+                    !candidates.contains { $0.videoID == r.videoID || (Self.normalizedTitle($0.title) == Self.normalizedTitle(r.title) && abs(($0.duration ?? 0) - (r.duration ?? 0)) < 3) }
+                }
             } catch {
                 PulseLog.warning("Music search failed: \(error.localizedDescription)")
             }
@@ -82,6 +85,18 @@ public actor OnlineMusicLibrary {
         }
         guard !chosen.isEmpty else { throw EngineError.readerFailed("Couldn't find or download any Creative Commons music") }
         return chosen
+    }
+
+    /// Lower-cased, bracketed tags and punctuation dropped, spaces collapsed: "Sunny Day (Official) [Free]" → "sunny day".
+    static func normalizedTitle(_ title: String) -> String {
+        var t = title.lowercased()
+        for pattern in ["\\([^)]*\\)", "\\[[^\\]]*\\]"] {
+            if let regex = try? NSRegularExpression(pattern: pattern) { t = regex.stringByReplacingMatches(in: t, range: NSRange(t.startIndex..., in: t), withTemplate: " ") }
+        }
+        for word in ["official", "free", "no copyright", "copyright free", "royalty free", "creative commons", "music", "audio", "lyrics", "hd", "4k", "-", "|"] {
+            t = t.replacingOccurrences(of: word, with: " ")
+        }
+        return t.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).joined(separator: " ")
     }
 
     func search(_ query: String) async throws -> [VideoSearchResult] {

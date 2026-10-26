@@ -124,6 +124,17 @@ final class BatchController: ObservableObject {
             guard let self else { return }
             while let next = self.items.first(where: { $0.status == .queued }) {
                 if Task.isCancelled { break }
+                // On battery below 20 %, wait (#389): a batch is hours of full load.
+                var paused = false
+                while app.settings.batchPausesOnLowBattery, PowerState.lowBattery(), !Task.isCancelled {
+                    if !paused {
+                        paused = true
+                        self.setStatusOfLast(note: "Paused — on battery below 20 %")
+                        PulseLog.info("Batch paused: on battery below 20 %")
+                    }
+                    try? await Task.sleep(nanoseconds: 60_000_000_000)
+                }
+                if Task.isCancelled { break }
                 await self.process(next.id, app: app)
             }
             // Let queued exports finish before calling it done.

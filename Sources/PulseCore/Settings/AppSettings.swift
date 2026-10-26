@@ -320,6 +320,10 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var watchFolder: String = ""
     /// Tighter track heights (#182); timelines over 300 clips use them regardless.
     public var compactTimeline: Bool = false
+    /// The timeline scrolls to keep the playhead in view while playing (#176).
+    public var timelineFollowsPlayhead: Bool = true
+    /// Batches wait while the Mac is on battery below 20 % (#389).
+    public var batchPausesOnLowBattery: Bool = true
     /// Analyze what the watch folder brings in, straight away (#3).
     public var watchFolderAnalyzes: Bool = true
     /// Hour (0–23) at which the batch runs on what the watch folder gathered that day; nil = never (#461).
@@ -370,6 +374,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
         stats = c.decode(LifetimeStats.self, forKey: .stats, default: d.stats)
         watchFolder = c.decode(String.self, forKey: .watchFolder, default: d.watchFolder)
         compactTimeline = c.decode(Bool.self, forKey: .compactTimeline, default: d.compactTimeline)
+        timelineFollowsPlayhead = c.decode(Bool.self, forKey: .timelineFollowsPlayhead, default: d.timelineFollowsPlayhead)
+        batchPausesOnLowBattery = c.decode(Bool.self, forKey: .batchPausesOnLowBattery, default: d.batchPausesOnLowBattery)
         watchFolderAnalyzes = c.decode(Bool.self, forKey: .watchFolderAnalyzes, default: d.watchFolderAnalyzes)
         nightlyBatchHour = c.decode(Int?.self, forKey: .nightlyBatchHour, default: nil)
         defaultExportPresetID = c.decode(String.self, forKey: .defaultExportPresetID, default: d.defaultExportPresetID)

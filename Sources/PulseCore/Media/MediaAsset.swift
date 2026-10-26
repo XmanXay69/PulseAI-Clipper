@@ -184,6 +184,8 @@ public struct MediaAsset: Codable, Hashable, Identifiable, Sendable {
     public var markedMoments: [Seconds] = []
     /// Fingerprint of the file's content so the same recording under two names is caught (#5).
     public var contentHash: String?
+    /// Out of the media panel but not gone (#22): its clips still play, and Restore brings it back.
+    public var isTrashed: Bool = false
 
     public init(id: UUID = UUID(), name: String, path: String, bookmark: Data? = nil, kind: MediaKind,
                 role: MediaRole = .main, category: MediaCategory? = nil, metadata: MediaMetadata = MediaMetadata(),
@@ -230,6 +232,7 @@ public struct MediaAsset: Codable, Hashable, Identifiable, Sendable {
         generatedBy = c.decode(String?.self, forKey: .generatedBy, default: nil)
         markedMoments = c.decode([Seconds].self, forKey: .markedMoments, default: [])
         contentHash = c.decode(String?.self, forKey: .contentHash, default: nil)
+        isTrashed = c.decode(Bool.self, forKey: .isTrashed, default: false)
     }
 
     public var url: URL { URL(fileURLWithPath: path) }

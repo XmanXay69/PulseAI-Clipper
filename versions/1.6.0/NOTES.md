@@ -5,6 +5,9 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 [1.5.0](../1.5.0/NOTES.md) and [1.4.0](../1.4.0/NOTES.md) for those two; what's new on top:
 
 ### Edit My VOD
+- **Storyboard by keyboard** (#111) — ↑ ↓ move, space previews, return keeps or drops, ⌫ drops.
+- **Add a moment by what was said** (#110) — type a few words in the storyboard header; the first place
+  they appear becomes a kept moment.
 - **Chapters from the file** (#12) — chapter marks embedded in an MKV or MP4 become markers where they land
   in the edit.
 - **Highlight reel** (#492) — File → Highlight Reel from the Last 30 Days: the best moments across every
@@ -74,6 +77,12 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   music overlaps the next for 3 s instead of fading out, a gap, and fading in.
 
 ### Editing
+- **Minimap** (#154) — the whole timeline as a strip under the tracks with the visible stretch marked; click
+  or drag to go there.
+- **Follow the playhead** (#176) — while playing, the timeline pages forward (Settings → General).
+- **Inspector search** (#224) — type part of a control's name (opac, duck, lut…); only the sections that have
+  it stay, opened.
+- **Edit check as a panel** (#436) — fixed items, warnings and notes in a popover, with Run Again.
 - **Edit report** (#107) — a toolbar popover: what was cut and why, what was added, chapters and to-dos,
   every line a jump link; Copy puts it on the clipboard.
 - **Compact tracks** (#182) — Settings → General, or on its own past 300 clips.
@@ -231,6 +240,8 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   "valerant" → "Valorant", "x q c" → "xQc", "sea of theives" → "Sea of Thieves", timings untouched.
 
 ### Captions
+- **Two voices, two colours** (#236) — captions with two or more speakers get a colour and a name tag per
+  speaker from the start.
 - **Captions learn your emphasis** (#238) — words you keep bolding get bolded in new captions; words you
   keep un-bolding stop being picked.
 - **Import SRT / VTT** (#247) — captions for the main recording land in source time, so the cut re-times them.
@@ -257,6 +268,9 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   per timeline. It's rendered into the enhance cache; the source file is never touched.
 
 ### Everywhere
+- **Media trash** (#22) — Move to Trash takes a file out of the panel; its clips keep playing, Restore brings
+  it back, Empty Trash removes only what nothing uses.
+- **Battery-aware batches** (#389) — the overnight batch waits while the Mac is on battery below 20 %.
 - **YouTube VOD by link** (#1, #467) — File → Import from URL, or paste a YouTube link anywhere outside a text
   field: PULSE fetches YouTube's own MP4 with sound (usually 720p) into ~/Movies/PULSE Downloads and imports it.
 - **One-sided mics** (#272) — a recording with sound on only one channel is flagged on import; one click plays
@@ -317,6 +331,9 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   "settings"… (fuzzy, so "qexp" finds Quick Export).
 
 ### Under the hood
+- **Ducking attack and release** (#268) — per clip, in the Auto Ducking section.
+- **Smarter music dedup** (#301) — the same track under two names (an “(official)” re-upload of the same
+  length) is one track.
 - **Tempo from beats** (#135) — `BeatSync.bpm` reads the median beat gap.
 - **Proxies by codec** (#16) — ProRes, DNxHR, Motion JPEG and DV decode frame by frame and get no proxy below
   4K; long-GOP codecs do above the threshold. The media panel says why.

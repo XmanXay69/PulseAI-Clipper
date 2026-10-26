@@ -97,6 +97,10 @@ struct TimelineToolbar: View {
                 .popover(isPresented: $showHistory, arrowEdge: .bottom) { UndoHistoryView(session: session).frame(width: 300) }
             IconButton(symbol: "doc.text.magnifyingglass", help: "Edit report — what was cut, what was added, with jump links", isActive: showReport) { showReport.toggle() }
                 .popover(isPresented: $showReport, arrowEdge: .bottom) { EditReportView(session: session, playback: playback).frame(width: 420) }
+            IconButton(symbol: "checkmark.shield", help: "Check Edit (⇧⌘K) — slivers, clicks, gaps, overlaps, cuts inside words", isActive: session.showEditCheck) {
+                if session.lastEditCheck == nil { session.checkEdit() } else { session.showEditCheck.toggle() }
+            }
+            .popover(isPresented: $session.showEditCheck, arrowEdge: .bottom) { EditCheckView(session: session).frame(width: 380) }
             IconButton(symbol: TimelineMetrics.compact ? "rectangle.compress.vertical" : "rectangle.expand.vertical", help: "Compact tracks (#182)", isActive: app.settings.compactTimeline) {
                 app.settings.compactTimeline.toggle()
                 TimelineMetrics.compact = app.settings.compactTimeline || (session.activeTimeline?.allClips.count ?? 0) > 300
@@ -133,6 +137,43 @@ struct TimelineToolbar: View {
     }
 
     func zoomToFit() { session.zoomTimelineToFit() }
+}
+
+/// Check Edit results as a panel (#436): what was fixed, what's left to look at, run again.
+struct EditCheckView: View {
+    @ObservedObject var session: ProjectSession
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            PanelHeader("Edit Check", subtitle: session.lastEditCheck.map { $0.issues.isEmpty ? "All clear" : $0.summary } ?? "Not run yet") {
+                Button("Run Again") { session.checkEdit() }.buttonStyle(.pulse(.secondary, compact: true))
+            }
+            if let report = session.lastEditCheck, !report.issues.isEmpty {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array(report.issues.enumerated()), id: \.offset) { _, issue in
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: issue.severity == .fixed ? "checkmark.circle.fill" : (issue.severity == .warning ? "exclamationmark.triangle.fill" : "info.circle"))
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(issue.severity == .fixed ? Theme.success : (issue.severity == .warning ? Theme.warning : Theme.info))
+                                    .padding(.top, 2)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(issue.title).font(.pulseCaption).foregroundStyle(Theme.textPrimary)
+                                    Text(issue.detail).font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                        }
+                        Text("Fixed items were changed on the timeline (undoable); the rest are for you to judge.").font(.pulseMicro).foregroundStyle(Theme.textTertiary).padding(.top, 4)
+                    }
+                    .padding(14)
+                }
+                .frame(maxHeight: 360)
+            } else {
+                Text(session.lastEditCheck == nil ? "Run it to look for slivers, clicks, gaps, overlaps and cuts inside words." : "Nothing to fix.")
+                    .font(.pulseCaption).foregroundStyle(Theme.textTertiary).padding(14)
+            }
+        }
+    }
 }
 
 /// What the edit did (#107): sections with lines you can click to jump to.
@@ -494,8 +535,23 @@ struct TimelineCanvas: View {
     var contentWidth: CGFloat { max(CGFloat(max(timeline.duration, playback.duration) + 20) * pps, 900) }
 
     var body: some View {
+        ScrollViewReader { proxy in
+            VStack(spacing: 0) {
+                scroller(proxy)
+                TimelineMinimap(timeline: timeline, scrollX: scrollX, viewportWidth: viewportWidth, pps: pps) { seconds in
+                    withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo("anchor-\(Int(seconds / 10))", anchor: .leading) }
+                }
+            }
+        }
+    }
+
+    func scroller(_ proxy: ScrollViewProxy) -> some View {
         ScrollView(.horizontal) {
             ZStack(alignment: .topLeading) {
+                // Invisible anchors every 10 s so the minimap and playhead-follow can scroll here (#154, #176).
+                ForEach(0...(Int(max(timeline.duration, playback.duration) / 10) + 1), id: \.self) { k in
+                    Color.clear.frame(width: 1, height: 1).offset(x: CGFloat(k) * 10 * pps).id("anchor-\(k)")
+                }
                 VStack(spacing: 0) {
                     TimelineRuler(session: session, playback: playback, timeline: timeline, pps: pps, width: contentWidth)
                     ForEach(timeline.tracks) { track in
@@ -519,6 +575,12 @@ struct TimelineCanvas: View {
         }
         .coordinateSpace(name: "timelineScroll")
         .background(GeometryReader { geo in Color.clear.preference(key: TimelineViewportKey.self, value: geo.size.width) })
+        .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
+            // Follow the playhead while playing (#176): page forward when it leaves the viewport.
+            guard app.settings.timelineFollowsPlayhead, playback.isPlaying else { return }
+            let x = CGFloat(playback.currentTime) * pps
+            if x < scrollX || x > scrollX + viewportWidth - 40 { proxy.scrollTo("anchor-\(Int(playback.currentTime / 10))", anchor: .leading) }
+        }
         .onPreferenceChange(TimelineScrollKey.self) { x in scrollX = x; updateWindow() }
         .onPreferenceChange(TimelineViewportKey.self) { w in viewportWidth = w; updateWindow() }
         .onChange(of: session.pixelsPerSecond) { _, _ in updateWindow() }
@@ -535,6 +597,59 @@ struct TimelineCanvas: View {
         let hi = lo + visible * 3 + step
         let next = max(0, lo)...max(1, hi)
         if next != window { window = next }
+    }
+}
+
+/// The whole timeline in one strip with the visible stretch marked (#154); click or drag to go there.
+struct TimelineMinimap: View {
+    let timeline: Timeline
+    let scrollX: CGFloat
+    let viewportWidth: CGFloat
+    let pps: CGFloat
+    let onJump: (Seconds) -> Void
+
+    var body: some View {
+        let duration = max(timeline.duration, 1)
+        GeometryReader { geo in
+            let width = geo.size.width
+            let scale = width / CGFloat(duration)
+            ZStack(alignment: .topLeading) {
+                Rectangle().fill(Theme.panel)
+                Canvas { context, size in
+                    let lanes = timeline.tracks.filter { !$0.clips.isEmpty }
+                    let laneHeight = max(2, (size.height - 4) / CGFloat(max(lanes.count, 1)))
+                    for (i, track) in lanes.enumerated() {
+                        let y = 2 + CGFloat(i) * laneHeight
+                        let color: Color = track.kind == .video ? Theme.videoClip : (track.kind == .audio ? Theme.audioClip : Theme.textClip)
+                        for clip in track.clips {
+                            let rect = CGRect(x: CGFloat(clip.start) * scale, y: y, width: max(1, CGFloat(clip.duration) * scale), height: laneHeight - 1)
+                            context.fill(Path(rect), with: .color(color.opacity(clip.isEnabled ? 0.8 : 0.3)))
+                        }
+                    }
+                    for marker in timeline.markers {
+                        let x = CGFloat(marker.time) * scale
+                        context.fill(Path(CGRect(x: x, y: 0, width: 1, height: size.height)), with: .color(Color(marker.color.rgba).opacity(0.7)))
+                    }
+                }
+                let visibleX = (scrollX / pps) * scale
+                let visibleW = min(width, (viewportWidth / pps) * scale)
+                RoundedRectangle(cornerRadius: 2)
+                    .strokeBorder(Theme.accent.opacity(0.9), lineWidth: 1)
+                    .background(RoundedRectangle(cornerRadius: 2).fill(Theme.accent.opacity(0.08)))
+                    .frame(width: max(8, visibleW), height: geo.size.height)
+                    .offset(x: max(0, min(width - max(8, visibleW), visibleX)))
+                    .allowsHitTesting(false)
+            }
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+                // Centre the viewport on the point under the pointer.
+                let seconds = Double((value.location.x / scale) - (viewportWidth / pps) / 2)
+                onJump(max(0, min(duration, seconds)))
+            })
+        }
+        .frame(height: 18)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.divider).frame(height: 1) }
+        .help("The whole timeline — click or drag to go there (#154)")
     }
 }
 

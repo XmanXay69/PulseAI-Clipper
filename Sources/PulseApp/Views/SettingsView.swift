@@ -229,6 +229,12 @@ struct GeneralSettings: View {
             SettingsRow("Compact tracks", detail: "Tighter track heights for long timelines; timelines over 300 clips use them regardless.") {
                 Toggle("", isOn: $app.settings.compactTimeline).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
             }
+            SettingsRow("Follow the playhead", detail: "While playing, the timeline pages forward to keep the playhead in view.") {
+                Toggle("", isOn: $app.settings.timelineFollowsPlayhead).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
+            }
+            SettingsRow("Pause batches on low battery", detail: "The overnight batch waits while the Mac is on battery below 20 %.") {
+                Toggle("", isOn: $app.settings.batchPausesOnLowBattery).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
+            }
             SettingsRow("Magnetic timeline", detail: "Deleting a clip closes the gap automatically.") {
                 Toggle("", isOn: $app.settings.magneticTimeline).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
             }
