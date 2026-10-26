@@ -15,15 +15,22 @@ concurrency:
 
 jobs:
   build-and-test:
-    name: Build & Test (macOS)
-    runs-on: macos-14
+    name: Build & Test (${{ matrix.os }})
+    # Hosted macOS runners are scarce at times; queue the same job on several images and take whichever starts.
+    # Each image compiles the whole package, so one green job is a full verification.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15, macos-26]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
       - name: Toolchain
         run: |
-          # macos-14 keeps several Xcodes; use the newest 16.x (Swift 6) so builds match the macos-15 runner.
+          # Images keep several Xcodes; use the newest 16.x (Swift 6.0/6.1) where one exists so builds match
+          # across runners; macos-26 only ships Xcode 26 (Swift 6.2), which also builds this package.
           newest=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)
           if [ -n "$newest" ]; then sudo xcode-select -s "$newest"; fi
           sw_vers
@@ -34,9 +41,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build
-          key: spm-${{ runner.os }}-${{ hashFiles('Package.swift') }}-${{ github.sha }}
+          key: spm-${{ matrix.os }}-${{ hashFiles('Package.swift') }}-${{ github.sha }}
           restore-keys: |
-            spm-${{ runner.os }}-${{ hashFiles('Package.swift') }}-
+            spm-${{ matrix.os }}-${{ hashFiles('Package.swift') }}-
 
       - name: Cache whisper model
         uses: actions/cache@v4
@@ -100,7 +107,7 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.bundle || contains(github.event.head_commit.message, '[app]') }}
         uses: actions/upload-artifact@v4
         with:
-          name: PULSE-app
+          name: PULSE-app-${{ matrix.os }}
           path: build/PULSE.zip
           if-no-files-found: ignore
 
@@ -108,7 +115,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ci-output
+          name: ci-output-${{ matrix.os }}
           path: |
             *.log
             build/snapshots/*.png
