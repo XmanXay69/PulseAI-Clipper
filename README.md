@@ -24,8 +24,9 @@ mode, VoiceOver labels on every control, moved files that relink themselves plus
 and chat sidecars picked up on import, replace-a-clip-by-drop, an insert/overwrite toggle, a blade preview, a
 cold-open card, your choice of impact and whoosh, a project status board, slip/slide/roll trims, levels drawn on
 audio clips, a chapter band on the ruler, a 10-second export preview, platform chrome in the viewer, recording
-setups with a size estimate, per-model transcription times, and a report prompt after a crash
-([notes](versions/1.6.1/NOTES.md)).
+setups with a size estimate, per-model transcription times, a report prompt after a crash, rubber-band
+selection, a menu-bar recording status, low-priority exports with a frame-rate choice, and a performance log in
+bug reports ([notes](versions/1.6.1/NOTES.md)).
 
 **New in 1.6.0:** a studio look (lit surfaces, gradient controls, grouped sidebar, breadcrumb, pill page bar,
 richer timeline), instant replays on the biggest plays, and more than 250 items from the

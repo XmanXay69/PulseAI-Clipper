@@ -576,6 +576,13 @@ struct TimelineCanvas: View {
                 if session.tool == .blade, let bladeX {
                     Rectangle().fill(Theme.accent.opacity(0.9)).frame(width: 1).offset(x: bladeX).allowsHitTesting(false)
                 }
+                if let r = session.marqueeRect {
+                    Rectangle().fill(Theme.accent.opacity(0.12))
+                        .overlay(Rectangle().strokeBorder(Theme.accent.opacity(0.8), lineWidth: 1))
+                        .frame(width: max(1, r.width), height: max(1, r.height))
+                        .offset(x: r.minX, y: r.minY)
+                        .allowsHitTesting(false)
+                }
             }
             .onContinuousHover { phase in
                 switch phase {
@@ -695,8 +702,26 @@ struct PlayheadLine: View {
 struct PlayheadHead: View {
     @ObservedObject var clock: PlayheadClock
     let pps: CGFloat
+    /// A timecode bubble while the ruler is dragged (#417).
+    var scrubbing = false
+    var fps: Double = 30
 
     var body: some View {
+        ZStack(alignment: .topLeading) {
+            head
+            if scrubbing {
+                Text(Timecode.string(clock.time, fps: fps))
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6).padding(.vertical, 3)
+                    .background(Capsule().fill(Theme.accent))
+                    .offset(x: CGFloat(clock.time) * pps + 10, y: 2)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    var head: some View {
         Path { head in
             head.move(to: CGPoint(x: -6, y: 0))
             head.addLine(to: CGPoint(x: 6, y: 0))
@@ -799,18 +824,20 @@ struct TimelineRuler: View {
             }
         }
         .frame(width: width, height: TimelineMetrics.rulerHeight)
-        .overlay(alignment: .topLeading) { PlayheadHead(clock: playback.clock, pps: pps) }
+        .overlay(alignment: .topLeading) { PlayheadHead(clock: playback.clock, pps: pps, scrubbing: session.isScrubbing, fps: playback.frameRate) }
         .background(Theme.panel)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
         .contentShape(Rectangle())
         .gesture(DragGesture(minimumDistance: 0)
             .onChanged { value in
                 playback.pause()
+                session.isScrubbing = true
                 playback.scrub(to: max(0, time(at: value.location.x)))
             }
             .onEnded { value in
                 // Land exactly on the frame under the mouse.
                 playback.seek(to: max(0, time(at: value.location.x)))
+                session.isScrubbing = false
             })
         .help("Drag to scrub")
     }
@@ -847,6 +874,19 @@ struct TrackLane: View {
                     session.placeAsset(id, at: max(0, Double(location.x / pps)), trackID: track.id)
                     return true
                 }
+                // Rubber-band selection across tracks (#147).
+                .gesture(DragGesture(minimumDistance: 6, coordinateSpace: .named("timelineScroll"))
+                    .onChanged { value in
+                        guard session.tool == .select else { return }
+                        session.marqueeRect = CGRect(x: min(value.startLocation.x, value.location.x), y: min(value.startLocation.y, value.location.y),
+                                                     width: abs(value.translation.width), height: abs(value.translation.height))
+                    }
+                    .onEnded { value in
+                        guard let rect = session.marqueeRect else { return }
+                        session.marqueeRect = nil
+                        session.selectClips(inContentRect: rect, laneTop: TimelineMetrics.rulerHeight, laneHeight: TimelineMetrics.laneHeight, pps: pps,
+                                            extend: NSEvent.modifierFlags.contains(.shift))
+                    })
             ForEach(track.clips.filter { $0.end >= window.lowerBound && $0.start <= window.upperBound }) { clip in
                 TimelineClipView(session: session, playback: playback, trackID: track.id, trackKind: track.kind, trackLocked: track.isLocked,
                                  clip: clip, pps: pps, isSelected: session.selectedClipIDs.contains(clip.id),
@@ -990,6 +1030,16 @@ struct TimelineClipView: View, Equatable {
         case .compound:
             ZStack(alignment: .leading) {
                 LinearGradient(colors: [color.opacity(0.55), color.opacity(0.3)], startPoint: .top, endPoint: .bottom)
+                if hovering, width > 150 {
+                    // Open inside / flatten, right on the clip (#166).
+                    HStack(spacing: 4) {
+                        Button("Open") { session.openCompound(clipID: clip.id) }.buttonStyle(.pulse(.secondary, compact: true))
+                        Button("Flatten") { session.selectedClipIDs = [clip.id]; session.breakApartCompound() }.buttonStyle(.pulse(.secondary, compact: true))
+                    }
+                    .padding(.leading, 6)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.trailing, 8).padding(.bottom, 4)
+                }
                 HStack(spacing: 4) {
                     Image(systemName: "square.stack.3d.up.fill").font(.system(size: 11))
                     Text("Compound").font(.system(size: 9, weight: .semibold))

@@ -76,6 +76,11 @@ final class ProjectSession: ObservableObject, Identifiable {
     @Published var focusedCaptionWordID: UUID?
     /// Show only clips with this label; others dim (#177).
     @Published var labelFilter: MarkerColor?
+    /// The rubber band being dragged on the timeline (#147), in content coordinates.
+    @Published var marqueeRect: CGRect?
+    /// The ruler is being scrubbed (#417).
+    @Published var isScrubbing = false
+
     /// Insert mode (#163): media added to the timeline pushes what follows instead of covering it.
     @Published var insertMode: Bool = UserDefaults.standard.bool(forKey: "timeline.insertMode") {
         didSet { UserDefaults.standard.set(insertMode, forKey: "timeline.insertMode") }
@@ -655,6 +660,22 @@ final class ProjectSession: ObservableObject, Identifiable {
             }
             self.app.toast(lowConfidence.isEmpty ? "Recordings synchronized" : "Synchronized — low confidence for \(lowConfidence.joined(separator: ", ")). Check alignment.")
         }
+    }
+
+    /// Selects every clip the rubber band touches (#147); ⇧ adds to the selection.
+    func selectClips(inContentRect rect: CGRect, laneTop: CGFloat, laneHeight: (TrackKind) -> CGFloat, pps: CGFloat, extend: Bool) {
+        guard let timeline = activeTimeline, pps > 0 else { return }
+        let t0 = Double(rect.minX / pps), t1 = Double(rect.maxX / pps)
+        var hits = Set<UUID>()
+        var y = laneTop
+        for track in timeline.tracks {
+            let h = laneHeight(track.kind)
+            if rect.minY < y + h, rect.maxY > y {
+                for clip in track.clips where clip.end > t0 && clip.start < t1 { hits.insert(clip.id) }
+            }
+            y += h
+        }
+        selectedClipIDs = extend ? selectedClipIDs.union(hits) : hits
     }
 
     // MARK: Slip / slide / roll (#143)

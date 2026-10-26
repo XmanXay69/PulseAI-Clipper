@@ -152,6 +152,36 @@ The sixteenth batch from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of
 - Music downloads retry each piece three times (#302); the playhead has its glow (#417); the clip cards'
   potential ring (#437).
 
+### Batch 20
+
+#### Editing
+- **Rubber-band selection** (#147) — drag on empty timeline across any tracks to select every clip the band
+  touches; ⇧ adds to what's selected.
+- **Compound clips on hover** (#166) — Open and Flatten buttons appear on the clip itself.
+- **Timecode while scrubbing** (#417) — dragging the ruler shows the exact timecode in a bubble by the playhead.
+
+#### Delivery
+- **Frame rate** (#349) — Match source, 24, 30 or 60 in the export panel.
+- **Low priority** (#342) — a checkbox that renders in the background so the timeline and viewer stay smooth;
+  slower, but you keep working.
+
+#### Recording
+- **Menu bar status** (#321) — a red dot with the elapsed time in the menu bar while recording, with Stop and
+  Pause in its menu; orange while paused.
+
+#### Everywhere
+- **Energy search** (#285) — the music library answers "calm", "steady" and "driving", worked out from each
+  track's tempo.
+- **Performance log** (#395) — PULSE keeps how long its last 200 jobs took; Report a Problem bundles it as
+  `performance.txt` (job titles and seconds, nothing else).
+- **Brand Kit preview** (#372) — Settings → Brand Kit → Preview… builds the sample project's short with your
+  kit on it and opens it.
+- **Tasks with timings** (#399) — the Background Tasks list shows how long each task has been running and a
+  Cancel on each.
+
+#### Already there, now on the list
+- A Test button checks the cloud provider from Settings (#453); the viewer's full-screen button (#195).
+
 ### Under the hood
 - `CaptionWord.pageBreakAfter` and `TimelineClip.labelColor` are decoded tolerantly, so 1.6.0 projects open
   unchanged; `Batch16Tests` covers the release-list parser, caption keyboard edits, the bumper's ripple, the
@@ -160,5 +190,6 @@ The sixteenth batch from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of
   markers, the progress bar's keyframes, the hook sting, fuzzy ranking, cloud-folder detection and the spelling
   candidates. `Batch18Tests` covers relink matching, import sidecars, clip replacement, the cold-open card,
   preferred sounds and the board's stages. `Batch19Tests` covers slip, slide and roll (linked sound,
-  clamping, nothing else moving), the recording size model and the per-model transcription time; 342 core
+  clamping, nothing else moving), the recording size model and the per-model transcription time.
+  `Batch20Tests` covers energy search, the low-priority flag and the performance log's ring buffer; 345 core
   tests in all.

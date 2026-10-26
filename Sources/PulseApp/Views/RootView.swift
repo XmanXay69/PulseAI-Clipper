@@ -487,7 +487,10 @@ struct JobRow: View {
                     HStack {
                         if !job.detail.isEmpty { Text(job.detail).font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(1) }
                         Spacer(minLength: 4)
-                        if let left = job.remainingText { Text(left).font(.pulseMicro).foregroundStyle(Theme.textSecondary).monospacedDigit() }
+                        // Running for how long (#399).
+                        Text(Timecode.duration(Date().timeIntervalSince(job.startedAt))).font(.pulseMicro).foregroundStyle(Theme.textTertiary).monospacedDigit()
+                            .help("Running for this long")
+                        if let left = job.remainingText { Text("· \(left)").font(.pulseMicro).foregroundStyle(Theme.textSecondary).monospacedDigit() }
                     }
                 case .finished:
                     Text("Done").font(.pulseMicro).foregroundStyle(Theme.success)

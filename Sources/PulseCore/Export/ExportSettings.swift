@@ -101,6 +101,8 @@ public struct ExportSettings: Codable, Hashable, Sendable {
     public var exportThumbnail: Bool
     /// Bring the mix to this integrated loudness at export (−14 YouTube, −16 podcasts, −18 quiet); nil = only check (#279).
     public var loudnessTarget: Double?
+    /// Render at low priority so editing stays smooth while it runs (#342).
+    public var lowPriority: Bool = false
 
     public init(preset: ExportPreset = .tiktok, outputDirectory: String = "", quality: ExportQuality = .high) {
         self.presetID = preset.id
@@ -157,6 +159,7 @@ public struct ExportSettings: Codable, Hashable, Sendable {
         targetFileMB = c.decode(Int?.self, forKey: .targetFileMB, default: nil)
         exportThumbnail = c.decode(Bool.self, forKey: .exportThumbnail, default: d.exportThumbnail)
         loudnessTarget = c.decode(Double?.self, forKey: .loudnessTarget, default: nil)
+        lowPriority = c.decode(Bool.self, forKey: .lowPriority, default: false)
     }
 
     /// Where a job's files go: the export folder, or the project's own sub-folder inside it.

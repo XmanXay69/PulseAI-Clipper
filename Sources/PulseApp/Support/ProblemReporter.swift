@@ -62,6 +62,9 @@ enum ProblemReporter {
             .write(to: work.appendingPathComponent("summary.txt"), atomically: true, encoding: .utf8)
         let activity = app.activity.prefix(60).map { "\($0.date) [\($0.kind.displayName)] \($0.title) — \($0.detail)" }.joined(separator: "\n")
         try activity.write(to: work.appendingPathComponent("activity.txt"), atomically: true, encoding: .utf8)
+        // How long recent jobs took on this Mac (#395) — timings only, no names of files or projects beyond the job title.
+        let perf = PerfLog.text()
+        if !perf.isEmpty { try perf.write(to: work.appendingPathComponent("performance.txt"), atomically: true, encoding: .utf8) }
         if let structure { try structure.write(to: work.appendingPathComponent("project-structure.txt"), atomically: true, encoding: .utf8) }
         for log in [PulseLog.fileURL, PulseLog.previousFileURL] where FileManager.default.fileExists(atPath: log.path) {
             try? FileManager.default.copyItem(at: log, to: work.appendingPathComponent(log.lastPathComponent))

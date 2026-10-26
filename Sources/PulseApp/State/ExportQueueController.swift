@@ -148,11 +148,17 @@ final class ExportQueueController: ObservableObject {
                 let filename = job.settings.filename(project: job.projectName, clip: job.timelineName + (job.range.map { " \(Timecode.short($0.start))-\(Timecode.short($0.end))" } ?? ""), index: index + 1)
                 let url = ExportSettings.uniqueURL(directory: directory, filename: filename) { FileManager.default.fileExists(atPath: $0.path) }
                 let jobID = job.id
-                try await ExportEngine().export(timeline: payload.timeline, assets: payload.assets, compounds: payload.compounds, settings: job.settings, to: url, range: job.range, progress: { p in
-                    Task { @MainActor [weak self] in
-                        self?.update(jobID) { $0.status = .rendering(progress: p) }
-                    }
-                }, isCancelled: { flag.isSet })
+                let settings = job.settings, range = job.range
+                let exportStart = Date()
+                // Low priority keeps the editor smooth while it renders (#342).
+                try await Task.detached(priority: settings.lowPriority ? .utility : .userInitiated) {
+                    try await ExportEngine().export(timeline: payload.timeline, assets: payload.assets, compounds: payload.compounds, settings: settings, to: url, range: range, progress: { p in
+                        Task { @MainActor [weak self] in
+                            self?.update(jobID) { $0.status = .rendering(progress: p) }
+                        }
+                    }, isCancelled: { flag.isSet })
+                }.value
+                PerfLog.record("Export \(job.timelineName) (\(Int((range?.duration ?? payload.timeline.duration).rounded())) s)", seconds: Date().timeIntervalSince(exportStart))
                 // The description, ready to paste: title ideas, chapters, credits, hashtags.
                 let sidecar = ExportSidecar.text(for: payload.timeline, projectName: job.projectName)
                 if !sidecar.isEmpty {

@@ -992,6 +992,10 @@ struct BrandKitSettings: View {
             SettingsRow("Use my brand kit on new edits") {
                 Toggle("", isOn: kit.enabled).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
             }
+            SettingsRow("See it on the sample project", detail: "Builds the sample short with your logo, intro card and caption look applied (#372).") {
+                Button("Preview…") { app.brandKitPreviewPending = true; app.openDemoProject() }.buttonStyle(.pulse(.secondary, compact: true))
+                    .disabled(!app.settings.brandKit.hasAnything)
+            }
         }
         SettingsGroup("Logo watermark", footnote: "A PNG with transparency looks best. On shorts it stays clear of the platform's top bar and the captions.") {
             SettingsRow("Logo image") {

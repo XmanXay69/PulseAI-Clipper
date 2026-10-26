@@ -120,6 +120,7 @@ final class AppModel: ObservableObject {
     let jobs = JobCenter()
     let exports = ExportQueueController()
     let recording = RecordingController()
+    private var recordingStatus: RecordingStatusItem?
     @Published var showRecordSheet = false
     /// "Edit My VOD" — the long-form YouTube edit sheet.
     @Published var showLongFormSheet = false
@@ -189,7 +190,10 @@ final class AppModel: ObservableObject {
         }
         showOnboarding = !settings.hasCompletedOnboarding
         globalTemplates = AppModel.loadTemplates()
+        recordingStatus = RecordingStatusItem(recording: recording, app: self)
         jobs.onFinished = { [weak self] job in
+            // How long it took, for the performance log in bug reports (#395).
+            PerfLog.record(job.title, seconds: Date().timeIntervalSince(job.startedAt))
             guard let self else { return }
             if case .failed(let message) = job.state {
                 self.present(title: "\(job.title) failed", message: message)
@@ -774,6 +778,9 @@ final class AppModel: ObservableObject {
 
     // MARK: Demo
 
+    /// Settings → Brand Kit → Preview on the sample: the next sample project's short gets the kit (#372).
+    var brandKitPreviewPending = false
+
     func openDemoProject() {
         jobs.start("Preparing sample project", kind: .importMedia) { [weak self] job in
             guard let self else { return }
@@ -806,7 +813,14 @@ final class AppModel: ObservableObject {
             let candidates = ClipGenerator(input: ClipGenerationInput(analysis: analysis), settings: ClipGenerationSettings(targetDuration: 15, aggressiveness: 0.7, minimumPotential: 0)).generate()
             session.edit("Generate AI Clips") { doc in doc.candidates = candidates }
             if let best = candidates.first {
-                session.createShort(from: best.id, open: false)
+                let shortID = session.createShort(from: best.id, open: false)
+                if self.brandKitPreviewPending, let shortID {
+                    self.brandKitPreviewPending = false
+                    session.applyBrandKit(to: shortID, announce: true)
+                    session.open(timelineID: shortID)
+                    self.section = .editor
+                    return
+                }
             }
             session.save()
             self.logActivity(.clipGeneration, title: "\(candidates.count) potential clips found", detail: "Sample project")

@@ -474,6 +474,22 @@ struct ExportSettingsForm: View {
                     .labelsHidden().frame(width: 140)
                 }
                 GridRow {
+                    Text("Frame rate").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    Picker("", selection: Binding(get: { settings.frameRate ?? 0 }, set: { settings.frameRate = $0 == 0 ? nil : $0 })) {
+                        Text("Match source").tag(0.0)
+                        Text("24").tag(24.0)
+                        Text("30").tag(30.0)
+                        Text("60").tag(60.0)
+                    }
+                    .labelsHidden().frame(width: 140)
+                    .help("Frames are dropped or repeated to hit the rate; the source's own rate is always safest (#349)")
+                }
+                GridRow {
+                    Text("Priority").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    Toggle("Low — keep editing smooth while it renders", isOn: $settings.lowPriority).toggleStyle(.checkbox).font(.pulseCaption)
+                        .help("Renders in the background at low priority: slower, but the timeline and viewer stay responsive (#342)")
+                }
+                GridRow {
                     Text("Loudness").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
                     Picker("", selection: Binding(get: { settings.loudnessTarget ?? 0 }, set: { settings.loudnessTarget = $0 == 0 ? nil : $0 })) {
                         Text("Check only").tag(0.0)

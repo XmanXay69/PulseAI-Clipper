@@ -21,6 +21,12 @@ public struct LibrarySound: Identifiable, Hashable, Sendable {
         return nil
     }
 
+    /// "calm", "steady" or "driving", from the tempo (#285); nil for effects.
+    public var energy: String? {
+        guard let bpm else { return nil }
+        return bpm < 95 ? "calm" : (bpm < 120 ? "steady" : "driving")
+    }
+
     /// Asset tags that let PULSE recognise (and re-render) a library file.
     public func assetTags(duration: Seconds?) -> [String] {
         var t = ["pulse-library", "library:\(id)"] + tags
@@ -127,7 +133,7 @@ public enum SoundLibrary {
         return catalog.filter { sound in
             if let kind, sound.kind != kind { return false }
             if let category, sound.category != category { return false }
-            let haystack = ([sound.name, sound.category, sound.summary] + sound.tags).joined(separator: " ").lowercased()
+            let haystack = ([sound.name, sound.category, sound.summary, sound.energy ?? ""] + sound.tags).joined(separator: " ").lowercased()
             return words.allSatisfy { haystack.contains($0) }
         }
     }
