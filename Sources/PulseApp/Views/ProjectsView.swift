@@ -41,10 +41,10 @@ struct ProjectsView: View {
                     ForEach(Filter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 260)
+                .frame(width: 520)
                 TextField("Filter projects", text: $query)
                     .textFieldStyle(.roundedBorder)
-                    .frame(width: 220)
+                    .frame(width: 180)
                 Spacer()
                 Menu {
                     Picker("Sort", selection: $sort) {

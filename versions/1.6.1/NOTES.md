@@ -161,7 +161,6 @@ The sixteenth batch from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of
 - **Timecode while scrubbing** (#417) — dragging the ruler shows the exact timecode in a bubble by the playhead.
 
 #### Delivery
-- **Frame rate** (#349) — Match source, 24, 30 or 60 in the export panel.
 - **Low priority** (#342) — a checkbox that renders in the background so the timeline and viewer stay smooth;
   slower, but you keep working.
 
@@ -180,7 +179,8 @@ The sixteenth batch from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of
   Cancel on each.
 
 #### Already there, now on the list
-- A Test button checks the cloud provider from Settings (#453); the viewer's full-screen button (#195).
+- A Test button checks the cloud provider from Settings (#453); the viewer's full-screen button (#195); the
+  export panel's frame-rate menu (#349).
 
 ### Batch 21
 

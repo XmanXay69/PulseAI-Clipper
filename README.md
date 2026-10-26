@@ -25,7 +25,7 @@ and chat sidecars picked up on import, replace-a-clip-by-drop, an insert/overwri
 cold-open card, your choice of impact and whoosh, a project status board, slip/slide/roll trims, levels drawn on
 audio clips, a chapter band on the ruler, a 10-second export preview, platform chrome in the viewer, recording
 setups with a size estimate, per-model transcription times, a report prompt after a crash, rubber-band
-selection, a menu-bar recording status, low-priority exports with a frame-rate choice, and a performance log in
+selection, a menu-bar recording status, low-priority exports, and a performance log in
 bug reports ([notes](versions/1.6.1/NOTES.md)).
 
 **New in 1.6.0:** a studio look (lit surfaces, gradient controls, grouped sidebar, breadcrumb, pill page bar,
