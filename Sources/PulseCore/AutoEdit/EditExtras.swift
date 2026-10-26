@@ -694,6 +694,22 @@ public struct StreamingLoudness: Sendable {
     }
 
     public var peakDB: Double { peak > 0 ? 20 * log10(Double(peak)) : -.infinity }
+
+    /// Short-term loudness (3 s windows, one value per second) over everything fed so far (#140). Silence
+    /// reads as −70.
+    public var shortTermCurve: [Float] {
+        guard subPowers.count >= 10 else { return [] }
+        var out: [Float] = []
+        var i = 0
+        while i + 10 <= subPowers.count {
+            let lo = max(0, i + 10 - 30)
+            let window = subPowers[lo..<(i + 10)]
+            let mean = window.reduce(0, +) / Double(window.count)
+            out.append(mean > 0 ? Float(max(-70, -0.691 + 10 * log10(mean))) : -70)
+            i += 10
+        }
+        return out
+    }
 }
 
 /// What the export loudness check found and what it suggests.
@@ -749,6 +765,30 @@ extension LoudnessVerdict {
     }
 
     /// Makes the change the verdict suggests (only after you said yes). Returns clips changed.
+    /// Every audio clip's gain moved by `db` (#279): + raises, − lowers. Returns clips changed.
+    @discardableResult
+    public static func adjustGain(_ timeline: inout Timeline, by db: Double) -> Int {
+        guard abs(db) >= 0.05 else { return 0 }
+        var changed = 0
+        for ti in timeline.tracks.indices where timeline.tracks[ti].kind == .audio {
+            for ci in timeline.tracks[ti].clips.indices where timeline.tracks[ti].clips[ci].content.assetID != nil || timeline.tracks[ti].clips[ci].content.compoundID != nil {
+                timeline.tracks[ti].clips[ci].audio.gainDB += db
+                changed += 1
+            }
+        }
+        if changed > 0 { timeline.modifiedAt = Date() }
+        return changed
+    }
+
+    /// The gain that brings `measured` LUFS to `target`, capped so a quiet mix isn't pushed into clipping:
+    /// never more than the headroom below −1 dBTP.
+    public static func gain(from measured: Double, to target: Double, peakDB: Double) -> Double {
+        guard measured.isFinite else { return 0 }
+        let wanted = target - measured
+        let headroom = -1 - peakDB
+        return min(wanted, max(headroom, 0))
+    }
+
     @discardableResult
     public func apply(to timeline: inout Timeline) -> Int {
         var changed = 0

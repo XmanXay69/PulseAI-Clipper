@@ -128,10 +128,16 @@ public enum EmphasisDetector {
                                          "were", "be", "it", "that", "this", "i", "you", "he", "she", "we", "they", "me", "my", "your", "so",
                                          "just", "like", "um", "uh", "do", "did", "have", "has", "had", "not", "if", "then", "there", "what"]
 
+    /// Words you emphasised by hand (+) or un-emphasised (−); set from Settings at launch and as you edit (#238).
+    nonisolated(unsafe) public static var learned: [String: Int] = [:]
+
     public static func score(_ text: String) -> Double {
         let n = TranscriptWord.normalize(text)
-        guard !n.isEmpty, !stopwords.contains(n) else { return 0 }
-        var s = Double(EngagementLexicon.words[n] ?? 0)
+        guard !n.isEmpty else { return 0 }
+        let taught = Double(learned[n] ?? 0)
+        if taught <= -2 { return 0 }
+        guard !stopwords.contains(n) || taught >= 2 else { return 0 }
+        var s = Double(EngagementLexicon.words[n] ?? 0) + taught * 0.35
         if text.hasSuffix("!") { s += 0.8 }
         if text.count > 2, text == text.uppercased(), text.rangeOfCharacter(from: .letters) != nil { s += 0.6 }
         if n.rangeOfCharacter(from: .decimalDigits) != nil { s += 0.5 }

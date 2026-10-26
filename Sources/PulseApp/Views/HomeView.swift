@@ -367,6 +367,7 @@ struct ProjectCard: View {
             Button("Duplicate") { app.duplicateProject(project) }
             Button(project.isFavorite ? "Remove from Favorites" : "Add to Favorites") { app.setFavorite(project, !project.isFavorite) }
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: project.path)]) }
+            Button("Archive with Media…") { app.archiveProject(project) }
             Menu("Deadline") {
                 Button("Tomorrow") { app.setDeadline(project, Calendar.current.date(byAdding: .day, value: 1, to: Date())) }
                 Button("In 3 days") { app.setDeadline(project, Calendar.current.date(byAdding: .day, value: 3, to: Date())) }

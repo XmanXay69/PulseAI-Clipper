@@ -58,6 +58,7 @@ struct TimelineToolbar: View {
     @State private var showSearch = false
     @State private var showPauses = false
     @State private var showNotes = false
+    @State private var showHistory = false
     @AppStorage("timeline.energyStrip") private var showEnergy = true
 
     var body: some View {
@@ -86,6 +87,8 @@ struct TimelineToolbar: View {
                 .disabled(!session.canUndo)
             IconButton(symbol: "arrow.uturn.forward", help: session.redoLabel.map { "Redo \($0) (⇧⌘Z)" } ?? "Redo (⇧⌘Z)") { session.redo() }
                 .disabled(!session.canRedo)
+            IconButton(symbol: "clock.arrow.circlepath", help: "History — every edit, click one to jump back there", isActive: showHistory) { showHistory.toggle() }
+                .popover(isPresented: $showHistory, arrowEdge: .bottom) { UndoHistoryView(session: session).frame(width: 300) }
             Divider().frame(height: 16).padding(.horizontal, 4)
             IconButton(symbol: "arrow.right.and.line.vertical.and.arrow.left", help: "Snapping (S)", isActive: app.settings.snapping) { app.settings.snapping.toggle() }
             IconButton(symbol: "rectangle.compress.vertical", help: "Magnetic timeline — deleting closes gaps", isActive: app.settings.magneticTimeline) { app.settings.magneticTimeline.toggle() }
@@ -116,6 +119,38 @@ struct TimelineToolbar: View {
     }
 
     func zoomToFit() { session.zoomTimelineToFit() }
+}
+
+/// Every undo step with "jump back to" (#175).
+struct UndoHistoryView: View {
+    @ObservedObject var session: ProjectSession
+
+    var body: some View {
+        let labels = session.undoLabels
+        VStack(alignment: .leading, spacing: 0) {
+            PanelHeader("History", subtitle: labels.isEmpty ? "No edits yet" : "\(labels.count) steps · newest at the top") { EmptyView() }
+            if !labels.isEmpty {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(Array(labels.enumerated().reversed()), id: \.offset) { index, label in
+                            let back = labels.count - index
+                            HStack(spacing: 8) {
+                                Text("\(index + 1)").font(.pulseMono).foregroundStyle(Theme.textTertiary).frame(width: 28, alignment: .trailing)
+                                Text(label).font(.pulseCaption).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                                Spacer()
+                                Text(back == 1 ? "undo" : "back \(back)").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 5)
+                            .contentShape(Rectangle())
+                            .onTapGesture { session.undo(steps: back) }
+                            .help("Undo this and everything after it")
+                        }
+                    }
+                }
+                .frame(maxHeight: 320)
+            }
+        }
+    }
 }
 
 /// Notes for the project with a checklist (#476): "- [ ] grade the intro" lines become boxes you tick.

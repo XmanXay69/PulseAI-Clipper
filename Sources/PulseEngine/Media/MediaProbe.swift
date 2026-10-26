@@ -42,6 +42,10 @@ public enum MediaProbe {
             meta.height = Int(abs(rect.height).rounded())
             meta.frameRate = Double(fps)
             meta.hasVideo = true
+            // Frame timing that wanders (screen recordings, some phones) drifts against captions and cuts (#23).
+            if fps > 0, let shortest = try? await video.load(.minFrameDuration), shortest.seconds > 0 {
+                meta.variableFrameRate = 1 / shortest.seconds > Double(fps) * 1.5
+            }
             if let desc = formats.first {
                 meta.videoCodec = fourCC(CMFormatDescriptionGetMediaSubType(desc))
             }

@@ -132,6 +132,7 @@ struct AIClipsView: View {
             } label: { Label(session.candidateSort.displayName, systemImage: "arrow.up.arrow.down") }
                 .menuStyle(.borderlessButton)
                 .frame(width: 140)
+            AggressivenessControl(session: session)
             if session.selectedCandidateIDs.count >= 2 {
                 Button { session.mergeCandidates(session.selectedCandidateIDs) } label: { Label("Merge \(session.selectedCandidateIDs.count) into One Short", systemImage: "rectangle.stack.badge.plus") }
                     .buttonStyle(.pulseSecondary)
@@ -188,6 +189,46 @@ struct AIClipsView: View {
     func regenerateAll() {
         guard let asset = session.document.primaryAsset else { return }
         session.generateCandidates(assetID: asset.id)
+    }
+}
+
+/// How many moments to look for in this project (#53): a slider that re-runs the finder, with the count live.
+struct AggressivenessControl: View {
+    @EnvironmentObject var app: AppModel
+    @ObservedObject var session: ProjectSession
+    @State private var open = false
+    @State private var value = 0.5
+
+    var body: some View {
+        Button { value = session.document.generation.aggressiveness; open.toggle() } label: { Label("\(session.document.visibleCandidates.count)", systemImage: "slider.horizontal.3") }
+            .buttonStyle(.pulse(.ghost, compact: true))
+            .help("How many moments PULSE looks for in this project")
+            .popover(isPresented: $open, arrowEdge: .bottom) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Moments to find").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    HStack {
+                        Text("Fewer, stronger").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                        Slider(value: $value, in: 0.1...1, step: 0.05).frame(width: 160)
+                        Text("More").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                    }
+                    Text("\(session.document.visibleCandidates.count) now · this project only; Settings → AI Features sets the default")
+                        .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                    HStack {
+                        Spacer()
+                        Button("Find Again") {
+                            guard let asset = session.document.primaryAsset else { return }
+                            var settings = session.document.generation
+                            settings.aggressiveness = value
+                            session.edit("Clip Aggressiveness") { $0.generation = settings }
+                            session.generateCandidates(assetID: asset.id, settings: settings)
+                            open = false
+                        }
+                        .buttonStyle(.pulse(.ai, compact: true))
+                        .disabled(session.document.primaryAsset == nil)
+                    }
+                }
+                .padding(12)
+            }
     }
 }
 

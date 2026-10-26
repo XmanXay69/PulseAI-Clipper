@@ -102,9 +102,18 @@ final class ProjectSession: ObservableObject, Identifiable {
 
     let playback = PlaybackController()
     /// Undo keeps up to 300 steps, but never more than roughly 60 big-timeline snapshots' worth (#397).
-    private var history = History<ProjectDocument>(limit: 300, maxCost: 2_000_000, cost: { doc in
-        doc.timelines.reduce(0) { $0 + $1.allClips.count * 20 + ($1.captions?.words.count ?? 0) } + doc.candidates.count * 5 + doc.media.count
-    })
+    private var history = History<ProjectDocument>(limit: 300, maxCost: 2_000_000, cost: ProjectSession.snapshotCost)
+
+    /// Roughly how much a document snapshot costs to keep (clips weigh most, then caption words).
+    nonisolated static func snapshotCost(_ doc: ProjectDocument) -> Int {
+        var cost = doc.candidates.count * 5 + doc.media.count
+        for timeline in doc.timelines {
+            let clips: Int = timeline.allClips.count
+            let words: Int = timeline.captions?.words.count ?? 0
+            cost += clips * 20 + words
+        }
+        return cost
+    }
     /// The transcript each asset had before its last re-analysis, so rebuilt captions can tell your edits from
     /// the machine's (#258).
     var previousTranscripts: [UUID: Transcript] = [:]
@@ -907,6 +916,46 @@ final class ProjectSession: ObservableObject, Identifiable {
         }
     }
 
+    /// Remembers that you bolded (or un-bolded) this word, so new captions follow (#238).
+    func learnEmphasis(_ word: CaptionWord) {
+        let key = TranscriptWord.normalize(word.text)
+        guard key.count >= 2 else { return }
+        let delta = word.isEmphasized ? -1 : 1
+        app.settings.ai.emphasisLearned[key] = ((app.settings.ai.emphasisLearned[key] ?? 0) + delta).clamped(-5, 5)
+        if app.settings.ai.emphasisLearned[key] == 0 { app.settings.ai.emphasisLearned.removeValue(forKey: key) }
+    }
+
+    /// An SRT / VTT for the main recording becomes this timeline's captions (#247); they sit in source time, so
+    /// the cut re-times them.
+    func importCaptionsFile() {
+        guard let timeline = activeTimeline,
+              let assetID = timeline.tracks.first(where: { $0.kind == .video })?.clips.first(where: { $0.role != .graphic })?.content.assetID else { return }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = ["srt", "vtt", "json"].compactMap { UTType(filenameExtension: $0) }
+        panel.message = "Choose captions for the main recording (SRT, WebVTT or Whisper JSON)"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let transcript = try TranscriptParser.parse(data: Data(contentsOf: url), fileExtension: url.pathExtension)
+            let sourceRanges = timeline.allClips.filter { $0.content.assetID == assetID }.map(\.sourceRange).merged()
+            guard let start = sourceRanges.first?.start, let end = sourceRanges.last?.end else { return }
+            let style = timeline.captions?.style ?? CaptionStyle.preset(named: app.settings.ai.captionPresetName) ?? .tiktok
+            editTimeline("Import Captions") { t in
+                t.captions = CaptionTrack.make(from: transcript, range: TimeRange(start: start, end: end), assetID: assetID, style: style, emphasize: false, aiGenerated: false)
+            }
+            app.toast("Imported \(transcript.words.count) caption words from \(url.lastPathComponent)")
+        } catch {
+            app.present(error, title: "Couldn't read the captions")
+        }
+    }
+
+    /// Every undo step, oldest first (#175).
+    var undoLabels: [String] { history.labels }
+
+    /// Jumps back `steps` edits (#175).
+    func undo(steps: Int) {
+        for _ in 0..<max(0, steps) { undo() }
+    }
+
     /// Trims the project to the media it uses (#469); the files stay on disk.
     func removeUnusedMedia() {
         let unused = document.unusedMedia
@@ -988,7 +1037,8 @@ final class ProjectSession: ObservableObject, Identifiable {
                                     companionFaceCenter: cam.flatMap { analyses[$0.id]?.webcam?.face.center })
         var timeline = ShortBuilder.build(input, options: options)
         if app.settings.ai.censorAudio != .off, let words = analyses[asset.id]?.transcript?.words {
-            AudioCensor.apply(app.settings.ai.censorAudio, to: &timeline, words: words, assetID: asset.id, extra: app.settings.ai.normalizedExtraProfanity)
+            AudioCensor.apply(app.settings.ai.censorAudio, to: &timeline, words: words, assetID: asset.id, extra: app.settings.ai.normalizedExtraProfanity,
+                              tone: app.settings.ai.bleepTone)
         }
         return (timeline, wantsMusic, options, music, sfx)
     }

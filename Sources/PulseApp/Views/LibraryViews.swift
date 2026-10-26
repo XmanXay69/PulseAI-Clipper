@@ -131,7 +131,14 @@ struct MediaView: View {
                     KeyValueRow(key: "Kind", value: asset.kind.displayName)
                     KeyValueRow(key: "Duration", value: Timecode.string(asset.metadata.duration))
                     KeyValueRow(key: "Resolution", value: asset.metadata.width > 0 ? "\(asset.metadata.width)×\(asset.metadata.height)" : "—")
-                    KeyValueRow(key: "Frame rate", value: asset.metadata.frameRateLabel)
+                    KeyValueRow(key: "Frame rate", value: asset.metadata.frameRateLabel + (asset.metadata.variableFrameRate == true ? " · variable" : ""))
+                    if asset.metadata.variableFrameRate == true {
+                        Label("Variable frame rate — captions and cuts can drift. Convert to constant (Media → Convert) if they do.", systemImage: "exclamationmark.triangle")
+                            .font(.pulseMicro).foregroundStyle(Theme.warning).fixedSize(horizontal: false, vertical: true)
+                    }
+                    if asset.kind == .video {
+                        KeyValueRow(key: "Proxy", value: asset.preparation.proxyPath != nil ? "Made" : app.settings.proxy.proxyReason(sourceHeight: asset.metadata.height, duration: asset.metadata.duration, codec: asset.metadata.videoCodec))
+                    }
                     KeyValueRow(key: "Video codec", value: asset.metadata.videoCodec ?? "—")
                     KeyValueRow(key: "Audio", value: asset.metadata.hasAudio ? "\(asset.metadata.audioCodec ?? "") \(asset.metadata.audioChannels)ch \(Int(asset.metadata.audioSampleRate)) Hz" : "None")
                     KeyValueRow(key: "File size", value: ByteCountFormatter().string(fromByteCount: asset.metadata.fileSize))
@@ -395,6 +402,17 @@ struct ExportSettingsForm: View {
                     .labelsHidden().frame(width: 140)
                 }
                 GridRow {
+                    Text("Loudness").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    Picker("", selection: Binding(get: { settings.loudnessTarget ?? 0 }, set: { settings.loudnessTarget = $0 == 0 ? nil : $0 })) {
+                        Text("Check only").tag(0.0)
+                        Text("−14 LUFS (YouTube)").tag(-14.0)
+                        Text("−16 LUFS (podcast)").tag(-16.0)
+                        Text("−18 LUFS (quiet)").tag(-18.0)
+                    }
+                    .labelsHidden().frame(width: 190)
+                    .help("Measures the mix before encoding and brings it to the target (never past the peak headroom); “Check only” asks instead (#279)")
+                }
+                GridRow {
                     Text("Filename").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
                     VStack(alignment: .leading, spacing: 2) {
                         VStack(alignment: .leading, spacing: 4) {
@@ -571,7 +589,9 @@ struct ExportsView: View {
             switch ask.verdict.action {
             case .lower, .levelDialogue:
                 Button("Fix & Export") { fixLoudness(ask) }
+                Button("Always Fix in This Project") { app.session?.edit("Remember Loudness Choice") { $0.loudnessChoice = "fix" }; fixLoudness(ask) }
                 Button("Export As Is") { queue(ask.timeline) }
+                Button("Always As Is in This Project") { app.session?.edit("Remember Loudness Choice") { $0.loudnessChoice = "asIs" }; queue(ask.timeline) }
                 Button("Cancel", role: .cancel) {}
             case .fine, .quietButLeveled:
                 Button("Export") { queue(ask.timeline) }
@@ -594,10 +614,24 @@ struct ExportsView: View {
                     Task { @MainActor in if measuring != nil { measuring = p } }
                 }
                 measuring = nil
+                // A target set in the export panel (#279): bring the mix there, no questions asked.
+                if let target = settings.loudnessTarget {
+                    let db = LoudnessVerdict.gain(from: measured.lufs, to: target, peakDB: measured.peakDB)
+                    var fixed = timeline
+                    let changed = LoudnessVerdict.adjustGain(&fixed, by: db)
+                    if changed > 0 { session.edit("Loudness to \(Int(target)) LUFS") { doc in doc.editTimeline(id: fixed.id) { $0 = fixed } } }
+                    app.toast(String(format: "Mix was %.1f LUFS — %@ by %.1f dB to %d LUFS", measured.lufs, db >= 0 ? "raised" : "lowered", abs(db), Int(target)))
+                    queue(fixed)
+                    return
+                }
                 let verdict = LoudnessVerdict(lufs: measured.lufs, peakDB: measured.peakDB, unleveledDialogue: LoudnessVerdict.hasUnleveledDialogue(timeline))
                 if verdict.action == .fine {
                     app.toast(verdict.summary)
                     queue(timeline)
+                } else if let remembered = session.document.loudnessChoice {
+                    // What you chose last time in this project (#358).
+                    if remembered == "fix" { fixLoudness(LoudnessAsk(timeline: timeline, verdict: verdict)) } else { queue(timeline) }
+                    app.toast(verdict.summary + (remembered == "fix" ? " Fixed, as you chose for this project." : " Exported as is, as you chose for this project."))
                 } else {
                     loudnessAsk = LoudnessAsk(timeline: timeline, verdict: verdict)
                 }

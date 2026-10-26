@@ -250,6 +250,8 @@ struct CaptionStylePanel: View {
                                     .help("Takes filler-only words out of the captions; the audio is untouched")
                                 Button("Rebuild") { session.rebuildCaptionsKeepingFixes() }.buttonStyle(.pulse(.secondary, compact: true))
                                     .help("Captions again from the latest transcript — words you retyped, hid or emphasised stay as you left them")
+                                Button("Import…") { session.importCaptionsFile() }.buttonStyle(.pulse(.secondary, compact: true))
+                                    .help("An SRT or VTT for the main recording becomes this timeline's captions, re-timed to the cut (#247)")
                             }
                             HStack(spacing: 6) {
                                 TextField("Find", text: $findText).textFieldStyle(.roundedBorder).frame(width: 88)
@@ -404,7 +406,7 @@ struct CaptionWordEditor: View {
             PanelHeader("Caption Text", subtitle: "Double-click a word to edit · ★ emphasise · eye hides") {
                 if let word = selectedWord {
                     HStack(spacing: 4) {
-                        Button { session.editTimeline("Toggle Emphasis") { $0.captions?.toggleEmphasis(id: word.id) } } label: {
+                        Button { session.learnEmphasis(word); session.editTimeline("Toggle Emphasis") { $0.captions?.toggleEmphasis(id: word.id) } } label: {
                             Image(systemName: word.isEmphasized ? "star.fill" : "star")
                         }
                         .buttonStyle(.pulse(.ghost, compact: true))

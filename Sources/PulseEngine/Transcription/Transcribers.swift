@@ -37,7 +37,8 @@ public final class AppleSpeechTranscriber: TranscriptionProvider, @unchecked Sen
         guard status == .authorized else {
             throw EngineError.transcriptionUnavailable("Speech recognition permission is off. Enable it in System Settings → Privacy & Security → Speech Recognition, or use Whisper in Settings → AI.")
         }
-        let locale = Locale(identifier: language ?? Locale.current.identifier)
+        // "auto" (#37): Apple's recogniser needs a locale, so the Mac's own is the best guess.
+        let locale = Locale(identifier: (language == "auto" ? nil : language) ?? Locale.current.identifier)
         guard let recognizer = SFSpeechRecognizer(locale: locale) ?? SFSpeechRecognizer() else {
             throw EngineError.transcriptionUnavailable("Speech recognition isn't available for \(locale.identifier).")
         }
@@ -203,7 +204,7 @@ public struct WhisperCppTranscriber: TranscriptionProvider {
 
     public func transcribe(audioURL: URL, language: String?, progress: @escaping @Sendable (Double) -> Void) async throws -> Transcript {
         let outBase = FileManager.default.temporaryDirectory.appendingPathComponent("pulse-whisper-\(UUID().uuidString)")
-        let lang = (language ?? "en").split(separator: "-").first.map(String.init) ?? "auto"
+        let lang = language == "auto" ? "auto" : ((language ?? "en").split(separator: "-").first.map(String.init) ?? "auto")
         var args = ["-m", model.path, "-f", audioURL.path, "-oj", "-of", outBase.path, "-ml", "1", "-sow", "-l", lang,
                     "-t", String(threads), "-pp"]
         if !vocabulary.isEmpty { args += ["--prompt", vocabulary.prefix(60).joined(separator: ", ") + "."] }

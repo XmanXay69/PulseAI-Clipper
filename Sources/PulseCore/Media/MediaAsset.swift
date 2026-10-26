@@ -83,6 +83,8 @@ public struct MediaMetadata: Codable, Hashable, Sendable {
     public var audioCodec: String?
     public var fileSize: Int64
     public var creationDate: Date?
+    /// The recording's frame timing wanders (screen captures, some phones): captions and cuts can drift (#23).
+    public var variableFrameRate: Bool?
 
     public init(duration: Seconds = 0, width: Int = 0, height: Int = 0, frameRate: Double = 0,
                 hasVideo: Bool = false, hasAudio: Bool = false, audioTrackCount: Int = 0,

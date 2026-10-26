@@ -91,6 +91,8 @@ final class AppModel: ObservableObject {
         didSet {
             persistSettings()
             EngagementLexicon.customProfanity = settings.ai.normalizedExtraProfanity
+            EmphasisDetector.learned = settings.ai.emphasisLearned
+            if settings.watchFolder != oldValue.watchFolder { watchFolderChanged() }
         }
     }
     @Published var section: SidebarSection = .home
@@ -201,6 +203,9 @@ final class AppModel: ObservableObject {
         refreshActivity()
         refreshDiskInfo()
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in self?.remindAboutDeadlines() }
+        EmphasisDetector.learned = settings.ai.emphasisLearned
+        watchFolderChanged()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in self?.checkDependencies() }
     }
 
     // MARK: Folders
@@ -416,6 +421,185 @@ final class AppModel: ObservableObject {
         }
         if trashed, session?.package == package { closeProject() }
         refreshProjects()
+    }
+
+    // MARK: Watch folder (#3) and nightly batch (#461)
+
+    private var watchTimer: Timer?
+    private var watchSeen: [String: Int64] = [:]
+    private var watchPrimed = false
+
+    func watchFolderChanged() {
+        watchTimer?.invalidate()
+        watchTimer = nil
+        watchSeen = [:]
+        watchPrimed = false
+        let path = (settings.watchFolder as NSString).expandingTildeInPath
+        guard !path.isEmpty, FileManager.default.fileExists(atPath: path) else { return }
+        watchTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.pollWatchFolder() }
+        }
+        pollWatchFolder()
+    }
+
+    /// New media that has stopped growing is imported; the first pass only learns what's there already.
+    func pollWatchFolder() {
+        let folder = URL(fileURLWithPath: (settings.watchFolder as NSString).expandingTildeInPath)
+        guard let items = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.fileSizeKey, .isDirectoryKey]) else { return }
+        var ready: [URL] = []
+        var sizes: [String: Int64] = [:]
+        for url in items where MediaTypes.allImportableExtensions.contains(url.pathExtension.lowercased()) && !url.lastPathComponent.hasPrefix(".") {
+            let size = Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+            sizes[url.path] = size
+            guard watchPrimed, let previous = watchSeen[url.path] else { continue }
+            if previous == size, previous > 0, !watchImported.contains(url.path) { ready.append(url) }
+        }
+        // Files still being written are kept in `watchSeen` until their size settles.
+        for (path, size) in sizes where watchSeen[path] == nil || watchSeen[path] != size { watchSeen[path] = size }
+        for path in watchSeen.keys where sizes[path] == nil { watchSeen.removeValue(forKey: path); watchImported.remove(path) }
+        if !watchPrimed {
+            watchPrimed = true
+            watchImported = Set(sizes.keys)   // what was already there isn't "new"
+            return
+        }
+        guard !ready.isEmpty else { runNightlyIfDue(); return }
+        for url in ready { watchImported.insert(url.path) }
+        PulseLog.info("Watch folder: \(ready.count) new file\(ready.count == 1 ? "" : "s")")
+        toast("\(ready.count) new recording\(ready.count == 1 ? "" : "s") in the watch folder — importing")
+        if settings.nightlyBatchHour != nil {
+            nightlyQueue.append(contentsOf: ready.map(\.path))
+        } else {
+            importMedia(ready)
+            if settings.watchFolderAnalyzes, let session, let last = session.document.media.last { session.analyze(assetID: last.id) }
+        }
+        runNightlyIfDue()
+    }
+
+    private var watchImported = Set<String>()
+    private var nightlyQueue: [String] = []
+
+    /// At the chosen hour, the day's watch-folder recordings go through the overnight batch (#461).
+    func runNightlyIfDue() {
+        guard let hour = settings.nightlyBatchHour, Calendar.current.component(.hour, from: Date()) == hour, !nightlyQueue.isEmpty else { return }
+        let key = "pulse.nightly.lastRun"
+        let today = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
+        guard UserDefaults.standard.double(forKey: key) != today else { return }
+        UserDefaults.standard.set(today, forKey: key)
+        let urls = nightlyQueue.map { URL(fileURLWithPath: $0) }
+        nightlyQueue.removeAll()
+        batch.options.makeYouTubeEdit = true
+        batch.add(urls)
+        batch.start()
+        PulseLog.info("Nightly batch: \(urls.count) recording\(urls.count == 1 ? "" : "s") from the watch folder")
+        notifyIfInBackground(title: "Nightly batch started", body: "\(urls.count) recording\(urls.count == 1 ? "" : "s") from the watch folder — shorts and a YouTube edit by morning")
+    }
+
+    /// What's missing for the features you've chosen (#391), once per launch.
+    func checkDependencies() {
+        var problems: [String] = []
+        let wantsWhisper = settings.ai.transcriptionEngine == .whisperCpp || !settings.ai.whisperModelPath.isEmpty
+        if wantsWhisper {
+            if WhisperCppTranscriber.locateExecutable(preferred: settings.ai.whisperExecutablePath) == nil { problems.append("whisper.cpp isn't installed") }
+            else if WhisperCppTranscriber.locateModel(preferred: settings.ai.whisperModelPath) == nil { problems.append("no Whisper model is downloaded") }
+        }
+        if !settings.ai.brollFolder.isEmpty, !FileManager.default.fileExists(atPath: (settings.ai.brollFolder as NSString).expandingTildeInPath) { problems.append("the B-roll folder is missing") }
+        if !settings.ai.musicFolder.isEmpty, !FileManager.default.fileExists(atPath: (settings.ai.musicFolder as NSString).expandingTildeInPath) { problems.append("the music folder is missing") }
+        guard !problems.isEmpty else { return }
+        toast("Heads-up: \(problems.joined(separator: ", ")) — Settings → Diagnostics has the fixes")
+    }
+
+    // MARK: Archive (#470)
+
+    /// The project and every file it references, zipped where you choose: media copied into Media/ so it opens
+    /// anywhere.
+    func archiveProject(_ summary: ProjectSummary) {
+        let package = ProjectPackage(url: URL(fileURLWithPath: summary.path))
+        if session?.package == package { session?.save() }
+        guard let doc = try? store.load(package).document else { presentMessage(title: "Couldn't read the project", message: summary.name); return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = ExportSettings.cleanComponent(summary.name) + ".pulsearchive.zip"
+        panel.allowedContentTypes = [.zip]
+        panel.prompt = "Archive"
+        let total = doc.media.map(\.metadata.fileSize).reduce(0, +)
+        panel.message = "Project plus \(doc.media.count) media file\(doc.media.count == 1 ? "" : "s") (\(ByteCountFormatter.string(fromByteCount: total, countStyle: .file)))"
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+        jobs.start("Archiving \(summary.name)", kind: .export) { job in
+            let work = FileManager.default.temporaryDirectory.appendingPathComponent("pulse-archive-\(UUID().uuidString)", isDirectory: true)
+            let root = work.appendingPathComponent(ExportSettings.cleanComponent(summary.name), isDirectory: true)
+            let mediaDir = root.appendingPathComponent("Media", isDirectory: true)
+            do {
+                try FileManager.default.createDirectory(at: mediaDir, withIntermediateDirectories: true)
+                try FileManager.default.copyItem(at: package.url, to: root.appendingPathComponent(package.url.lastPathComponent))
+                var copied = 0
+                for (i, asset) in doc.media.enumerated() where FileManager.default.fileExists(atPath: asset.path) {
+                    job.detail = asset.name
+                    job.progress = Double(i) / Double(max(doc.media.count, 1))
+                    let target = mediaDir.appendingPathComponent(URL(fileURLWithPath: asset.path).lastPathComponent)
+                    if !FileManager.default.fileExists(atPath: target.path) { try FileManager.default.copyItem(at: URL(fileURLWithPath: asset.path), to: target) }
+                    copied += 1
+                }
+                try "PULSE archive. Open the .pulse project in PULSE; media that moved is found in Media/ by name.".write(to: root.appendingPathComponent("README.txt"), atomically: true, encoding: .utf8)
+                try? FileManager.default.removeItem(at: destination)
+                let ditto = Process()
+                ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+                ditto.arguments = ["-c", "-k", "--keepParent", root.path, destination.path]
+                try ditto.run()
+                ditto.waitUntilExit()
+                try? FileManager.default.removeItem(at: work)
+                guard ditto.terminationStatus == 0 else { throw CocoaError(.fileWriteUnknown) }
+                await MainActor.run {
+                    self.logActivity(.export, title: "Archived “\(summary.name)”", detail: "\(copied) media files · \(destination.lastPathComponent)")
+                    self.toast("Archived “\(summary.name)” with \(copied) media file\(copied == 1 ? "" : "s")")
+                    NSWorkspace.shared.activateFileViewerSelecting([destination])
+                }
+            } catch {
+                try? FileManager.default.removeItem(at: work)
+                await MainActor.run { self.present(error, title: "Couldn't archive the project") }
+            }
+        }
+    }
+
+    /// Unpacks an archive next to your projects, relinks media to its Media/ folder by name, and opens it.
+    func restoreArchive() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.zip]
+        panel.message = "Choose a PULSE archive (.pulsearchive.zip)"
+        panel.prompt = "Restore"
+        guard panel.runModal() == .OK, let zip = panel.url else { return }
+        let target = projectsFolder.appendingPathComponent("Restored " + zip.deletingPathExtension().deletingPathExtension().lastPathComponent, isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+            let ditto = Process()
+            ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+            ditto.arguments = ["-x", "-k", zip.path, target.path]
+            try ditto.run()
+            ditto.waitUntilExit()
+            guard ditto.terminationStatus == 0 else { throw CocoaError(.fileReadCorruptFile) }
+            guard let enumerator = FileManager.default.enumerator(at: target, includingPropertiesForKeys: nil),
+                  let projectURL = enumerator.compactMap({ $0 as? URL }).first(where: { $0.pathExtension == ProjectPackage.fileExtension }) else {
+                throw CocoaError(.fileReadNoSuchFile)
+            }
+            let mediaDir = projectURL.deletingLastPathComponent().appendingPathComponent("Media", isDirectory: true)
+            let package = ProjectPackage(url: projectURL)
+            var doc = try store.load(package).document
+            var relinked = 0
+            for i in doc.media.indices where !FileManager.default.fileExists(atPath: doc.media[i].path) {
+                let candidate = mediaDir.appendingPathComponent(URL(fileURLWithPath: doc.media[i].path).lastPathComponent)
+                if FileManager.default.fileExists(atPath: candidate.path) {
+                    doc.media[i].path = candidate.path
+                    doc.media[i].bookmark = MediaAccess.bookmark(for: candidate)
+                    doc.media[i].availability = .online
+                    relinked += 1
+                }
+            }
+            try store.save(doc, to: package)
+            library?.index(doc, path: package.url.path, thumbnailPath: nil)
+            refreshProjects()
+            openProject(at: projectURL)
+            toast("Restored “\(doc.name)”\(relinked > 0 ? " — \(relinked) media file\(relinked == 1 ? "" : "s") relinked" : "")")
+        } catch {
+            present(error, title: "Couldn't restore the archive")
+        }
     }
 
     /// When the project needs to be posted (#475); nil clears it.

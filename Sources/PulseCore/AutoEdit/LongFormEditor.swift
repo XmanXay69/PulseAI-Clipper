@@ -511,8 +511,11 @@ public enum LongFormEditor {
         if options.extras.facecamPunchIns, profile == .gameplayWithFacecam, let webcam = analysis.webcam, timeline.tracks[0].clips.count > 0 {
             var times: [Seconds] = []
             let budget = options.extras.punchInsPerVideo > 0 ? options.extras.punchInsPerVideo : 6
+            // No punch-in where the facecam is empty (#47).
+            let absent = FacecamPresence.absentRanges(faces: analysis.visual?.faces ?? [], region: webcam.region, duration: analysis.duration)
             for s in segments.sorted(by: { $0.potential > $1.potential }) where s.potential >= 55 && times.count < budget {
                 guard !Set(s.tags).isDisjoint(with: [.reaction, .funny, .fail, .rage, .hype, .highEnergy]),
+                      !absent.contains(where: { $0.contains(s.payoff) }),
                       let t = timelineTime(ofSource: s.payoff), !times.contains(where: { abs($0 - t) < 45 }) else { continue }
                 times.append(t)
             }

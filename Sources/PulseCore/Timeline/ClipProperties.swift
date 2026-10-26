@@ -549,6 +549,8 @@ public struct AudioSettings: Codable, Hashable, Sendable {
     /// Mute or bleep the swear words (`censorRanges`, in source time) as part of the enhance render.
     public var censor: CensorAudio = .off
     public var censorRanges: [TimeRange] = []
+    /// Pitch of the bleep (#277).
+    public var censorTone: Double = 1000
 
     public init(volume: Double = 1) {
         self.volume = AnimatedDouble(volume)

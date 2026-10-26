@@ -262,7 +262,7 @@ public enum AudioEnhanceChain {
         // 8. Swear words last, so the bleep sits at a fixed level whatever the chain did before it.
         if settings.censors {
             let local = settings.censorRanges.map { TimeRange(start: $0.start - sourceStart, end: $0.end - sourceStart) }
-            AudioCensor.process(&channels, sampleRate: sampleRate, ranges: local, mode: settings.censor)
+            AudioCensor.process(&channels, sampleRate: sampleRate, ranges: local, mode: settings.censor, frequency: settings.censorTone)
         }
         return denoisedWith
     }
@@ -451,7 +451,7 @@ extension AudioSettings {
             noiseReduction > 0.001 && noiseMethod == .voiceIsolation ? "vi" : "",
             eq.isEnabled ? String(format: "eq%.2f,%.2f,%.2f,%.1f", eq.lowGain, eq.midGain, eq.highGain, eq.highPassHz) : "",
             compressor.isEnabled ? String(format: "c%.2f,%.2f,%.2f", compressor.thresholdDB, compressor.ratio, compressor.makeupGainDB) : "",
-            censors ? "x" + censor.rawValue + censorRanges.map { String(format: "%.2f-%.2f", $0.start, $0.end) }.joined(separator: ",") : "",
+            censors ? "x" + censor.rawValue + (censor == .bleep ? "@\(Int(censorTone))" : "") + censorRanges.map { String(format: "%.2f-%.2f", $0.start, $0.end) }.joined(separator: ",") : "",
         ]
         return parts.joined(separator: "|")
     }

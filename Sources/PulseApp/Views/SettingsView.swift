@@ -492,6 +492,14 @@ struct AIFeatureSettings: View {
                 }
                 .pickerStyle(.segmented).labelsHidden().frame(width: 220)
             }
+            SettingsRow("Bleep tone", detail: "Pitch of the bleep over swear words.") {
+                Picker("", selection: $app.settings.ai.bleepTone) {
+                    Text("Low (440 Hz)").tag(440.0)
+                    Text("Classic (1 kHz)").tag(1000.0)
+                    Text("High (2 kHz)").tag(2000.0)
+                }
+                .pickerStyle(.segmented).labelsHidden().frame(width: 300)
+            }
             SettingsRow("Cold open on shorts", detail: "Shorts open on 1.6 s of the payoff, cut hard, then tell the story.") {
                 Toggle("", isOn: $app.settings.ai.coldOpenShorts).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
             }
@@ -535,7 +543,7 @@ struct TranscriptionSettings: View {
     @EnvironmentObject var app: AppModel
 
     static let languages: [(String, String)] = [
-        ("en-US", "English (US)"), ("en-GB", "English (UK)"), ("es-ES", "Spanish"), ("fr-FR", "French"), ("de-DE", "German"),
+        ("auto", "Automatic (detect per stream)"), ("en-US", "English (US)"), ("en-GB", "English (UK)"), ("es-ES", "Spanish"), ("fr-FR", "French"), ("de-DE", "German"),
         ("it-IT", "Italian"), ("pt-BR", "Portuguese (Brazil)"), ("ja-JP", "Japanese"), ("ko-KR", "Korean"), ("zh-CN", "Chinese (Simplified)"),
     ]
 
@@ -724,6 +732,21 @@ struct FileSettings: View {
     @EnvironmentObject var app: AppModel
 
     var body: some View {
+        SettingsGroup("Watch folder", footnote: "Anything that lands in this folder is imported into the open project (or a new one named after the file). With a nightly hour set, the day's recordings run through the overnight batch — shorts and a YouTube edit by morning.") {
+            SettingsRow("Folder") {
+                pathField($app.settings.watchFolder, placeholder: "None", directory: true)
+            }
+            SettingsRow("Analyze on arrival") {
+                Toggle("", isOn: $app.settings.watchFolderAnalyzes).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
+            }
+            SettingsRow("Nightly batch") {
+                Picker("", selection: Binding(get: { app.settings.nightlyBatchHour ?? -1 }, set: { app.settings.nightlyBatchHour = $0 < 0 ? nil : $0 })) {
+                    Text("Off").tag(-1)
+                    ForEach([0, 1, 2, 3, 4, 5, 22, 23], id: \.self) { h in Text(String(format: "%02d:00", h)).tag(h) }
+                }
+                .labelsHidden().frame(width: 120)
+            }
+        }
         SettingsGroup("Folders", footnote: "Leave a folder empty to use the default. Media is referenced in place, never copied, unless you choose otherwise.") {
             SettingsRow("Projects", detail: app.projectsFolder.path) {
                 pathField($app.settings.projectFolder, placeholder: "Default", directory: true)

@@ -9,7 +9,7 @@ struct ProjectsView: View {
     @State private var filter: Filter = .all
     @State private var sort: Sort = .modified
 
-    enum Filter: String, CaseIterable { case all = "All", favorites = "Favorites", trash = "Trash" }
+    enum Filter: String, CaseIterable { case all = "All", favorites = "Favorites", thisWeek = "This Week", inProgress = "In Progress", exported = "Exported", dueSoon = "Due Soon", trash = "Trash" }
     enum Sort: String, CaseIterable { case modified = "Last Edited", name = "Name", duration = "Duration", clips = "Clips" }
 
     var filtered: [ProjectSummary] {
@@ -17,6 +17,10 @@ struct ProjectsView: View {
         switch filter {
         case .all: list = app.projects.filter { !$0.isTrashed }
         case .favorites: list = app.projects.filter { $0.isFavorite && !$0.isTrashed }
+        case .thisWeek: list = app.projects.filter { !$0.isTrashed && $0.modifiedAt > Date().addingTimeInterval(-7 * 86400) }
+        case .inProgress: list = app.projects.filter { !$0.isTrashed && ($0.status == .editing || $0.status == .clipsReady || $0.status == .analyzing) }
+        case .exported: list = app.projects.filter { !$0.isTrashed && $0.status == .exported }
+        case .dueSoon: list = app.projects.filter { !$0.isTrashed && ($0.deadline.map { $0.timeIntervalSinceNow < 7 * 86400 } ?? false) }.sorted { ($0.deadline ?? .distantFuture) < ($1.deadline ?? .distantFuture) }
         case .trash: list = (app.library?.projects(includeTrashed: true) ?? []).filter(\.isTrashed)
         }
         if !query.isEmpty { list = list.filter { $0.name.localizedCaseInsensitiveContains(query) } }

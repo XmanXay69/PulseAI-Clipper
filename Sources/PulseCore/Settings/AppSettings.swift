@@ -80,6 +80,10 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var socialHandle: String = ""
     /// B-roll clips used in recent edits, newest last; the next edit avoids them (#133).
     public var recentBrollIDs: [String] = []
+    /// Words you emphasised by hand (+) or un-emphasised (−) in captions; new captions learn from it (#238).
+    public var emphasisLearned: [String: Int] = [:]
+    /// Pitch of the bleep over swear words (#277).
+    public var bleepTone: Double = 1000
     public var aiFraming: Bool = true
     /// Label who is talking after transcription (local diarization).
     public var detectSpeakers: Bool = true
@@ -156,6 +160,8 @@ public struct AISettings: Codable, Hashable, Sendable {
         askExtrasOncePerProject = c.decode(Bool.self, forKey: .askExtrasOncePerProject, default: d.askExtrasOncePerProject)
         socialHandle = c.decode(String.self, forKey: .socialHandle, default: d.socialHandle)
         recentBrollIDs = c.decode([String].self, forKey: .recentBrollIDs, default: d.recentBrollIDs)
+        emphasisLearned = c.decode([String: Int].self, forKey: .emphasisLearned, default: d.emphasisLearned)
+        bleepTone = c.decode(Double.self, forKey: .bleepTone, default: d.bleepTone).clamped(200, 4000)
         aiFraming = c.decode(Bool.self, forKey: .aiFraming, default: d.aiFraming)
         detectSpeakers = c.decode(Bool.self, forKey: .detectSpeakers, default: d.detectSpeakers)
         speakerCount = c.decode(Int.self, forKey: .speakerCount, default: d.speakerCount)
@@ -209,6 +215,27 @@ public struct ProxySettings: Codable, Hashable, Sendable {
 
     public func shouldGenerateProxy(sourceHeight: Int, duration: Seconds) -> Bool {
         enabled && (sourceHeight > autoThresholdHeight || duration > 2 * 3600)
+    }
+
+    /// Codecs that decode frame by frame (ProRes, DNxHR, Motion JPEG, DV) play fine without a proxy up to 4K;
+    /// long-GOP ones (H.264, HEVC, VP9, AV1) get one above the threshold (#16).
+    public static let intraCodecs: Set<String> = ["apch", "apcn", "apcs", "apco", "ap4h", "ap4x", "AVdn", "AVdh", "jpeg", "mjpa", "mjpb", "dvc ", "dvcp", "dvpp", "dvh1", "dvhp"]
+
+    public func shouldGenerateProxy(sourceHeight: Int, duration: Seconds, codec: String?) -> Bool {
+        guard enabled else { return false }
+        if let codec, ProxySettings.intraCodecs.contains(codec) { return sourceHeight > 2160 || duration > 2 * 3600 }
+        return shouldGenerateProxy(sourceHeight: sourceHeight, duration: duration)
+    }
+
+    /// One line for the media panel saying why a proxy was or wasn't made (#16).
+    public func proxyReason(sourceHeight: Int, duration: Seconds, codec: String?) -> String {
+        guard enabled else { return "Proxies are off in Settings" }
+        if let codec, ProxySettings.intraCodecs.contains(codec) {
+            return sourceHeight > 2160 ? "Above 4K — a proxy keeps playback smooth" : "\(codec.trimmingCharacters(in: .whitespaces)) decodes frame by frame, so no proxy is needed"
+        }
+        if sourceHeight > autoThresholdHeight { return "Above \(autoThresholdHeight)p long-GOP video — a proxy keeps playback smooth" }
+        if duration > 2 * 3600 { return "Over two hours — a proxy keeps scrubbing light" }
+        return "\(sourceHeight)p plays fine without a proxy"
     }
 }
 
@@ -289,6 +316,12 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var gradePresets: [GradePreset] = []
     /// What PULSE has done for you so far (#478).
     public var stats: LifetimeStats = LifetimeStats()
+    /// A folder PULSE watches: anything dropped in is imported (#3).
+    public var watchFolder: String = ""
+    /// Analyze what the watch folder brings in, straight away (#3).
+    public var watchFolderAnalyzes: Bool = true
+    /// Hour (0–23) at which the batch runs on what the watch folder gathered that day; nil = never (#461).
+    public var nightlyBatchHour: Int?
 
     public init() {}
 
@@ -333,6 +366,9 @@ public struct AppSettings: Codable, Hashable, Sendable {
         referenceStyles = c.decode([ReferenceStyle].self, forKey: .referenceStyles, default: d.referenceStyles)
         gradePresets = c.decode([GradePreset].self, forKey: .gradePresets, default: d.gradePresets)
         stats = c.decode(LifetimeStats.self, forKey: .stats, default: d.stats)
+        watchFolder = c.decode(String.self, forKey: .watchFolder, default: d.watchFolder)
+        watchFolderAnalyzes = c.decode(Bool.self, forKey: .watchFolderAnalyzes, default: d.watchFolderAnalyzes)
+        nightlyBatchHour = c.decode(Int?.self, forKey: .nightlyBatchHour, default: nil)
         defaultExportPresetID = c.decode(String.self, forKey: .defaultExportPresetID, default: d.defaultExportPresetID)
         recentProjectPaths = c.decode([String].self, forKey: .recentProjectPaths, default: d.recentProjectPaths)
         timecodeStyle = c.decode(TimecodeStyle.self, forKey: .timecodeStyle, default: d.timecodeStyle)

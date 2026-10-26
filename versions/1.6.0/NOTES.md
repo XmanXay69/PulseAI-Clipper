@@ -5,6 +5,9 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 [1.5.0](../1.5.0/NOTES.md) and [1.4.0](../1.4.0/NOTES.md) for those two; what's new on top:
 
 ### Edit My VOD
+- **No punch-in on an empty facecam** (#47) — when the cam is hidden (full-screen game, a dropped camera),
+  facecam punch-ins skip that stretch.
+- **Blend two references** (#367) — a style halfway between two studied videos.
 - **Story outline** (#86) — the storyboard shows the chapters the video will read as (split at the biggest
   jumps in the stream, named from the streamer's own words or what the chapter mostly is), live as you keep
   and drop moments.
@@ -64,6 +67,7 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   music overlaps the next for 3 s instead of fading out, a gap, and fading in.
 
 ### Editing
+- **History** (#175) — every undo step in a list; click one to jump back there.
 - **Match Previous Clip** (⌥⌘M, #226) — the selected clip takes the look of the one before it on its track.
 - **Cover frame** (#70) — Timeline → Set Cover Frame at Playhead; exports use it for the thumbnail.
 - **Project notes with to-dos** (#476) — a notes button on the timeline toolbar; “- [ ] grade the intro”
@@ -121,6 +125,8 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   gentle starting point you can tune.
 
 ### AI Clips
+- **Moments to find, per project** (#53) — a slider in the AI Clips header re-runs the finder for this
+  project only, with the count live.
 - **Screams count** (#29) — a sudden loud burst while a voice is going scores as a scream; a loud game with
   nobody talking doesn't.
 - **Clip lengths up to TikTok's 3 minutes** (#58) — 90 s (Reels max) and 3 min (TikTok max) presets.
@@ -162,6 +168,10 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 - **Overlap warning** (#73) — a clip that covers mostly the same stretch as a short you've already edited says so.
 
 ### Delivery
+- **Loudness target** (#279) — −14 (YouTube), −16 (podcast) or −18 LUFS in the export panel: the mix is
+  measured and brought there before encoding, never past the peak headroom. “Check only” asks as before, and
+  the answer can be remembered per project (#358).
+- **Bleep tone** (#277) — low, classic or high.
 - **Final Cut Pro XML** (#480) — Timeline → Export Final Cut Pro XML…: the cut, titles and markers open in
   Final Cut Pro or DaVinci Resolve; zooms, grades, captions and effects stay in PULSE and the file says so.
 - **Export again** (#351) — one click re-exports a finished job with the same settings.
@@ -199,11 +209,16 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   says roughly how long it adds (#129).
 
 ### Transcription
+- **Automatic language** (#37) — Whisper detects the language per stream; Apple's recogniser falls back to
+  the Mac's own.
 - **Custom vocabulary** (#43) — Settings → Transcription: game names, usernames and catchphrases are favoured
   while transcribing (Apple Speech contextual strings, whisper.cpp prompt) and corrected afterwards:
   "valerant" → "Valorant", "x q c" → "xQc", "sea of theives" → "Sea of Thieves", timings untouched.
 
 ### Captions
+- **Captions learn your emphasis** (#238) — words you keep bolding get bolded in new captions; words you
+  keep un-bolding stop being picked.
+- **Import SRT / VTT** (#247) — captions for the main recording land in source time, so the cut re-times them.
 - **Lines break at the phrase** (#255) — two-line pages break after a comma or a pause when one is near the
   middle, else where the lines come out most even.
 - **Rebuild keeps your fixes** (#258) — captions rebuilt from a newer transcript keep the words you retyped,
@@ -227,6 +242,12 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   per timeline. It's rendered into the enhance cache; the source file is never touched.
 
 ### Everywhere
+- **Watch folder** (#3) — anything that lands in it is imported (and analyzed); with a nightly hour set, the
+  day's recordings run through the overnight batch — shorts and a YouTube edit by morning (#461).
+- **Archive with media** (#470) — right-click a project: the project and every file it uses, zipped; File →
+  Restore Archived Project unpacks it and relinks the media by name.
+- **Smart folders** (#473) — This Week, In Progress, Exported and Due Soon in Projects.
+- **Launch check** (#391) — a heads-up when whisper.cpp, a model, or a chosen folder is missing.
 - **Settings search** (#443) — type what you're after; only the matching pages stay in the list.
 - **Printable shortcut sheet** (#451) — Settings → Shortcuts → Printable Cheat Sheet opens a page to print.
 - **Deadlines** (#475) — right-click a project → Deadline; the card shows when it's due and PULSE reminds you
@@ -270,6 +291,11 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   "settings"… (fuzzy, so "qexp" finds Quick Export).
 
 ### Under the hood
+- **Proxies by codec** (#16) — ProRes, DNxHR, Motion JPEG and DV decode frame by frame and get no proxy below
+  4K; long-GOP codecs do above the threshold. The media panel says why.
+- **Variable frame rate flagged** (#23) — screen recordings whose frame timing wanders are marked on import,
+  with a warning in the media panel.
+- **Short-term loudness curve** (#140) — the loudness meter keeps a 3-second curve for the check sheet.
 - **Project format 2 with migration** (#385) — older projects are brought forward on open (dangling references
   cleared, clips re-sorted, snapshots of deleted timelines dropped) and a test opens a format-1 project.
 - **Remove unused media** (#469) — the media panel offers to trim the project to the files its timelines and

@@ -106,7 +106,7 @@ extension ProjectSession {
             }
             if self.app.settings.ai.censorAudio != .off, let words = analysis.transcript?.words {
                 AudioCensor.apply(self.app.settings.ai.censorAudio, to: &result.timeline, words: words, assetID: asset.id,
-                                  extra: self.app.settings.ai.normalizedExtraProfanity)
+                                  extra: self.app.settings.ai.normalizedExtraProfanity, tone: self.app.settings.ai.bleepTone)
             }
             let timeline = result.timeline
             var seen = Set<UUID>()
@@ -161,7 +161,7 @@ extension ProjectSession {
         var placements: [(asset: MediaAsset, at: Seconds)] = []
         var clips: [OnlineTrack] = []
         // Not the same meme as the last few videos (#133).
-        var used = Set(app.settings.recentBrollIDs)
+        var used = Set(app.settings.ai.recentBrollIDs)
         // Your own clips first (Settings → AI Features → B-roll folder): a file whose name matches the moment's
         // mood ("fail", "hype", "laugh"…), else any clip not used yet in this edit.
         let own = ownBrollClips()
@@ -204,9 +204,9 @@ extension ProjectSession {
         }
         PulseLog.info("B-roll: \(placements.count) of \(moments.count) cutaways found")
         if !clips.isEmpty {
-            var recent = app.settings.recentBrollIDs.filter { id in !clips.contains { $0.videoID == id } } + clips.map(\.videoID)
+            var recent = app.settings.ai.recentBrollIDs.filter { id in !clips.contains { $0.videoID == id } } + clips.map(\.videoID)
             if recent.count > 60 { recent.removeFirst(recent.count - 60) }
-            app.settings.recentBrollIDs = recent
+            app.settings.ai.recentBrollIDs = recent
         }
         return (placements, clips)
     }

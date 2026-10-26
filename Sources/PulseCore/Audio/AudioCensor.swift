@@ -38,7 +38,8 @@ public enum AudioCensor {
 
     /// Sets censoring on every clip of `assetID` in the timeline (off clears it). Returns how many stretches are covered.
     @discardableResult
-    public static func apply(_ mode: CensorAudio, to timeline: inout Timeline, words: [TranscriptWord], assetID: UUID, extra: Set<String> = []) -> Int {
+    public static func apply(_ mode: CensorAudio, to timeline: inout Timeline, words: [TranscriptWord], assetID: UUID, extra: Set<String> = [],
+                             tone: Double = 1000) -> Int {
         var count = 0
         for t in timeline.tracks.indices {
             for c in timeline.tracks[t].clips.indices where timeline.tracks[t].clips[c].content.assetID == assetID {
@@ -46,6 +47,7 @@ public enum AudioCensor {
                 let found = mode == .off ? [] : ranges(words: words, in: clip.sourceRange, extra: extra)
                 timeline.tracks[t].clips[c].audio.censor = found.isEmpty ? .off : mode
                 timeline.tracks[t].clips[c].audio.censorRanges = found
+                timeline.tracks[t].clips[c].audio.censorTone = tone
                 count += found.count
             }
         }
@@ -53,10 +55,11 @@ public enum AudioCensor {
     }
 
     /// Replaces clip-relative ranges with silence or a 1 kHz tone, with 5 ms ramps so there are no clicks.
-    public static func process(_ channels: inout [[Float]], sampleRate: Double, ranges: [TimeRange], mode: CensorAudio) {
+    public static func process(_ channels: inout [[Float]], sampleRate: Double, ranges: [TimeRange], mode: CensorAudio, frequency: Double = bleepHz) {
         guard mode != .off, let length = channels.first?.count, length > 0, sampleRate > 0 else { return }
         let ramp = max(1, Int(sampleRate * 0.005))
         let tone = Float(pow(10, bleepDB / 20))
+        let bleepHz = frequency.clamped(200, 4000)
         for r in ranges {
             let a = max(0, Int(r.start * sampleRate)), b = min(length, Int(r.end * sampleRate))
             guard b > a else { continue }

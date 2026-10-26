@@ -60,6 +60,8 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
     public var deadline: Date?
     /// Time spent with this project open and the app in front (#477).
     public var editingSeconds: Seconds = 0
+    /// What to do when the loudness check finds a problem, remembered per project (#358): "fix" or "asIs".
+    public var loudnessChoice: String?
 
     public init(id: UUID = UUID(), name: String, createdAt: Date = Date()) {
         self.id = id
@@ -111,6 +113,7 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
         extrasAnswered = c.decode(Bool.self, forKey: .extrasAnswered, default: false)
         deadline = c.decode(Date?.self, forKey: .deadline, default: nil)
         editingSeconds = c.decode(Seconds.self, forKey: .editingSeconds, default: 0)
+        loudnessChoice = c.decode(String?.self, forKey: .loudnessChoice, default: nil)
     }
 
     // MARK: Convenience
