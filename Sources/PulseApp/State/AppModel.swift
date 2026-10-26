@@ -94,6 +94,10 @@ final class AppModel: ObservableObject {
     @Published var settings: AppSettings {
         didSet {
             persistSettings()
+            if oldValue.thumbnailCacheMB != settings.thumbnailCacheMB {
+                let mb = settings.thumbnailCacheMB
+                Task.detached(priority: .utility) { await ThumbnailService.shared.setMemoryCeiling(megabytes: mb) }
+            }
             EngagementLexicon.customProfanity = settings.ai.normalizedExtraProfanity
             EmphasisDetector.learned = settings.ai.emphasisLearned
             Theme.accentChoice = settings.accent
@@ -191,6 +195,14 @@ final class AppModel: ObservableObject {
         showOnboarding = !settings.hasCompletedOnboarding
         globalTemplates = AppModel.loadTemplates()
         recordingStatus = RecordingStatusItem(recording: recording, app: self)
+        // Caches trim themselves when the Mac runs short of memory (#377).
+        let cacheMB = settings.thumbnailCacheMB
+        Task.detached(priority: .utility) { await ThumbnailService.shared.setMemoryCeiling(megabytes: cacheMB) }
+        MemoryPressure.shared.onPressure = { [weak self] level in
+            Task.detached(priority: .userInitiated) { await ThumbnailService.shared.trimMemory(to: level == .critical ? 0 : 0.25) }
+            if level == .critical { self?.toast("The Mac is very low on memory — PULSE emptied its frame caches. Closing other apps will help.") }
+        }
+        MemoryPressure.shared.start()
         if Bundle.main.bundleURL.pathExtension == "app", Bundle.main.bundleIdentifier != nil { NotificationActions.shared.install() }
         jobs.onFinished = { [weak self] job in
             // How long it took, for the performance log in bug reports (#395).
@@ -1133,6 +1145,14 @@ final class AppModel: ObservableObject {
         let info = Bundle.main.infoDictionary
         guard let v = info?["CFBundleShortVersionString"] as? String else { return "dev" }
         return "\(v) (\(info?["CFBundleVersion"] as? String ?? "?"))"
+    }
+
+    /// A soft click per frame step when the setting is on (#198).
+    func tick() {
+        guard settings.scrubTick else { return }
+        let sound = NSSound(named: "Tink")
+        sound?.volume = 0.2
+        sound?.play()
     }
 
     func toast(_ message: String) {

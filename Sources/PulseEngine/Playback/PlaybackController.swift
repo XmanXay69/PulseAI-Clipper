@@ -34,6 +34,14 @@ public final class PlaybackController: ObservableObject {
     /// Drives the transport bar's speed readout so J/K/L presses are visible, not just audible.
     @Published public private(set) var playbackRate: Float = 0
     @Published public private(set) var isBuilding = false
+    /// Playback fell behind real time for a stretch (#187): the app drops the viewer quality a step
+    /// when it's allowed to. Reset on every rebuild.
+    @Published public private(set) var isStruggling = false
+    /// What the current composition renders at (1 = canvas size).
+    @Published public private(set) var renderScale: Double = 1
+    private var paceSamples = 0
+    private var laggingSamples = 0
+    private var lastTick: (wall: TimeInterval, media: Seconds)?
     /// Processed audio for the open edit is still rendering (the picture is already showing).
     @Published public private(set) var isEnhancingAudio = false
     /// 0…1 while leveled audio renders.
@@ -67,6 +75,7 @@ public final class PlaybackController: ObservableObject {
                 // While scrubbing the playhead already shows where the mouse is.
                 guard let self, !self.isSeekingForScrub else { return }
                 self.currentTime = time.secondsValue
+                self.samplePace(media: time.secondsValue)
                 if self.loopEnabled, self.isPlaying, let r = self.loopRange, r.duration > 0.1, self.currentTime >= r.end - 0.03 {
                     self.seek(to: r.start)
                     self.player.play()
@@ -82,21 +91,50 @@ public final class PlaybackController: ObservableObject {
         }
     }
 
+    /// Media time should advance with the clock while playing at 1×; when it keeps falling short the
+    /// renderer can't keep up with the canvas size.
+    private func samplePace(media: Seconds) {
+        let now = ProcessInfo.processInfo.systemUptime
+        defer { lastTick = (now, media) }
+        guard isPlaying, abs(playbackRate - 1) < 0.01, let last = lastTick else { return }
+        let wall = now - last.wall
+        guard wall > 0.02, wall < 0.5 else { return }
+        paceSamples += 1
+        if media - last.media < wall * 0.7 { laggingSamples += 1 }
+        if paceSamples >= 45 {   // ~1.5 s of playback
+            if laggingSamples >= paceSamples / 3, !isStruggling { isStruggling = true }
+            paceSamples = 0
+            laggingSamples = 0
+        }
+    }
+
     /// Rebuilds the composition for `timeline`. Rapid successive calls (slider drags) are coalesced.
+    /// `renderScale` shrinks the viewer's frames (#187): 0.5 renders at half the canvas size.
     public func load(timeline: Timeline, assets: [UUID: MediaAsset], compounds: [UUID: Timeline] = [:], useProxies: Bool,
-                     safeArea: SafeAreaPlatform? = nil, debounce: Double = 0.08) {
+                     safeArea: SafeAreaPlatform? = nil, debounce: Double = 0.08, renderScale: Double = 1) {
         buildTask?.cancel()
         buildGeneration += 1
         isEnhancingAudio = false
         let generation = buildGeneration
         frameRate = timeline.canvas.frameRate
         isBuilding = true
+        isStruggling = false
+        paceSamples = 0
+        laggingSamples = 0
+        lastTick = nil
+        self.renderScale = renderScale
+        var renderSize: CGSize?
+        if renderScale < 0.999 {
+            let quality = PlaybackQuality.allCases.first { abs($0.scale - renderScale) < 0.01 } ?? .half
+            let size = quality.renderSize(width: timeline.canvas.width, height: timeline.canvas.height)
+            renderSize = CGSize(width: size.width, height: size.height)
+        }
         buildTask = Task { [weak self] in
             if debounce > 0 { try? await Task.sleep(nanoseconds: UInt64(debounce * 1_000_000_000)) }
             if Task.isCancelled { return }
             do {
                 let built = try await CompositionBuilder.build(timeline: timeline, assets: assets,
-                                                               options: Self.options(useProxies: useProxies, safeArea: safeArea, compounds: compounds))
+                                                               options: Self.options(useProxies: useProxies, safeArea: safeArea, compounds: compounds, renderSize: renderSize))
                 guard let self, !Task.isCancelled, generation == self.buildGeneration else { return }
                 // Picture first: the edit shows immediately with the original audio…
                 self.install(built)
@@ -114,7 +152,7 @@ public final class PlaybackController: ObservableObject {
                 }
                 guard !Task.isCancelled, generation == self.buildGeneration else { return }
                 let finished = try await CompositionBuilder.build(timeline: timeline, assets: assets,
-                                                                  options: Self.options(useProxies: useProxies, safeArea: safeArea, compounds: compounds))
+                                                                  options: Self.options(useProxies: useProxies, safeArea: safeArea, compounds: compounds, renderSize: renderSize))
                 guard !Task.isCancelled, generation == self.buildGeneration else { return }
                 self.install(finished)
                 self.isEnhancingAudio = false
@@ -126,8 +164,8 @@ public final class PlaybackController: ObservableObject {
         }
     }
 
-    nonisolated static func options(useProxies: Bool, safeArea: SafeAreaPlatform?, compounds: [UUID: Timeline]) -> CompositionBuilder.Options {
-        var options = CompositionBuilder.Options(useProxies: useProxies, showSafeArea: safeArea)
+    nonisolated static func options(useProxies: Bool, safeArea: SafeAreaPlatform?, compounds: [UUID: Timeline], renderSize: CGSize? = nil) -> CompositionBuilder.Options {
+        var options = CompositionBuilder.Options(renderSize: renderSize, useProxies: useProxies, showSafeArea: safeArea)
         options.compounds = compounds
         options.renderEnhancements = false
         return options

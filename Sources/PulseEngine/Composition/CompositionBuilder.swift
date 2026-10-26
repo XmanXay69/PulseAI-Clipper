@@ -396,6 +396,10 @@ public enum CompositionBuilder {
                 return EnhanceSpanInput(clipID: clip.id, group: "\(id)|\(clip.audio.enhanceFingerprint)",
                                         range: TimeRange(start: clip.sourceIn, end: clip.sourceOut + tailLength))
             })
+            // Tape-style varispeed when every retimed clip on the track asks for it (#170); otherwise the
+            // pitch-preserving algorithm the player item uses.
+            let retimed = track.clips.filter { abs($0.speed - 1) > 0.001 }
+            let varispeed = !retimed.isEmpty && retimed.allSatisfy { !$0.audio.preservePitch }
             for original in track.clips.sorted(by: { $0.start < $1.start }) where original.isEnabled {
                 var clip = original
                 if let fade = crossfades.fadeIn[clip.id] { clip.audio.fadeIn = max(clip.audio.fadeIn, fade) }
@@ -481,11 +485,13 @@ public enum CompositionBuilder {
             }
             if let compTrack {
                 let params = AVMutableAudioMixInputParameters(track: compTrack)
+                if varispeed { params.audioTimePitchAlgorithm = .varispeed }
                 applyRamps(ramps, to: params)
                 mixParameters.append(params)
             }
             if let handleTrack {
                 let params = AVMutableAudioMixInputParameters(track: handleTrack)
+                if varispeed { params.audioTimePitchAlgorithm = .varispeed }
                 applyRamps(handleRamps, to: params)
                 mixParameters.append(params)
             }

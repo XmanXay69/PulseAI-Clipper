@@ -81,9 +81,13 @@ public struct ImportPlan: Sendable {
     public var duplicates: [URL]
     /// Chat replays found next to the recordings (#13): `<name>.json`, `<name>-chat.json`, `<name>_chat.json`.
     public var chatLogs: [URL] = []
+    /// An import preset's say on syncing (#25): true = treat the batch as one session whatever the roles,
+    /// nil = decide from the roles.
+    public var forcedSession: Bool?
 
     /// True when the batch looks like a multi-source recording (e.g. gameplay + webcam + mic).
     public var isMultiSourceSession: Bool {
+        if let forcedSession { return forcedSession && items.count >= 2 }
         let roles = Set(items.map(\.role))
         let visual = roles.intersection([.gameplay, .webcam, .camera])
         return visual.count >= 2 || (visual.count >= 1 && roles.contains(.microphone))

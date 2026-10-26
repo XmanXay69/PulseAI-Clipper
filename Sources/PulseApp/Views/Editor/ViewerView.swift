@@ -167,6 +167,7 @@ struct ViewerView: View {
                 }
             }
             Spacer(minLength: 4)
+            PlaybackQualityMenu(session: session)
             // Full readout when there's room, shorter when the viewer is narrow, nothing when it's very narrow.
             ViewThatFits(in: .horizontal) {
                 Text("\(canvas.width)×\(canvas.height) · \(canvas.aspectLabel) · \(Int(canvas.frameRate)) fps")
@@ -418,7 +419,7 @@ struct TransportBar: View {
             }
             Spacer(minLength: 4)
             IconButton(symbol: "backward.end.fill", help: "Go to start (Home)") { playback.goToStart() }
-            IconButton(symbol: "backward.frame.fill", help: "Previous frame (←)") { playback.step(frames: -1) }
+            IconButton(symbol: "backward.frame.fill", help: "Previous frame (←)") { playback.step(frames: -1); app.tick() }
             Button { playback.togglePlayPause() } label: {
                 Image(systemName: playback.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 15, weight: .semibold))
@@ -433,7 +434,7 @@ struct TransportBar: View {
             }
             .buttonStyle(.plain)
             .help("Play / Pause (Space)")
-            IconButton(symbol: "forward.frame.fill", help: "Next frame (→)") { playback.step(frames: 1) }
+            IconButton(symbol: "forward.frame.fill", help: "Next frame (→)") { playback.step(frames: 1); app.tick() }
             IconButton(symbol: "forward.end.fill", help: "Go to end (End)") { playback.goToEnd() }
             IconButton(symbol: "repeat", help: "Loop", isActive: playback.loopEnabled && playback.loopRange == nil) { playback.loopRange = nil; playback.loopEnabled.toggle() }
             IconButton(symbol: "repeat.1", help: "Loop in → out (⌥L)", isActive: playback.loopEnabled && playback.loopRange != nil) { session.toggleLoopInOut() }
@@ -566,5 +567,82 @@ struct PlatformChrome: View {
             .offset(y: h * (1 - i.bottom * 0.45))
         }
         .allowsHitTesting(false)
+    }
+}
+
+
+/// Viewer render quality (#187): Full / ½ / ¼, with "auto" when PULSE stepped it down itself.
+struct PlaybackQualityMenu: View {
+    @EnvironmentObject var app: AppModel
+    @ObservedObject var session: ProjectSession
+
+    var body: some View {
+        let quality = session.effectivePlaybackQuality
+        let dropped = session.playbackQualityOverride != nil
+        Menu {
+            ForEach(PlaybackQuality.allCases, id: \.self) { q in
+                Button {
+                    session.setPlaybackQuality(q)
+                } label: {
+                    if q == quality { Label(q.longName, systemImage: "checkmark") } else { Text(q.longName) }
+                }
+            }
+            Divider()
+            Toggle("Drop a step when playback stutters", isOn: $app.settings.autoPlaybackQuality)
+            if dropped {
+                Button("Back to \(app.settings.playbackQuality.longName.lowercased())") { session.setPlaybackQuality(app.settings.playbackQuality) }
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: quality == .full ? "sparkles.tv" : "tv").font(.system(size: 10, weight: .semibold))
+                Text(quality == .full ? "Full" : quality.displayName + (dropped ? " auto" : ""))
+                    .font(.pulseMicro).monospacedDigit()
+            }
+            .foregroundStyle(dropped ? Theme.warning : Theme.textSecondary)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help(dropped ? "Playback was falling behind, so the viewer renders at \(quality.longName.lowercased()). Exports always render in full."
+                      : "Viewer render size — lower is lighter on the GPU; exports always render in full")
+    }
+}
+
+/// The viewer in its own window (#205): the same player as the editor, so it stays in sync.
+struct DetachedViewerWindow: View {
+    @EnvironmentObject var app: AppModel
+
+    var body: some View {
+        Group {
+            if let session = app.session {
+                DetachedViewerContent(session: session)
+            } else {
+                Text("Open a project and its viewer shows here")
+                    .font(.pulseBody).foregroundStyle(Theme.textSecondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .background(Theme.well)
+    }
+}
+
+struct DetachedViewerContent: View {
+    @ObservedObject var session: ProjectSession
+    @ObservedObject var playback: PlaybackController
+
+    init(session: ProjectSession) {
+        self.session = session
+        self.playback = session.playback
+    }
+
+    var body: some View {
+        let canvas = session.activeTimeline?.canvas ?? .vertical1080
+        VStack(spacing: 0) {
+            PlayerView(player: playback.player)
+                .aspectRatio(CGFloat(max(canvas.width, 1)) / CGFloat(max(canvas.height, 1)), contentMode: .fit)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(12)
+            TransportBar(session: session, playback: playback)
+        }
+        .background(Theme.well)
     }
 }

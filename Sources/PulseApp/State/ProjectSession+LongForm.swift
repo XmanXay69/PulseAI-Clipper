@@ -82,8 +82,14 @@ extension ProjectSession {
                     if prepared.isNew { newAssets.append(prepared.asset) }
                     job.progress = 0.3 + 0.65 * Double(i + 1) / Double(result.musicChapters.count)
                 }
+                // A bed shorter than its chapter loops at its cleanest seam instead of restarting (#294).
+                var loops: [UUID: LoopPoints.Loop] = [:]
+                for bed in beds where bed.metadata.duration > 8 {
+                    let peaks = await WaveformService.shared.peaks(for: self.url(for: bed))
+                    if let loop = LoopPoints.find(peaks: peaks, perSecond: Double(WaveformService.peaksPerSecond)) { loops[bed.id] = loop }
+                }
                 LongFormEditor.addMusic(beds, chapters: result.musicChapters, to: &result.timeline, drops: result.musicDrops,
-                                        level: options.musicLevel * LongFormEditor.musicLevel)
+                                        level: options.musicLevel * LongFormEditor.musicLevel, loops: loops)
             }
             // 4. The extras you said yes to.
             if options.extras.beatSync {

@@ -55,6 +55,26 @@ struct PulseMain: App {
                 .preferredColorScheme(.dark)
                 .frame(width: 720, height: 560)
         }
+
+        // The viewer on its own, for a second monitor (#205). Same player, so it stays in sync for free.
+        Window("Viewer", id: "viewer") {
+            DetachedViewerWindow()
+                .environmentObject(app)
+                .preferredColorScheme(.dark)
+                .frame(minWidth: 420, minHeight: 320)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 720, height: 560)
+    }
+}
+
+/// Window → Viewer in Separate Window. Lives in a view so the command can reach `openWindow`.
+struct OpenViewerWindowButton: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Viewer in Separate Window") { openWindow(id: "viewer") }
+            .keyboardShortcut("v", modifiers: [.command, .option, .shift])
     }
 }
 
@@ -282,6 +302,7 @@ struct PulseCommands: Commands {
                     Button(preset.displayName) { app.settings.currentWorkspace = preset }
                 }
             }
+            OpenViewerWindowButton()
         }
     }
 }
@@ -315,8 +336,8 @@ final class KeyboardShortcutMonitor {
         let playback = session.playback
         switch event.keyCode {
         case 49: playback.togglePlayPause(); return true                        // Space
-        case 123: playback.step(frames: modifiers.contains(.shift) ? -10 : -1); return true   // ←
-        case 124: playback.step(frames: modifiers.contains(.shift) ? 10 : 1); return true     // →
+        case 123: playback.step(frames: modifiers.contains(.shift) ? -10 : -1); app.tick(); return true   // ←
+        case 124: playback.step(frames: modifiers.contains(.shift) ? 10 : 1); app.tick(); return true     // →
         case 51, 117:                                                           // Delete / Fwd Delete
             session.deleteSelection(ripple: modifiers.contains(.shift))
             return true

@@ -15,8 +15,10 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
 Already installed? PULSE shows an **Update** button when a new version is out — no need to download again.
 
 **New in 1.6.2:** chapter art (a picture per chapter marker for the description), a sortable list view in the
-media panel, a GPU self-test that switches to safe mode by itself, and the shuttle speed on the transport bar
-([notes](versions/1.6.2/NOTES.md)).
+media panel, a GPU self-test that switches to safe mode by itself, the shuttle speed on the transport bar,
+viewer quality (Full / ½ / ¼) that steps down on its own when playback stutters, the viewer in a separate
+window, fade shapes and pitch preservation, grain and skin-tone protection, import presets, seamless music
+loops and a memory ceiling for the frame cache ([notes](versions/1.6.2/NOTES.md)).
 
 **New in 1.6.1:** colour labels on clips with a filter, keyboard caption editing (tab, return, ⌫), a caption
 spell-check, a generated 3-second intro card from the Brand Kit, cuts that land on sentence ends, "Drop"

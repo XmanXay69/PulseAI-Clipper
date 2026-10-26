@@ -471,11 +471,14 @@ struct ExportSettingsForm: View {
                     }
                 }
                 GridRow {
-                    Text("Audio bitrate").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
-                    Picker("", selection: $settings.audioBitrate) {
-                        ForEach([128_000, 192_000, 256_000, 320_000], id: \.self) { Text("\($0 / 1000) kbps").tag($0) }
+                    Text("Audio").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    HStack(spacing: 8) {
+                        Picker("", selection: Binding(get: { AudioQuality.nearest(settings.audioBitrate) }, set: { settings.audioBitrate = $0.bitrate })) {
+                            ForEach(AudioQuality.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                        }
+                        .labelsHidden().frame(width: 190)
+                        Text(AudioQuality.nearest(settings.audioBitrate).detail).font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(2)
                     }
-                    .labelsHidden().frame(width: 140)
                 }
                 GridRow {
                     Text("Priority").font(.pulseCaption).foregroundStyle(Theme.textSecondary)

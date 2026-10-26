@@ -1028,7 +1028,8 @@ struct TimelineClipView: View, Equatable {
         case .media(let assetID):
             if let asset, asset.id == assetID {
                 if trackKind == .audio {
-                    WaveformStrip(url: session.url(for: asset), sourceRange: clip.sourceRange, color: color)
+                    WaveformStrip(url: session.url(for: asset), sourceRange: clip.sourceRange, color: color,
+                                  gain: clip.audio.isMuted ? 0.15 : min(2, pow(10, clip.audio.gainDB / 20) * clip.audio.volume.value(at: 0)))
                         .padding(.top, 14)
                         .overlay(alignment: .topLeading) {
                             if !clip.audio.volume.keyframes.isEmpty {
@@ -1244,6 +1245,8 @@ struct WaveformStrip: View {
     let url: URL
     let sourceRange: TimeRange
     var color: Color = Theme.audioClip
+    /// Linear gain applied to the drawing (#150): a louder clip shows a taller wave, a quiet one a smaller.
+    var gain: Double = 1
     @State private var peaks: [Float] = []
 
     var body: some View {
@@ -1255,7 +1258,7 @@ struct WaveformStrip: View {
             var path = Path()
             for (i, v) in values.enumerated() {
                 let x = CGFloat(i) * size.width / CGFloat(buckets)
-                let h = max(1, CGFloat(sqrt(v)) * size.height * 0.95)
+                let h = max(1, CGFloat(min(1, Double(sqrt(v)) * gain)) * size.height * 0.95)
                 path.addRect(CGRect(x: x, y: mid - h / 2, width: max(1, size.width / CGFloat(buckets) - 0.5), height: h))
             }
             ctx.fill(path, with: .color(color.opacity(0.9)))

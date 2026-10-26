@@ -321,6 +321,11 @@ public struct ColorAdjustments: Codable, Hashable, Sendable {
     public var lutIntensity: Double = 1
     /// "Grade off": keep the values, render none of them (for before/after comparing) (#316).
     public var bypass: Bool = false
+    /// Film grain amount (0…1) and size (0.5 fine … 3 coarse) (#315).
+    public var grain: Double = 0
+    public var grainSize: Double = 1
+    /// Saturation boosts leave skin alone (vibrance instead of a flat saturation lift) (#308).
+    public var protectSkin: Bool = false
 
     public init() {}
 
@@ -338,12 +343,15 @@ public struct ColorAdjustments: Codable, Hashable, Sendable {
         lutPath = c.decode(String?.self, forKey: .lutPath, default: nil)
         lutIntensity = c.decode(Double.self, forKey: .lutIntensity, default: 1)
         bypass = c.decode(Bool.self, forKey: .bypass, default: false)
+        grain = c.decode(Double.self, forKey: .grain, default: 0).clamped(0, 1)
+        grainSize = c.decode(Double.self, forKey: .grainSize, default: 1).clamped(0.5, 3)
+        protectSkin = c.decode(Bool.self, forKey: .protectSkin, default: false)
     }
 
     /// True when the grade has values worth showing (whatever `bypass` says).
     public var hasAdjustments: Bool {
         !(exposure == 0 && contrast == 0 && highlights == 0 && shadows == 0 && saturation == 0 &&
-            temperature == 0 && tint == 0 && sharpness == 0 && vignette == 0 && lutPath == nil)
+            temperature == 0 && tint == 0 && sharpness == 0 && vignette == 0 && lutPath == nil && grain == 0)
     }
 
     /// Nothing to render: no values, or the grade is bypassed.
@@ -569,6 +577,10 @@ public struct AudioSettings: Codable, Hashable, Sendable {
     /// How fast the duck goes down when dialogue starts, and comes back after (#268).
     public var duckAttack: Seconds = 0.15
     public var duckRelease: Seconds = 0.4
+    /// The curve of the fades and crossfades (#169).
+    public var fadeShape: FadeShape = .linear
+    /// Keep the voice's pitch when the clip is slowed or sped up; off = tape-style varispeed (#170).
+    public var preservePitch: Bool = true
 
     public init(volume: Double = 1) {
         self.volume = AnimatedDouble(volume)
@@ -614,6 +626,8 @@ public struct AudioSettings: Codable, Hashable, Sendable {
         monoSource = c.decode(MonoSource.self, forKey: .monoSource, default: .stereo)
         duckAttack = c.decode(Seconds.self, forKey: .duckAttack, default: 0.15).clamped(0.02, 2)
         duckRelease = c.decode(Seconds.self, forKey: .duckRelease, default: 0.4).clamped(0.05, 3)
+        fadeShape = c.decode(FadeShape.self, forKey: .fadeShape, default: .linear)
+        preservePitch = c.decode(Bool.self, forKey: .preservePitch, default: true)
     }
 
     /// True when swear words are muted or bleeped in this clip.
@@ -628,9 +642,33 @@ public struct AudioSettings: Codable, Hashable, Sendable {
     public func gain(at t: Seconds, clipDuration: Seconds) -> Double {
         if isMuted { return 0 }
         var g = volume.value(at: t) * pow(10, gainDB / 20)
-        if fadeIn > 0, t < fadeIn { g *= (t / fadeIn).clamped(0, 1) }
-        if fadeOut > 0, t > clipDuration - fadeOut { g *= ((clipDuration - t) / fadeOut).clamped(0, 1) }
+        if fadeIn > 0, t < fadeIn { g *= fadeShape.apply(t / fadeIn) }
+        if fadeOut > 0, t > clipDuration - fadeOut { g *= fadeShape.apply((clipDuration - t) / fadeOut) }
         return max(g, 0)
+    }
+}
+
+/// How a fade travels from silence to full (#169). Equal power keeps a crossfade at constant loudness
+/// through the middle (two linear fades dip by about 3 dB there); smooth eases both ends.
+public enum FadeShape: String, Codable, CaseIterable, Sendable {
+    case linear, equalPower, smooth
+
+    public var displayName: String {
+        switch self {
+        case .linear: return "Linear"
+        case .equalPower: return "Equal power"
+        case .smooth: return "Smooth"
+        }
+    }
+
+    /// Gain multiplier for progress `x` (0 = silent end, 1 = full).
+    public func apply(_ x: Double) -> Double {
+        let t = x.clamped(0, 1)
+        switch self {
+        case .linear: return t
+        case .equalPower: return sin(t * .pi / 2)
+        case .smooth: return t * t * (3 - 2 * t)
+        }
     }
 }
 

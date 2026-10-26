@@ -288,6 +288,35 @@ public final class FrameRenderer: @unchecked Sendable {
 
     // MARK: Color
 
+    /// Film grain (#315): monochrome noise, scaled up for coarser grain, soft-lit over the picture so it
+    /// shows in the midtones and leaves the blacks and highlights clean.
+    func applyGrain(_ input: CIImage, amount: Double, size: Double) -> CIImage {
+        let extent = input.extent
+        guard !extent.isInfinite, extent.width > 0 else { return input }
+        var noise = CIFilter.randomGenerator().outputImage ?? CIImage.empty()
+        let scale = max(0.5, size) * max(1, extent.width / 1920)
+        noise = noise.transformed(by: CGAffineTransform(scaleX: scale, y: scale)).cropped(to: extent)
+        let mono = CIFilter.colorControls()
+        mono.inputImage = noise
+        mono.saturation = 0
+        mono.contrast = 1
+        noise = mono.outputImage ?? noise
+        // Pull the noise toward mid grey so soft light only nudges the picture; `amount` sets how far from grey.
+        let strength = CGFloat(0.35 * amount.clamped(0, 1))
+        let matrix = CIFilter.colorMatrix()
+        matrix.inputImage = noise
+        matrix.rVector = CIVector(x: strength, y: 0, z: 0, w: 0)
+        matrix.gVector = CIVector(x: 0, y: strength, z: 0, w: 0)
+        matrix.bVector = CIVector(x: 0, y: 0, z: strength, w: 0)
+        matrix.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
+        matrix.biasVector = CIVector(x: 0.5 - strength / 2, y: 0.5 - strength / 2, z: 0.5 - strength / 2, w: 0)
+        noise = matrix.outputImage ?? noise
+        let blend = CIFilter.softLightBlendMode()
+        blend.inputImage = noise
+        blend.backgroundImage = input
+        return blend.outputImage?.cropped(to: extent) ?? input
+    }
+
     func applyColor(_ input: CIImage, _ c: ColorAdjustments) -> CIImage {
         guard !c.isIdentity else { return input }
         var image = input
@@ -297,12 +326,21 @@ public final class FrameRenderer: @unchecked Sendable {
             f.ev = Float(c.exposure)
             image = f.outputImage ?? image
         }
-        if c.contrast != 0 || c.saturation != 0 {
+        // A saturation lift with skin protection goes through vibrance, which leaves already-saturated
+        // tones (faces) alone (#308); cuts and unprotected lifts use the plain control.
+        let vibrantLift = c.protectSkin && c.saturation > 0
+        if c.contrast != 0 || (c.saturation != 0 && !vibrantLift) {
             let f = CIFilter.colorControls()
             f.inputImage = image
             f.contrast = Float(1 + c.contrast * 0.5)
-            f.saturation = Float(max(0, 1 + c.saturation))
+            f.saturation = Float(vibrantLift ? 1 : max(0, 1 + c.saturation))
             f.brightness = 0
+            image = f.outputImage ?? image
+        }
+        if vibrantLift {
+            let f = CIFilter.vibrance()
+            f.inputImage = image
+            f.amount = Float(c.saturation)
             image = f.outputImage ?? image
         }
         if c.highlights != 0 || c.shadows != 0 {
@@ -332,6 +370,7 @@ public final class FrameRenderer: @unchecked Sendable {
             f.radius = 1.6
             image = f.outputImage ?? image
         }
+        if c.grain > 0 { image = applyGrain(image, amount: c.grain, size: c.grainSize) }
         if let path = c.lutPath, let lut = loadLUT(path) {
             let f = CIFilter.colorCubeWithColorSpace()
             f.inputImage = image

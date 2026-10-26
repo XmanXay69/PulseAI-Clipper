@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import PulseCore
 import PulseEngine
@@ -139,6 +140,12 @@ final class ProjectSession: ObservableObject, Identifiable {
     private var autosaveTask: Task<Void, Never>?
     private var snapshotDirty = false
 
+    /// A step below the chosen viewer quality, set when playback can't keep up (#187); nil = the setting.
+    @Published var playbackQualityOverride: PlaybackQuality?
+    private var paceWatcher: AnyCancellable?
+
+    var effectivePlaybackQuality: PlaybackQuality { playbackQualityOverride ?? app.settings.playbackQuality }
+
     init(package: ProjectPackage, document: ProjectDocument, app: AppModel) {
         self.package = package
         self.document = document
@@ -149,7 +156,9 @@ final class ProjectSession: ObservableObject, Identifiable {
         }
         refreshAvailability()
         startAutosave()
+        registerMediaIdentities(document.media)
         reloadPlayback(debounce: 0)
+        watchPlaybackPace()
         // An analysis that was running when PULSE quit picks up where it left off.
         let interrupted = document.media.filter { $0.preparation.analysisState == .running }.map(\.id)
         if !interrupted.isEmpty {
@@ -335,7 +344,44 @@ final class ProjectSession: ObservableObject, Identifiable {
     func reloadPlayback(debounce: Double = 0.05) {
         guard let timeline = activeTimeline else { return }
         playback.load(timeline: timeline, assets: assetsByID, compounds: document.compoundsByID,
-                      useProxies: app.settings.proxy.useProxiesForPlayback, debounce: debounce)
+                      useProxies: app.settings.proxy.useProxiesForPlayback, debounce: debounce,
+                      renderScale: effectivePlaybackQuality.scale)
+    }
+
+    /// Viewer quality from the header menu (#187): clears any automatic drop and becomes the setting.
+    func setPlaybackQuality(_ quality: PlaybackQuality) {
+        playbackQualityOverride = nil
+        app.settings.playbackQuality = quality
+        reloadPlayback(debounce: 0)
+    }
+
+    /// When playback falls behind for a stretch, step the viewer down (if allowed) and say so once.
+    private func watchPlaybackPace() {
+        paceWatcher = playback.$isStruggling
+            .removeDuplicates()
+            .sink { [weak self] struggling in
+                guard struggling, let self, self.app.settings.autoPlaybackQuality,
+                      let lower = self.effectivePlaybackQuality.lower else { return }
+                self.playbackQualityOverride = lower
+                self.reloadPlayback(debounce: 0)
+                PulseLog.info("Playback fell behind — viewer dropped to \(lower.longName.lowercased())")
+                self.app.toast("Playback was falling behind, so the viewer dropped to \(lower.longName.lowercased()). Exports are unaffected — the viewer header has the switch.")
+            }
+    }
+
+    /// Names each file by its content hash so thumbnails and waveforms survive a move or rename (#398).
+    func registerMediaIdentities(_ assets: [MediaAsset]) {
+        let pairs = assets.compactMap { asset -> (String, URL)? in
+            guard let hash = asset.contentHash else { return nil }
+            return (hash, url(for: asset))
+        }
+        guard !pairs.isEmpty else { return }
+        Task.detached(priority: .utility) {
+            for (hash, url) in pairs {
+                await ThumbnailService.shared.register(identity: hash, for: url)
+                await WaveformService.shared.register(identity: hash, for: url)
+            }
+        }
     }
 
     func open(timelineID: UUID, at time: Seconds? = nil, section: SidebarSection = .editor) {
@@ -469,7 +515,7 @@ final class ProjectSession: ObservableObject, Identifiable {
         urls.removeAll { chatFiles.contains($0) }
         for url in chatFiles { importChat(url, for: nil) }
         if urls.isEmpty { return }
-        let plan = ImportPlan.make(urls: urls, existingPaths: Set(document.media.map(\.path)))
+        let plan = ImportPlan.make(urls: urls, existingPaths: Set(document.media.map(\.path))).applying(app.settings.importPreset)
         if !plan.rejected.isEmpty {
             app.presentMessage(title: "Some files weren't imported", message: plan.rejected.map { "\($0.url.lastPathComponent): \($0.reason)" }.joined(separator: "\n"))
         }
@@ -501,6 +547,7 @@ final class ProjectSession: ObservableObject, Identifiable {
             }
             if !imported.isEmpty {
                 let syncGroup: UUID? = plan.isMultiSourceSession ? UUID() : nil
+                self.registerMediaIdentities(imported)
                 self.edit("Import Media") { doc in
                     for var asset in imported {
                         asset.syncGroupID = syncGroup

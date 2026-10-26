@@ -280,6 +280,15 @@ struct GeneralSettings: View {
             SettingsRow("Show safe areas", detail: "Overlay the platform UI zones in the viewer.") {
                 Toggle("", isOn: $app.settings.showSafeAreas).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
             }
+            SettingsRow("Frame-step tick", detail: "A soft click on every ← / → frame step.") {
+                Toggle("", isOn: $app.settings.scrubTick).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
+            }
+            SettingsRow("Import preset", detail: app.settings.importPreset.detail) {
+                Picker("", selection: $app.settings.importPreset) {
+                    ForEach(ImportPreset.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .labelsHidden().frame(width: 180)
+            }
             SettingsRow("Target platform", detail: "Used for new shorts, safe areas and default export preset.") {
                 Picker("", selection: $app.settings.safeAreaPlatform) {
                     ForEach(SafeAreaPlatform.allCases, id: \.self) { Text($0.displayName).tag($0) }
@@ -887,6 +896,18 @@ struct ProxySettingsPane: View {
             SettingsRow("Use proxies for playback") {
                 Toggle("", isOn: $app.settings.proxy.useProxiesForPlayback).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
             }
+            SettingsRow("Viewer quality", detail: "How large the viewer renders each frame; exports always render in full.") {
+                Picker("", selection: Binding(get: { app.settings.playbackQuality }, set: { q in
+                    app.settings.playbackQuality = q
+                    app.session?.setPlaybackQuality(q)
+                })) {
+                    ForEach(PlaybackQuality.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .pickerStyle(.segmented).labelsHidden().frame(width: 180)
+            }
+            SettingsRow("Drop a step when playback stutters", detail: "PULSE steps the viewer down on its own when it can't keep up, and says so.") {
+                Toggle("", isOn: $app.settings.autoPlaybackQuality).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
+            }
         }
     }
 }
@@ -1112,7 +1133,9 @@ struct BrandKitSettings: View {
 /// Settings → Performance: match real views to what PULSE predicted, and calibrate the coach to your channel.
 struct PerformanceSettings: View {
     @EnvironmentObject var app: AppModel
+    @ObservedObject private var memory = MemoryPressure.shared
     @State private var lastImport: String?
+    @State private var footprint: String = MemoryPressure.footprintDescription
 
     var withViews: [PerformanceRecord] { app.performanceHistory.filter { $0.views != nil }.sorted { ($0.views ?? 0) > ($1.views ?? 0) } }
 
@@ -1124,6 +1147,22 @@ struct PerformanceSettings: View {
                     ForEach([2, 4, 6, 8], id: \.self) { Text("\($0)").tag($0) }
                 }
                 .labelsHidden().frame(width: 130)
+            }
+        }
+        SettingsGroup("Memory", footnote: "Decoded thumbnails and filmstrip frames stay in memory up to this ceiling; PULSE empties them on its own when the Mac runs short.") {
+            SettingsRow("Frame cache ceiling") {
+                Picker("", selection: $app.settings.thumbnailCacheMB) {
+                    ForEach([100, 200, 400, 800], id: \.self) { Text("\($0) MB").tag($0) }
+                }
+                .labelsHidden().frame(width: 130)
+            }
+            SettingsRow("Right now", detail: memory.lastWarning.map { "Last memory warning \($0.formatted(date: .omitted, time: .shortened))" } ?? "No memory warnings this session.") {
+                HStack(spacing: 8) {
+                    Text(footprint).font(.pulseMono).foregroundStyle(Theme.textSecondary)
+                    TagChip(text: memory.level.displayName.uppercased(), color: memory.level == .normal ? Theme.success : Theme.warning)
+                    Button { footprint = MemoryPressure.footprintDescription } label: { Image(systemName: "arrow.clockwise") }
+                        .buttonStyle(.pulse(.ghost, compact: true)).help("Refresh")
+                }
             }
         }
         SettingsGroup("Calibrate the score with your real views", footnote: "Every export remembers what PULSE predicted. Import an analytics export and PULSE matches the videos by title, then re-weights the coach toward what actually worked on your channel (after 5 matched videos of a format). Only titles and numbers are read.") {

@@ -357,3 +357,39 @@ public struct ExportQueueSummary: Hashable, Sendable {
         }
     }
 }
+
+/// Audio bitrates in plain words (#347). The raw value is the AAC bitrate in bits per second.
+public enum AudioQuality: Int, CaseIterable, Codable, Sendable {
+    case voice = 96_000
+    case standard = 128_000
+    case high = 192_000
+    case studio = 256_000
+    case maximum = 320_000
+
+    public var bitrate: Int { rawValue }
+
+    public var displayName: String {
+        switch self {
+        case .voice: return "Voice · 96 kbps"
+        case .standard: return "Standard · 128 kbps"
+        case .high: return "High · 192 kbps"
+        case .studio: return "Studio · 256 kbps"
+        case .maximum: return "Maximum · 320 kbps"
+        }
+    }
+
+    public var detail: String {
+        switch self {
+        case .voice: return "Talking only — podcasts and commentary; the smallest files"
+        case .standard: return "Fine for shorts; music loses a little sparkle"
+        case .high: return "What YouTube recommends — music and game audio stay clean"
+        case .studio: return "For music-led edits; most listeners can't hear past this"
+        case .maximum: return "Belt and braces for a master copy"
+        }
+    }
+
+    /// The choice closest to a bitrate from an older preset or a typed value.
+    public static func nearest(_ bitrate: Int) -> AudioQuality {
+        allCases.min { abs($0.bitrate - bitrate) < abs($1.bitrate - bitrate) } ?? .high
+    }
+}

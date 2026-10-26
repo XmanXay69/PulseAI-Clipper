@@ -343,6 +343,15 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var updateChannel: UpdateChannel = .stable
     /// The accent colour (#425).
     public var accent: AccentChoice = .pulse
+    /// Viewer render size (#187); with `autoPlaybackQuality` PULSE drops a step on its own when playback can't keep up.
+    public var playbackQuality: PlaybackQuality = .full
+    public var autoPlaybackQuality: Bool = true
+    /// A soft tick on every frame step (#198).
+    public var scrubTick: Bool = false
+    /// Ceiling for decoded thumbnails and filmstrip frames kept in memory (#377).
+    public var thumbnailCacheMB: Int = 200
+    /// Roles and sync behaviour applied to imports (#25).
+    public var importPreset: ImportPreset = .auto
 
     public init() {}
 
@@ -393,6 +402,11 @@ public struct AppSettings: Codable, Hashable, Sendable {
         batchPausesOnLowBattery = c.decode(Bool.self, forKey: .batchPausesOnLowBattery, default: d.batchPausesOnLowBattery)
         updateChannel = c.decode(UpdateChannel.self, forKey: .updateChannel, default: d.updateChannel)
         accent = c.decode(AccentChoice.self, forKey: .accent, default: d.accent)
+        playbackQuality = c.decode(PlaybackQuality.self, forKey: .playbackQuality, default: d.playbackQuality)
+        autoPlaybackQuality = c.decode(Bool.self, forKey: .autoPlaybackQuality, default: d.autoPlaybackQuality)
+        scrubTick = c.decode(Bool.self, forKey: .scrubTick, default: d.scrubTick)
+        thumbnailCacheMB = c.decode(Int.self, forKey: .thumbnailCacheMB, default: d.thumbnailCacheMB).clamped(50, 2000)
+        importPreset = c.decode(ImportPreset.self, forKey: .importPreset, default: d.importPreset)
         showPlatformChrome = c.decode(Bool.self, forKey: .showPlatformChrome, default: d.showPlatformChrome)
         watchFolderAnalyzes = c.decode(Bool.self, forKey: .watchFolderAnalyzes, default: d.watchFolderAnalyzes)
         nightlyBatchHour = c.decode(Int?.self, forKey: .nightlyBatchHour, default: nil)

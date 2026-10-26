@@ -261,6 +261,20 @@ struct ClipInspector: View {
         }
     }
 
+    /// "16:9 · 1.78" for the crop as it stands, from the source's pixel size (#227).
+    var cropAspectReadout: String? {
+        guard let id = clip.assetID, let asset = session.document.asset(id: id), asset.metadata.width > 0, asset.metadata.height > 0 else { return nil }
+        let crop = clip.transform.crop
+        let w = Double(asset.metadata.width) * crop.width
+        let h = Double(asset.metadata.height) * crop.height
+        guard w > 0, h > 0 else { return nil }
+        let ratio = w / h
+        let known: [(Double, String)] = [(9.0 / 16.0, "9:16"), (3.0 / 4.0, "3:4"), (4.0 / 5.0, "4:5"), (1, "1:1"), (4.0 / 3.0, "4:3"), (3.0 / 2.0, "3:2"), (16.0 / 9.0, "16:9"), (21.0 / 9.0, "21:9")]
+        let name = known.first { abs($0.0 - ratio) / $0.0 < 0.015 }?.1
+        let pixels = "\(Int(w.rounded()))×\(Int(h.rounded()))"
+        return (name.map { "\($0) · " } ?? "") + String(format: "%.2f · ", ratio) + pixels
+    }
+
     func transformSection(showCrop: Bool) -> some View {
         Group {
             InspectorSection("Transform", trailing: AnyView(resetButton("Reset Transform") { c in
@@ -296,6 +310,14 @@ struct ClipInspector: View {
                     cropSlider("Crop Y", \.y, range: 0...0.95)
                     cropSlider("Crop W", \.width, range: 0.05...1)
                     cropSlider("Crop H", \.height, range: 0.05...1)
+                    if let readout = cropAspectReadout {
+                        HStack {
+                            Text("Crop aspect").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                            Spacer()
+                            Text(readout).font(.pulseMono).foregroundStyle(Theme.textTertiary)
+                        }
+                        .help("Width ÷ height of the cropped picture, in source pixels (#227)")
+                    }
                     Divider()
                     b.slider("Zoom", \.transform.zoom, range: 1...3, unit: "×")
                     b.slider("Pan X", \.transform.panX, range: -0.5...0.5)
@@ -487,6 +509,17 @@ struct AudioInspector: View {
             b.plainSlider("Pan", \.audio.pan, range: -1...1)
             b.plainSlider("Fade in", \.audio.fadeIn, range: 0...5, format: "%.1f", unit: "s")
             b.plainSlider("Fade out", \.audio.fadeOut, range: 0...5, format: "%.1f", unit: "s")
+            if clip.audio.fadeIn > 0 || clip.audio.fadeOut > 0 || clip.transitionIn != nil || clip.transitionOut != nil {
+                Picker("Fade shape", selection: b.value("Fade Shape", \.audio.fadeShape, fallback: .linear)) {
+                    ForEach(FadeShape.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .help("Equal power keeps a crossfade at one loudness through the middle; linear dips about 3 dB there (#169)")
+            }
+            if abs(clip.speed - 1) > 0.001 {
+                ToggleRow(label: "Keep pitch at this speed", isOn: b.value("Pitch", \.audio.preservePitch, fallback: true),
+                          help: "On: voices stay at their pitch when slowed or sped up. Off: tape-style varispeed — chipmunk fast, deep slow")
+            }
             ToggleRow(label: "Mute", isOn: b.value("Mute", \.audio.isMuted, fallback: false))
         }
         InspectorSection("Auto Ducking", isAI: true) {
@@ -603,6 +636,12 @@ struct ColorInspector: View {
             b.plainSlider("Tint", \.color.tint, range: -1...1)
             b.plainSlider("Sharpness", \.color.sharpness, range: 0...1)
             b.plainSlider("Vignette", \.color.vignette, range: 0...1)
+            b.plainSlider("Grain", \.color.grain, range: 0...1)
+            if clip.color.grain > 0 {
+                b.plainSlider("Grain size", \.color.grainSize, range: 0.5...3, format: "%.1f", unit: "×")
+            }
+            ToggleRow(label: "Protect skin tones", isOn: b.value("Protect Skin", \.color.protectSkin, fallback: false),
+                      help: "Saturation boosts use vibrance, which leaves faces alone and lifts the rest (#308)")
             HStack {
                 Text(clip.color.lutPath.map { ($0 as NSString).lastPathComponent } ?? "No LUT").font(.pulseCaption).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 Spacer()

@@ -11,8 +11,36 @@ public actor ThumbnailService {
     private let cacheDirectory: URL
     private var memory: [String: CGImage] = [:]
     private var memoryOrder: [String] = []
-    private let memoryLimit = 600
+    /// Decoded frames kept in memory; `setMemoryCeiling` turns a megabyte budget into a count (#377).
+    private var memoryLimit = 600
     private var generators: [String: AVAssetImageGenerator] = [:]
+    /// Content hash per file path (#398): a moved or renamed file keeps its thumbnails.
+    private var identities: [String: String] = [:]
+
+    /// Names a file by its content so cache entries survive a move. Call when a project opens or imports.
+    public func register(identity: String, for url: URL) {
+        identities[url.path] = identity
+    }
+
+    /// Roughly 230 KB per 320-px frame: a 200 MB budget keeps about 850 of them.
+    public func setMemoryCeiling(megabytes: Int) {
+        memoryLimit = max(50, megabytes * 1_000_000 / 230_000)
+        trimMemory()
+    }
+
+    /// Drops the oldest frames down to `fraction` of the ceiling (memory-pressure warnings pass 0.25).
+    public func trimMemory(to fraction: Double = 1) {
+        let keep = max(0, Int(Double(memoryLimit) * fraction))
+        while memoryOrder.count > keep {
+            let drop = memoryOrder.removeFirst()
+            memory[drop] = nil
+        }
+        if fraction < 1 { generators.removeAll() }
+    }
+
+    private func identity(_ url: URL) -> String {
+        identities[url.path] ?? "\(abs(url.path.hashValue))"
+    }
 
     public init(cacheDirectory: URL = PulseDirectories.cache("Thumbnails")) {
         self.cacheDirectory = cacheDirectory
@@ -39,7 +67,7 @@ public actor ThumbnailService {
 
     private func cacheKey(_ url: URL, _ time: Seconds, _ width: Int) -> String {
         let t = Int((time * 10).rounded())
-        return "\(abs(url.path.hashValue))-\(t)-\(width)"
+        return "\(identity(url))-\(t)-\(width)"
     }
 
     /// Thumbnail at a time. Cached in memory and on disk (JPEG).
@@ -123,8 +151,15 @@ public actor WaveformService {
     }
 
     /// Normalized peak amplitudes (0…1) at `peaksPerSecond` for the whole file.
+    private var identities: [String: String] = [:]
+
+    /// Names a file by its content so its waveform survives a move (#398).
+    public func register(identity: String, for url: URL) {
+        identities[url.path] = identity
+    }
+
     public func peaks(for url: URL) async -> [Float] {
-        let key = "\(abs(url.path.hashValue))"
+        let key = identities[url.path] ?? "\(abs(url.path.hashValue))"
         if let hit = memory[key] { return hit }
         if let running = inFlight[key] { return await running.value }
         let file = cacheDirectory.appendingPathComponent(key + ".wave")

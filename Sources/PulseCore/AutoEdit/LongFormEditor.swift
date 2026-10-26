@@ -774,8 +774,10 @@ public enum LongFormEditor {
     /// How long one chapter's music overlaps the next (a crossfade instead of a fade out, a gap, a fade in).
     public static let musicCrossfade: Seconds = 3
 
+    /// `loops` (per bed asset id, from `LoopPoints.find` on the bed's waveform, #294) lets a short bed tile
+    /// seamlessly: the head plays once, then the loop body repeats, instead of restarting from the top.
     public static func addMusic(_ beds: [MediaAsset], chapters: [TimeRange], to timeline: inout Timeline, drops: [Seconds] = [],
-                                level: Double = LongFormEditor.musicLevel) {
+                                level: Double = LongFormEditor.musicLevel, loops: [UUID: LoopPoints.Loop] = [:]) {
         guard let ti = timeline.tracks.firstIndex(where: { $0.name.hasPrefix("A2") }), !beds.isEmpty else { return }
         timeline.tracks[ti].clips.removeAll { $0.role == .music && $0.aiGenerated }
         // Chapters alternate between two music tracks so neighbouring chapters can overlap and crossfade.
@@ -800,18 +802,25 @@ public enum LongFormEditor {
             var end = index == chapters.count - 1 ? range.end : min(timeline.duration, range.end + overlap / 2)
             // A bed that covers the chapter in one piece never gets a sliver tacked on for the overlap.
             if length >= range.duration { end = min(end, start + length) }
+            // Without a loop every piece starts at the top of the track; with one, the pieces follow the seam.
+            let loop = loops[bed.id].flatMap { $0.end <= length + 0.01 && $0.length >= 4 ? $0 : nil }
+            var pieces: [TimeRange] = loop.map { LoopPoints.segments(loop: $0, trackDuration: length, duration: max(0, end - start)) } ?? []
             var t = start
             while end - t > 1 {
-                let piece = min(length, end - t)
-                var clip = TimelineClip(name: bed.name, content: .media(assetID: bed.id), start: t, sourceDuration: piece, role: .music, aiGenerated: true)
+                let source = pieces.isEmpty ? TimeRange(start: 0, duration: min(length, end - t)) : pieces.removeFirst()
+                let piece = min(source.duration, end - t)
+                guard piece > 0.5 else { break }
+                var clip = TimelineClip(name: bed.name, content: .media(assetID: bed.id), start: t, sourceIn: source.start, sourceDuration: piece, role: .music, aiGenerated: true)
                 // A bed, not a feature: leveled first (so loud and quiet tracks sit the same), then well under
                 // the voice and ducked further while anyone talks.
                 clip.audio.normalize = true
                 clip.audio.volume = AnimatedDouble(level)
                 clip.audio.duckUnderDialogue = true
                 clip.audio.duckAmountDB = -14
-                clip.audio.fadeIn = t == start ? (index == 0 ? 2.5 : overlap) : 1
-                clip.audio.fadeOut = t + piece >= end - 1 ? (index == chapters.count - 1 ? 3 : overlap) : 1
+                // Seam pieces butt together (the loop was chosen so they match); plain repeats get a short fade.
+                let seam = loop != nil && !pieces.isEmpty
+                clip.audio.fadeIn = t == start ? (index == 0 ? 2.5 : overlap) : (seam || loop != nil ? 0 : 1)
+                clip.audio.fadeOut = t + piece >= end - 1 ? (index == chapters.count - 1 ? 3 : overlap) : (seam ? 0 : 1)
                 timeline.tracks[track].clips.append(clip)
                 t += piece
             }
