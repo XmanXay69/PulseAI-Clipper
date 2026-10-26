@@ -746,7 +746,7 @@ struct WhisperModelRow: View {
     /// relative to the one in use.
     var estimate: String {
         let inUse = WhisperModelInfo.catalog.first { app.settings.ai.whisperModelPath == $0.localURL.path }
-        let minutes = app.settings.analysisSpeed.transcriptionMinutesPerHour(modelFactor: model.speedFactor, learnedFactor: inUse?.speedFactor ?? 1)
+        let minutes = app.settings.ai.analysisSpeed.transcriptionMinutesPerHour(modelFactor: model.speedFactor, learnedFactor: inUse?.speedFactor ?? 1)
         return minutes < 1 ? "under a minute per hour of video" : "≈ \(Int(minutes.rounded())) min per hour of video"
     }
 
@@ -1039,6 +1039,37 @@ struct BrandKitSettings: View {
                     ForEach(CaptionStyle.presets, id: \.presetName) { Text($0.presetName).tag($0.presetName) }
                 }
                 .labelsHidden().frame(width: 200)
+            }
+            SettingsRow("Colours", detail: "Three colours for the cards PULSE places: text, outline, and the slates behind the end screen and intro card (#364).") {
+                HStack(spacing: 8) {
+                    ForEach(0..<3, id: \.self) { i in
+                        ColorPicker("", selection: Binding(get: { Color(app.settings.brandKit.palette.indices.contains(i) ? app.settings.brandKit.palette[i] : (i == 0 ? .white : (i == 1 ? .black : RGBAColor(hex: "#0E0E12")!))) },
+                                                           set: { color in
+                                                               var palette = app.settings.brandKit.palette
+                                                               while palette.count <= i { palette.append(palette.count == 0 ? .white : (palette.count == 1 ? .black : RGBAColor(hex: "#0E0E12")!)) }
+                                                               palette[i] = color.rgba
+                                                               app.settings.brandKit.palette = palette
+                                                           }), supportsOpacity: false)
+                            .labelsHidden()
+                            .help(i == 0 ? "Text on cards" : (i == 1 ? "Outline on cards" : "Slates"))
+                    }
+                    if !app.settings.brandKit.palette.isEmpty {
+                        Button("Clear") { app.settings.brandKit.palette = [] }.buttonStyle(.pulse(.ghost, compact: true))
+                    }
+                }
+            }
+            SettingsRow("Typeface", detail: "For cards and captions (#370); empty keeps each preset's own.") {
+                HStack(spacing: 6) {
+                    TextField("TikTok Sans", text: kit.fontName).textFieldStyle(.roundedBorder).frame(width: 150)
+                    Menu {
+                        ForEach(["TikTok Sans", "Inter", "Montserrat", "Helvetica Neue", "Avenir Next", "Futura", "Impact", "SF Pro Display"], id: \.self) { name in
+                            Button(name) { app.settings.brandKit.fontName = name }
+                        }
+                        Divider()
+                        Button("None") { app.settings.brandKit.fontName = "" }
+                    } label: { Image(systemName: "textformat") }
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 24)
+                }
             }
             SettingsRow("Highlight color", detail: "The color of the word being spoken.") {
                 HStack(spacing: 8) {

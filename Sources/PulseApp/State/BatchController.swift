@@ -229,6 +229,7 @@ final class BatchController: ObservableObject {
             var extras = app.settings.ai.editExtras
             extras.approveCut = false
             if let style = app.settings.referenceStyles.first(where: { $0.id == options.styleID }) {
+                app.noteReferenceStyleUsed(style.id)
                 var answers = ReferenceAnswers.recommended(for: style)
                 if answers.length == .shorts { answers.length = .youtube }
                 var longForm = style.longFormOptions(answers)

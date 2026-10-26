@@ -19,6 +19,7 @@ struct BatchSheet: View {
                     Text("Overnight Batch").font(.pulseTitle).foregroundStyle(Theme.textPrimary)
                     Text("Queue your VODs and let PULSE work through them — your Mac stays awake until it's done.")
                         .font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    if let line = progressLine { Text(line).font(.pulseCaption).foregroundStyle(Theme.ai) }
                 }
             }
             .padding(20)
@@ -86,6 +87,20 @@ struct BatchSheet: View {
         }
         .padding(8)
         .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+    }
+
+    /// "2 of 6 done · about 40 min left", from the average so far (#435).
+    var progressLine: String? {
+        guard batch.isRunning, let started = batch.startedAt else { return nil }
+        let total = batch.items.count
+        let done = batch.items.filter { if case .done = $0.status { return true }; if case .failed = $0.status { return true }; return false }.count
+        guard total > 0 else { return nil }
+        var line = "\(done) of \(total) done"
+        if done > 0 {
+            let perItem = Date().timeIntervalSince(started) / Double(done)
+            line += " · about \(DurationText.approximate(perItem * Double(total - done))) left"
+        }
+        return line
     }
 
     @ViewBuilder

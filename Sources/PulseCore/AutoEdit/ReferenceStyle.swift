@@ -57,6 +57,8 @@ public struct ReferenceStyle: Codable, Hashable, Identifiable, Sendable {
     /// Shown in the app ("MrBeast-style edit.mp4" → "MrBeast-style edit").
     public var name: String
     public var measuredAt: Date
+    /// When this style was last applied to an edit (#366); nil until then.
+    public var lastUsedAt: Date?
     public var duration: Seconds
     /// Width ÷ height of the reference.
     public var aspect: Double

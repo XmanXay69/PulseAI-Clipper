@@ -93,7 +93,7 @@ struct ReferenceSheet: View {
             Image(systemName: style.isVertical ? "rectangle.portrait" : "rectangle").foregroundStyle(Theme.ai).frame(width: 18)
             VStack(alignment: .leading, spacing: 2) {
                 Text(style.name).font(.pulseBody).foregroundStyle(Theme.textPrimary).lineLimit(1)
-                Text("\(style.summary) · studied \(style.measuredAt.formatted(date: .abbreviated, time: .omitted))")
+                Text("\(style.summary) · studied \(style.measuredAt.formatted(date: .abbreviated, time: .omitted))" + (style.lastUsedAt.map { " · used \($0.formatted(.relative(presentation: .named)))" } ?? ""))
                     .font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(1)
             }
             Spacer()

@@ -697,7 +697,7 @@ struct ExportsView: View {
     func previewCurrent() {
         guard let session = app.session, let timeline = session.activeTimeline else { return }
         guard timeline.duration > 1 else { return app.toast("Nothing to preview yet") }
-        queue.enqueuePreview(timeline: timeline, document: session.document, settings: settings, from: session.inPoint ?? session.playback.currentTime)
+        app.exports.enqueuePreview(timeline: timeline, document: session.document, settings: settings, from: session.inPoint ?? session.playback.currentTime)
         app.toast("Encoding a 10-second preview — it opens when it's done")
     }
 

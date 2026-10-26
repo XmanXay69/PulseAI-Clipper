@@ -32,6 +32,10 @@ public struct BrandKit: Codable, Hashable, Sendable {
     /// A name for the generated 3-second intro card on YouTube edits when there's no intro clip (#373); "" = none.
     public var bumperName: String
     public var bumperShowsHandle: Bool
+    /// Up to three colours (#364): text on cards, their outline, and the slates (end screen, intro card).
+    public var palette: [RGBAColor]
+    /// Typeface for cards and captions (#370); "" = each preset's own.
+    public var fontName: String
 
     public init() {
         enabled = false
@@ -47,10 +51,13 @@ public struct BrandKit: Codable, Hashable, Sendable {
         logoOnLongForm = true
         bumperName = ""
         bumperShowsHandle = true
+        palette = []
+        fontName = ""
     }
 
     public var hasAnything: Bool {
         !logoPath.isEmpty || !introPath.isEmpty || !outroPath.isEmpty || !captionPresetName.isEmpty || highlightColor != nil || !bumperName.isEmpty
+            || !palette.isEmpty || !fontName.isEmpty
     }
 
     public init(from decoder: Decoder) throws {
@@ -69,6 +76,8 @@ public struct BrandKit: Codable, Hashable, Sendable {
         logoOnLongForm = c.decode(Bool.self, forKey: .logoOnLongForm, default: d.logoOnLongForm)
         bumperName = c.decode(String.self, forKey: .bumperName, default: d.bumperName)
         bumperShowsHandle = c.decode(Bool.self, forKey: .bumperShowsHandle, default: d.bumperShowsHandle)
+        palette = c.decode([RGBAColor].self, forKey: .palette, default: d.palette)
+        fontName = c.decode(String.self, forKey: .fontName, default: d.fontName)
     }
 }
 
@@ -100,8 +109,12 @@ public enum BrandKitApplier {
                 captions.style = preset
             }
             if let color = kit.highlightColor { captions.style.highlightColor = color }
+            if !kit.fontName.isEmpty { captions.style.text.fontName = kit.fontName }
             timeline.captions = captions
         }
+
+        // Cards and slates in the kit's colours and typeface (#364, #370).
+        brandCards(in: &timeline, kit: kit)
 
         // Intro / outro on YouTube edits.
         if longForm, let intro = assets.intro, intro.metadata.duration > 0.2 {
@@ -139,6 +152,32 @@ public enum BrandKitApplier {
             timeline.tracks.insert(track, at: lastVideo + 1)
         }
         timeline.modifiedAt = Date()
+    }
+
+    /// Text clips PULSE placed (title cards, chapter lower-thirds, hook title, end card, cold-open card, the
+    /// intro card's lines) take the palette's first colour and outline colour and the kit's typeface; the end
+    /// screen and intro slates take the third colour.
+    static let cardNames: Set<String> = ["Title Card", "Chapter Title", "Hook Title", "End Card", ColdOpenCard.clipName, IntroBumper.clipName, "Replay Tag"]
+    static let slateNames: Set<String> = ["End Screen", IntroBumper.clipName]
+
+    static func brandCards(in timeline: inout Timeline, kit: BrandKit) {
+        guard !kit.palette.isEmpty || !kit.fontName.isEmpty else { return }
+        for t in timeline.tracks.indices {
+            for c in timeline.tracks[t].clips.indices {
+                let clip = timeline.tracks[t].clips[c]
+                switch clip.content {
+                case .text(var element) where cardNames.contains(clip.name):
+                    if let first = kit.palette.first { element.style.color = first }
+                    if kit.palette.count >= 2 { element.style.strokeColor = kit.palette[1] }
+                    if !kit.fontName.isEmpty { element.style.fontName = kit.fontName }
+                    timeline.tracks[t].clips[c].content = .text(element)
+                case .solid where slateNames.contains(clip.name) && kit.palette.count >= 3:
+                    timeline.tracks[t].clips[c].content = .solid(kit.palette[2])
+                default:
+                    continue
+                }
+            }
+        }
     }
 
     /// Takes a previous kit back out (logo track, intro and outro bumpers).

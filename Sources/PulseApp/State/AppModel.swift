@@ -191,6 +191,7 @@ final class AppModel: ObservableObject {
         showOnboarding = !settings.hasCompletedOnboarding
         globalTemplates = AppModel.loadTemplates()
         recordingStatus = RecordingStatusItem(recording: recording, app: self)
+        if Bundle.main.bundleURL.pathExtension == "app", Bundle.main.bundleIdentifier != nil { NotificationActions.shared.install() }
         jobs.onFinished = { [weak self] job in
             // How long it took, for the performance log in bug reports (#395).
             PerfLog.record(job.title, seconds: Date().timeIntervalSince(job.startedAt))
@@ -204,7 +205,7 @@ final class AppModel: ObservableObject {
             switch job.status {
             case .completed(let path):
                 PulseLog.info("Export finished: \(job.timelineName) → \((path as NSString).lastPathComponent)")
-                self.notifyIfInBackground(title: "Export finished", body: "“\(job.timelineName)” is ready — \((path as NSString).lastPathComponent)")
+                self.notifyIfInBackground(title: "Export finished", body: "“\(job.timelineName)” is ready — \((path as NSString).lastPathComponent)", path: path)
                 self.rememberPrediction(timelineID: job.timelineID, fileName: ((path as NSString).lastPathComponent as NSString).deletingPathExtension)
                 self.logActivity(.export, title: "Exported “\(job.timelineName)”", detail: (path as NSString).lastPathComponent)
                 self.session?.edit("Mark Exported") { doc in doc.exportCount += 1 }
@@ -716,6 +717,11 @@ final class AppModel: ObservableObject {
     }
 
     /// When the project needs to be posted (#475); nil clears it.
+    /// A saved reference style was applied to an edit (#366).
+    func noteReferenceStyleUsed(_ id: UUID) {
+        if let i = settings.referenceStyles.firstIndex(where: { $0.id == id }) { settings.referenceStyles[i].lastUsedAt = Date() }
+    }
+
     /// Moves a project between the status board's columns (#474).
     func setWorkflowStage(_ summary: ProjectSummary, _ stage: WorkflowStage?) {
         let package = ProjectPackage(url: URL(fileURLWithPath: summary.path))
@@ -1019,7 +1025,7 @@ final class AppModel: ObservableObject {
 
     /// A system notification when PULSE isn't the active app (a toast is enough when it is). Only from the real
     /// .app bundle — the notification center refuses bare executables (the CI harness).
-    func notifyIfInBackground(title: String, body: String) {
+    func notifyIfInBackground(title: String, body: String, path: String? = nil) {
         guard !NSApp.isActive, Bundle.main.bundleURL.pathExtension == "app", Bundle.main.bundleIdentifier != nil else { return }
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
@@ -1027,6 +1033,11 @@ final class AppModel: ObservableObject {
             let content = UNMutableNotificationContent()
             content.title = title
             content.body = body
+            if let path {
+                // Clicking the notification, or its Show in Finder button, reveals the file (#439).
+                content.userInfo = ["path": path]
+                content.categoryIdentifier = NotificationActions.exportCategory
+            }
             center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
         }
     }

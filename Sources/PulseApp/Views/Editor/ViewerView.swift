@@ -507,8 +507,8 @@ struct PlatformChrome: View {
         ZStack(alignment: .topLeading) {
             // Top tabs.
             HStack(spacing: w * 0.06) {
-                Text(platform == .youtube ? "Shorts" : "Following").font(.system(size: max(9, w * 0.035), weight: .semibold)).foregroundStyle(.white.opacity(0.55))
-                Text(platform == .youtube ? "" : "For You").font(.system(size: max(9, w * 0.035), weight: .bold)).foregroundStyle(.white.opacity(0.9))
+                Text(platform == .youtubeShorts ? "Shorts" : "Following").font(.system(size: max(9, w * 0.035), weight: .semibold)).foregroundStyle(.white.opacity(0.55))
+                Text(platform == .youtubeShorts ? "" : "For You").font(.system(size: max(9, w * 0.035), weight: .bold)).foregroundStyle(.white.opacity(0.9))
             }
             .frame(width: w)
             .offset(y: h * max(0.03, i.top * 0.45))

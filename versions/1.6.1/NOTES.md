@@ -198,6 +198,20 @@ The sixteenth batch from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of
   the export queue keeps rendering after the project closes (#355); the studio look's elevation system, grouped
   sidebar, breadcrumb, hero, hover states, empty states and track stripes (#402, #404–#407, #410, #416).
 
+### Batch 22
+
+- **Brand colours and typeface** (#364, #370) — Settings → Brand Kit: three colours (text on cards, their
+  outline, the slates behind the end screen and intro card) and a typeface for cards and captions. Applied
+  with the kit to every card PULSE places; your own text clips are left alone.
+- **Reference styles remember when you used them** (#366).
+- **Export notifications open the file** (#439) — click one, or its Show in Finder button, to reveal the export.
+- **Batch progress** (#435) — the Overnight Batch sheet says "2 of 6 done · about 40 min left" while it runs.
+
+#### Already there, now on the list
+- Analytics calibration reads a YouTube Studio or TikTok CSV (#483); a friend's POV and yours import as one
+  synced session and cut as multicam (#491); a Stream Deck can trigger PULSE's Shortcuts actions (#497); the
+  Sounds panel previews every track with its BPM (#286).
+
 ### Under the hood
 - `CaptionWord.pageBreakAfter` and `TimelineClip.labelColor` are decoded tolerantly, so 1.6.0 projects open
   unchanged; `Batch16Tests` covers the release-list parser, caption keyboard edits, the bumper's ripple, the
@@ -207,5 +221,5 @@ The sixteenth batch from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of
   candidates. `Batch18Tests` covers relink matching, import sidecars, clip replacement, the cold-open card,
   preferred sounds and the board's stages. `Batch19Tests` covers slip, slide and roll (linked sound,
   clamping, nothing else moving), the recording size model and the per-model transcription time.
-  `Batch20Tests` covers energy search, the low-priority flag and the performance log's ring buffer; 345 core
-  tests in all.
+  `Batch20Tests` covers energy search, the low-priority flag and the performance log's ring buffer;
+  `Batch22Tests` covers the brand palette and typeface on cards; 346 core tests in all.
