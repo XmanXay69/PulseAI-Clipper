@@ -167,6 +167,13 @@ struct RecordingHUD: View {
                     .onAppear { withAnimation(.easeInOut(duration: 0.8).repeatForever()) { pulse = true } }
                 Text(paused ? "PAUSED" : "REC").font(.system(size: 11, weight: .heavy)).foregroundStyle(paused ? Theme.warning : Theme.danger)
                 Text(Timecode.duration(recorder.elapsed)).font(.pulseTimecode).foregroundStyle(.white)
+                Button { recorder.markMoment() } label: {
+                    Label(recorder.markedMoments.isEmpty ? "Clip it" : "Clip it · \(recorder.markedMoments.count)", systemImage: "flag.fill")
+                }
+                .buttonStyle(.pulse(.primary, compact: true))
+                .keyboardShortcut("m", modifiers: [.command, .shift])
+                .disabled(paused)
+                .help("Mark this moment — the AI treats it as a sure thing (⇧⌘M)")
                 Button { recorder.togglePause() } label: {
                     Label(paused ? "Resume" : "Pause", systemImage: paused ? "record.circle" : "pause.fill")
                 }

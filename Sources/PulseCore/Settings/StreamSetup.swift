@@ -50,6 +50,17 @@ public struct StreamSetup: Codable, Hashable, Sendable {
         }
 
         public var isConversation: Bool { self == .podcast || self == .justChatting }
+
+        /// The split that suits the content when there's a facecam: the action stays big for fast games, the
+        /// face leads when the talking is the content.
+        public var preferredLayout: LayoutPreset {
+            switch self {
+            case .shooter, .battleRoyale, .moba, .sports: return .facecamCorner
+            case .horror, .variety: return .splitScreen
+            case .justChatting, .irl: return .facecamDominant
+            case .podcast: return .fullFrame
+            }
+        }
     }
 
     public enum Mic: String, Codable, CaseIterable, Sendable {

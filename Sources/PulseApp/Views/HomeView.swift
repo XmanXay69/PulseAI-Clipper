@@ -108,6 +108,9 @@ struct HomeView: View {
             QuickActionTile(symbol: "record.circle", title: "Record", subtitle: "Screen + webcam + mic", color: Theme.danger) {
                 app.showRecordSheet = true
             }
+            QuickActionTile(symbol: "sparkles.rectangle.stack", title: "Shorts + YouTube Video", subtitle: "Whole VOD, one click", color: Theme.ai) {
+                app.runFullPipeline()
+            }
             QuickActionTile(symbol: "moon.stars", title: "Overnight Batch", subtitle: "Queue several VODs", color: Theme.success) {
                 app.showBatchSheet = true
             }

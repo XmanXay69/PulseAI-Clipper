@@ -87,6 +87,30 @@ public struct ImportPlan: Sendable {
         return visual.count >= 2 || (visual.count >= 1 && roles.contains(.microphone))
     }
 
+    /// Folders in a drop or an open panel become their media and transcript files (one level, by name);
+    /// everything else passes through in order. Hidden files and folders that can't be read are skipped.
+    public static func expandingFolders(_ urls: [URL]) -> [URL] {
+        var out: [URL] = []
+        let wanted = Set(MediaTypes.allImportableExtensions).union(MediaTypes.transcriptExtensions)
+        for url in urls {
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else { continue }
+            if isDirectory.boolValue {
+                let children = (try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey],
+                                                                              options: [.skipsHiddenFiles])) ?? []
+                out += children
+                    .filter { child in
+                        let isDir = (try? child.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+                        return !isDir && wanted.contains(child.pathExtension.lowercased())
+                    }
+                    .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+            } else {
+                out.append(url)
+            }
+        }
+        return out
+    }
+
     public static func make(urls: [URL], existingPaths: Set<String>) -> ImportPlan {
         var items: [Item] = []
         var transcripts: [URL] = []

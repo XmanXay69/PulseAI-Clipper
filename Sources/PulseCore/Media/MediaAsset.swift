@@ -172,6 +172,8 @@ public struct MediaAsset: Codable, Hashable, Identifiable, Sendable {
     public var syncGroupID: UUID?
     /// Where this asset came from when it is a generated derivative (demo media, rendered audio…).
     public var generatedBy: String?
+    /// Moments you marked while recording ("clip it"), in seconds from the start; analysis treats them as sure things.
+    public var markedMoments: [Seconds] = []
 
     public init(id: UUID = UUID(), name: String, path: String, bookmark: Data? = nil, kind: MediaKind,
                 role: MediaRole = .main, category: MediaCategory? = nil, metadata: MediaMetadata = MediaMetadata(),
@@ -216,6 +218,7 @@ public struct MediaAsset: Codable, Hashable, Identifiable, Sendable {
         syncOffset = c.decode(Seconds.self, forKey: .syncOffset, default: 0)
         syncGroupID = c.decode(UUID?.self, forKey: .syncGroupID, default: nil)
         generatedBy = c.decode(String?.self, forKey: .generatedBy, default: nil)
+        markedMoments = c.decode([Seconds].self, forKey: .markedMoments, default: [])
     }
 
     public var url: URL { URL(fileURLWithPath: path) }

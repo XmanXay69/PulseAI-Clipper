@@ -192,7 +192,9 @@ struct BatchSheet: View {
     func pick() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = true
         panel.allowedContentTypes = [.movie, .mpeg4Movie, .quickTimeMovie]
+        panel.message = "Choose recordings, or a folder of them"
         if panel.runModal() == .OK { batch.add(panel.urls) }
     }
 }

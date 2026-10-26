@@ -198,7 +198,7 @@ extension ProjectSession {
     // MARK: Recordings
 
     /// Imports the files of a PULSE recording as one synchronized session and analyzes it.
-    func importRecording(_ result: RecordingResult, analyzeAfter: Bool) {
+    func importRecording(_ result: RecordingResult, analyzeAfter: Bool, markedMoments: [Seconds] = []) {
         let cacheRoot = app.cacheFolder
         app.jobs.start("Importing recording", kind: .importMedia) { [weak self] job in
             guard let self else { return }
@@ -211,6 +211,7 @@ extension ProjectSession {
                 asset.syncGroupID = group
                 asset.syncOffset = file.syncOffset
                 asset.tags.append("recording")
+                asset.markedMoments = markedMoments
                 assets.append(asset)
             }
             let screen = assets.first { $0.role == .gameplay }

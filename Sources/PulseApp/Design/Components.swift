@@ -333,10 +333,21 @@ struct LabeledSlider: View {
     var keyframed: Bool = false
     var onKeyframe: (() -> Void)?
     var onEditingChanged: (Bool) -> Void = { _ in }
+    /// When set, a reset arrow appears while the value differs (double-clicking the label resets too).
+    var defaultValue: Double? = nil
+    var onReset: (() -> Void)? = nil
+
+    var isOffDefault: Bool { defaultValue.map { abs(value - $0) > 1e-6 } ?? false }
+
+    func reset() {
+        if let onReset { onReset() } else if let defaultValue { value = defaultValue }
+    }
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(label).font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 74, alignment: .leading)
+            Text(label).font(.pulseCaption).foregroundStyle(isOffDefault ? Theme.textPrimary : Theme.textSecondary).frame(width: 74, alignment: .leading)
+                .onTapGesture(count: 2) { if isOffDefault { reset() } }
+                .help(defaultValue != nil ? "Double-click to reset" : "")
             Slider(value: $value, in: range, onEditingChanged: onEditingChanged)
                 .controlSize(.mini)
                 .tint(Theme.accent)
@@ -344,6 +355,15 @@ struct LabeledSlider: View {
                 .font(.pulseMono)
                 .foregroundStyle(Theme.textPrimary)
                 .frame(width: 48, alignment: .trailing)
+            if defaultValue != nil {
+                Button(action: reset) {
+                    Image(systemName: "arrow.counterclockwise").font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(isOffDefault ? Theme.textSecondary : Theme.textTertiary.opacity(0.35))
+                }
+                .buttonStyle(.plain)
+                .disabled(!isOffDefault)
+                .help(isOffDefault ? "Reset to \(String(format: format, defaultValue ?? 0))\(unit)" : "At the default")
+            }
             if let onKeyframe {
                 Button(action: onKeyframe) {
                     Image(systemName: keyframed ? "diamond.fill" : "diamond")

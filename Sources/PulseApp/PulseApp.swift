@@ -119,6 +119,7 @@ struct PulseCommands: Commands {
             }
             .keyboardShortcut("r", modifiers: [.command, .shift])
             Button(app.recording.phase == .paused ? "Resume Recording" : "Pause Recording") { app.recording.togglePause() }
+            Button("Mark Moment (Clip It)") { app.recording.markMoment() }.keyboardShortcut("m", modifiers: [.command, .shift]).disabled(app.recording.phase != .recording)
                 .keyboardShortcut("p", modifiers: [.command, .shift])
                 .disabled(!app.recording.isCapturing)
             Divider()

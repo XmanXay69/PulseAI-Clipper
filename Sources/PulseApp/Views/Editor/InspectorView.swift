@@ -86,16 +86,23 @@ struct ClipBindings {
         }
     }
 
-    /// Slider with keyframe diamond.
+    /// A clip with every property at its default: where "reset" takes a value back to (#206).
+    static let pristine = TimelineClip(name: "", content: .media(assetID: UUID()), start: 0, sourceDuration: 1)
+
+    /// Slider with keyframe diamond and a reset arrow (resetting an animated value also clears its keyframes).
     func slider(_ label: String, _ keyPath: WritableKeyPath<TimelineClip, AnimatedDouble>, range: ClosedRange<Double>, format: String = "%.2f", unit: String = "") -> some View {
         LabeledSlider(label: label, value: animated(label, keyPath), range: range, format: format, unit: unit,
                       keyframed: hasKeyframe(keyPath), onKeyframe: { toggleKeyframe(label, keyPath) },
-                      onEditingChanged: { editing in if !editing { session.commitCoalescing() } })
+                      onEditingChanged: { editing in if !editing { session.commitCoalescing() } },
+                      defaultValue: Self.pristine[keyPath: keyPath].value(at: 0),
+                      onReset: { session.editClip(clipID, "Reset \(label)", coalesce: nil) { $0[keyPath: keyPath] = Self.pristine[keyPath: keyPath] } })
     }
 
     func plainSlider(_ label: String, _ keyPath: WritableKeyPath<TimelineClip, Double>, range: ClosedRange<Double>, format: String = "%.2f", unit: String = "") -> some View {
         LabeledSlider(label: label, value: value(label, keyPath, fallback: 0), range: range, format: format, unit: unit,
-                      onEditingChanged: { editing in if !editing { session.commitCoalescing() } })
+                      onEditingChanged: { editing in if !editing { session.commitCoalescing() } },
+                      defaultValue: Self.pristine[keyPath: keyPath],
+                      onReset: { session.editClip(clipID, "Reset \(label)", coalesce: nil) { $0[keyPath: keyPath] = Self.pristine[keyPath: keyPath] } })
     }
 }
 

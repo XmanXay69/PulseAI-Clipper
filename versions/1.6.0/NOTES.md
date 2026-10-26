@@ -90,6 +90,19 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   per timeline. It's rendered into the enhance cache; the source file is never touched.
 
 ### Everywhere
+- **Shorts + YouTube video in one click** (#460) — a Home tile picks a recording (or a folder of them) and
+  runs the whole pipeline: analysis, the best shorts, the YouTube edit with your saved extras, and the Mac stays
+  awake until it's done.
+- **Drop a folder** (#2) — the import panel, the drop zone and the overnight batch take folders and bring in
+  their videos, audio and transcripts (one level, in name order).
+- **"Clip it" while recording** (#318) — ⇧⌘M (or the HUD button) marks the moment; analysis treats marked
+  moments as sure things, like a win banner. From the game too when macOS lets PULSE see keys (Input
+  Monitoring).
+- **Layouts that match what you stream** (#57) — after Set up for my stream, shorts with a facecam open in the
+  split that suits the content: corner cam for shooters and battle royale, face-first for Just Chatting and IRL,
+  half-and-half for variety and horror.
+- **Reset any slider** (#206) — inspector sliders show a reset arrow while off their default, and double-clicking
+  the label resets too (an animated value loses its keyframes).
 - **Set up for my stream** (#441) — six questions (platform, content, facecam, mic, where shorts go, pace) set
   clip length, captions, extras, safe areas and the export preset in one go, with a list of exactly what changes.
   From the welcome screen, Home, Settings → General and the Help menu.

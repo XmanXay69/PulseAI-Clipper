@@ -323,24 +323,45 @@ final class AppModel: ObservableObject {
     func showImportPanel() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = false
+        panel.canChooseDirectories = true
         panel.allowedContentTypes = (MediaTypes.allImportableExtensions + Array(MediaTypes.transcriptExtensions)).compactMap { UTType(filenameExtension: $0) }
         panel.prompt = "Import"
-        panel.message = "Choose videos, audio, images or transcripts (SRT/VTT)"
+        panel.message = "Choose videos, audio, images or transcripts (SRT/VTT) — or a folder of them"
         if panel.runModal() == .OK {
             importMedia(panel.urls)
         }
     }
 
-    /// Imports into the open project, creating a project named after the first file if needed.
-    func importMedia(_ urls: [URL]) {
-        guard !urls.isEmpty else { return }
+    /// Imports into the open project, creating a project named after the first file if needed. Folders bring
+    /// in their media (#2).
+    func importMedia(_ dropped: [URL]) {
+        let urls = ImportPlan.expandingFolders(dropped)
+        guard !urls.isEmpty else {
+            if !dropped.isEmpty { toast("No videos, audio or transcripts in there") }
+            return
+        }
         if session == nil {
             let name = urls.first.map { $0.deletingPathExtension().lastPathComponent } ?? "New Project"
             newProject(name: name)
         }
         session?.importMedia(urls)
         section = .importMedia
+    }
+
+    /// "VOD → shorts + YouTube video" in one go (#460): pick recordings (or a folder of them) and the batch
+    /// analyzes each, builds the top shorts and the YouTube edit with your saved answers, and keeps the Mac awake.
+    func runFullPipeline() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = true
+        panel.allowedContentTypes = [.movie, .mpeg4Movie, .quickTimeMovie]
+        panel.prompt = "Make Shorts + YouTube Video"
+        panel.message = "Choose one or more recordings (or a folder). Each becomes a project with its best shorts and a YouTube edit."
+        guard panel.runModal() == .OK else { return }
+        batch.options.makeYouTubeEdit = true
+        batch.add(panel.urls)
+        showBatchSheet = true
+        batch.start()
     }
 
     func renameProject(_ summary: ProjectSummary, to name: String) {

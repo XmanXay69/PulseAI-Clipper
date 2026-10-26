@@ -75,8 +75,8 @@ final class BatchController: ObservableObject {
 
     // MARK: Queue
 
-    func add(_ urls: [URL]) {
-        let videos = urls.filter { ["mp4", "mov", "m4v", "mkv", "webm", "ts", "flv", "avi"].contains($0.pathExtension.lowercased()) }
+    func add(_ dropped: [URL]) {
+        let videos = ImportPlan.expandingFolders(dropped).filter { ["mp4", "mov", "m4v", "mkv", "webm", "ts", "flv", "avi"].contains($0.pathExtension.lowercased()) }
         for url in videos where !items.contains(where: { $0.url == url && !$0.status.isFinished }) {
             var item = Item(url: url)
             item.duration = nil

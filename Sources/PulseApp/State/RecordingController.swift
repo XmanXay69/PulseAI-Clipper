@@ -32,10 +32,13 @@ final class RecordingController: ObservableObject {
     @Published var hidePulse = true
     @Published var countdown = true
     @Published var analyzeAfter = true
+    /// Moments marked with "clip it" (⇧⌘M, or the HUD button) since recording started, in seconds.
+    @Published private(set) var markedMoments: [TimeInterval] = []
 
     private let recorder = SessionRecorder()
     private var ticker: Task<Void, Never>?
     private var countdownTask: Task<Void, Never>?
+    private var keyMonitors: [Any] = []
 
     var isActive: Bool { phase != .idle }
 
@@ -89,6 +92,8 @@ final class RecordingController: ObservableObject {
                 try await recorder.start(options)
                 phase = .recording
                 elapsed = 0
+                markedMoments = []
+                installClipItHotkey()
                 ticker = Task { [weak self] in
                     while !Task.isCancelled {
                         try? await Task.sleep(nanoseconds: 250_000_000)
@@ -127,10 +132,44 @@ final class RecordingController: ObservableObject {
         phase == .paused ? resume() : pause()
     }
 
+    /// "Clip it": remembers this moment so analysis treats it as a sure thing (#318).
+    func markMoment() {
+        guard phase == .recording else { return }
+        markedMoments.append(recorder.elapsed)
+        NSSound(named: "Tink")?.play()
+    }
+
+    /// ⇧⌘M marks a moment while PULSE is frontmost, and from the game too when macOS lets PULSE see keys
+    /// (System Settings → Privacy & Security → Input Monitoring); without that, the HUD button still works.
+    private func installClipItHotkey() {
+        removeClipItHotkey()
+        if let local = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
+            guard Self.isClipIt(event) else { return event }
+            MainActor.assumeIsolated { self?.markMoment() }
+            return nil
+        }) { keyMonitors.append(local) }
+        if let global = NSEvent.addGlobalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
+            guard Self.isClipIt(event) else { return }
+            Task { @MainActor in self?.markMoment() }
+        }) { keyMonitors.append(global) }
+    }
+
+    nonisolated private static func isClipIt(_ event: NSEvent) -> Bool {
+        event.modifierFlags.intersection(.deviceIndependentFlagsMask).isSuperset(of: [.command, .shift]) &&
+            event.charactersIgnoringModifiers?.lowercased() == "m"
+    }
+
+    private func removeClipItHotkey() {
+        for monitor in keyMonitors { NSEvent.removeMonitor(monitor) }
+        keyMonitors.removeAll()
+    }
+
     func stop(app: AppModel) {
         guard isCapturing else { return }
         phase = .finishing
         ticker?.cancel()
+        removeClipItHotkey()
+        let marked = markedMoments
         Task {
             do {
                 let result = try await recorder.stop()
@@ -138,8 +177,9 @@ final class RecordingController: ObservableObject {
                 if app.session == nil {
                     app.newProject(name: "Recording \(Date().formatted(date: .abbreviated, time: .shortened))")
                 }
-                app.session?.importRecording(result, analyzeAfter: analyzeAfter)
-                app.toast("Recording saved — \(Timecode.duration(result.duration))")
+                app.session?.importRecording(result, analyzeAfter: analyzeAfter, markedMoments: marked)
+                app.toast(marked.isEmpty ? "Recording saved — \(Timecode.duration(result.duration))"
+                          : "Recording saved — \(Timecode.duration(result.duration)), \(marked.count) moment\(marked.count == 1 ? "" : "s") marked")
             } catch {
                 phase = .idle
                 app.present(error, title: "The recording couldn't be saved")

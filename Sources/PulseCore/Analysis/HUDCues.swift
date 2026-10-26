@@ -4,9 +4,12 @@ import Foundation
 public struct HUDEvent: Codable, Hashable, Sendable, Identifiable {
     public enum Kind: String, Codable, CaseIterable, Sendable {
         case win, loss, kill, multiKill, death, objective, levelUp, achievement, clutch
+        /// Not a banner: you pressed "clip it" while recording.
+        case marked
 
         public var displayName: String {
             switch self {
+            case .marked: return "Marked"
             case .win: return "Win"
             case .loss: return "Loss"
             case .kill: return "Kill"
@@ -21,6 +24,7 @@ public struct HUDEvent: Codable, Hashable, Sendable, Identifiable {
 
         public var symbolName: String {
             switch self {
+            case .marked: return "flag.fill"
             case .win: return "trophy"
             case .loss: return "xmark.octagon"
             case .kill: return "scope"
@@ -36,7 +40,7 @@ public struct HUDEvent: Codable, Hashable, Sendable, Identifiable {
         /// How much of a moment the banner is on its own (0…1).
         public var weight: Double {
             switch self {
-            case .win: return 1
+            case .win, .marked: return 1
             case .multiKill, .clutch: return 0.9
             case .achievement: return 0.7
             case .loss: return 0.6
@@ -50,7 +54,7 @@ public struct HUDEvent: Codable, Hashable, Sendable, Identifiable {
         /// The clip tag a short built around this banner gets.
         public var tag: ClipTag {
             switch self {
-            case .win, .multiKill, .clutch, .achievement, .levelUp, .objective: return .hype
+            case .win, .multiKill, .clutch, .achievement, .levelUp, .objective, .marked: return .hype
             case .loss, .death: return .fail
             case .kill: return .gaming
             }

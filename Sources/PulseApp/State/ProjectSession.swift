@@ -593,6 +593,11 @@ final class ProjectSession: ObservableObject, Identifiable {
                 self.app.settings.ai.analysisSpeed.learn(stageSeconds: output.stageSeconds, mediaDuration: asset.metadata.duration)
                 var analysis = output.analysis
                 analysis.chat = self.analyses[assetID]?.chat // an imported chat replay survives re-analysis
+                // Moments marked while recording are sure things: they score like a win banner.
+                let marked = self.document.asset(id: assetID)?.markedMoments ?? []
+                if !marked.isEmpty {
+                    analysis.hudEvents = (analysis.hudEvents ?? []) + marked.map { HUDEvent(time: $0, kind: .marked, text: "CLIP IT") }
+                }
                 self.setAnalysis(analysis)
                 self.edit("Analyze Video") { doc in
                     doc.updateAsset(id: assetID) { $0.preparation.analysisState = .complete }
@@ -704,9 +709,13 @@ final class ProjectSession: ObservableObject, Identifiable {
             options = style.0.shortOptions(style.1, base: options)
             wantsMusic = style.0.shortWantsMusic(style.1, default: wantsMusic)
         }
+        let cam = webcamCompanion(for: asset)
+        // The split that suits what you stream (Set up for my stream), when there's a facecam to place.
+        if options.layout == nil, let content = app.settings.streamSetup?.content, cam != nil || analyses[asset.id]?.webcam != nil {
+            options.layout = content.preferredLayout
+        }
         let sfx = document.media.filter { $0.role == .soundEffect }
         let music = wantsMusic ? document.media.first { $0.role == .music } : nil
-        let cam = webcamCompanion(for: asset)
         let input = ShortBuildInput(candidate: candidate, asset: asset, analysis: analyses[asset.id], soundEffects: sfx, music: music,
                                     companionWebcam: cam, companionVoice: voiceCompanion(for: asset),
                                     companionFaceCenter: cam.flatMap { analyses[$0.id]?.webcam?.face.center })
