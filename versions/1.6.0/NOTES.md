@@ -27,7 +27,17 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   funny…); leave one empty for PULSE's default.
 - **Words to censor** (#44) — add your own to the caption filter.
 
+- **Music crossfades between chapters** (#101) — beds now sit on two music tracks (A2 / A2b) so one chapter's
+  music overlaps the next for 3 s instead of fading out, a gap, and fading in.
+
 ### Editing
+- **J/K/L shuttle** (#157) — L plays 1×, then 2×, 4×, 8× on each press; J the same backwards (or a second back
+  per press when the composition can't play in reverse); K stops.
+- **Zoom In / Out / to Fit** in the Timeline menu (⌘= / ⌘- / ⇧Z) (#153).
+- **Excitement strip** (#48) — the recording's energy drawn along the bottom of the ruler, mapped through your
+  cuts, so you see where the heat is; toggle it in the toolbar.
+- **Pacing graph** (#114) — cuts per minute, minute by minute, in the Coach, with the comfortable band shaded.
+- **Inspector sections remember** whether you collapsed them (#228).
 - **Nudge** (#155) — ⌥, / ⌥. move the selected clips a frame; add ⇧ for ten.
 - **Type a time** (#200) — click the timecode in the transport bar, type 12:34 (or 1:02:03, or 12:34:15 for
   frames) and press return.
