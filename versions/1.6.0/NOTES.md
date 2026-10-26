@@ -5,6 +5,9 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 [1.5.0](../1.5.0/NOTES.md) and [1.4.0](../1.4.0/NOTES.md) for those two; what's new on top:
 
 ### Edit My VOD
+- **Guests as loud as the host** (#266) — with speaker-aware cuts on, each speaker's level is measured from
+  their own words and the dialogue gets volume steps so everyone sits at the host's level.
+- **Your handle on the end screen** (#374) — “@you · more videos →” when a handle is set.
 - **No punch-in on an empty facecam** (#47) — when the cam is hidden (full-screen game, a dropped camera),
   facecam punch-ins skip that stretch.
 - **Blend two references** (#367) — a style halfway between two studied videos.
@@ -67,6 +70,9 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   music overlaps the next for 3 s instead of fading out, a gap, and fading in.
 
 ### Editing
+- **Edit report** (#107) — a toolbar popover: what was cut and why, what was added, chapters and to-dos,
+  every line a jump link; Copy puts it on the clipboard.
+- **Compact tracks** (#182) — Settings → General, or on its own past 300 clips.
 - **History** (#175) — every undo step in a list; click one to jump back there.
 - **Match Previous Clip** (⌥⌘M, #226) — the selected clip takes the look of the one before it on its track.
 - **Cover frame** (#70) — Timeline → Set Cover Frame at Playhead; exports use it for the thumbnail.
@@ -168,6 +174,9 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 - **Overlap warning** (#73) — a clip that covers mostly the same stretch as a short you've already edited says so.
 
 ### Delivery
+- **Review page** (#471) — File → Export Review Page: one HTML file with the cut as a table (timecodes,
+  source, OK boxes, a note per row), chapters, what was removed and your notes; works offline and prints.
+- **Export queue** (#339) — pause and resume; move queued jobs earlier or later.
 - **Loudness target** (#279) — −14 (YouTube), −16 (podcast) or −18 LUFS in the export panel: the mix is
   measured and brought there before encoding, never past the peak headroom. “Check only” asks as before, and
   the answer can be remembered per project (#358).
@@ -242,6 +251,11 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   per timeline. It's rendered into the enhance cache; the source file is never touched.
 
 ### Everywhere
+- **Undo on the toast** (#411) — setting clips aside, removing unused media and tightening pauses show an
+  Undo button for six seconds.
+- **Activity by day** (#434) — Today, Yesterday, then dates.
+- **Media panel** — an Unused filter (#17) and Rename in the right-click menu (#19); HDR sources (Rec. 2020)
+  are flagged, since the preview and exports are SDR (#203).
 - **Watch folder** (#3) — anything that lands in it is imported (and analyzed); with a nightly hour set, the
   day's recordings run through the overnight batch — shorts and a YouTube edit by morning (#461).
 - **Archive with media** (#470) — right-click a project: the project and every file it uses, zipped; File →
@@ -291,6 +305,7 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   "settings"… (fuzzy, so "qexp" finds Quick Export).
 
 ### Under the hood
+- **Tempo from beats** (#135) — `BeatSync.bpm` reads the median beat gap.
 - **Proxies by codec** (#16) — ProRes, DNxHR, Motion JPEG and DV decode frame by frame and get no proxy below
   4K; long-GOP codecs do above the threshold. The media panel says why.
 - **Variable frame rate flagged** (#23) — screen recordings whose frame timing wanders are marked on import,

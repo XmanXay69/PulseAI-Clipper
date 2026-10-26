@@ -5,11 +5,14 @@ import SwiftUI
 enum TimelineMetrics {
     static let headerWidth: CGFloat = 172
     static let rulerHeight: CGFloat = 26
+    /// Tighter rows for long timelines (#182): set from Settings, or on its own past 300 clips.
+    nonisolated(unsafe) static var compact = false
+
     static func laneHeight(_ kind: TrackKind) -> CGFloat {
         switch kind {
-        case .video: return 58
-        case .audio: return 46
-        case .text: return 32
+        case .video: return compact ? 40 : 58
+        case .audio: return compact ? 30 : 46
+        case .text: return compact ? 24 : 32
         }
     }
 }
@@ -17,6 +20,8 @@ enum TimelineMetrics {
 struct TimelinePanel: View {
     @EnvironmentObject var app: AppModel
     @ObservedObject var session: ProjectSession
+    /// Row heights follow Settings → General → Compact tracks, and tighten on their own past 300 clips (#182).
+    var compactRows: Bool { app.settings.compactTimeline || (session.activeTimeline?.allClips.count ?? 0) > 300 }
     @ObservedObject var playback: PlaybackController
 
     init(session: ProjectSession) {
@@ -59,6 +64,7 @@ struct TimelineToolbar: View {
     @State private var showPauses = false
     @State private var showNotes = false
     @State private var showHistory = false
+    @State private var showReport = false
     @AppStorage("timeline.energyStrip") private var showEnergy = true
 
     var body: some View {
@@ -89,6 +95,12 @@ struct TimelineToolbar: View {
                 .disabled(!session.canRedo)
             IconButton(symbol: "clock.arrow.circlepath", help: "History — every edit, click one to jump back there", isActive: showHistory) { showHistory.toggle() }
                 .popover(isPresented: $showHistory, arrowEdge: .bottom) { UndoHistoryView(session: session).frame(width: 300) }
+            IconButton(symbol: "doc.text.magnifyingglass", help: "Edit report — what was cut, what was added, with jump links", isActive: showReport) { showReport.toggle() }
+                .popover(isPresented: $showReport, arrowEdge: .bottom) { EditReportView(session: session, playback: playback).frame(width: 420) }
+            IconButton(symbol: TimelineMetrics.compact ? "rectangle.compress.vertical" : "rectangle.expand.vertical", help: "Compact tracks (#182)", isActive: app.settings.compactTimeline) {
+                app.settings.compactTimeline.toggle()
+                TimelineMetrics.compact = app.settings.compactTimeline || (session.activeTimeline?.allClips.count ?? 0) > 300
+            }
             Divider().frame(height: 16).padding(.horizontal, 4)
             IconButton(symbol: "arrow.right.and.line.vertical.and.arrow.left", help: "Snapping (S)", isActive: app.settings.snapping) { app.settings.snapping.toggle() }
             IconButton(symbol: "rectangle.compress.vertical", help: "Magnetic timeline — deleting closes gaps", isActive: app.settings.magneticTimeline) { app.settings.magneticTimeline.toggle() }
@@ -115,10 +127,52 @@ struct TimelineToolbar: View {
         .padding(.horizontal, 10)
         .frame(height: 34)
         .background(Theme.panelRaised)
+        .onAppear { TimelineMetrics.compact = app.settings.compactTimeline || (session.activeTimeline?.allClips.count ?? 0) > 300 }
+        .onChange(of: app.settings.compactTimeline) { _, on in TimelineMetrics.compact = on || (session.activeTimeline?.allClips.count ?? 0) > 300 }
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
     }
 
     func zoomToFit() { session.zoomTimelineToFit() }
+}
+
+/// What the edit did (#107): sections with lines you can click to jump to.
+struct EditReportView: View {
+    @ObservedObject var session: ProjectSession
+    @ObservedObject var playback: PlaybackController
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            PanelHeader("Edit Report", subtitle: session.activeTimeline?.name ?? "") {
+                Button("Copy") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(session.editReport?.text ?? "", forType: .string)
+                }
+                .buttonStyle(.pulse(.ghost, compact: true))
+            }
+            if let report = session.editReport {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(report.sections) { section in
+                            VStack(alignment: .leading, spacing: 3) {
+                                SectionLabel(text: section.title)
+                                ForEach(section.lines) { line in
+                                    HStack(alignment: .top, spacing: 6) {
+                                        if line.time != nil { Image(systemName: "arrow.turn.down.right").font(.system(size: 9)).foregroundStyle(Theme.ai).padding(.top, 3) }
+                                        Text(line.text).font(.pulseCaption).foregroundStyle(line.time == nil ? Theme.textSecondary : Theme.textPrimary)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { if let t = line.time { playback.seek(to: t) } }
+                                }
+                            }
+                        }
+                    }
+                    .padding(14)
+                }
+                .frame(maxHeight: 420)
+            }
+        }
+    }
 }
 
 /// Every undo step with "jump back to" (#175).

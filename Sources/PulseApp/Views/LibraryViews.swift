@@ -11,9 +11,12 @@ struct MediaView: View {
     @State private var category: MediaCategory?
     @State private var query = ""
     @State private var favoritesOnly = false
+    @State private var unusedOnly = false
     @State private var sort: Sort = .imported
     @State private var selectedID: UUID?
     @State private var newTag = ""
+    @State private var renamingID: UUID?
+    @State private var renameText = ""
 
     enum Sort: String, CaseIterable { case imported = "Date Imported", name = "Name", duration = "Duration", size = "Size" }
 
@@ -21,6 +24,10 @@ struct MediaView: View {
         var list = session.document.media
         if let category { list = list.filter { $0.category == category } }
         if favoritesOnly { list = list.filter(\.isFavorite) }
+        if unusedOnly {
+            let used = session.document.usedAssetIDs
+            list = list.filter { !used.contains($0.id) }
+        }
         if !query.isEmpty {
             list = list.filter { a in a.name.localizedCaseInsensitiveContains(query) || a.tags.contains { $0.localizedCaseInsensitiveContains(query) } }
         }
@@ -44,6 +51,9 @@ struct MediaView: View {
                 Divider().padding(.vertical, 8)
                 Toggle(isOn: $favoritesOnly) { Label("Favorites", systemImage: "star") }
                     .toggleStyle(.button).buttonStyle(.plain).font(.pulseCaption).padding(.horizontal, 12)
+                Toggle(isOn: $unusedOnly) { Label("Unused", systemImage: "tray") }
+                    .toggleStyle(.button).buttonStyle(.plain).font(.pulseCaption).padding(.horizontal, 12)
+                    .help("Files no timeline or clip card uses (#17)")
                 Spacer()
             }
             .frame(width: 180)
@@ -52,6 +62,15 @@ struct MediaView: View {
             VStack(spacing: 0) {
                 HStack(spacing: 8) {
                     TextField("Search names and tags", text: $query).textFieldStyle(.roundedBorder).frame(width: 240)
+                        .alert("Rename Media", isPresented: Binding(get: { renamingID != nil }, set: { if !$0 { renamingID = nil } })) {
+                            TextField("Name", text: $renameText)
+                            Button("Rename") {
+                                let name = renameText.trimmingCharacters(in: .whitespaces)
+                                if let id = renamingID, !name.isEmpty { session.edit("Rename Media") { $0.updateAsset(id: id) { $0.name = name } } }
+                                renamingID = nil
+                            }
+                            Button("Cancel", role: .cancel) { renamingID = nil }
+                        }
                     Picker("", selection: $sort) { ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
                         .frame(width: 150)
                     Spacer()
@@ -71,6 +90,11 @@ struct MediaView: View {
                                     .onTapGesture { selectedID = asset.id }
                                     .onTapGesture(count: 2) { session.placeAsset(asset.id); app.section = .editor }
                                     .draggable(asset.id.uuidString)
+                                    .contextMenu {
+                                        Button("Rename…") { renameText = asset.name; renamingID = asset.id }
+                                        Button("Add to Timeline") { session.placeAsset(asset.id) }
+                                        Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([session.url(for: asset)]) }
+                                    }
                             }
                         }
                         .padding(14)
@@ -135,6 +159,12 @@ struct MediaView: View {
                     if asset.metadata.variableFrameRate == true {
                         Label("Variable frame rate — captions and cuts can drift. Convert to constant (Media → Convert) if they do.", systemImage: "exclamationmark.triangle")
                             .font(.pulseMicro).foregroundStyle(Theme.warning).fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let primaries = asset.metadata.colorPrimaries, primaries.contains("2020") {
+                        Label("HDR source (Rec. 2020) — the preview and exports are SDR; colours may look flatter than in QuickTime.", systemImage: "sun.max.trianglebadge.exclamationmark")
+                            .font(.pulseMicro).foregroundStyle(Theme.warning).fixedSize(horizontal: false, vertical: true)
+                    } else if let primaries = asset.metadata.colorPrimaries {
+                        KeyValueRow(key: "Colour", value: primaries.contains("709") ? "Rec. 709 (SDR)" : primaries)
                     }
                     if asset.kind == .video {
                         KeyValueRow(key: "Proxy", value: asset.preparation.proxyPath != nil ? "Made" : app.settings.proxy.proxyReason(sourceHeight: asset.metadata.height, duration: asset.metadata.duration, codec: asset.metadata.videoCodec))
@@ -701,6 +731,15 @@ struct ExportQueueView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 0) {
+                        if queue.jobs.contains(where: { $0.status == .queued }) || queue.isPaused {
+                            HStack {
+                                Button(queue.isPaused ? "Resume Queue" : "Pause Queue") { queue.isPaused.toggle() }
+                                    .buttonStyle(.pulse(queue.isPaused ? .primary : .ghost, compact: true))
+                                    .help("Finish the current export, then wait (#339)")
+                                Spacer()
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 6)
+                        }
                         ForEach(queue.jobs) { job in ExportJobRow(queue: queue, job: job) }
                     }
                 }
@@ -723,7 +762,13 @@ struct ExportJobRow: View {
             }
             switch job.status {
             case .queued:
-                HStack { Text("Queued").font(.pulseMicro).foregroundStyle(Theme.textTertiary); Spacer(); Button("Cancel") { queue.cancel(job.id) }.buttonStyle(.pulse(.ghost, compact: true)) }
+                HStack {
+                    Text("Queued").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                    Spacer()
+                    IconButton(symbol: "chevron.up", help: "Earlier in the queue", size: 20) { queue.move(job.id, up: true) }
+                    IconButton(symbol: "chevron.down", help: "Later in the queue", size: 20) { queue.move(job.id, up: false) }
+                    Button("Cancel") { queue.cancel(job.id) }.buttonStyle(.pulse(.ghost, compact: true))
+                }
             case .preparing, .rendering:
                 ThinProgressBar(progress: job.status.progress)
                 HStack {

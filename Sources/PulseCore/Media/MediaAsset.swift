@@ -85,6 +85,8 @@ public struct MediaMetadata: Codable, Hashable, Sendable {
     public var creationDate: Date?
     /// The recording's frame timing wanders (screen captures, some phones): captions and cuts can drift (#23).
     public var variableFrameRate: Bool?
+    /// Colour primaries from the file ("ITU_R_709_2", "ITU_R_2020"…); Rec. 2020 means an HDR source (#203).
+    public var colorPrimaries: String?
 
     public init(duration: Seconds = 0, width: Int = 0, height: Int = 0, frameRate: Double = 0,
                 hasVideo: Bool = false, hasAudio: Bool = false, audioTrackCount: Int = 0,

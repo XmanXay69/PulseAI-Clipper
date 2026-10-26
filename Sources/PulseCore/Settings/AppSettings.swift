@@ -318,6 +318,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var stats: LifetimeStats = LifetimeStats()
     /// A folder PULSE watches: anything dropped in is imported (#3).
     public var watchFolder: String = ""
+    /// Tighter track heights (#182); timelines over 300 clips use them regardless.
+    public var compactTimeline: Bool = false
     /// Analyze what the watch folder brings in, straight away (#3).
     public var watchFolderAnalyzes: Bool = true
     /// Hour (0–23) at which the batch runs on what the watch folder gathered that day; nil = never (#461).
@@ -367,6 +369,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
         gradePresets = c.decode([GradePreset].self, forKey: .gradePresets, default: d.gradePresets)
         stats = c.decode(LifetimeStats.self, forKey: .stats, default: d.stats)
         watchFolder = c.decode(String.self, forKey: .watchFolder, default: d.watchFolder)
+        compactTimeline = c.decode(Bool.self, forKey: .compactTimeline, default: d.compactTimeline)
         watchFolderAnalyzes = c.decode(Bool.self, forKey: .watchFolderAnalyzes, default: d.watchFolderAnalyzes)
         nightlyBatchHour = c.decode(Int?.self, forKey: .nightlyBatchHour, default: nil)
         defaultExportPresetID = c.decode(String.self, forKey: .defaultExportPresetID, default: d.defaultExportPresetID)

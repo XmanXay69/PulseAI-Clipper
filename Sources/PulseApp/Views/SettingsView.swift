@@ -226,6 +226,9 @@ struct GeneralSettings: View {
             }
         }
         SettingsGroup("Editing") {
+            SettingsRow("Compact tracks", detail: "Tighter track heights for long timelines; timelines over 300 clips use them regardless.") {
+                Toggle("", isOn: $app.settings.compactTimeline).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
+            }
             SettingsRow("Magnetic timeline", detail: "Deleting a clip closes the gap automatically.") {
                 Toggle("", isOn: $app.settings.magneticTimeline).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
             }

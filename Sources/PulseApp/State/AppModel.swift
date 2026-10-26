@@ -82,6 +82,10 @@ struct AppAlert: Identifiable {
 struct Toast: Identifiable, Equatable {
     let id = UUID()
     var message: String
+    /// An action on the toast, like Undo after an edit (#411).
+    var action: (title: String, run: @MainActor () -> Void)?
+
+    static func == (a: Toast, b: Toast) -> Bool { a.id == b.id }
 }
 
 /// Application-wide state.
@@ -986,6 +990,17 @@ final class AppModel: ObservableObject {
         toastTask?.cancel()
         toastTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 3_200_000_000)
+            if !Task.isCancelled { self?.toastMessage = nil }
+        }
+    }
+
+    /// A toast with an Undo button for the edit that just happened (#411); stays a little longer.
+    func toast(_ message: String, undo: Bool) {
+        guard undo, let session else { return toast(message) }
+        toastMessage = Toast(message: message, action: ("Undo", { [weak session] in session?.undo() }))
+        toastTask?.cancel()
+        toastTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
             if !Task.isCancelled { self?.toastMessage = nil }
         }
     }

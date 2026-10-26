@@ -839,7 +839,7 @@ final class ProjectSession: ObservableObject, Identifiable {
             removed = EditPolish.shortenPauses(&t, words: words, after: 0, minimum: minimum)
             saved = before - t.duration
         }
-        app.toast(removed == 0 ? "No pauses longer than \(String(format: "%.1f", minimum)) s" : "\(removed) pause\(removed == 1 ? "" : "s") sped up — \(String(format: "%.1f", saved)) s shorter")
+        app.toast(removed == 0 ? "No pauses longer than \(String(format: "%.1f", minimum)) s" : "\(removed) pause\(removed == 1 ? "" : "s") sped up — \(String(format: "%.1f", saved)) s shorter", undo: removed > 0)
     }
 
     func pauseWords(for timeline: Timeline) -> [TranscriptWord]? {
@@ -896,6 +896,29 @@ final class ProjectSession: ObservableObject, Identifiable {
         }
         app.toast("Captions rebuilt from the latest transcript — your edits were kept")
     }
+
+    /// A review page for someone without PULSE (#471).
+    func exportReviewPage() {
+        guard let timeline = activeTimeline else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = ExportSettings.cleanComponent(timeline.name) + " review.html"
+        panel.allowedContentTypes = [.html]
+        panel.prompt = "Save Page"
+        panel.message = "One HTML file: the cut with timecodes, chapters, what was removed and your notes. Works offline, prints."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let html = ReviewPage.html(timeline: timeline, projectName: document.name, assets: document.media)
+        do {
+            try html.write(to: url, atomically: true, encoding: .utf8)
+            app.logActivity(.export, title: "Review page for “\(timeline.name)”", detail: url.lastPathComponent)
+            app.toast("Saved \(url.lastPathComponent)")
+            NSWorkspace.shared.open(url)
+        } catch {
+            app.present(error, title: "Couldn't write the review page")
+        }
+    }
+
+    /// What the edit did, with jump links (#107).
+    var editReport: EditReport? { activeTimeline.map { EditReport.build(timeline: $0, assets: document.media) } }
 
     /// The timeline as Final Cut Pro XML for Final Cut Pro or DaVinci Resolve (#480).
     func exportFCPXML() {
@@ -962,7 +985,7 @@ final class ProjectSession: ObservableObject, Identifiable {
         guard !unused.isEmpty else { app.toast("Every file in the project is in use"); return }
         var gone: [MediaAsset] = []
         edit("Remove Unused Media") { doc in gone = doc.removeUnusedMedia() }
-        app.toast("Removed \(gone.count) unused file\(gone.count == 1 ? "" : "s") from the project — \(gone.map(\.name).prefix(3).joined(separator: ", "))\(gone.count > 3 ? "…" : "")")
+        app.toast("Removed \(gone.count) unused file\(gone.count == 1 ? "" : "s") from the project — \(gone.map(\.name).prefix(3).joined(separator: ", "))\(gone.count > 3 ? "…" : "")", undo: true)
     }
 
     func reshapeCandidate(_ id: UUID, targetDuration: Seconds?, regenerate: Bool) {
@@ -982,6 +1005,7 @@ final class ProjectSession: ObservableObject, Identifiable {
             }
         }
         selectedCandidateIDs.subtract(ids)
+        app.toast(ids.count == 1 ? "Clip set aside — it's in Maybe later" : "\(ids.count) clips set aside", undo: true)
     }
 
     /// One-click short / Auto Edit: builds an editable timeline and opens it.

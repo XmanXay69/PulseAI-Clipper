@@ -41,6 +41,7 @@ struct LongFormSheet: View {
         options.musicLevel = musicLevel
         options.chapterTitles = chapterTitles
         options.cutGameOnly = cutGameOnly
+        options.socialHandle = app.settings.ai.socialHandle
         options.deadAir = SilencePreset(rawValue: deadAir) ?? .balanced
         options.memeTexts = app.settings.ai.memeTextsByTag
         return options

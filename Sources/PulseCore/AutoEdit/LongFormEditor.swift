@@ -35,6 +35,8 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
     public var chapterTitles = false
     /// Cut stretches where the game is loud but nobody talks for 8 s or more (#30).
     public var cutGameOnly = false
+    /// Your @handle for the end screen (#374).
+    public var socialHandle = ""
     /// Your own meme pop-up text per mood (Settings → AI Features); empty = PULSE's default.
     public var memeTexts: [ClipTag: String] = [:]
 
@@ -403,6 +405,12 @@ public enum LongFormEditor {
         }
         // Extra: people talking over each other (needs speaker labels), away from each section's payoff.
         var crosstalk: Seconds = 0
+        // Extra: guests as loud as the host (#266) — volume steps per speaker on the dialogue clips.
+        var leveled = 0
+        if options.extras.speakerAware, let audio = analysis.audio, words.contains(where: { $0.speaker != nil }) {
+            let gains = SpeakerLeveler.gains(words: words, audio: audio)
+            leveled = SpeakerLeveler.apply(&timeline, assetID: asset.id, words: words, gains: gains)
+        }
         if options.extras.speakerAware {
             var cuts = segments.flatMap { SpeakerAware.crosstalk(in: $0.range, words: words, protect: $0.payoff) }.merged()
             if let hookRange { cuts.removeAll { $0.overlaps(hookRange) } }
@@ -602,7 +610,7 @@ public enum LongFormEditor {
 
         // Ending: an end screen for YouTube's cards, or a soft fade.
         if options.endScreen && landscape && analysis.duration > 120 {
-            EditPolish.addEndScreen(&timeline)
+            EditPolish.addEndScreen(&timeline, handle: options.socialHandle)
         } else if let last = timeline.tracks[0].clips.indices.last {
             timeline.tracks[0].clips[last].transitionOut = ClipTransition(kind: .fadeToBlack, duration: 0.6, aiGenerated: true)
         }
@@ -661,6 +669,7 @@ public enum LongFormEditor {
         if jumpZooms > 0 { parts.append("\(jumpZooms) jump-cut zooms") }
         if slivers > 0 { parts.append("\(slivers) slivers removed") }
         if crosstalk > 0.5 { parts.append("\(Int(crosstalk.rounded())) s of crosstalk trimmed") }
+        if leveled > 0 { parts.append("guests leveled to the host (\(leveled) steps)") }
         if fillers > 0 { parts.append("\(fillers) ums and stumbles cut") }
         if facecamZooms > 0 { parts.append("\(facecamZooms) facecam punch-ins") }
         if cards > 0 { parts.append("\(cards) title cards") }

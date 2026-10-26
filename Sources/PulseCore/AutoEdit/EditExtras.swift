@@ -385,6 +385,16 @@ public enum BeatSync {
     /// Beat grid from an onset-strength envelope (hop seconds): tempo by autocorrelation in 70–180 BPM (leaning
     /// towards ~120), phase by the strongest comb alignment over the first bars, then each beat snapped to the
     /// local onset peak so a slightly-off tempo never drifts across a whole track.
+    /// Tempo from beat times (#135): the median gap, as beats per minute; nil below four beats.
+    public static func bpm(beats: [Seconds]) -> Double? {
+        let sorted = beats.sorted()
+        guard sorted.count >= 4 else { return nil }
+        let gaps = zip(sorted, sorted.dropFirst()).map { $1 - $0 }.filter { $0 > 0.2 && $0 < 2 }.sorted()
+        guard !gaps.isEmpty else { return nil }
+        let median = gaps[gaps.count / 2]
+        return (60 / median * 10).rounded() / 10
+    }
+
     public static func beats(onsets: [Float], hop: Seconds, duration: Seconds) -> [Seconds] {
         let n = onsets.count
         guard n > 32, hop > 0 else { return [] }

@@ -512,6 +512,10 @@ struct ToastView: View {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.success)
                 Text(toast.message).font(.pulseBody).foregroundStyle(Theme.textPrimary).lineLimit(2)
+                if let action = toast.action {
+                    Button(action.title) { action.run(); app.toastMessage = nil }
+                        .buttonStyle(.pulse(.secondary, compact: true))
+                }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 9)

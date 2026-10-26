@@ -180,6 +180,8 @@ struct PulseCommands: Commands {
                 .disabled(app.session?.selectedClipIDs.isEmpty ?? true)
             Button("Export Final Cut Pro XML…") { app.session?.exportFCPXML() }
                 .disabled(app.session?.activeTimeline == nil)
+            Button("Export Review Page…") { app.session?.exportReviewPage() }
+                .disabled(app.session?.activeTimeline == nil)
             Menu("Snapshots") {
                 Button("Take Snapshot") { app.session?.takeSnapshot() }.keyboardShortcut("s", modifiers: [.command, .option])
                     .disabled(app.session?.activeTimeline == nil)

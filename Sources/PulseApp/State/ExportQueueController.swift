@@ -9,6 +9,10 @@ import PulseEngine
 final class ExportQueueController: ObservableObject {
     @Published private(set) var jobs: [ExportJob] = []
     @Published private(set) var isRunning = false
+    /// Finish the current job, then wait (#339).
+    @Published var isPaused = false {
+        didSet { if !isPaused { startIfNeeded() } }
+    }
 
     private struct Payload {
         var timeline: Timeline
@@ -56,6 +60,16 @@ final class ExportQueueController: ObservableObject {
         startIfNeeded()
     }
 
+    /// Moves a queued job one place earlier or later among the queued ones (#339).
+    func move(_ id: UUID, up: Bool) {
+        guard let index = jobs.firstIndex(where: { $0.id == id }), jobs[index].status == .queued else { return }
+        let queued = jobs.indices.filter { jobs[$0].status == .queued }
+        guard let position = queued.firstIndex(of: index) else { return }
+        let target = up ? position - 1 : position + 1
+        guard queued.indices.contains(target) else { return }
+        jobs.swapAt(index, queued[target])
+    }
+
     func clearFinished() {
         let finished = jobs.filter { $0.status.isFinished }.map(\.id)
         jobs.removeAll { finished.contains($0.id) }
@@ -81,6 +95,7 @@ final class ExportQueueController: ObservableObject {
             worker = nil
         }
         while let index = jobs.firstIndex(where: { $0.status == .queued }) {
+            if isPaused { return }   // resuming calls startIfNeeded again
             let job = jobs[index]
             guard let payload = payloads[job.id] else {
                 jobs[index].status = .failed(message: "The export data was lost. Queue it again from the editor.")

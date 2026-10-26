@@ -180,7 +180,12 @@ struct HomeView: View {
                     Text("Transcription, clip generation, captions, rendering and exports will show up here.")
                         .font(.pulseCaption).foregroundStyle(Theme.textTertiary)
                 }
-                ForEach(app.activity.prefix(7)) { record in
+                let recent = Array(app.activity.prefix(7))
+                ForEach(Array(recent.enumerated()), id: \.element.id) { index, record in
+                    if index == 0 || !Calendar.current.isDate(record.date, inSameDayAs: recent[index - 1].date) {
+                        Text(Calendar.current.isDateInToday(record.date) ? "Today" : (Calendar.current.isDateInYesterday(record.date) ? "Yesterday" : record.date.formatted(date: .abbreviated, time: .omitted)))
+                            .font(.pulseMicro).foregroundStyle(Theme.textTertiary).textCase(.uppercase).padding(.top, index == 0 ? 0 : 4)
+                    }
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: record.kind.symbolName).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).frame(width: 16)
                         VStack(alignment: .leading, spacing: 1) {

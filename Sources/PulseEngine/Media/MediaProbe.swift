@@ -48,6 +48,10 @@ public enum MediaProbe {
             }
             if let desc = formats.first {
                 meta.videoCodec = fourCC(CMFormatDescriptionGetMediaSubType(desc))
+                // Rec. 2020 primaries mean an HDR source; the preview and exports are SDR (#203).
+                if let primaries = CMFormatDescriptionGetExtension(desc, extensionKey: kCMFormatDescriptionExtension_ColorPrimaries) as? String {
+                    meta.colorPrimaries = primaries
+                }
             }
             if !isPlayable {
                 throw EngineError.unsupportedMedia(url, reason: "macOS doesn't have a decoder for its video codec (\(meta.videoCodec ?? "unknown")). Re-encode it as H.264 or HEVC.")

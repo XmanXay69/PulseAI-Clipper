@@ -187,7 +187,7 @@ public enum EditPolish {
 
     /// A 10-second end screen after the last moment: dark slate, "thanks for watching", the right half left
     /// clear for YouTube's end-screen cards (videos / subscribe). Music plays out under it.
-    public static func addEndScreen(_ timeline: inout Timeline, length: Seconds = 10) {
+    public static func addEndScreen(_ timeline: inout Timeline, length: Seconds = 10, handle: String = "") {
         guard let v = timeline.tracks.firstIndex(where: { $0.kind == .video }), let last = timeline.tracks[v].clips.max(by: { $0.end < $1.end }) else { return }
         let at = last.end
         if let li = timeline.tracks[v].clips.firstIndex(where: { $0.id == last.id }) {
@@ -207,7 +207,9 @@ public enum EditPolish {
         thanks.transform.positionY = AnimatedDouble(0.42)
         let sub = TextStyle(fontName: TextStyle.tiktokSans, fontSize: 40, weight: .semibold, textCase: .asTyped,
                             color: RGBAColor(hex: "#B8B8C4")!, strokeWidth: 0, shadowOpacity: 0)
-        var more = TimelineClip(name: "End Screen Subtitle", content: .text(TextElement(text: "More videos →", style: sub, animationIn: .fadeIn,
+        let h = handle.trimmingCharacters(in: .whitespaces)
+        let subtitle = h.isEmpty ? "More videos →" : "\(h.hasPrefix("@") ? h : "@" + h) · more videos →"
+        var more = TimelineClip(name: "End Screen Subtitle", content: .text(TextElement(text: subtitle, style: sub, animationIn: .fadeIn,
                                                                                        animationOut: .fadeIn, animationDuration: 0.4, maxWidth: 0.42)),
                                 start: at + 1.2, sourceDuration: length - 1.4, aiGenerated: true)
         more.transform.positionX = AnimatedDouble(0.27)

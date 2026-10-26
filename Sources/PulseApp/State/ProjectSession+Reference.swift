@@ -10,6 +10,7 @@ extension ProjectSession {
             makeShortsLikeReference(style, answers: answers)
         } else {
             var options = style.longFormOptions(answers)
+            options.socialHandle = app.settings.ai.socialHandle
             options.extras = extras
             editMyVOD(options: options)
         }
