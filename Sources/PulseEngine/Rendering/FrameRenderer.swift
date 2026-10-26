@@ -106,9 +106,11 @@ public final class FrameRenderer: @unchecked Sendable {
         case .text(let element):
             return renderTextLayer(element, clip: clip, local: local, scene: scene)
         case .solid(let color):
+            // A canvas-sized colour placed like any other layer, so a solid can be cropped to a strip,
+            // positioned and keyframed (the progress bar, #92) and still fills the frame by default.
             let bounds = CGRect(origin: .zero, size: scene.renderSize)
-            let opacity = clip.transform.opacity.value(at: local) * transitionState(clip, local: local, scene: scene).opacity
-            return CIImage(color: CIColor(red: color.red, green: color.green, blue: color.blue, alpha: color.alpha * opacity)).cropped(to: bounds)
+            let fill = CIImage(color: CIColor(red: color.red, green: color.green, blue: color.blue, alpha: color.alpha)).cropped(to: bounds)
+            return place(fill, clip: clip, local: local, scene: scene, trackOpacity: layer.trackOpacity)
         }
     }
 

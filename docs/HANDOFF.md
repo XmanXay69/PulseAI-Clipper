@@ -78,7 +78,7 @@ Key files to know:
 
 ### What CI actually verifies on every push (macOS 14 / 15 / 26 / 15-intel runners)
 
-- 346 unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
+- 366 unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
   captions, layouts, export settings, audio DSP, the fuzzed timeline invariants, and one `BatchNTests.swift`
   per 1.6.0 roadmap batch, …).
 - **Engine end-to-end:** generate a 75 s gameplay+facecam stream → probe → analyze (audio + Vision faces) →
@@ -275,10 +275,24 @@ prompt), cloud AI providers with live keys.
   in `Views/Editor/TimelinePanel.swift`, inspector search (`InspectorQueryKey`), settings search + Statistics pane,
   smart project filters, deadlines/archive on Home. Every new `Codable` field is decoded tolerantly
   (`decode(_:forKey:default:)`) so older projects and settings files keep loading.
+- **1.6.1 roadmap batches 16–21** — same shape as before (one commit, one `BatchNTests.swift`, one section in
+  `versions/1.6.1/NOTES.md`). Core: `Timeline/TrimModes.swift` (slip / slide / roll), `Timeline/ClipLabels.swift`
+  (labels, drop markers, cuts per minute), `Timeline/ReplaceClip.swift`, `AutoEdit/IntroBumper.swift`,
+  `AutoEdit/ProgressBar.swift` (a cropped, keyframed solid — the renderer now places solids like any layer),
+  `AutoEdit/ColdOpenCard.swift`, `AutoEdit/HumanizeEffects.swift`, `EditQualityCheck.midSentenceCuts`,
+  `Captions/CaptionSpelling.swift`, caption page breaks and keyboard edits in `CaptionEdits.swift`,
+  `Search/FuzzyMatch.swift`, `Media/MediaRelinker.swift`, import sidecars in `ImportPlan.make(siblings:)`,
+  `Media/RecordingEstimate.swift`, `Export/CloudFolders.swift`, `Common/PerfLog.swift`, `Audio/MixingAdvice.swift`,
+  `Settings/Appearance.swift`, `UpdateChannel` + `ReleaseInfo.parseAll`, `WorkflowStage` on documents and summaries
+  (library column `workflow`). Engine: `System/AudioOutput.swift` (CoreAudio default output), `System/Connectivity.swift`,
+  `FrameRenderer.safeMode`, whisper `speedFactor`. App: `Support/RecordingStatusItem.swift` (menu bar), the
+  timeline's marquee / snap line / blade line / label filter / B-roll tray, `ProjectBoard` in `ProjectsView`,
+  `CaptionSpellingPopover`, `PlatformChrome` in `ViewerView`, `EffectChoiceRow` and `MonitoringNoteRow` in Settings.
+  `Theme.accent` is now computed from `Theme.accentChoice` (set from settings) — never cache it in a `static let`.
 - **Local core check (no Mac needed)** — the scratch package `corepkg` (see the `scratchpad` folder of a cloud
   session; recreate it from `Package.swift` with only PulseCore + PulseCoreTests, `Audio/SpectralDenoiser.swift`
-  stubbed and `AudioDSPTests.swift` left out) builds and runs 309 core tests on Linux with the swift.org 6.0.3
-  toolchain: `./sync.sh && swift build --build-tests && swift test --skip-build`. `swiftc -parse` over every file
+  stubbed and `AudioDSPTests.swift` left out) builds and runs the core tests on Linux with the swift.org 6.0.3
+  toolchain (345 core tests as of 1.6.1): `./sync.sh && swift build --build-tests && swift test --skip-build`. `swiftc -parse` over every file
   (`parse-all.sh`) catches syntax slips in the engine/app before a 20-minute CI round; type errors there are
   only caught by CI, so read the `COMPILER ERRORS` summary at the end of a failed Build step.
 - Cross-dissolves (video + linked audio crossfade) need media handles; at the very start/end of a recording they
