@@ -225,6 +225,19 @@ extension ProjectSession {
         return (assets, used)
     }
 
+    /// Timeline → Nudge (, and .): move the selected clips by whole frames (⇧ for ten).
+    func nudgeSelection(frames: Int) {
+        guard let timeline = activeTimeline, !selectedClipIDs.isEmpty else { return }
+        let delta = Double(frames) / max(timeline.canvas.frameRate, 1)
+        let ids = selectedClipIDs
+        editTimeline("Nudge", coalesce: "nudge") { t in
+            for id in ids {
+                guard let clip = t.clip(id: id) else { continue }
+                try? t.move(clipID: id, toStart: max(0, clip.start + delta))
+            }
+        }
+    }
+
     /// Timeline → Freeze Frame (⇧F): hold the frame under the playhead for two seconds; the sound pauses with it.
     func freezeFrame(hold: Seconds = 2) {
         guard activeTimeline != nil else { return }

@@ -363,19 +363,41 @@ struct MediaOfflineBanner: View {
 struct TransportBar: View {
     @ObservedObject var session: ProjectSession
     @ObservedObject var playback: PlaybackController
+    @State private var editingTimecode = false
+    @State private var typedTimecode = ""
+    @FocusState private var timecodeFocused: Bool
 
     var body: some View {
         HStack(spacing: 8) {
-            ClockObserving(clock: playback.clock) {
-                Text(Timecode.string(playback.currentTime, fps: playback.frameRate))
+            if editingTimecode {
+                TextField("mm:ss", text: $typedTimecode)
+                    .textFieldStyle(.plain)
                     .font(.pulseTimecode)
-                    .foregroundStyle(Theme.accent)
-                    .fixedSize()
+                    .foregroundStyle(Theme.textPrimary)
+                    .focused($timecodeFocused)
+                    .onSubmit { commitTimecode() }
+                    .onExitCommand { editingTimecode = false }
                     .padding(.horizontal, 8)
                     .frame(minWidth: 120, maxWidth: 136, alignment: .leading)
                     .frame(height: 26)
                     .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.well))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.border))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.accent))
+                    .onAppear { timecodeFocused = true }
+            } else {
+                ClockObserving(clock: playback.clock) {
+                    Text(Timecode.string(playback.currentTime, fps: playback.frameRate))
+                        .font(.pulseTimecode)
+                        .foregroundStyle(Theme.accent)
+                        .fixedSize()
+                        .padding(.horizontal, 8)
+                        .frame(minWidth: 120, maxWidth: 136, alignment: .leading)
+                        .frame(height: 26)
+                        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.well))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.border))
+                        .contentShape(Rectangle())
+                        .onTapGesture { typedTimecode = ""; editingTimecode = true }
+                        .help("Click to type a time (12:34, 1:02:03 or 12:34:15 for frames) and press return")
+                }
             }
             Spacer(minLength: 4)
             IconButton(symbol: "backward.end.fill", help: "Go to start (Home)") { playback.goToStart() }
@@ -413,6 +435,28 @@ struct TransportBar: View {
         .frame(height: 40)
         .background(Theme.panel)
         .overlay(alignment: .top) { Rectangle().fill(Theme.divider).frame(height: 1) }
+    }
+
+    /// "12:34", "1:02:03", "12:34:15" (frames) or plain seconds.
+    func commitTimecode() {
+        defer { editingTimecode = false }
+        let parts = typedTimecode.trimmingCharacters(in: .whitespaces).split(separator: ":").map { Double($0.trimmingCharacters(in: .whitespaces)) }
+        guard !parts.isEmpty, parts.allSatisfy({ $0 != nil }) else { return }
+        let numbers = parts.compactMap { $0 }
+        var seconds: Seconds
+        switch numbers.count {
+        case 1: seconds = numbers[0]
+        case 2: seconds = numbers[0] * 60 + numbers[1]
+        case 3:
+            // h:mm:ss when the first part is small and the whole is under 10 h; otherwise mm:ss:ff.
+            if numbers[0] * 3600 + numbers[1] * 60 + numbers[2] <= playback.duration + 1 && numbers[2] < 60 && numbers[0] < 10 {
+                seconds = numbers[0] * 3600 + numbers[1] * 60 + numbers[2]
+            } else {
+                seconds = numbers[0] * 60 + numbers[1] + numbers[2] / max(playback.frameRate, 1)
+            }
+        default: seconds = numbers[0] * 3600 + numbers[1] * 60 + numbers[2] + numbers[3] / max(playback.frameRate, 1)
+        }
+        playback.seek(to: min(max(0, seconds), playback.duration))
     }
 
     var duration: some View {

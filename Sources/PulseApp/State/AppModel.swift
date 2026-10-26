@@ -166,6 +166,7 @@ final class AppModel: ObservableObject {
             }
         }
         batch.app = self
+        noteVersionChange()
         reference.app = self
         updaterObserver = updater.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         Task { @MainActor [weak self] in
@@ -515,6 +516,27 @@ final class AppModel: ObservableObject {
     func present(title: String, message: String) {
         PulseLog.warning("\(title): \(message)")
         alert = AppAlert(title: title, message: message)
+    }
+
+    /// After an update, say so once and point at the release notes (Help → What's New).
+    func noteVersionChange() {
+        let key = "pulse.lastLaunchedVersion"
+        let current = AppModel.shortVersion
+        let previous = UserDefaults.standard.string(forKey: key)
+        UserDefaults.standard.set(current, forKey: key)
+        guard let previous, previous != current, current != "dev" else { return }
+        PulseLog.info("Updated from \(previous) to \(current)")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            self?.toast("Updated to PULSE \(current) — Help → What's New shows what changed")
+        }
+    }
+
+    /// The release page for this build (the notes PULSE ships with).
+    func openWhatsNew() {
+        let version = AppModel.shortVersion
+        let url = version == "dev" ? URL(string: "https://github.com/XmanXay69/PulseAI-Clipper/releases")!
+            : URL(string: "https://github.com/XmanXay69/PulseAI-Clipper/releases/tag/v\(version)")!
+        NSWorkspace.shared.open(url)
     }
 
     /// A system notification when PULSE isn't the active app (a toast is enough when it is). Only from the real

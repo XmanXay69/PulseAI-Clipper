@@ -54,6 +54,7 @@ struct TimelineToolbar: View {
     @EnvironmentObject var app: AppModel
     @ObservedObject var session: ProjectSession
     @ObservedObject var playback: PlaybackController
+    @State private var showMarkers = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -66,6 +67,8 @@ struct TimelineToolbar: View {
             IconButton(symbol: "plus.square.on.square", help: "Duplicate (⌘D)") { session.duplicateSelection() }
             IconButton(symbol: "textformat", help: "Add text (⌥⌘T)") { session.addText() }
             IconButton(symbol: "bookmark", help: "Add marker (M)") { session.addMarker() }
+            IconButton(symbol: "list.bullet.rectangle", help: "Markers list", isActive: showMarkers) { showMarkers.toggle() }
+                .popover(isPresented: $showMarkers, arrowEdge: .bottom) { MarkersListView(session: session, playback: playback).frame(width: 360) }
             Divider().frame(height: 16).padding(.horizontal, 4)
             IconButton(symbol: "arrow.uturn.backward", help: session.undoLabel.map { "Undo \($0) (⌘Z)" } ?? "Undo (⌘Z)") { session.undo() }
                 .disabled(!session.canUndo)
@@ -96,6 +99,67 @@ struct TimelineToolbar: View {
         guard let t = session.activeTimeline, t.duration > 0 else { return }
         let width = (NSApp.keyWindow?.frame.width ?? 1400) - TimelineMetrics.headerWidth - 360
         session.pixelsPerSecond = max(2, min(600, Double(width) / t.duration))
+    }
+}
+
+/// Every marker on the timeline: click to jump, rename inline, delete.
+struct MarkersListView: View {
+    @ObservedObject var session: ProjectSession
+    @ObservedObject var playback: PlaybackController
+    @State private var renaming: UUID?
+    @State private var newName = ""
+
+    var markers: [Marker] { (session.activeTimeline?.markers ?? []).sorted { $0.time < $1.time } }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            PanelHeader("Markers", subtitle: markers.isEmpty ? "None yet — press M at the playhead" : "\(markers.count) · click to jump") {
+                Button("Add") { session.addMarker() }.buttonStyle(.pulse(.ghost, compact: true))
+            }
+            if markers.isEmpty {
+                Text("Chapters from Edit My VOD and your own markers show up here.").font(.pulseCaption).foregroundStyle(Theme.textTertiary).padding(14)
+            } else {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(markers) { marker in
+                            HStack(spacing: 8) {
+                                Circle().fill(Color(marker.color.rgba)).frame(width: 7, height: 7)
+                                Text(Timecode.short(marker.time)).font(.pulseMono).foregroundStyle(Theme.textTertiary).frame(width: 52, alignment: .leading)
+                                if renaming == marker.id {
+                                    TextField("Name", text: $newName, onCommit: { rename(marker) })
+                                        .textFieldStyle(.plain).font(.pulseBody).foregroundStyle(Theme.textPrimary)
+                                } else {
+                                    Text(marker.name).font(.pulseBody).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                                    if !marker.note.isEmpty { Text(marker.note).font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(1) }
+                                }
+                                Spacer(minLength: 4)
+                                IconButton(symbol: "pencil", help: "Rename", size: 20) { newName = marker.name; renaming = marker.id }
+                                IconButton(symbol: "trash", help: "Delete", size: 20) { delete(marker) }
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 6)
+                            .contentShape(Rectangle())
+                            .onTapGesture { playback.seek(to: marker.time) }
+                            .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
+                        }
+                    }
+                }
+                .frame(maxHeight: 380)
+            }
+        }
+        .background(Theme.panel)
+    }
+
+    func rename(_ marker: Marker) {
+        let name = newName.trimmingCharacters(in: .whitespaces)
+        renaming = nil
+        guard !name.isEmpty, name != marker.name else { return }
+        session.editTimeline("Rename Marker") { t in
+            if let i = t.markers.firstIndex(where: { $0.id == marker.id }) { t.markers[i].name = name }
+        }
+    }
+
+    func delete(_ marker: Marker) {
+        session.editTimeline("Delete Marker") { t in t.markers.removeAll { $0.id == marker.id } }
     }
 }
 

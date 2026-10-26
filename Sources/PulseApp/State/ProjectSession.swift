@@ -540,6 +540,15 @@ final class ProjectSession: ObservableObject, Identifiable {
 
     func analyze(assetID: UUID, generateClips: Bool = true, then followUp: (@MainActor () -> Void)? = nil) {
         guard let asset = document.asset(id: assetID) else { return }
+        // Analysis writes a 16 kHz WAV, proxies and thumbnails: make sure the cache disk has room first.
+        let needed = Int64(max(asset.metadata.duration, 60) * 32_000) + (1 << 30)
+        do {
+            try DiskSpace.ensure(needed, at: app.cacheFolder)
+        } catch {
+            app.presentMessage(title: "Not enough disk space to analyze",
+                               message: "Free about \(ByteCountFormatter.string(fromByteCount: needed, countStyle: .file)) on the disk holding PULSE's cache (Settings → Files & Storage), then try again.")
+            return
+        }
         let ai = app.settings.ai
         let imported = analyses[assetID]?.transcript
         let voice = voiceCompanion(for: asset).map { AnalysisPipeline.VoiceSource(main: asset, voice: $0) }

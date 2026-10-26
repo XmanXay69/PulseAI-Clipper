@@ -132,6 +132,7 @@ struct PulseCommands: Commands {
         }
         CommandGroup(replacing: .help) {
             Button("Check for Updates…") { app.updater.showSheet = true }
+            Button("What's New in \(AppModel.shortVersion)…") { app.openWhatsNew() }
             Button("Report a Problem…") { app.showReportProblem = true }
             Button("Open Log Folder") { NSWorkspace.shared.open(PulseLog.directory) }
             Divider()
@@ -147,6 +148,11 @@ struct PulseCommands: Commands {
             Button("Ripple Delete In → Out") { app.session?.rippleDeleteInOut() }.keyboardShortcut(.delete, modifiers: [.command, .option])
             Button("Close All Gaps") { app.session?.closeAllGaps() }.disabled(app.session?.activeTimeline == nil)
             Button("Freeze Frame") { app.session?.freezeFrame() }.keyboardShortcut("f", modifiers: [.shift]).disabled(app.session?.activeTimeline == nil)
+            // ⌥ so typing a comma in a text field never moves a clip.
+            Button("Nudge Left a Frame") { app.session?.nudgeSelection(frames: -1) }.keyboardShortcut(",", modifiers: [.option])
+            Button("Nudge Right a Frame") { app.session?.nudgeSelection(frames: 1) }.keyboardShortcut(".", modifiers: [.option])
+            Button("Nudge Left 10 Frames") { app.session?.nudgeSelection(frames: -10) }.keyboardShortcut(",", modifiers: [.option, .shift])
+            Button("Nudge Right 10 Frames") { app.session?.nudgeSelection(frames: 10) }.keyboardShortcut(".", modifiers: [.option, .shift])
             Divider()
             Button("Add Text") { app.session?.addText() }.keyboardShortcut("t", modifiers: [.command, .option])
             Divider()
