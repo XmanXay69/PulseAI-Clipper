@@ -30,8 +30,9 @@ public struct AnalysisPipeline: Sendable {
         /// Expected time for this asset before starting (shown on the Analyze button).
         public func estimate(for asset: MediaAsset) -> AnalysisEstimate {
             let hasAudio = voiceSource != nil || asset.metadata.hasAudio
+            let hasVideo = asset.metadata.hasVideo && asset.kind == .video
             return speed.estimate(duration: asset.metadata.duration, hasAudio: hasAudio,
-                                  transcribe: transcribe && importedTranscript == nil, hasVideo: asset.metadata.hasVideo && asset.kind == .video)
+                                  transcribe: transcribe && importedTranscript == nil, hasVideo: hasVideo, readHUD: hasVideo && ai.hudCues)
         }
     }
 
@@ -106,12 +107,14 @@ public struct AnalysisPipeline: Sendable {
         let hasAudio = options.voiceSource != nil || meta.hasAudio
         let needsTranscription = options.transcribe && options.importedTranscript == nil && hasAudio
         // Stage weights for overall progress: each stage's expected share of the time.
+        let hasVideo = meta.hasVideo && asset.kind == .video
         let estimate = options.speed.estimate(duration: meta.duration, hasAudio: hasAudio, transcribe: needsTranscription,
-                                              hasVideo: meta.hasVideo && asset.kind == .video)
+                                              hasVideo: hasVideo, readHUD: hasVideo && options.ai.hudCues)
         let audioWeight = estimate.weight(.audio)
         let speechWeight = estimate.weight(.transcription)
         let videoWeight = estimate.weight(.video)
-        let totalWeight = max(audioWeight + speechWeight + videoWeight, 0.001)
+        let hudWeight = estimate.weight(.hud)
+        let totalWeight = max(audioWeight + speechWeight + videoWeight + hudWeight, 0.001)
         var stageSeconds: [AnalysisStage: Seconds] = [:]
         var stageStart = Date()
         var completed = 0.0
@@ -121,10 +124,11 @@ public struct AnalysisPipeline: Sendable {
 
         // Finished stages of an interrupted run are picked up instead of redone.
         let checkpoint = AnalysisCheckpoint(directory: cacheDirectory, asset: asset, mediaURL: url, voiceURL: options.voiceSource?.url,
-                                            settings: "\(options.detectFaces)|\(options.ai.transcriptionLanguage)|\(options.ai.detectSpeakers)|\(options.voiceSource?.delta ?? 0)")
+                                            settings: "\(options.detectFaces)|\(options.ai.transcriptionLanguage)|\(options.ai.detectSpeakers)|\(options.voiceSource?.delta ?? 0)|\(options.ai.hudCues)")
         let savedAudio: AudioFeatureSeries? = hasAudio ? checkpoint.load(.audio) : nil
         let savedTranscript: Transcript? = needsTranscription ? checkpoint.load(.transcription) : nil
         let savedVisual: VisualFeatureSeries? = checkpoint.load(.video)
+        let savedHUD: [HUDEvent]? = options.ai.hudCues ? checkpoint.load(.hud) : nil
         var resumed: [AnalysisStage] = []
         let wavTarget = needsTranscription ? cacheDirectory.appendingPathComponent("\(asset.id.uuidString)-16k.wav") : nil
         let wavReady = wavTarget.map { FileManager.default.fileExists(atPath: $0.path) } ?? true
@@ -255,8 +259,40 @@ public struct AnalysisPipeline: Sendable {
 
         let webcam = visual.flatMap { WebcamEstimator.estimate(faces: $0.faces, frameSize: meta.size) }
         let profile = MediaAnalysis.inferProfile(webcam: webcam, visual: visual, transcript: transcript, hasVideo: meta.hasVideo)
-        let analysis = MediaAnalysis(assetID: asset.id, duration: meta.duration, audio: audioFeatures, visual: visual,
+
+        // 4. Game banners (gameplay only): the game's own "VICTORY" / "YOU DIED" read off sampled frames.
+        var hudEvents: [HUDEvent]?
+        let gameplay = profile == .gameplay || profile == .gameplayWithFacecam
+        if let savedHUD {
+            hudEvents = savedHUD
+            processing["hud"] = .local
+            resumed.append(.hud)
+            completed += hudWeight
+        } else if hudWeight > 0 && gameplay {
+            stageStart = Date()
+            let base = completed
+            do {
+                hudEvents = try await HUDCueDetector.detect(url: url, duration: meta.duration,
+                                                            progress: { p in report("Reading game banners", p.fraction, base, hudWeight) },
+                                                            isCancelled: isCancelled)
+                processing["hud"] = .local
+            } catch EngineError.cancelled {
+                throw EngineError.cancelled
+            } catch {
+                warnings.append("Reading game banners failed: \(error.localizedDescription)")
+            }
+            if let hudEvents {
+                stageSeconds[.hud] = Date().timeIntervalSince(stageStart)
+                checkpoint.save(hudEvents, .hud)
+            }
+            completed += hudWeight
+        } else {
+            completed += hudWeight   // not gameplay: nothing to read
+        }
+
+        var analysis = MediaAnalysis(assetID: asset.id, duration: meta.duration, audio: audioFeatures, visual: visual,
                                      transcript: transcript, webcam: webcam, profile: profile, processing: processing)
+        analysis.hudEvents = hudEvents
         progress(EngineProgress(stage: "Done", fraction: 1))
         checkpoint.clear()
         return Output(analysis: analysis, warnings: warnings, stageSeconds: stageSeconds, resumedStages: resumed)

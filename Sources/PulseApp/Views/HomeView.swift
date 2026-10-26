@@ -114,6 +114,9 @@ struct HomeView: View {
             QuickActionTile(symbol: "wand.and.stars", title: "Like a Reference", subtitle: "Copy an edit you love", color: Theme.ai) {
                 app.showReferenceSheet = true
             }
+            QuickActionTile(symbol: "slider.horizontal.3", title: "Set Up for My Stream", subtitle: app.settings.streamSetup == nil ? "Six questions, twenty settings" : "Change your answers", color: Theme.info) {
+                app.showSetupWizard = true
+            }
             QuickActionTile(symbol: "play.rectangle.on.rectangle", title: "Sample Project", subtitle: "See PULSE in action", color: Theme.warning) {
                 app.openDemoProject()
             }

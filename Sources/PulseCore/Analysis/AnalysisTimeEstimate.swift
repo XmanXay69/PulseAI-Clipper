@@ -5,6 +5,8 @@ public enum AnalysisStage: String, Codable, CaseIterable, Sendable {
     case audio
     case transcription
     case video
+    /// Reading game banners off sampled frames (gameplay only).
+    case hud
 }
 
 /// How fast this Mac analyzes, in wall-clock seconds per minute of media for each stage. Starts from
@@ -13,14 +15,27 @@ public struct AnalysisSpeedProfile: Codable, Hashable, Sendable {
     public var audio: Double
     public var transcription: Double
     public var video: Double
+    /// Seconds per minute for the game banner reader.
+    public var hud: Double
     /// Finished analyses this profile has learned from.
     public var samples: Int
 
-    public init(audio: Double = 0.6, transcription: Double = 4, video: Double = 1.6, samples: Int = 0) {
+    public init(audio: Double = 0.6, transcription: Double = 4, video: Double = 1.6, hud: Double = 1.2, samples: Int = 0) {
         self.audio = audio
         self.transcription = transcription
         self.video = video
+        self.hud = hud
         self.samples = samples
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = AnalysisSpeedProfile()
+        audio = c.decode(Double.self, forKey: .audio, default: d.audio)
+        transcription = c.decode(Double.self, forKey: .transcription, default: d.transcription)
+        video = c.decode(Double.self, forKey: .video, default: d.video)
+        hud = c.decode(Double.self, forKey: .hud, default: d.hud)
+        samples = c.decode(Int.self, forKey: .samples, default: d.samples)
     }
 
     public func rate(_ stage: AnalysisStage) -> Double {
@@ -28,16 +43,18 @@ public struct AnalysisSpeedProfile: Codable, Hashable, Sendable {
         case .audio: return audio
         case .transcription: return transcription
         case .video: return video
+        case .hud: return hud
         }
     }
 
     /// Expected wall-clock seconds for each stage that will run.
-    public func estimate(duration: Seconds, hasAudio: Bool, transcribe: Bool, hasVideo: Bool) -> AnalysisEstimate {
+    public func estimate(duration: Seconds, hasAudio: Bool, transcribe: Bool, hasVideo: Bool, readHUD: Bool = false) -> AnalysisEstimate {
         let minutes = max(duration, 1) / 60
         var stages: [AnalysisStage: Seconds] = [:]
         if hasAudio { stages[.audio] = audio * minutes + 0.5 }
         if hasAudio && transcribe { stages[.transcription] = transcription * minutes + 2 }
         if hasVideo { stages[.video] = video * minutes + 0.5 }
+        if hasVideo && readHUD { stages[.hud] = hud * minutes + 0.5 }
         return AnalysisEstimate(stages: stages)
     }
 
@@ -50,6 +67,7 @@ public struct AnalysisSpeedProfile: Codable, Hashable, Sendable {
         case .audio: audio += (measured - audio) * weight
         case .transcription: transcription += (measured - transcription) * weight
         case .video: video += (measured - video) * weight
+        case .hud: hud += (measured - hud) * weight
         }
     }
 

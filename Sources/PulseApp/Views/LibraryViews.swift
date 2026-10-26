@@ -473,6 +473,18 @@ struct ExportsView: View {
                     if let problem = settings.validationError(for: app.session?.activeTimeline?.canvas ?? .vertical1080) {
                         Label(problem, systemImage: "exclamationmark.triangle").font(.pulseCaption).foregroundStyle(Theme.warning)
                     }
+                    if let timeline = app.session?.activeTimeline {
+                        ForEach(settings.platformNotes(timelineDuration: timeline.duration, timelineFrameRate: timeline.canvas.frameRate), id: \.self) { note in
+                            Label(note, systemImage: "info.circle").font(.pulseCaption).foregroundStyle(Theme.warning)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    if let slow = VideoEncoders.warning(for: settings) {
+                        Label(slow, systemImage: "tortoise").font(.pulseCaption).foregroundStyle(Theme.warning).fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let guidance = ExportPreset.preset(id: settings.presetID)?.platformGuidance {
+                        Text(guidance).font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                    }
                     Text("Exports render in the background with the GPU compositor and VideoToolbox hardware encoder. Keep editing while they run.")
                         .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
                 }

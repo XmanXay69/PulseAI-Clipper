@@ -49,6 +49,34 @@ struct CaptionStylePanel: View {
 
     var captions: CaptionTrack? { session.activeTimeline?.captions }
 
+    /// The audio censoring in force on this timeline (the first clip that has any).
+    var audioCensor: CensorAudio { session.activeTimeline?.allClips.first { $0.audio.censors }?.audio.censor ?? .off }
+
+    var audioCensorNote: String {
+        let n = session.activeTimeline?.allClips.reduce(0) { $0 + $1.audio.censorRanges.count } ?? 0
+        return audioCensor == .off
+            ? "Mute or bleep the words the caption filter masks. Rendered into the enhance cache — the source file is never changed."
+            : "\(n) stretch\(n == 1 ? "" : "es") \(audioCensor == .mute ? "muted" : "bleeped") across this timeline's clips."
+    }
+
+    func setAudioCensor(_ mode: CensorAudio) {
+        let extra = session.app.settings.ai.normalizedExtraProfanity
+        session.editTimeline("Censor Audio") { t in
+            for id in Set(t.allClips.compactMap(\.content.assetID)) {
+                guard let words = session.analyses[id]?.transcript?.words else { continue }
+                AudioCensor.apply(mode, to: &t, words: words, assetID: id, extra: extra)
+            }
+        }
+    }
+
+    func applyHighlight(_ preset: HighlightPreset) {
+        session.editTimeline("Highlight: \(preset.name)") { t in
+            guard var style = t.captions?.style else { return }
+            preset.apply(to: &style)
+            t.captions?.style = style
+        }
+    }
+
     func styleBinding<T>(_ label: String, _ keyPath: WritableKeyPath<CaptionStyle, T>, fallback: T) -> Binding<T> {
         Binding(get: { session.activeTimeline?.captions?.style[keyPath: keyPath] ?? fallback },
                 set: { v in
@@ -102,6 +130,13 @@ struct CaptionStylePanel: View {
                                 ForEach(CaptionDisplayMode.allCases, id: \.self) { Text($0.displayName).tag($0) }
                             }
                             .pickerStyle(.segmented)
+                            HStack(spacing: 5) {
+                                ForEach(HighlightPreset.all) { preset in
+                                    let on = captions.map { preset.matches($0.style) } ?? false
+                                    Button(preset.name) { applyHighlight(preset) }
+                                        .buttonStyle(.pulse(on ? .primary : .secondary, compact: true))
+                                }
+                            }
                             Picker("Highlight", selection: styleBinding("Highlight Mode", \.highlightMode, fallback: .color)) {
                                 ForEach(WordHighlightMode.allCases, id: \.self) { Text($0.displayName).tag($0) }
                             }
@@ -129,6 +164,13 @@ struct CaptionStylePanel: View {
                         }
                         if let captions, captions.captionSpeakers.count >= 2 {
                             SpeakerCaptionSection(session: session, captions: captions)
+                        }
+                        InspectorSection("Swear words") {
+                            Picker("Audio", selection: Binding(get: { audioCensor }, set: { setAudioCensor($0) })) {
+                                ForEach(CensorAudio.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                            }
+                            .pickerStyle(.segmented)
+                            Text(audioCensorNote).font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
                         }
                         InspectorSection("Position") {
                             LabeledSlider(label: "Vertical", value: styleBinding("Caption Position", \.positionY, fallback: 0.7), range: 0.05...0.95)

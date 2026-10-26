@@ -123,6 +123,8 @@ final class AppModel: ObservableObject {
     let updater = AppUpdater()
     private var updaterObserver: AnyCancellable?
     @Published var showReferenceSheet = false
+    /// "Set up for my stream" (#441).
+    @Published var showSetupWizard = false
     private var recordingObserver: AnyCancellable?
     let store = ProjectStore()
     let recovery = RecoveryManager(directory: PulseDirectories.recovery)

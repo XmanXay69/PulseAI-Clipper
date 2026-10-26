@@ -63,6 +63,8 @@ public struct EngagementSignals: Sendable {
     public var excitement: [Float]
     /// Chat bursts (0…1), when a chat replay was imported; empty otherwise.
     public var chat: [Float] = []
+    /// Game banners (wins, kills, deaths) read off the screen (0…1); empty when none were read.
+    public var hud: [Float] = []
 
     public func index(at time: Seconds) -> Int {
         Int((time / step).rounded(.down)).clamped(0, Swift.max(count - 1, 0))
@@ -101,11 +103,11 @@ public enum EngagementModel {
     /// All the signals of an analysis (including an imported chat replay).
     public static func compute(analysis: MediaAnalysis, step: Seconds = 0.5) -> EngagementSignals {
         compute(duration: analysis.duration, audio: analysis.audio, transcript: analysis.transcript, visual: analysis.visual, chat: analysis.chat,
-                step: step, gameplay: analysis.profile == .gameplay || analysis.profile == .gameplayWithFacecam)
+                hud: analysis.hudEvents ?? [], step: step, gameplay: analysis.profile == .gameplay || analysis.profile == .gameplayWithFacecam)
     }
 
     public static func compute(duration: Seconds, audio: AudioFeatureSeries?, transcript: Transcript?, visual: VisualFeatureSeries?,
-                               chat: ChatLog? = nil, step: Seconds = 0.5, gameplay: Bool = false) -> EngagementSignals {
+                               chat: ChatLog? = nil, hud: [HUDEvent] = [], step: Seconds = 0.5, gameplay: Bool = false) -> EngagementSignals {
         let n = max(1, Int((duration / step).rounded(.up)))
         var loudnessDB = [Float](repeating: -60, count: n)
         var flux = [Float](repeating: 0, count: n)
@@ -198,6 +200,9 @@ public enum EngagementModel {
             for i in 0..<n where i < c.laughter.count { laughter[i] += c.laughter[i] }
         }
 
+        // Game banners: the game itself saying a moment happened ("VICTORY ROYALE", "DOUBLE KILL", "YOU DIED").
+        let hudSignal = hud.isEmpty ? [] : HUDCues.signal(events: hud, duration: duration, step: step)
+
         var excitement = [Float](repeating: 0, count: n)
         for i in 0..<n {
             let l = loudness[i].clamped(0, 4) / 4
@@ -212,11 +217,12 @@ public enum EngagementModel {
                 ? 0.22 * l + 0.14 * s + 0.08 * f + 0.08 * r + 0.16 * k + 0.12 * la + 0.16 * m + 0.04 * cuts[i]
                 : 0.26 * l + 0.16 * s + 0.08 * f + 0.12 * r + 0.2 * k + 0.14 * la + 0.08 * m + 0.04 * cuts[i]
             if i < chatActivity.count { excitement[i] = excitement[i] * 0.75 + chatActivity[i] * 0.45 }
+            if i < hudSignal.count { excitement[i] = Swift.min(excitement[i] + hudSignal[i] * 0.45, 1.2) }
         }
         excitement = SeriesMath.smooth(excitement, sigma: 1.5 / step)
 
         return EngagementSignals(step: step, count: n, loudness: loudness, surprise: surprise, speechRate: speechRate,
                                  keywords: keywords, laughter: laughter, questions: questions, profanity: profanity,
-                                 motion: motion, cuts: cuts, speech: speech, excitement: excitement, chat: chatActivity)
+                                 motion: motion, cuts: cuts, speech: speech, excitement: excitement, chat: chatActivity, hud: hudSignal)
     }
 }

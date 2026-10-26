@@ -57,10 +57,19 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   gentle starting point you can tune.
 
 ### AI Clips
+- **Game banners count as moments** (#27) — on gameplay, analysis reads the game's own VICTORY, ELIMINATED,
+  DOUBLE KILL, YOU DIED and the like off the screen (on-device text recognition, about a minute per hour). Wins,
+  multi-kills and deaths score higher, the clip is tagged Hype or Fail, and the card shows the banner. Settings →
+  AI Features → Read game banners turns it off.
 - **Rate from the keyboard** (#63) — K = 👍, J = 👎, ← → move between clips while the grid has focus.
 - **Overlap warning** (#73) — a clip that covers mostly the same stretch as a short you've already edited says so.
 
 ### Delivery
+- **Platform specs in the export panel** (#333) — each preset says what the platform does to the upload and
+  flags a timeline over its length limit (Shorts and Reels 3 min, TikTok 10 min, X 2:20) or a bitrate below what
+  survives the re-encode.
+- **Software-encoder warning** (#334) — when the chosen codec has no hardware encoder on this Mac, the panel says
+  so before you queue a slow export.
 - **Description next to the video** (#336, #338) — every export writes a `.txt` beside the file with title ideas,
   the YouTube chapter list, music and clip credits and hashtags, ready to paste.
 - **Exports are verified** (#350) — PULSE reopens the finished file and checks its length before calling the job
@@ -73,7 +82,17 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 - Extras that can't apply to this video (no facecam, not gameplay) are greyed out with the reason (#130), and each
   says roughly how long it adds (#129).
 
+### Captions
+- **Six highlight looks** (#232) — Classic, Boxed, Pop, Neon, Fill and Subtle, one click each in the captions
+  workspace; the current one is lit.
+- **Bleep or mute swear words** (#243) — Settings → AI Features → Audio under swear words makes every AI-built
+  short and VOD edit mute or bleep the words the caption filter masks; the captions workspace has the same switch
+  per timeline. It's rendered into the enhance cache; the source file is never touched.
+
 ### Everywhere
+- **Set up for my stream** (#441) — six questions (platform, content, facecam, mic, where shorts go, pace) set
+  clip length, captions, extras, safe areas and the export preset in one go, with a list of exactly what changes.
+  From the welcome screen, Home, Settings → General and the Help menu.
 - **Disk check before analysis** (#387) — PULSE refuses to start an analysis the cache disk can't hold, and says
   how much to free.
 - **What's new after an update** (#448) — a note on first launch after updating, and Help → What's New opens

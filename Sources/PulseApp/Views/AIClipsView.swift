@@ -221,6 +221,10 @@ struct ClipCandidateCard: View {
                 if !candidate.transcriptSnippet.isEmpty {
                     Text(candidate.transcriptSnippet).font(.pulseCaption).foregroundStyle(Theme.textSecondary).lineLimit(2)
                 }
+                if let banner = gameBanner {
+                    TagChip(text: banner.text.capitalized, color: Theme.success, symbol: banner.kind.symbolName)
+                        .help("The game showed this on screen during the clip")
+                }
                 if let twin = overlappingShort {
                     TagChip(text: "Overlaps “\(twin.title)”", color: Theme.warning, symbol: "exclamationmark.triangle.fill")
                         .help("Both shorts cover mostly the same stretch — posting both looks like a repost")
@@ -293,6 +297,11 @@ struct ClipCandidateCard: View {
                 hoverFrame = (hoverFrame + 1) % 6
             }
         }
+    }
+
+    /// The biggest game banner (win, multi-kill, death…) read off the screen inside this clip.
+    var gameBanner: HUDEvent? {
+        session.analyses[candidate.assetID]?.hudEvents?.filter { candidate.range.contains($0.time) }.max { $0.kind.weight < $1.kind.weight }
     }
 
     /// Another clip (already edited, or this one is) that covers mostly the same stretch.

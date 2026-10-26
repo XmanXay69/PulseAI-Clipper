@@ -147,7 +147,7 @@ public enum AudioEnhanceChain {
     /// Returns the method actually used for noise reduction (nil when none ran).
     @discardableResult
     public static func process(_ channels: inout [[Float]], sampleRate: Double, settings: AudioSettings,
-                               voiceIsolator: VoiceIsolator? = nil) -> NoiseReductionMethod? {
+                               voiceIsolator: VoiceIsolator? = nil, sourceStart: Seconds = 0) -> NoiseReductionMethod? {
         guard !channels.isEmpty, let length = channels.first?.count, length > 0 else { return nil }
         var denoisedWith: NoiseReductionMethod?
 
@@ -252,6 +252,12 @@ public enum AudioEnhanceChain {
         // 7. Limiter (always after normalization so boosted peaks never clip).
         if settings.limiter || settings.normalize || settings.voiceEnhance || settings.compressor.isEnabled {
             limit(&channels, sampleRate: sampleRate, ceilingDB: ceilingDB)
+        }
+
+        // 8. Swear words last, so the bleep sits at a fixed level whatever the chain did before it.
+        if settings.censors {
+            let local = settings.censorRanges.map { TimeRange(start: $0.start - sourceStart, end: $0.end - sourceStart) }
+            AudioCensor.process(&channels, sampleRate: sampleRate, ranges: local, mode: settings.censor)
         }
         return denoisedWith
     }
@@ -401,6 +407,7 @@ extension AudioSettings {
             noiseReduction > 0.001 && noiseMethod == .voiceIsolation ? "vi" : "",
             eq.isEnabled ? String(format: "eq%.2f,%.2f,%.2f,%.1f", eq.lowGain, eq.midGain, eq.highGain, eq.highPassHz) : "",
             compressor.isEnabled ? String(format: "c%.2f,%.2f,%.2f", compressor.thresholdDB, compressor.ratio, compressor.makeupGainDB) : "",
+            censors ? "x" + censor.rawValue + censorRanges.map { String(format: "%.2f-%.2f", $0.start, $0.end) }.joined(separator: ",") : "",
         ]
         return parts.joined(separator: "|")
     }

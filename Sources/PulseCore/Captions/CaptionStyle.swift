@@ -203,3 +203,43 @@ public struct CaptionStyle: Codable, Hashable, Sendable {
         presets.first { $0.presetName.caseInsensitiveCompare(name) == .orderedSame }
     }
 }
+
+/// Six ready-made ways to mark the spoken word (karaoke highlight), applied on top of any caption style.
+public struct HighlightPreset: Hashable, Sendable, Identifiable {
+    public var id: String { name }
+    public var name: String
+    public var mode: WordHighlightMode
+    public var highlightColor: RGBAColor
+    public var boxColor: RGBAColor
+    public var animation: CaptionAnimation
+
+    public init(name: String, mode: WordHighlightMode, highlightColor: RGBAColor, boxColor: RGBAColor = .pulse, animation: CaptionAnimation) {
+        self.name = name
+        self.mode = mode
+        self.highlightColor = highlightColor
+        self.boxColor = boxColor
+        self.animation = animation
+    }
+
+    public func apply(to style: inout CaptionStyle) {
+        style.highlightMode = mode
+        style.highlightColor = highlightColor
+        style.highlightBoxColor = boxColor
+        style.animation = animation
+    }
+
+    /// True when the style currently matches this preset.
+    public func matches(_ style: CaptionStyle) -> Bool {
+        style.highlightMode == mode && style.highlightColor == highlightColor && style.animation == animation &&
+            (mode != .box || style.highlightBoxColor == boxColor)
+    }
+
+    public static let classic = HighlightPreset(name: "Classic", mode: .color, highlightColor: .yellow, animation: .pop)
+    public static let boxed = HighlightPreset(name: "Boxed", mode: .box, highlightColor: .white, boxColor: .pulse, animation: .none)
+    public static let pop = HighlightPreset(name: "Pop", mode: .colorAndScale, highlightColor: .yellow, animation: .bounce)
+    public static let neon = HighlightPreset(name: "Neon", mode: .color, highlightColor: .cyan, animation: .fade)
+    public static let fill = HighlightPreset(name: "Fill", mode: .box, highlightColor: .black, boxColor: .yellow, animation: .pop)
+    public static let subtle = HighlightPreset(name: "Subtle", mode: .scale, highlightColor: .white, animation: .none)
+
+    public static let all: [HighlightPreset] = [.classic, .boxed, .pop, .neon, .fill, .subtle]
+}

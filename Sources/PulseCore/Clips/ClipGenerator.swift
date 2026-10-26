@@ -56,10 +56,13 @@ public struct ClipGenerationInput: Sendable {
     public var visual: VisualFeatureSeries?
     public var profile: ContentProfile
     public var chat: ChatLog?
+    /// Banners read off the screen (wins, kills, deaths).
+    public var hud: [HUDEvent] = []
 
     public init(assetID: UUID, duration: Seconds, audio: AudioFeatureSeries?, transcript: Transcript?, visual: VisualFeatureSeries?, profile: ContentProfile = .unknown,
-                chat: ChatLog? = nil) {
+                chat: ChatLog? = nil, hud: [HUDEvent] = []) {
         self.chat = chat
+        self.hud = hud
         self.assetID = assetID
         self.duration = duration
         self.audio = audio
@@ -70,7 +73,7 @@ public struct ClipGenerationInput: Sendable {
 
     public init(analysis: MediaAnalysis) {
         self.init(assetID: analysis.assetID, duration: analysis.duration, audio: analysis.audio, transcript: analysis.transcript, visual: analysis.visual, profile: analysis.profile,
-                  chat: analysis.chat)
+                  chat: analysis.chat, hud: analysis.hudEvents ?? [])
     }
 }
 
@@ -88,7 +91,7 @@ public struct ClipGenerator: Sendable {
         self.input = input
         self.settings = settings
         self.signals = EngagementModel.compute(duration: input.duration, audio: input.audio, transcript: input.transcript, visual: input.visual, chat: input.chat,
-                                               gameplay: input.profile == .gameplay || input.profile == .gameplayWithFacecam)
+                                               hud: input.hud, gameplay: input.profile == .gameplay || input.profile == .gameplayWithFacecam)
         self.sentences = input.transcript?.sentences() ?? []
         self.excitementP95 = max(SeriesMath.percentile(signals.excitement, 0.95), 0.05)
         self.excitementP99 = max(SeriesMath.percentile(signals.excitement, 0.99), 0.08)
@@ -393,6 +396,10 @@ public struct ClipGenerator: Sendable {
         if words.filter({ EngagementLexicon.hypeWords.contains($0) }).count >= 2 && scores.audio > 0.4 { tags.append((.hype, 0.5)) }
         if words.filter({ EngagementLexicon.failWords.contains($0) }).count >= 1 && scores.emotion > 0.5 { tags.append((.fail, 0.45)) }
         if input.profile == .podcast || input.profile == .talkingHead { tags.append((.conversation, 0.3)) }
+        // The game's own banner in the clip ("VICTORY", "YOU DIED") names the moment better than anything else.
+        if let banner = input.hud.filter({ range.contains($0.time) }).max(by: { $0.kind.weight < $1.kind.weight }) {
+            tags.append((banner.kind.tag, 0.45 + banner.kind.weight * 0.4))
+        }
         if tags.isEmpty { tags.append((scores.audio > 0.4 ? .highEnergy : .conversation, 0.2)) }
         var seen = Set<ClipTag>()
         return tags.sorted { $0.1 > $1.1 }.map { $0.0 }.filter { seen.insert($0).inserted }.prefix(4).map { $0 }

@@ -506,6 +506,9 @@ public struct AudioSettings: Codable, Hashable, Sendable {
     public var duckAmountDB: Double
     /// Notch out mains hum (50/60 Hz and the first harmonics).
     public var humRemoval: Bool = false
+    /// Mute or bleep the swear words (`censorRanges`, in source time) as part of the enhance render.
+    public var censor: CensorAudio = .off
+    public var censorRanges: [TimeRange] = []
 
     public init(volume: Double = 1) {
         self.volume = AnimatedDouble(volume)
@@ -544,11 +547,16 @@ public struct AudioSettings: Codable, Hashable, Sendable {
         duckUnderDialogue = c.decode(Bool.self, forKey: .duckUnderDialogue, default: false)
         duckAmountDB = c.decode(Double.self, forKey: .duckAmountDB, default: -12)
         humRemoval = c.decode(Bool.self, forKey: .humRemoval, default: false)
+        censor = c.decode(CensorAudio.self, forKey: .censor, default: .off)
+        censorRanges = c.decode([TimeRange].self, forKey: .censorRanges, default: [])
     }
+
+    /// True when swear words are muted or bleeped in this clip.
+    public var censors: Bool { censor != .off && !censorRanges.isEmpty }
 
     /// True when the processed-audio render path is needed.
     public var needsProcessing: Bool {
-        noiseReduction > 0 || voiceEnhance || eq.isEnabled || compressor.isEnabled || limiter || normalize || humRemoval
+        noiseReduction > 0 || voiceEnhance || eq.isEnabled || compressor.isEnabled || limiter || normalize || humRemoval || censors
     }
 
     /// Effective linear gain at clip-relative time `t` (volume × gain × fades), before ducking.

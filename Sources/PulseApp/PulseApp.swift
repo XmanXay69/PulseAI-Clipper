@@ -142,6 +142,7 @@ struct PulseCommands: Commands {
         CommandGroup(replacing: .help) {
             Button("Check for Updates…") { app.updater.showSheet = true }
             Button("What's New in \(AppModel.shortVersion)…") { app.openWhatsNew() }
+            Button("Set Up for My Stream…") { app.showSetupWizard = true }
             Button("Report a Problem…") { app.showReportProblem = true }
             Button("Open Log Folder") { NSWorkspace.shared.open(PulseLog.directory) }
             Divider()

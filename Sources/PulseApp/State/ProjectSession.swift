@@ -710,7 +710,10 @@ final class ProjectSession: ObservableObject, Identifiable {
         let input = ShortBuildInput(candidate: candidate, asset: asset, analysis: analyses[asset.id], soundEffects: sfx, music: music,
                                     companionWebcam: cam, companionVoice: voiceCompanion(for: asset),
                                     companionFaceCenter: cam.flatMap { analyses[$0.id]?.webcam?.face.center })
-        let timeline = ShortBuilder.build(input, options: options)
+        var timeline = ShortBuilder.build(input, options: options)
+        if app.settings.ai.censorAudio != .off, let words = analyses[asset.id]?.transcript?.words {
+            AudioCensor.apply(app.settings.ai.censorAudio, to: &timeline, words: words, assetID: asset.id, extra: app.settings.ai.normalizedExtraProfanity)
+        }
         edit(mode == .autoEdit ? "Auto Edit Short" : "Create Short") { doc in
             doc.timelines.append(timeline)
             if let i = doc.candidates.firstIndex(where: { $0.id == candidateID }) {

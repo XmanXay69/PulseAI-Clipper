@@ -55,6 +55,10 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var extraProfanity: [String] = []
     /// A folder of your own meme / reaction clips for the B-roll extra (used before YouTube; empty = YouTube only).
     public var brollFolder: String = ""
+    /// Read the game's banners (wins, kills, deaths) off the screen during analysis of gameplay.
+    public var hudCues: Bool = true
+    /// What AI-built edits do to the audio under swear words (the caption filter masks the text).
+    public var censorAudio: CensorAudio = .off
     public var aiFraming: Bool = true
     /// Label who is talking after transcription (local diarization).
     public var detectSpeakers: Bool = true
@@ -118,6 +122,8 @@ public struct AISettings: Codable, Hashable, Sendable {
         memeTexts = c.decode([String: String].self, forKey: .memeTexts, default: d.memeTexts)
         extraProfanity = c.decode([String].self, forKey: .extraProfanity, default: d.extraProfanity)
         brollFolder = c.decode(String.self, forKey: .brollFolder, default: d.brollFolder)
+        hudCues = c.decode(Bool.self, forKey: .hudCues, default: d.hudCues)
+        censorAudio = c.decode(CensorAudio.self, forKey: .censorAudio, default: d.censorAudio)
         aiFraming = c.decode(Bool.self, forKey: .aiFraming, default: d.aiFraming)
         detectSpeakers = c.decode(Bool.self, forKey: .detectSpeakers, default: d.detectSpeakers)
         speakerCount = c.decode(Int.self, forKey: .speakerCount, default: d.speakerCount)
@@ -236,6 +242,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var safeAreaPlatform: SafeAreaPlatform = .tiktok
     public var defaultExportPresetID: String = ExportPreset.tiktok.id
     public var recentProjectPaths: [String] = []
+    /// The answers from "Set up for my stream" (nil = never run).
+    public var streamSetup: StreamSetup?
     /// Logo, intro/outro and caption look applied to new edits.
     public var brandKit: BrandKit = BrandKit()
     /// Editing styles measured from reference videos, newest first (reusable on any VOD).
@@ -284,5 +292,6 @@ public struct AppSettings: Codable, Hashable, Sendable {
         referenceStyles = c.decode([ReferenceStyle].self, forKey: .referenceStyles, default: d.referenceStyles)
         defaultExportPresetID = c.decode(String.self, forKey: .defaultExportPresetID, default: d.defaultExportPresetID)
         recentProjectPaths = c.decode([String].self, forKey: .recentProjectPaths, default: d.recentProjectPaths)
+        streamSetup = c.decode(StreamSetup?.self, forKey: .streamSetup, default: nil)
     }
 }

@@ -181,6 +181,8 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
     public var processing: [String: ProcessingLocation]
     /// Imported chat replay (Twitch / YouTube), if any.
     public var chat: ChatLog?
+    /// Banners read off the screen (wins, kills, deaths…) when the game banner reader ran; nil = not read.
+    public var hudEvents: [HUDEvent]?
 
     public init(assetID: UUID, duration: Seconds, audio: AudioFeatureSeries? = nil, visual: VisualFeatureSeries? = nil,
                 transcript: Transcript? = nil, webcam: WebcamEstimate? = nil, profile: ContentProfile = .unknown,

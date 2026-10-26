@@ -116,7 +116,7 @@ public actor AudioEnhancer {
         }
         guard channelCount > 0, let frames = channels.first?.count, frames > 0 else { throw EngineError.noAudioTrack(sourceURL) }
 
-        AudioEnhanceChain.process(&channels, sampleRate: sampleRate, settings: settings, voiceIsolator: VoiceIsolation.isolator)
+        AudioEnhanceChain.process(&channels, sampleRate: sampleRate, settings: settings, voiceIsolator: VoiceIsolation.isolator, sourceStart: range.start)
         // Panning can turn mono into stereo.
         let outputChannels = channels.count
 

@@ -103,6 +103,10 @@ extension ProjectSession {
                     result.report += " · no B-roll found (offline?)"
                 }
             }
+            if self.app.settings.ai.censorAudio != .off, let words = analysis.transcript?.words {
+                AudioCensor.apply(self.app.settings.ai.censorAudio, to: &result.timeline, words: words, assetID: asset.id,
+                                  extra: self.app.settings.ai.normalizedExtraProfanity)
+            }
             let timeline = result.timeline
             var seen = Set<UUID>()
             let fresh = newAssets.filter { seen.insert($0.id).inserted }

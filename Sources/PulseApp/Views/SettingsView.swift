@@ -148,6 +148,12 @@ struct GeneralSettings: View {
     @EnvironmentObject var app: AppModel
 
     var body: some View {
+        SettingsGroup("Your stream") {
+            SettingsRow("Set up for my stream", detail: app.settings.streamSetup.map { "\($0.platform.displayName) · \($0.content.displayName) · \($0.facecam ? "facecam" : "no facecam") · shorts for \($0.shortsTarget.displayName)" }
+                        ?? "Answer six questions and PULSE sets clip length, captions, extras, safe areas and the export preset to match.") {
+                Button(app.settings.streamSetup == nil ? "Set Up…" : "Change…") { app.showSetupWizard = true }.buttonStyle(.pulse(.secondary, compact: true))
+            }
+        }
         SettingsGroup("Editing") {
             SettingsRow("Magnetic timeline", detail: "Deleting a clip closes the gap automatically.") {
                 Toggle("", isOn: $app.settings.magneticTimeline).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
@@ -391,6 +397,15 @@ struct AIFeatureSettings: View {
                     get: { app.settings.ai.extraProfanity.joined(separator: ", ") },
                     set: { app.settings.ai.extraProfanity = $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }))
                     .textFieldStyle(.roundedBorder).frame(width: 260)
+            }
+            SettingsRow("Audio under swear words", detail: "What AI-built shorts and VOD edits do to the sound under the words the caption filter masks. Rendered non-destructively; change it per timeline in the captions workspace.") {
+                Picker("", selection: $app.settings.ai.censorAudio) {
+                    ForEach(CensorAudio.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .pickerStyle(.segmented).labelsHidden().frame(width: 220)
+            }
+            SettingsRow("Read game banners", detail: "During analysis of gameplay, reads VICTORY, ELIMINATED, DOUBLE KILL, YOU DIED and the like off the screen so wins and deaths score as moments (about a minute per hour of video).") {
+                Toggle("", isOn: $app.settings.ai.hudCues).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
             }
             SettingsRow("AI sound effects", detail: "Uses sound effects you import into the project.") {
                 Toggle("", isOn: $app.settings.ai.aiSoundEffects).labelsHidden().toggleStyle(.switch).tint(Theme.ai)

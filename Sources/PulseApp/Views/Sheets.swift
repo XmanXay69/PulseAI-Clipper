@@ -60,6 +60,11 @@ struct OnboardingView: View {
             HStack(spacing: 10) {
                 Button("Skip") { finish() }.buttonStyle(.pulse(.ghost))
                 Spacer()
+                Button {
+                    finish()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { app.showSetupWizard = true }
+                } label: { Label("Set Up for My Stream", systemImage: "slider.horizontal.3") }
+                    .buttonStyle(.pulse(.secondary))
                 Button { finish(); app.openDemoProject() } label: { Label("Open Sample Project", systemImage: "play.rectangle") }
                     .buttonStyle(.pulse(.secondary))
                 Button { finish(); app.showImportPanel() } label: { Label("Import a Video", systemImage: "square.and.arrow.down") }
