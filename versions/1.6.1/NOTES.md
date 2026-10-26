@@ -34,7 +34,54 @@ The sixteenth batch from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of
 - **Accessibility** (#458) — every toolbar icon button, settings control and colour dot has a VoiceOver label
   (the help text without the shortcut), and the active state is read as selected.
 
+### Batch 17
+
+#### Edit My VOD
+- **Cuts land on sentence ends** (#97) — the edit check now notices a cut that stops mid-sentence; when the
+  sentence ends within 1.5 s the piece is extended to it (and what follows ripples), otherwise it's noted, not
+  changed — pace is a choice. Splits and pauses taken out of a sentence are left alone.
+- **Drop the music here** (#288) — Timeline → Add Music Drop Marker puts a "Drop" marker at the playhead;
+  Apply Music Drops pulls the music out for a beat at every one. Any marker you name "Drop…" counts.
+- **Progress bar** (#92) — a thin accent-coloured bar along the bottom that fills as the video plays: a toggle
+  in the Edit My VOD sheet, or Timeline → Add Progress Bar on any edit of 10 s or more.
+- **Whoosh on the hook** (#77) — AI Features → One-click shorts: a quiet whoosh under the first words of every
+  short, from the project's sounds or the built-in library.
+
+#### Captions
+- **Spelling** (#242) — a Spelling button in the caption style panel lists the words the system dictionary
+  doesn't know, each with up to three fixes; names you taught PULSE, speaker names, GG / LOL / HP, numbers and
+  emoji are never flagged. Learn adds a word to your vocabulary for good.
+
+#### Delivery
+- **Queue time** (#340) — the Exports page says how long the whole queue will take, from the running job's
+  own estimate and the average of the ones already done.
+- **Export into a synced folder** (#356) — next to Choose…, a cloud button lists iCloud Drive, Dropbox, Google
+  Drive, OneDrive and Box when they're set up on this Mac; one click points exports at a PULSE Exports folder
+  inside.
+
+#### Everywhere
+- **Command palette** (#459) — ⌥⌘P (or ⌘F as before): actions now match loosely — "qexp" finds Quick Export,
+  and real substrings and word starts rank first.
+- **Reduce motion** (#426) — with the system's Reduce Motion on, PULSE's hover lifts, scroll-to-word
+  animations, toast springs and the recording pulse all go still.
+- **Quicker launch** (#376) — the update check waits six seconds after the first window, instead of competing
+  with it.
+- **Safe mode** (#393) — Help → Use Safe Mode (CPU Rendering) for a Mac whose GPU driver misbehaves; the
+  viewer and exports render on the CPU from the next edit you open.
+- **Open in Default App** (#21) in the media panel's right-click menu, beside Reveal in Finder.
+
+#### Already there, now on the list
+- The Inspector's Removed Sections lists every cut stretch with its reason and a Restore button (#87); Edit →
+  Edit My VOD Again makes it 10 % shorter or longer with the same answers (#115, #117); Timeline → Make a Short
+  from Selection promotes a stretch of the YouTube edit to a short (#119); the edit check adds 30 ms cut fades
+  to your own cuts as well as PULSE's (#274); Highlights, Shadows and Vignette have been in the Color section
+  all along (#312, #313); frame stepping is frame-accurate (#186), safe areas have per-platform overlays (#189)
+  and captions have max-lines and max-characters controls (#235).
+
 ### Under the hood
 - `CaptionWord.pageBreakAfter` and `TimelineClip.labelColor` are decoded tolerantly, so 1.6.0 projects open
   unchanged; `Batch16Tests` covers the release-list parser, caption keyboard edits, the bumper's ripple, the
   pace mapping, the monitoring note, labels, humanized levels and 1,000 frame steps at 29.97.
+- `Batch17Tests` covers mid-sentence detection (and the splits and pause removals it must ignore), drop
+  markers, the progress bar's keyframes, the hook sting, fuzzy ranking, cloud-folder detection and the spelling
+  candidates; 331 core tests in all.

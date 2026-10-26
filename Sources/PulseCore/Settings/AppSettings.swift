@@ -72,6 +72,10 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var speedRamp: Bool = false
     /// Shorts open on a flash of the payoff before the story (#59).
     public var coldOpenShorts: Bool = false
+    /// A whoosh under the first words of every short (#77).
+    public var hookSting: Bool = false
+    /// A thin bar along the bottom of YouTube edits that fills as the video plays (#92).
+    public var longFormProgressBar: Bool = false
     /// Comment-bait or follow card over the last seconds of every short (#71, #76).
     public var shortsEndCTA: EndCTA = .none
     /// Ask the Extras question once per project, then reuse the answers (#128).
@@ -156,6 +160,8 @@ public struct AISettings: Codable, Hashable, Sendable {
         analysisThreads = c.decode(Int.self, forKey: .analysisThreads, default: d.analysisThreads)
         speedRamp = c.decode(Bool.self, forKey: .speedRamp, default: d.speedRamp)
         coldOpenShorts = c.decode(Bool.self, forKey: .coldOpenShorts, default: d.coldOpenShorts)
+        hookSting = c.decode(Bool.self, forKey: .hookSting, default: d.hookSting)
+        longFormProgressBar = c.decode(Bool.self, forKey: .longFormProgressBar, default: d.longFormProgressBar)
         shortsEndCTA = c.decode(EndCTA.self, forKey: .shortsEndCTA, default: d.shortsEndCTA)
         askExtrasOncePerProject = c.decode(Bool.self, forKey: .askExtrasOncePerProject, default: d.askExtrasOncePerProject)
         socialHandle = c.decode(String.self, forKey: .socialHandle, default: d.socialHandle)

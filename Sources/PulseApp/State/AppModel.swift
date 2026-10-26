@@ -167,9 +167,9 @@ final class AppModel: ObservableObject {
         defer { AppModel.current = self }
         PulseLog.info("PULSE \(AppModel.versionString) launched on macOS \(ProcessInfo.processInfo.operatingSystemVersionString), \(ProblemReporter.machineModel), \(ProcessInfo.processInfo.activeProcessorCount) cores, \(ProcessInfo.processInfo.physicalMemory / 1_073_741_824) GB")
         settings = AppModel.loadSettings()
+        library = try? LibraryDatabase(url: LibraryDatabase.defaultURL())
         Theme.accentChoice = settings.accent
         updater.channel = settings.updateChannel
-        library = try? LibraryDatabase(url: LibraryDatabase.defaultURL())
         store.backupsToKeep = settings.backupsToKeep
         recovery.beginSession()
         pendingRecoveries = recovery.pendingRecoveries()

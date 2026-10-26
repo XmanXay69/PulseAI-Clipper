@@ -267,7 +267,7 @@ struct StartCard: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.14), value: hovering)
+        .animation(Theme.motion(.easeOut(duration: 0.14)), value: hovering)
     }
 }
 
@@ -303,7 +303,7 @@ struct QuickActionTile: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.14), value: hovering)
+        .animation(Theme.motion(.easeOut(duration: 0.14)), value: hovering)
     }
 }
 
@@ -363,7 +363,7 @@ struct ProjectCard: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(Theme.edgeHighlight, lineWidth: 1))
         .elevation(hovering ? 2 : 1)
         .scaleEffect(hovering ? 1.01 : 1)
-        .animation(.easeOut(duration: 0.12), value: hovering)
+        .animation(Theme.motion(.easeOut(duration: 0.12)), value: hovering)
         .onHover { hovering = $0 }
         .onTapGesture { app.openProject(project) }
         .contextMenu {

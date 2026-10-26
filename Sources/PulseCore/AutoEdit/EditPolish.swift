@@ -165,6 +165,14 @@ public enum EditPolish {
         return placed
     }
 
+    /// Music drops where you put a marker named "Drop" (#288). Returns how many were placed.
+    @discardableResult
+    public static func applyDropMarkers(_ timeline: inout Timeline, length: Seconds = 1.6) -> Int {
+        let times = timeline.musicDropTimes
+        guard !times.isEmpty else { return 0 }
+        return musicDrops(&timeline, at: times, length: length)
+    }
+
     // MARK: Look
 
     /// A gentle "make it pop" grade on the main footage: a touch more contrast and colour, never a filter look.
@@ -342,6 +350,21 @@ public enum EditQualityCheck {
             if left > 0 { add(.warning, "Cuts inside words", "\(left) cut\(left == 1 ? "" : "s") land mid-word — nudge them in the timeline") }
         }
 
+        // 3c. Cuts in the middle of a sentence (#97): when the sentence ends within 1.5 s, the piece is extended to
+        //     its end and what follows ripples; the rest are noted, not fixed (pace is a choice).
+        if !words.isEmpty {
+            let mid = midSentenceCuts(in: timeline, trackIndex: v, words: words)
+            var repaired = 0
+            if autofix {
+                for fix in mid.fixable.sorted(by: { $0.clipEnd > $1.clipEnd }).prefix(40) {
+                    if rippleExtend(&timeline, clipID: fix.clipID, head: 0, tail: fix.tail) { repaired += 1 }
+                }
+            }
+            let left = mid.count - repaired
+            if repaired > 0 { add(.fixed, "Cuts moved to sentence ends", "\(repaired) cut\(repaired == 1 ? "" : "s") extended to the end of the sentence") }
+            if left > 0 { add(.note, "Cuts mid-sentence", "\(left) cut\(left == 1 ? "" : "s") end before the sentence does — fine for pace, worth a listen") }
+        }
+
         // 4. Music level.
         let loud = timeline.tracks.filter { $0.kind == .audio }.flatMap(\.clips).filter { $0.role == .music && $0.audio.volume.value > 0.25 && !$0.audio.duckUnderDialogue }
         if !loud.isEmpty {
@@ -420,6 +443,53 @@ public enum EditQualityCheck {
         struct Fix { var clipID: UUID; var clipEnd: Seconds; var head: Seconds; var tail: Seconds }
         var count = 0
         var fixable: [Fix] = []
+    }
+
+    struct MidSentenceCuts {
+        struct Fix { var clipID: UUID; var clipEnd: Seconds; var tail: Seconds }
+        var count = 0
+        var fixable: [Fix] = []
+    }
+
+    /// Main-track pieces whose out point falls inside a sentence (#97): the word before the cut doesn't end
+    /// with . ! or ?, the next word follows within 0.7 s from the same speaker, and the piece isn't simply
+    /// continued by the next piece (a split, or a pause taken out). A fix is offered when the sentence ends
+    /// within `reach` seconds (1.5 s: a few more words, never a new thought).
+    static func midSentenceCuts(in timeline: Timeline, trackIndex v: Int, words: [TranscriptWord], reach: Seconds = 1.5) -> MidSentenceCuts {
+        var result = MidSentenceCuts()
+        let clips = timeline.tracks[v].clips
+        let crosstalk = timeline.removedSections.filter { $0.reason == .crosstalk }.map(\.sourceRange)
+        func endsSentence(_ w: TranscriptWord, next: TranscriptWord?) -> Bool {
+            let t = w.text.trimmingCharacters(in: CharacterSet(charactersIn: "\"'”’)"))
+            if t.hasSuffix(".") || t.hasSuffix("!") || t.hasSuffix("?") || t.hasSuffix("…") { return true }
+            guard let next else { return true }
+            return next.start - w.end >= 0.7 || (next.speaker != nil && w.speaker != nil && next.speaker != w.speaker)
+        }
+        for (ci, clip) in clips.enumerated() where clip.content.assetID != nil && clip.role != .graphic && clip.isEnabled {
+            let out = clip.sourceOut
+            if crosstalk.contains(where: { abs($0.end - out) < 0.05 }) { continue }
+            if ci + 1 < clips.count {
+                let following = clips[ci + 1]
+                if following.content.assetID == clip.content.assetID, following.sourceIn >= out - 0.05, following.sourceIn - out <= 2.5 { continue }
+            }
+            guard let i = words.lastIndex(where: { $0.end <= out + 0.06 && $0.start < out }) else { continue }
+            let prev = words[i]
+            let next = i + 1 < words.count ? words[i + 1] : nil
+            guard let next, !endsSentence(prev, next: next) else { continue }
+            result.count += 1
+            // Walk to the end of the sentence.
+            var j = i + 1
+            var endWord: TranscriptWord?
+            while j < words.count, words[j].start - out <= reach {
+                if endsSentence(words[j], next: j + 1 < words.count ? words[j + 1] : nil) { endWord = words[j]; break }
+                j += 1
+            }
+            if let endWord {
+                let tail = endWord.end + 0.04 - out
+                if tail > 0, tail <= reach { result.fixable.append(.init(clipID: clip.id, clipEnd: clip.end, tail: tail)) }
+            }
+        }
+        return result
     }
 
     /// Main-track pieces whose in or out point lands inside a spoken word. Crosstalk trims cut through words on

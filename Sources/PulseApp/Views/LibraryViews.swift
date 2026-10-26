@@ -103,6 +103,7 @@ struct MediaView: View {
                                         Button("Rename…") { renameText = asset.name; renamingID = asset.id }
                                         Button("Add to Timeline") { session.placeAsset(asset.id) }
                                         Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([session.url(for: asset)]) }
+                                        Button("Open in Default App") { NSWorkspace.shared.open(session.url(for: asset)) }
                                     }
                             }
                         }
@@ -497,6 +498,17 @@ struct ExportSettingsForm: View {
                             if panel.runModal() == .OK, let url = panel.url { settings.outputDirectory = url.path }
                         }
                         .buttonStyle(.pulse(.secondary, compact: true))
+                        let clouds = CloudFolders.detect()
+                        if !clouds.isEmpty {
+                            Menu {
+                                ForEach(clouds, id: \.path) { folder in
+                                    Button("\(folder.name) › PULSE Exports") { settings.outputDirectory = folder.path + "/PULSE Exports" }
+                                }
+                            } label: { Image(systemName: "icloud.and.arrow.up") }
+                            .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 24)
+                            .help("Export straight into a synced folder (#356)")
+                            .accessibilityLabel("Export into a synced folder")
+                        }
                     }
                 }
                 GridRow {
@@ -763,6 +775,14 @@ struct ExportQueueView: View {
                                 Button(queue.isPaused ? "Resume Queue" : "Pause Queue") { queue.isPaused.toggle() }
                                     .buttonStyle(.pulse(queue.isPaused ? .primary : .ghost, compact: true))
                                     .help("Finish the current export, then wait (#339)")
+                                Spacer()
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 6)
+                        }
+                        if let total = queue.queueRemaining, total > 5 {
+                            HStack(spacing: 6) {
+                                Image(systemName: "clock").font(.system(size: 10)).foregroundStyle(Theme.textTertiary)
+                                Text("About \(Timecode.duration(total)) for everything in the queue").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
                                 Spacer()
                             }
                             .padding(.horizontal, 12).padding(.vertical, 6)

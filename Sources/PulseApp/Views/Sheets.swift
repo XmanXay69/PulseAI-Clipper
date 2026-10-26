@@ -205,7 +205,7 @@ struct GlobalSearchView: View {
         let q = query.lowercased().trimmingCharacters(in: .whitespaces)
         var rows: [Row] = []
         if q.count >= 2 {
-            rows += actions.filter { actionMatches($0, q) }.prefix(6).map { a in
+            rows += FuzzyMatch.rank(q, items: actions, text: \.title).prefix(6).map { a in
                 Row(id: a.id, result: SearchResult(id: a.id, kind: .action, title: a.title, subtitle: a.subtitle, score: 1), otherProject: nil)
             }
         }

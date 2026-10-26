@@ -61,7 +61,11 @@ final class AppUpdater: NSObject, ObservableObject {
     /// Checks at launch, every 30 minutes, and when you switch back to PULSE (at most every 10 min).
     func startWatching() {
         guard autoCheck, canInstall else { return }
-        Task { await check(userInitiated: false) }
+        // A few seconds after the first window is up, so launch stays quick (#376).
+        Task {
+            try? await Task.sleep(for: .seconds(6))
+            await check(userInitiated: false)
+        }
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 30 * 60, repeats: true) { [weak self] _ in
             Task { @MainActor in await self?.check(userInitiated: false) }

@@ -14,11 +14,13 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
 
 Already installed? PULSE shows an **Update** button when a new version is out — no need to download again.
 
-**New in 1.6.1:** colour labels on clips with a filter, keyboard caption editing (tab, return, ⌫), a generated
-3-second intro card from the Brand Kit, music beds that match the cut rate, humanized sound-effect levels,
-frame-locked stepping, an accent colour choice, a beta update channel with everything-since release notes, a
-monitoring note for laptop speakers and Bluetooth, and VoiceOver labels on every control
-([notes](versions/1.6.1/NOTES.md)).
+**New in 1.6.1:** colour labels on clips with a filter, keyboard caption editing (tab, return, ⌫), a caption
+spell-check, a generated 3-second intro card from the Brand Kit, cuts that land on sentence ends, "Drop"
+markers for the music, a progress bar for long videos, a whoosh on the hook, music beds that match the cut
+rate, humanized sound-effect levels, frame-locked stepping, an accent colour choice, reduce-motion support, a
+command palette with loose matching, export into iCloud/Dropbox/Google Drive, a queue-time estimate, a beta
+update channel with everything-since release notes, a monitoring note for laptop speakers and Bluetooth, safe
+mode, and VoiceOver labels on every control ([notes](versions/1.6.1/NOTES.md)).
 
 **New in 1.6.0:** a studio look (lit surfaces, gradient controls, grouped sidebar, breadcrumb, pill page bar,
 richer timeline), instant replays on the biggest plays, and more than 250 items from the

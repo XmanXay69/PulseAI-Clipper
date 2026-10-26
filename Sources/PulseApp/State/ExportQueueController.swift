@@ -27,6 +27,20 @@ final class ExportQueueController: ObservableObject {
 
     var summary: ExportQueueSummary { ExportQueueSummary(jobs: jobs) }
 
+    /// The whole queue (#340): the running job's own estimate, plus the average of the finished jobs for each
+    /// one still waiting. Nil until there's something to go on.
+    var queueRemaining: TimeInterval? {
+        let running = jobs.compactMap { $0.estimatedRemaining() }
+        let waiting = jobs.filter { $0.status == .queued }.count
+        let finished = jobs.compactMap { job -> TimeInterval? in
+            guard case .completed = job.status, let started = job.startedAt, let ended = job.finishedAt else { return nil }
+            return ended.timeIntervalSince(started)
+        }
+        guard !running.isEmpty || (waiting > 0 && !finished.isEmpty) else { return nil }
+        let average = finished.isEmpty ? 0 : finished.reduce(0, +) / Double(finished.count)
+        return running.reduce(0, +) + Double(waiting) * average
+    }
+
     func enqueue(timelines: [Timeline], document: ProjectDocument, settings: ExportSettings, range: TimeRange? = nil) {
         let assets = Dictionary(uniqueKeysWithValues: document.media.map { ($0.id, $0) })
         for timeline in timelines {

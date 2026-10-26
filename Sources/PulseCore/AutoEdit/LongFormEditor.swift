@@ -33,6 +33,8 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
     public var musicLevel: Double = 1
     /// A small lower-third with the chapter's name at the start of each chapter (#91).
     public var chapterTitles = false
+    /// A thin bar along the bottom that fills as the video plays (#92).
+    public var progressBar = false
     /// Cut stretches where the game is loud but nobody talks for 8 s or more (#30).
     public var cutGameOnly = false
     /// Your @handle for the end screen (#374).
@@ -651,6 +653,9 @@ public enum LongFormEditor {
             timeline.markers.append(Marker(time: t, name: chapter.title.isEmpty ? "Chapter" : chapter.title, color: .blue, aiGenerated: true))
         }
         timeline.markers.sort { $0.time < $1.time }
+
+        // The "how much is left" bar (#92).
+        if options.progressBar { ProgressBar.add(&timeline) }
 
         // YouTube chapters for the description.
         let outroAt = timeline.tracks[0].clips.first { $0.name == "End Screen" }?.start

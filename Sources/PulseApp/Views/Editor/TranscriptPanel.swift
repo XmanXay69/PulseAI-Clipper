@@ -130,7 +130,7 @@ struct TranscriptPanel: View {
             }
             .onChange(of: currentWord) { _, word in
                 guard playback.isPlaying, let word, let sentence = sentences.last(where: { $0.firstWord <= word }) else { return }
-                withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(sentence.firstWord, anchor: .center) }
+                withAnimation(Theme.motion(.easeOut(duration: 0.2))) { proxy.scrollTo(sentence.firstWord, anchor: .center) }
             }
         }
     }

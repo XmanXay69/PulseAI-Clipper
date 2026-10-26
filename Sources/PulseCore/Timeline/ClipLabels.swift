@@ -29,6 +29,12 @@ extension Timeline {
         return count
     }
 
+    /// Where you asked the music to pull out for a beat (#288): markers you named "Drop" (or "Drop here",
+    /// "drop the beat"), in order.
+    public var musicDropTimes: [Seconds] {
+        markers.filter { !$0.aiGenerated && $0.name.lowercased().hasPrefix("drop") }.map(\.time).sorted()
+    }
+
     /// Cuts a minute on the main video track, ignoring cutaways (#102).
     public var cutsPerMinute: Double {
         guard duration > 1, let v = tracks.first(where: { $0.kind == .video }) else { return 0 }

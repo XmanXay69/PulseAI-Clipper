@@ -19,8 +19,15 @@ public final class FrameRenderer: @unchecked Sendable {
     private var textCacheOrder: [String] = []
     private var lutCache: [String: (dimension: Int, data: Data)] = [:]
 
+    /// Help → Use Safe Mode (#393): render on the CPU for Macs whose GPU driver misbehaves. Read when a
+    /// renderer is made, so it applies to the next edit you open and to the next export.
+    public static var safeMode: Bool {
+        get { UserDefaults.standard.bool(forKey: "render.safeMode") }
+        set { UserDefaults.standard.set(newValue, forKey: "render.safeMode") }
+    }
+
     public init() {
-        if let device = MTLCreateSystemDefaultDevice() {
+        if !Self.safeMode, let device = MTLCreateSystemDefaultDevice() {
             context = CIContext(mtlDevice: device, options: [.workingColorSpace: CGColorSpace(name: CGColorSpace.sRGB)!, .cacheIntermediates: false])
         } else {
             context = CIContext(options: [.workingColorSpace: CGColorSpace(name: CGColorSpace.sRGB)!])

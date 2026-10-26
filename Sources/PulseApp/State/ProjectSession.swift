@@ -237,6 +237,35 @@ final class ProjectSession: ObservableObject, Identifiable {
         }
     }
 
+    /// A marker named "Drop" at the playhead (#288): the music pulls out for a beat there.
+    func addDropMarker() {
+        let t = playback.currentTime
+        editTimeline("Add Drop Marker") { timeline in
+            timeline.markers.append(Marker(time: t, name: "Drop", color: .purple))
+            timeline.markers.sort { $0.time < $1.time }
+        }
+    }
+
+    /// Music drops at every "Drop" marker (#288).
+    func applyDropMarkers() {
+        var placed = 0
+        editTimeline("Music Drops") { placed = EditPolish.applyDropMarkers(&$0) }
+        app.toast(placed == 0 ? "Put a marker named “Drop” over the music first (Timeline → Add Music Drop Marker)" : "\(placed) music drop\(placed == 1 ? "" : "s") placed")
+    }
+
+    /// The thin "how much is left" bar along the bottom (#92), on or off.
+    func toggleProgressBar() {
+        guard let timeline = activeTimeline else { return }
+        if ProgressBar.isPresent(timeline) {
+            editTimeline("Remove Progress Bar") { ProgressBar.remove(&$0) }
+        } else {
+            var added = false
+            let color = Theme.accent.rgba
+            editTimeline("Add Progress Bar") { added = ProgressBar.add(&$0, color: color) }
+            if !added { app.toast("A progress bar needs at least 10 seconds of video") }
+        }
+    }
+
     /// Colour label on the selected clips (#177); nil clears it.
     func setLabel(_ label: MarkerColor?) {
         let ids = selectedClipIDs

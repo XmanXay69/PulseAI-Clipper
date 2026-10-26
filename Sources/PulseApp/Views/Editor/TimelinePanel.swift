@@ -540,7 +540,7 @@ struct TimelineCanvas: View {
             VStack(spacing: 0) {
                 scroller(proxy)
                 TimelineMinimap(timeline: timeline, scrollX: scrollX, viewportWidth: viewportWidth, pps: pps) { seconds in
-                    withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo("anchor-\(Int(seconds / 10))", anchor: .leading) }
+                    withAnimation(Theme.motion(.easeOut(duration: 0.15))) { proxy.scrollTo("anchor-\(Int(seconds / 10))", anchor: .leading) }
                 }
             }
         }

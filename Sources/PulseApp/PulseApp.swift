@@ -154,6 +154,10 @@ struct PulseCommands: Commands {
             Button("Set Up for My Stream…") { app.showSetupWizard = true }
             Button("Report a Problem…") { app.showReportProblem = true }
             Button("Open Log Folder") { NSWorkspace.shared.open(PulseLog.directory) }
+            Button(FrameRenderer.safeMode ? "Turn Off Safe Mode (CPU Rendering)" : "Use Safe Mode (CPU Rendering)") {
+                FrameRenderer.safeMode.toggle()
+                app.toast(FrameRenderer.safeMode ? "Safe mode on — the viewer and exports render on the CPU for edits you open from now on" : "Safe mode off — GPU rendering is back for edits you open from now on")
+            }
             Divider()
             Button("PULSE on GitHub") {
                 if let url = URL(string: "https://github.com/XmanXay69/PulseAI-Clipper") { NSWorkspace.shared.open(url) }
@@ -228,6 +232,11 @@ struct PulseCommands: Commands {
             Button("Exit Compound Clip") { app.session?.exitCompound() }
                 .disabled(!(app.session?.isInsideCompound ?? false))
             Button("Add Marker") { app.session?.addMarker() }
+            Button("Add Music Drop Marker") { app.session?.addDropMarker() }
+                .help("A marker named “Drop” — the music pulls out for a beat there when you apply drops")
+            Button("Apply Music Drops") { app.session?.applyDropMarkers() }
+            Button((app.session?.activeTimeline).map { ProgressBar.isPresent($0) } == true ? "Remove Progress Bar" : "Add Progress Bar") { app.session?.toggleProgressBar() }
+                .disabled(app.session?.activeTimeline == nil)
             Divider()
             Button("Make More Entertaining") { app.session?.makeMoreEntertaining() }.keyboardShortcut("e", modifiers: [.command, .option])
             Button("AI Switch Multicam Angles") { app.session?.autoSwitchActiveTimeline() }.disabled(app.session?.activeMulticamGroup == nil)
@@ -246,6 +255,7 @@ struct PulseCommands: Commands {
             }
             Divider()
             Button("Search…") { app.showGlobalSearch = true }.keyboardShortcut("f")
+            Button("Command Palette…") { app.showGlobalSearch = true }.keyboardShortcut("p", modifiers: [.command, .option])
         }
         CommandGroup(after: .sidebar) {
             Button(app.settings.sidebarCollapsed ? "Show Sidebar" : "Hide Sidebar") { app.settings.sidebarCollapsed.toggle() }

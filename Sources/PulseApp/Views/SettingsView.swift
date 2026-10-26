@@ -31,7 +31,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "theme accent colour appearance timecode transition snapping autosave backups sidebar onboarding update channel beta speakers headphones monitoring"
         case .aiProcessing: return "cloud local privacy provider api key model claude openai"
-        case .aiFeatures: return "clips length aggressiveness captions zoom crop silence filler music sound effects extras censor swear banners taste cold open speed ramp hashtags end card follow handle"
+        case .aiFeatures: return "clips length aggressiveness captions zoom crop silence filler music sound effects extras censor swear banners taste cold open speed ramp hashtags end card follow handle whoosh hook sting"
         case .brandKit: return "logo watermark intro outro bumper name card font colors handle"
         case .performance: return "threads memory cache proxies speed analysis"
         case .transcription: return "whisper speech language vocabulary speakers words"
@@ -537,6 +537,9 @@ struct AIFeatureSettings: View {
             }
             SettingsRow("Cold open on shorts", detail: "Shorts open on 1.6 s of the payoff, cut hard, then tell the story.") {
                 Toggle("", isOn: $app.settings.ai.coldOpenShorts).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
+            }
+            SettingsRow("Whoosh on the hook", detail: "A quiet whoosh under the first words of every short (#77). Needs sound effects on.") {
+                Toggle("", isOn: $app.settings.ai.hookSting).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
             }
             SettingsRow("End of every short", detail: app.settings.ai.shortsEndCTA.detail) {
                 Picker("", selection: $app.settings.ai.shortsEndCTA) {

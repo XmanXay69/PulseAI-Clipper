@@ -45,11 +45,13 @@ struct CaptionsWorkspace: View {
 }
 
 struct CaptionStylePanel: View {
+    @EnvironmentObject var app: AppModel
     @ObservedObject var session: ProjectSession
 
     var captions: CaptionTrack? { session.activeTimeline?.captions }
     @State private var findText = ""
     @State private var replaceText = ""
+    @State private var showSpelling = false
 
     func shiftCaptions(by delta: Seconds) {
         session.editTimeline("Shift Captions") { $0.captions?.shiftTiming(by: delta) }
@@ -250,6 +252,9 @@ struct CaptionStylePanel: View {
                                     .help("Takes filler-only words out of the captions; the audio is untouched")
                                 Button("Rebuild") { session.rebuildCaptionsKeepingFixes() }.buttonStyle(.pulse(.secondary, compact: true))
                                     .help("Captions again from the latest transcript — words you retyped, hid or emphasised stay as you left them")
+                                Button("Spelling") { showSpelling = true }.buttonStyle(.pulse(.secondary, compact: true))
+                                    .help("Words the dictionary doesn't know, with fixes; names and game words you teach it are skipped (#242)")
+                                    .popover(isPresented: $showSpelling, arrowEdge: .bottom) { CaptionSpellingPopover(session: session).environmentObject(app) }
                                 Button("Import…") { session.importCaptionsFile() }.buttonStyle(.pulse(.secondary, compact: true))
                                     .help("An SRT or VTT for the main recording becomes this timeline's captions, re-timed to the cut (#247)")
                             }
@@ -587,5 +592,90 @@ struct SpeakerCaptionSection: View {
             Text("Tip: in a split screen, put each person's captions next to their camera.")
                 .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
         }
+    }
+}
+
+/// Caption words the system dictionary doesn't know (#242): click a word to go there, a suggestion to use
+/// it, or Learn to add it to your vocabulary so it's never flagged again.
+struct CaptionSpellingPopover: View {
+    @EnvironmentObject var app: AppModel
+    @ObservedObject var session: ProjectSession
+
+    struct Finding: Identifiable {
+        let id: UUID
+        let word: CaptionWord
+        let guesses: [String]
+    }
+
+    @State private var findings: [Finding] = []
+    @State private var checked = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            PanelHeader("Spelling", subtitle: checked ? (findings.isEmpty ? "Nothing the dictionary doesn't know" : "\(findings.count) word\(findings.count == 1 ? "" : "s") to look at") : "Checking…")
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 6) {
+                    ForEach(findings) { finding in row(finding) }
+                }
+            }
+        }
+        .padding(12)
+        .frame(width: 380, height: 320)
+        .onAppear(perform: check)
+    }
+
+    func row(_ finding: Finding) -> some View {
+        HStack(spacing: 6) {
+            Button(finding.word.text) { go(to: finding.word) }
+                .buttonStyle(.pulse(.ghost, compact: true))
+                .help("Go to this word")
+            ForEach(finding.guesses, id: \.self) { guess in
+                Button(guess) { replace(finding, with: guess) }.buttonStyle(.pulse(.secondary, compact: true))
+            }
+            Spacer()
+            Button("Learn") { learn(finding) }.buttonStyle(.pulse(.ghost, compact: true)).help("Add to your vocabulary")
+        }
+    }
+
+    func check() {
+        guard let timeline = session.activeTimeline, let captions = timeline.captions else { checked = true; return }
+        let known = app.settings.ai.customVocabulary + Array(captions.speakerNames.values)
+        let checker = NSSpellChecker.shared
+        var out: [Finding] = []
+        for word in CaptionSpelling.checkable(captions.words, known: known) {
+            let text = word.text.trimmingCharacters(in: .punctuationCharacters)
+            let range = checker.checkSpelling(of: text, startingAt: 0)
+            guard range.location != NSNotFound else { continue }
+            let guesses = checker.guesses(forWordRange: NSRange(location: 0, length: (text as NSString).length), in: text, language: nil, inSpellDocumentWithTag: 0) ?? []
+            out.append(Finding(id: word.id, word: word, guesses: Array(guesses.prefix(3))))
+            if out.count >= 80 { break }
+        }
+        findings = out
+        checked = true
+    }
+
+    func go(to word: CaptionWord) {
+        session.focusedCaptionWordID = word.id
+        if let timeline = session.activeTimeline, let captions = timeline.captions,
+           let placed = CaptionLayoutEngine.timelineWords(captions, in: timeline).first(where: { $0.id == word.id }) {
+            session.playback.seek(to: placed.start)
+        }
+    }
+
+    func replace(_ finding: Finding, with guess: String) {
+        let core = finding.word.text.trimmingCharacters(in: .punctuationCharacters)
+        var text = guess
+        if let range = finding.word.text.range(of: core) { text = finding.word.text.replacingCharacters(in: range, with: guess) }
+        let id = finding.id
+        session.editTimeline("Fix Spelling") { $0.captions?.setWordText(id: id, text: text) }
+        findings.removeAll { $0.id == finding.id }
+    }
+
+    func learn(_ finding: Finding) {
+        let word = finding.word.text.trimmingCharacters(in: .punctuationCharacters)
+        if !app.settings.ai.customVocabulary.contains(where: { $0.caseInsensitiveCompare(word) == .orderedSame }) {
+            app.settings.ai.customVocabulary.append(word)
+        }
+        findings.removeAll { CaptionSpelling.normalize($0.word.text) == CaptionSpelling.normalize(word) }
     }
 }

@@ -37,8 +37,8 @@ struct PulseButtonStyle: ButtonStyle {
                 .opacity(isEnabled ? 1 : 0.4)
                 .contentShape(Rectangle())
                 .onHover { hovering = $0 }
-                .animation(.easeOut(duration: 0.12), value: hovering)
-                .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
+                .animation(Theme.motion(.easeOut(duration: 0.12)), value: hovering)
+                .animation(Theme.motion(.easeOut(duration: 0.08)), value: configuration.isPressed)
         }
 
         @ViewBuilder var fillShape: some View {
@@ -342,7 +342,7 @@ struct InspectorSection<Content: View>: View {
     var section: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() }
+                withAnimation(Theme.motion(.easeOut(duration: 0.15))) { expanded.toggle() }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "chevron.right")
@@ -504,7 +504,7 @@ struct ProgressRing: View {
                 .rotationEffect(.degrees(-90))
         }
         .frame(width: size, height: size)
-        .animation(.easeOut(duration: 0.2), value: progress)
+        .animation(Theme.motion(.easeOut(duration: 0.2)), value: progress)
     }
 }
 

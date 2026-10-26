@@ -164,7 +164,7 @@ struct RecordingHUD: View {
             HStack(spacing: 10) {
                 Circle().fill(paused ? Theme.warning : Theme.danger).frame(width: 10, height: 10)
                     .opacity(pulse && !paused ? 0.35 : 1)
-                    .onAppear { withAnimation(.easeInOut(duration: 0.8).repeatForever()) { pulse = true } }
+                    .onAppear { withAnimation(Theme.motion(.easeInOut(duration: 0.8).repeatForever())) { pulse = true } }
                 Text(paused ? "PAUSED" : "REC").font(.system(size: 11, weight: .heavy)).foregroundStyle(paused ? Theme.warning : Theme.danger)
                 Text(Timecode.duration(recorder.elapsed)).font(.pulseTimecode).foregroundStyle(.white)
                 Button { recorder.markMoment() } label: {

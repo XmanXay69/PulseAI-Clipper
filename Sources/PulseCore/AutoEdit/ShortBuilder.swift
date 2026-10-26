@@ -29,6 +29,8 @@ public struct ShortBuildOptions: Codable, Hashable, Sendable {
     public var speedRamp: Bool = false
     /// Open on 1.6 s of the payoff, then tell the story (#59).
     public var coldOpen: Bool = false
+    /// A whoosh under the first words (#77).
+    public var hookSting: Bool = false
     /// What the last two seconds ask for (#71, #76).
     public var endCTA: EndCTA = .none
     /// Your handle for the follow card (from the Brand Kit).
@@ -83,6 +85,7 @@ public struct ShortBuildOptions: Codable, Hashable, Sendable {
         soundEffects = settings.aiSoundEffects
         speedRamp = settings.speedRamp
         coldOpen = settings.coldOpenShorts
+        hookSting = settings.hookSting
         endCTA = settings.shortsEndCTA
         ctaHandle = settings.socialHandle
         if mode == .autoEdit {
@@ -297,6 +300,10 @@ public enum ShortBuilder {
         if options.soundEffects, let payoffTimeline, let sfx = pickSoundEffect(input.soundEffects, preferring: ["impact", "boom", "hit", "pop", "whoosh"]) {
             addPayoffHit(sfx, at: payoffTimeline, to: &timeline)
         }
+        // A whoosh as the hook lands (#77): quieter than the payoff hit, right at the top.
+        if options.hookSting, let whoosh = pickSoundEffect(input.soundEffects, preferring: ["whoosh", "swoosh", "swipe", "transition"]) {
+            addHookSting(whoosh, to: &timeline)
+        }
 
         // Music bed with ducking.
         if let music = input.music { addMusicBed(music, to: &timeline) }
@@ -323,6 +330,22 @@ public enum ShortBuilder {
                                 role: .soundEffect, aiGenerated: true)
         clip.audio.volume = AnimatedDouble(0.6)
         if let ti = timeline.tracks.firstIndex(where: { $0.name.hasPrefix("A3") }) {
+            timeline.tracks[ti].clips.append(clip)
+            timeline.tracks[ti].clips.sort { $0.start < $1.start }
+        } else {
+            let trackID = timeline.freeTrack(kind: .audio, for: TimeRange(start: clip.start, duration: duration))
+            try? timeline.insert(clip, onTrack: trackID, mode: .overwrite)
+        }
+    }
+
+    /// A short, quiet whoosh over the first words (#77).
+    public static func addHookSting(_ sfx: MediaAsset, at time: Seconds = 0.08, to timeline: inout Timeline) {
+        let duration = min(max(sfx.metadata.duration, 0.3), 1.2)
+        var clip = TimelineClip(name: "Hook Sting", content: .media(assetID: sfx.id), start: max(0, time), sourceDuration: duration,
+                                role: .soundEffect, aiGenerated: true)
+        clip.audio.volume = AnimatedDouble(0.42)
+        clip.audio.fadeOut = min(0.3, duration / 2)
+        if let ti = timeline.tracks.firstIndex(where: { $0.name.hasPrefix("A3") }), !timeline.tracks[ti].clips.contains(where: { $0.timelineRange.overlaps(clip.timelineRange) }) {
             timeline.tracks[ti].clips.append(clip)
             timeline.tracks[ti].clips.sort { $0.start < $1.start }
         } else {

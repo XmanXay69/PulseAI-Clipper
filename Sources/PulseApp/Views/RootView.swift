@@ -186,7 +186,7 @@ struct Sidebar: View {
             Spacer()
             SidebarItem(section: .settings, collapsed: collapsed)
             Button {
-                withAnimation(.easeOut(duration: 0.18)) {
+                withAnimation(Theme.motion(.easeOut(duration: 0.18))) {
                     if app.section.isWorkspace { expandedOnWorkspace.toggle() } else { app.settings.sidebarCollapsed.toggle() }
                 }
             } label: {
@@ -531,7 +531,7 @@ struct ToastView: View {
             .padding(.bottom, app.session != nil ? 62 : 24) // clear of the page bar
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .id(toast.id)
-            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: toast.id)
+            .animation(Theme.motion(.spring(response: 0.3, dampingFraction: 0.85)), value: toast.id)
         }
     }
 }

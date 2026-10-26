@@ -345,7 +345,7 @@ struct ClipCandidateCard: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(Theme.edgeHighlight, lineWidth: 1))
         .shadow(color: isSelected ? Theme.ai.opacity(0.25) : .black.opacity(hovering ? 0.35 : 0.22), radius: hovering ? 16 : 8, y: hovering ? 8 : 3)
         .offset(y: hovering ? -2 : 0)
-        .animation(.easeOut(duration: 0.14), value: hovering)
+        .animation(Theme.motion(.easeOut(duration: 0.14)), value: hovering)
         .onHover { hovering = $0 }
         .contextMenu {
             Button("Open in Editor") { session.createShort(from: candidate.id) }
