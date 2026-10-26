@@ -1,6 +1,6 @@
 ## PULSE 1.6.1
 
-The sixteenth batch from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.0](../1.6.0/NOTES.md):
+Released 26 October 2026. Batches 16–22 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.0](../1.6.0/NOTES.md):
 
 ### Editing
 - **Colour labels on clips** (#177) — the Inspector's Clip section has eight label dots; the timeline draws
