@@ -273,6 +273,10 @@ struct ReferenceSheet: View {
                     if answers.length == .shorts {
                         app.session?.editLikeReference(style, answers: answers)
                         dismiss()
+                    } else if app.settings.ai.askExtrasOncePerProject, app.session?.document.extrasAnswered == true {
+                        // Answered once for this project (#128).
+                        app.session?.editLikeReference(style, answers: answers, extras: app.settings.ai.editExtras.with(approveCut: false))
+                        dismiss()
                     } else {
                         askingExtras = true
                     }

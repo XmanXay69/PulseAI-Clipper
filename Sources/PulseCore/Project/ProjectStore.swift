@@ -109,11 +109,14 @@ public final class ProjectStore: @unchecked Sendable {
         guard package.url.pathExtension == ProjectPackage.fileExtension else { throw ProjectStoreError.notAProject(package.url) }
         do {
             let data = try Data(contentsOf: package.documentURL)
-            return (try ProjectStore.makeDecoder().decode(ProjectDocument.self, from: data), false)
+            var doc = try ProjectStore.makeDecoder().decode(ProjectDocument.self, from: data)
+            ProjectMigration.migrate(&doc)
+            return (doc, false)
         } catch {
             for backup in backups(of: package) {
                 if let data = try? Data(contentsOf: backup),
-                   let doc = try? ProjectStore.makeDecoder().decode(ProjectDocument.self, from: data) {
+                   var doc = try? ProjectStore.makeDecoder().decode(ProjectDocument.self, from: data) {
+                    ProjectMigration.migrate(&doc)
                     return (doc, true)
                 }
             }

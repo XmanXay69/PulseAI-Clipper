@@ -402,7 +402,9 @@ public enum LongFormEditor {
         var replays = 0
         if options.extras.instantReplays, timeline.tracks[0].clips.count > 0 {
             let plays = InstantReplay.plan(segments: segments, profile: profile, hookPayoff: hookMoment, duration: timeline.duration)
-            replays = InstantReplay.apply(&timeline, at: plays, assetID: asset.id, whoosh: sounds.effect(["whoosh", "swoosh"]), hookEnd: hookEnd)
+            let x = options.extras
+            replays = InstantReplay.apply(&timeline, at: plays, assetID: asset.id, whoosh: sounds.effect(["whoosh", "swoosh"]), hookEnd: hookEnd,
+                                          speed: x.replaySpeed, tag: x.replayTag, sting: x.replaySting, desaturate: x.replayDesaturate)
         }
 
         // Where each segment begins now (after the cuts) — chapters, transitions, music. Replays and other
@@ -490,12 +492,13 @@ public enum LongFormEditor {
         var facecamZooms = 0
         if options.extras.facecamPunchIns, profile == .gameplayWithFacecam, let webcam = analysis.webcam, timeline.tracks[0].clips.count > 0 {
             var times: [Seconds] = []
-            for s in segments.sorted(by: { $0.potential > $1.potential }) where s.potential >= 55 && times.count < 6 {
+            let budget = options.extras.punchInsPerVideo > 0 ? options.extras.punchInsPerVideo : 6
+            for s in segments.sorted(by: { $0.potential > $1.potential }) where s.potential >= 55 && times.count < budget {
                 guard !Set(s.tags).isDisjoint(with: [.reaction, .funny, .fail, .rage, .hype, .highEnergy]),
                       let t = timelineTime(ofSource: s.payoff), !times.contains(where: { abs($0 - t) < 45 }) else { continue }
                 times.append(t)
             }
-            facecamZooms = FacecamPunchIn.apply(&timeline, at: times, region: webcam.region)
+            facecamZooms = FacecamPunchIn.apply(&timeline, at: times, region: webcam.region, hold: options.extras.punchInHold)
         }
 
         // Long static stretches breathe: a slow push-in where nothing else moves the frame.
@@ -533,7 +536,7 @@ public enum LongFormEditor {
         // Extra: "THEN THIS HAPPENED…" cards where the video jumps ahead in the stream.
         var cards = 0
         if options.extras.titleCards {
-            cards = RetentionCards.add(&timeline, segments: segments, starts: starts, hookEnd: hookEnd, words: words)
+            cards = RetentionCards.add(&timeline, segments: segments, starts: starts, hookEnd: hookEnd, words: words, phrases: options.extras.titleCardPhrases)
         }
 
         // A whoosh where the story jumps ahead in the stream (sparingly), and one out of the hook.

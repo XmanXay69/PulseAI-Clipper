@@ -51,6 +51,9 @@ struct LongFormSheet: View {
                                    onBack: { choosing = false; extras = nil }) { segments, hookPayoff in
                     if extras != nil {
                         build(segments: segments, hookPayoff: hookPayoff)
+                    } else if skipExtrasQuestion {
+                        extras = app.settings.ai.editExtras.with(approveCut: false)
+                        build(segments: segments, hookPayoff: hookPayoff)
                     } else {
                         // Picked the moments first: ask about the extras before building.
                         pendingSegments = segments
@@ -85,6 +88,9 @@ struct LongFormSheet: View {
             .environmentObject(app)
         }
     }
+
+    /// The Extras question was answered for this project and you asked not to be asked again (#128).
+    var skipExtrasQuestion: Bool { app.settings.ai.askExtrasOncePerProject && session.document.extrasAnswered }
 
     func build(segments: [LongFormSegment]?, hookPayoff: Seconds?) {
         session.editMyVOD(options: options, segments: segments, hookPayoff: hookPayoff)
@@ -269,7 +275,14 @@ struct LongFormSheet: View {
                 .help(analyzed ? "See every moment PULSE picked, swap some out and choose the hook" : "Analyze the video first (or just press Edit My VOD)")
             Button {
                 extras = nil
-                askingExtras = true
+                if skipExtrasQuestion {
+                    // Answered once for this project (#128): reuse the answers.
+                    let answer = app.settings.ai.editExtras
+                    extras = answer
+                    if answer.approveCut { choosing = true } else { build(segments: nil, hookPayoff: nil) }
+                } else {
+                    askingExtras = true
+                }
             } label: { Label("Edit My VOD…", systemImage: "wand.and.stars") }
                 .buttonStyle(.pulseAI)
                 .keyboardShortcut(.defaultAction)

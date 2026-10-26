@@ -24,7 +24,8 @@ public enum ProjectStatus: String, Codable, Sendable {
 /// The whole editable state of a project. Stored as `project.json` inside a `.pulse` package.
 /// Large per-asset analysis (transcripts, feature series) lives in separate files.
 public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
-    public static let schemaVersion = 1
+    /// 1 = 1.0–1.5, 2 = 1.6 (snapshots, merged cards, import folder, extras answers).
+    public static let schemaVersion = 2
 
     public var id: UUID
     public var schemaVersion: Int
@@ -51,6 +52,10 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
     public var exportCount: Int
     /// Named copies of timelines to go back to (#185).
     public var snapshots: [TimelineSnapshot] = []
+    /// Where you last imported from for this project (#8).
+    public var lastImportFolder: String = ""
+    /// The Extras question was answered for this project (#128).
+    public var extrasAnswered: Bool = false
 
     public init(id: UUID = UUID(), name: String, createdAt: Date = Date()) {
         self.id = id
@@ -98,6 +103,8 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
         notes = c.decode(String.self, forKey: .notes, default: "")
         exportCount = c.decode(Int.self, forKey: .exportCount, default: 0)
         snapshots = c.decode([TimelineSnapshot].self, forKey: .snapshots, default: [])
+        lastImportFolder = c.decode(String.self, forKey: .lastImportFolder, default: "")
+        extrasAnswered = c.decode(Bool.self, forKey: .extrasAnswered, default: false)
     }
 
     // MARK: Convenience

@@ -5,7 +5,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, aiProcessing, aiFeatures, brandKit, performance, transcription, files, proxies, shortcuts, diagnostics, privacy
+    case general, aiProcessing, aiFeatures, brandKit, performance, transcription, files, proxies, shortcuts, statistics, diagnostics, privacy
 
     var id: String { rawValue }
 
@@ -20,6 +20,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .files: return "Files & Storage"
         case .proxies: return "Proxies"
         case .shortcuts: return "Shortcuts"
+        case .statistics: return "Statistics"
         case .diagnostics: return "Diagnostics"
         case .privacy: return "Privacy"
         }
@@ -36,6 +37,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .files: return "externaldrive"
         case .proxies: return "square.stack.3d.down.right"
         case .shortcuts: return "keyboard"
+        case .statistics: return "chart.bar"
         case .diagnostics: return "stethoscope"
         case .privacy: return "hand.raised"
         }
@@ -85,6 +87,7 @@ struct SettingsView: View {
                     case .files: FileSettings()
                     case .proxies: ProxySettingsPane()
                     case .shortcuts: ShortcutsPane()
+                    case .statistics: StatisticsPane()
                     case .diagnostics: DiagnosticsPane()
                     case .privacy: PrivacyPane()
                     }
@@ -458,6 +461,18 @@ struct AIFeatureSettings: View {
             SettingsRow("Cold open on shorts", detail: "Shorts open on 1.6 s of the payoff, cut hard, then tell the story.") {
                 Toggle("", isOn: $app.settings.ai.coldOpenShorts).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
             }
+            SettingsRow("End of every short", detail: app.settings.ai.shortsEndCTA.detail) {
+                Picker("", selection: $app.settings.ai.shortsEndCTA) {
+                    ForEach(EndCTA.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .pickerStyle(.segmented).labelsHidden().frame(width: 300)
+            }
+            SettingsRow("Your handle", detail: "Goes on follow cards (“FOLLOW @you FOR MORE”).") {
+                TextField("@you", text: $app.settings.ai.socialHandle).textFieldStyle(.roundedBorder).frame(width: 160)
+            }
+            SettingsRow("Ask about extras once per project", detail: "The Extras question before Edit My VOD is asked the first time in a project, then your answers are reused.") {
+                Toggle("", isOn: $app.settings.ai.askExtrasOncePerProject).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
+            }
             SettingsRow("Your taste", detail: app.settings.ai.taste.summaryLines.isEmpty
                         ? "Rate clips 👍 / 👎 in AI Clips and PULSE learns what you like. Nothing learned yet."
                         : app.settings.ai.taste.summaryLines.joined(separator: "\n")) {
@@ -759,6 +774,38 @@ struct ProxySettingsPane: View {
 }
 
 // MARK: Shortcuts
+
+/// What PULSE has done for you so far (#478). Counted on this Mac, never sent anywhere.
+struct StatisticsPane: View {
+    @EnvironmentObject var app: AppModel
+
+    var body: some View {
+        let stats = app.settings.stats
+        VStack(alignment: .leading, spacing: 14) {
+            SectionLabel(text: "Statistics")
+            if stats.isEmpty {
+                Text("Nothing yet — build a short or edit a VOD and the numbers start here.").font(.pulseCaption).foregroundStyle(Theme.textTertiary)
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180, maximum: 240), spacing: 10)], spacing: 10) {
+                    ForEach(Array(stats.lines.enumerated()), id: \.offset) { _, line in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(line.value).font(.system(size: 22, weight: .bold, design: .rounded)).foregroundStyle(line.label.hasPrefix("Hours") ? Theme.ai : Theme.textPrimary)
+                            Text(line.label).font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(RoundedRectangle(cornerRadius: Theme.radiusMedium).fill(Theme.panelRaised))
+                    }
+                }
+                if let since = stats.since {
+                    Text("Since \(since.formatted(date: .abbreviated, time: .omitted)). Hours saved is an estimate: about 12 minutes per short, 90 per YouTube edit, twice real time for cutting dead air by hand and half real time for scrubbing a VOD.")
+                        .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                }
+                Button("Reset Statistics") { app.settings.stats = LifetimeStats() }.buttonStyle(.pulse(.ghost, compact: true))
+            }
+        }
+    }
+}
 
 struct ShortcutsPane: View {
     static let groups: [(String, [(String, String)])] = [

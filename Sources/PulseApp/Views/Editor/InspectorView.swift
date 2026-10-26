@@ -4,6 +4,56 @@ import PulseEngine
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// Your saved grades (#317): apply with a click, save the current one by name, remove with ⌥-click.
+struct GradePresetsRow: View {
+    @EnvironmentObject var app: AppModel
+    @ObservedObject var session: ProjectSession
+    let clip: TimelineClip
+    @State private var naming = false
+    @State private var name = ""
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(app.settings.gradePresets) { preset in
+                Button(preset.name) {
+                    if NSEvent.modifierFlags.contains(.option) {
+                        app.settings.gradePresets.removeAll { $0.id == preset.id }
+                    } else {
+                        session.editClip(clip.id, "Grade: \(preset.name)") { $0.color = preset.adjustments }
+                    }
+                }
+                .buttonStyle(.pulse(clip.color == preset.adjustments ? .primary : .secondary, compact: true))
+                .help("Apply “\(preset.name)” · ⌥-click removes it")
+            }
+            Button { name = ""; naming = true } label: { Label("Save grade", systemImage: "plus") }
+                .buttonStyle(.pulse(.ghost, compact: true))
+                .disabled(clip.color.isIdentity)
+                .help("Keep this grade under a name to reuse on any clip")
+                .popover(isPresented: $naming, arrowEdge: .bottom) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Save this grade as").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                        TextField("Warm webcam", text: $name, onCommit: save).textFieldStyle(.roundedBorder).frame(width: 200)
+                        HStack {
+                            Spacer()
+                            Button("Save") { save() }.buttonStyle(.pulse(.primary, compact: true)).disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                        }
+                    }
+                    .padding(12)
+                }
+        }
+    }
+
+    func save() {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        var grade = clip.color
+        grade.bypass = false
+        app.settings.gradePresets.save(trimmed, adjustments: grade)
+        naming = false
+        app.toast("Grade “\(trimmed)” saved — it's in the Color section of every clip")
+    }
+}
+
 struct InspectorView: View {
     @ObservedObject var session: ProjectSession
     @ObservedObject var playback: PlaybackController
@@ -525,6 +575,7 @@ struct ColorInspector: View {
                         .help(look.detail)
                 }
             }
+            GradePresetsRow(session: session, clip: clip)
             b.plainSlider("Exposure", \.color.exposure, range: -2...2, unit: " EV")
             b.plainSlider("Contrast", \.color.contrast, range: -1...1)
             b.plainSlider("Highlights", \.color.highlights, range: -1...0)

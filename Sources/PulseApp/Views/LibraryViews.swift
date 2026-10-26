@@ -167,6 +167,12 @@ struct MediaView: View {
                     Button("Proxy") { session.generateProxy(assetID: asset.id) }.buttonStyle(.pulse(.secondary, compact: true))
                     Button("Reveal") { NSWorkspace.shared.activateFileViewerSelecting([session.url(for: asset)]) }.buttonStyle(.pulse(.ghost, compact: true))
                 }
+                let unused = session.document.unusedMedia.count
+                if unused > 0 {
+                    Button { session.removeUnusedMedia() } label: { Label("Remove \(unused) Unused File\(unused == 1 ? "" : "s")", systemImage: "trash") }
+                        .buttonStyle(.pulse(.ghost, compact: true))
+                        .help("Trims the project to the media its timelines and clips use; the files stay on disk")
+                }
                 if asset.availability == .missing {
                     Button("Relink Missing File…") {
                         let panel = NSOpenPanel()

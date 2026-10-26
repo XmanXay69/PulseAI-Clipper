@@ -174,6 +174,8 @@ public struct MediaAsset: Codable, Hashable, Identifiable, Sendable {
     public var generatedBy: String?
     /// Moments you marked while recording ("clip it"), in seconds from the start; analysis treats them as sure things.
     public var markedMoments: [Seconds] = []
+    /// Fingerprint of the file's content so the same recording under two names is caught (#5).
+    public var contentHash: String?
 
     public init(id: UUID = UUID(), name: String, path: String, bookmark: Data? = nil, kind: MediaKind,
                 role: MediaRole = .main, category: MediaCategory? = nil, metadata: MediaMetadata = MediaMetadata(),
@@ -219,6 +221,7 @@ public struct MediaAsset: Codable, Hashable, Identifiable, Sendable {
         syncGroupID = c.decode(UUID?.self, forKey: .syncGroupID, default: nil)
         generatedBy = c.decode(String?.self, forKey: .generatedBy, default: nil)
         markedMoments = c.decode([Seconds].self, forKey: .markedMoments, default: [])
+        contentHash = c.decode(String?.self, forKey: .contentHash, default: nil)
     }
 
     public var url: URL { URL(fileURLWithPath: path) }

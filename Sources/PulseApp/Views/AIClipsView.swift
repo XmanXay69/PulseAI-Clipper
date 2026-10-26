@@ -93,14 +93,16 @@ struct AIClipsView: View {
     var header: some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(showMaybeLater ? "Maybe later — \(session.document.candidates.filter { $0.status == .dismissed }.count) set aside" : "\(session.document.visibleCandidates.count) potential clips found")
                 let dismissed = session.document.candidates.filter { $0.status == .dismissed }.count
-                if dismissed > 0 || showMaybeLater {
-                    Button(showMaybeLater ? "Back to clips" : "Maybe later (\(dismissed))") { showMaybeLater.toggle() }
-                        .buttonStyle(.pulse(showMaybeLater ? .primary : .ghost, compact: true))
-                        .help("Clips you set aside stay here instead of being deleted (#85)")
+                HStack(spacing: 8) {
+                    Text(showMaybeLater ? "Maybe later — \(dismissed) set aside" : "\(session.document.visibleCandidates.count) potential clips found")
+                        .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                    if dismissed > 0 || showMaybeLater {
+                        Button(showMaybeLater ? "Back to clips" : "Maybe later (\(dismissed))") { showMaybeLater.toggle() }
+                            .buttonStyle(.pulse(showMaybeLater ? .primary : .ghost, compact: true))
+                            .help("Clips you set aside stay here instead of being deleted (#85)")
+                    }
                 }
-                    .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                 if let asset = session.document.primaryAsset {
                     Text("from \(asset.name) · \(Timecode.duration(asset.metadata.duration))").font(.pulseCaption).foregroundStyle(Theme.textTertiary)
                 }
@@ -130,6 +132,11 @@ struct AIClipsView: View {
             } label: { Label(session.candidateSort.displayName, systemImage: "arrow.up.arrow.down") }
                 .menuStyle(.borderlessButton)
                 .frame(width: 140)
+            if session.selectedCandidateIDs.count >= 2 {
+                Button { session.mergeCandidates(session.selectedCandidateIDs) } label: { Label("Merge \(session.selectedCandidateIDs.count) into One Short", systemImage: "rectangle.stack.badge.plus") }
+                    .buttonStyle(.pulseSecondary)
+                    .help("A callback joke, a story in two parts: the selected moments become one short, joined with a cut (#65)")
+            }
             Button { app.showLongFormSheet = true } label: { Label("Edit My VOD", systemImage: "film.stack") }
                 .buttonStyle(.pulseAI)
                 .disabled(session.document.primaryAsset == nil)
@@ -242,6 +249,14 @@ struct ClipCandidateCard: View {
                     TagChip(text: "Overlaps “\(twin.title)”", color: Theme.warning, symbol: "exclamationmark.triangle.fill")
                         .help("Both shorts cover mostly the same stretch — posting both looks like a repost")
                 }
+                if let part = session.seriesLabels[candidate.id] {
+                    TagChip(text: part, color: Theme.info, symbol: "square.stack")
+                        .help("A running bit — this moment and another reference each other, so post them as a series")
+                }
+                if candidate.isMerged {
+                    TagChip(text: "\(1 + (candidate.extraRanges?.count ?? 0)) moments · \(Int(candidate.totalDuration.rounded()))s", color: Theme.ai, symbol: "rectangle.stack")
+                        .help("Built from several moments joined with cuts")
+                }
                 HStack(spacing: 4) {
                     ForEach(candidate.tags.prefix(2), id: \.self) { tag in TagChip(text: tag.displayName, color: Theme.ai) }
                     Spacer(minLength: 2)
@@ -274,6 +289,7 @@ struct ClipCandidateCard: View {
                         Button("Regenerate") { session.reshapeCandidate(candidate.id, targetDuration: nil, regenerate: true) }
                         Button("Make Thumbnail…") { app.thumbnailRequest = ThumbnailRequest(candidateID: candidate.id) }
                         Divider()
+                        Button("Never Show Moments Like This") { session.neverCandidate(candidate.id) }
                         Button("Delete", role: .destructive) { session.deleteCandidates([candidate.id]) }
                     } label: { Image(systemName: "ellipsis.circle").font(.system(size: 11)) }
                         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
@@ -353,6 +369,7 @@ struct CandidateDetailPanel: View {
     let candidate: ClipCandidate
     @State private var player = AVPlayer()
     @State private var editingTitle = ""
+    @State private var editingHashtags = ""
     @State private var boundaryObserver: Any?
     @State private var aiBusy = false
 
@@ -383,6 +400,9 @@ struct CandidateDetailPanel: View {
                         editingTitle = title
                         commitTitle()
                     }
+                    Button { session.moreTitles(for: candidate.id) } label: { Label("More like this one", systemImage: "sparkles") }
+                        .buttonStyle(.pulse(.ghost, compact: true))
+                        .help("Three more titles in the spirit of the current one — a quote gets more quotes, a hook line gets its siblings")
                 }
                 HStack(spacing: 8) {
                     Button { session.createShort(from: candidate.id) } label: { Label("Create Short", systemImage: "wand.and.stars").frame(maxWidth: .infinity) }
@@ -508,6 +528,12 @@ struct CandidateDetailPanel: View {
             CopyRow(label: "TikTok", text: candidate.copy.tiktokCaption)
             CopyRow(label: "Instagram", text: candidate.copy.instagramCaption)
             HStack(spacing: 6) {
+                Text("Hashtags").font(.pulseMicro).foregroundStyle(Theme.textTertiary).frame(width: 64, alignment: .leading)
+                TextField("#tags", text: $editingHashtags, onCommit: commitHashtags)
+                    .textFieldStyle(.roundedBorder).font(.pulseCaption)
+                    .help("From the clip's tags and the names said in it (a game, a friend) — edit freely, they go into every post below")
+            }
+            HStack(spacing: 6) {
                 ForEach(SharePlatform.allCases, id: \.self) { platform in
                     Button(platform.displayName) { copyShareText(platform) }.buttonStyle(.pulse(.secondary, compact: true))
                 }
@@ -519,6 +545,7 @@ struct CandidateDetailPanel: View {
 
     func load() {
         editingTitle = candidate.title
+        editingHashtags = candidate.copy.hashtags.joined(separator: " ")
         guard let asset = session.document.asset(id: candidate.assetID) else { return }
         let item = AVPlayerItem(url: session.url(for: asset))
         item.forwardPlaybackEndTime = .seconds(candidate.range.end)
@@ -531,6 +558,13 @@ struct CandidateDetailPanel: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
         app.toast("Copied the \(platform.displayName) post (\(text.count) characters)")
+    }
+
+    func commitHashtags() {
+        let tags = Hashtags.parse(editingHashtags)
+        guard tags != candidate.copy.hashtags else { return }
+        session.setHashtags(editingHashtags, for: candidate.id)
+        editingHashtags = tags.joined(separator: " ")
     }
 
     func commitTitle() {

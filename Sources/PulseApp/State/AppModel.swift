@@ -150,7 +150,7 @@ final class AppModel: ObservableObject {
         var id: String { name }
     }
 
-    static let cacheFolderNames = ["Thumbnails", "Waveforms", "Analysis", "Proxies", "Converted", "Enhanced Audio", "Reference", "Beats"]
+    nonisolated static let cacheFolderNames = ["Thumbnails", "Waveforms", "Analysis", "Proxies", "Converted", "Enhanced Audio", "Reference", "Beats"]
 
     init() {
         PulseLog.info("PULSE \(AppModel.versionString) launched on macOS \(ProcessInfo.processInfo.operatingSystemVersionString), \(ProblemReporter.machineModel), \(ProcessInfo.processInfo.activeProcessorCount) cores, \(ProcessInfo.processInfo.physicalMemory / 1_073_741_824) GB")
@@ -176,6 +176,7 @@ final class AppModel: ObservableObject {
                 self.rememberPrediction(timelineID: job.timelineID, fileName: ((path as NSString).lastPathComponent as NSString).deletingPathExtension)
                 self.logActivity(.export, title: "Exported “\(job.timelineName)”", detail: (path as NSString).lastPathComponent)
                 self.session?.edit("Mark Exported") { doc in doc.exportCount += 1 }
+                self.settings.stats.note { $0.exportsFinished += 1 }
             case .failed(let message):
                 PulseLog.error("Export failed: \(job.timelineName) — \(message)")
                 self.logActivity(.export, title: "Export failed: \(job.timelineName)", detail: message)
@@ -339,6 +340,10 @@ final class AppModel: ObservableObject {
         panel.allowedContentTypes = (MediaTypes.allImportableExtensions + Array(MediaTypes.transcriptExtensions)).compactMap { UTType(filenameExtension: $0) }
         panel.prompt = "Import"
         panel.message = "Choose videos, audio, images or transcripts (SRT/VTT) — or a folder of them"
+        // Where this project last imported from (#8).
+        if let folder = session?.document.lastImportFolder, !folder.isEmpty, FileManager.default.fileExists(atPath: folder) {
+            panel.directoryURL = URL(fileURLWithPath: folder)
+        }
         if panel.runModal() == .OK {
             importMedia(panel.urls)
         }
@@ -739,7 +744,7 @@ final class AppModel: ObservableObject {
 
     /// Reads a YouTube Studio / TikTok analytics CSV, matches it to past exports and recalibrates the coach.
     func importAnalytics(_ url: URL) -> (rows: Int, matched: Int) {
-        guard let text = try? String(contentsOf: url, encoding: .utf8) ?? String(contentsOf: url, encoding: .utf16) else { return (0, 0) }
+        guard let text = (try? String(contentsOf: url, encoding: .utf8)) ?? (try? String(contentsOf: url, encoding: .utf16)) else { return (0, 0) }
         let rows = AnalyticsImporter.parse(text)
         var records = performanceHistory
         let matched = AnalyticsImporter.match(rows, into: &records)

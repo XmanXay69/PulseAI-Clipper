@@ -72,6 +72,12 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var speedRamp: Bool = false
     /// Shorts open on a flash of the payoff before the story (#59).
     public var coldOpenShorts: Bool = false
+    /// Comment-bait or follow card over the last seconds of every short (#71, #76).
+    public var shortsEndCTA: EndCTA = .none
+    /// Ask the Extras question once per project, then reuse the answers (#128).
+    public var askExtrasOncePerProject: Bool = false
+    /// Your @handle for follow cards (#76).
+    public var socialHandle: String = ""
     public var aiFraming: Bool = true
     /// Label who is talking after transcription (local diarization).
     public var detectSpeakers: Bool = true
@@ -144,6 +150,9 @@ public struct AISettings: Codable, Hashable, Sendable {
         analysisThreads = c.decode(Int.self, forKey: .analysisThreads, default: d.analysisThreads)
         speedRamp = c.decode(Bool.self, forKey: .speedRamp, default: d.speedRamp)
         coldOpenShorts = c.decode(Bool.self, forKey: .coldOpenShorts, default: d.coldOpenShorts)
+        shortsEndCTA = c.decode(EndCTA.self, forKey: .shortsEndCTA, default: d.shortsEndCTA)
+        askExtrasOncePerProject = c.decode(Bool.self, forKey: .askExtrasOncePerProject, default: d.askExtrasOncePerProject)
+        socialHandle = c.decode(String.self, forKey: .socialHandle, default: d.socialHandle)
         aiFraming = c.decode(Bool.self, forKey: .aiFraming, default: d.aiFraming)
         detectSpeakers = c.decode(Bool.self, forKey: .detectSpeakers, default: d.detectSpeakers)
         speakerCount = c.decode(Int.self, forKey: .speakerCount, default: d.speakerCount)
@@ -273,6 +282,10 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var brandKit: BrandKit = BrandKit()
     /// Editing styles measured from reference videos, newest first (reusable on any VOD).
     public var referenceStyles: [ReferenceStyle] = []
+    /// Grades you saved from the inspector (#317).
+    public var gradePresets: [GradePreset] = []
+    /// What PULSE has done for you so far (#478).
+    public var stats: LifetimeStats = LifetimeStats()
 
     public init() {}
 
@@ -315,6 +328,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
         safeAreaPlatform = c.decode(SafeAreaPlatform.self, forKey: .safeAreaPlatform, default: d.safeAreaPlatform)
         brandKit = c.decode(BrandKit.self, forKey: .brandKit, default: d.brandKit)
         referenceStyles = c.decode([ReferenceStyle].self, forKey: .referenceStyles, default: d.referenceStyles)
+        gradePresets = c.decode([GradePreset].self, forKey: .gradePresets, default: d.gradePresets)
+        stats = c.decode(LifetimeStats.self, forKey: .stats, default: d.stats)
         defaultExportPresetID = c.decode(String.self, forKey: .defaultExportPresetID, default: d.defaultExportPresetID)
         recentProjectPaths = c.decode([String].self, forKey: .recentProjectPaths, default: d.recentProjectPaths)
         timecodeStyle = c.decode(TimecodeStyle.self, forKey: .timecodeStyle, default: d.timecodeStyle)

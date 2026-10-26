@@ -57,6 +57,11 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   music overlaps the next for 3 s instead of fading out, a gap, and fading in.
 
 ### Editing
+- **Tighten pauses** (#82) — a popover on the timeline toolbar: pick the shortest pause to speed up and see
+  “7 pauses · 4.2 s shorter” before you press Tighten.
+- **Find on the timeline** (#174) — a clip by name, a marker by name or note, or words that were said; click to
+  jump.
+- **Saved grades** (#317) — the Color section keeps the grades you save by name; ⌥-click one to remove it.
 - **To-do markers in the edit check** (#161) — a marker named TODO… (or with "todo" in its note) is listed
   with its time until you clear it.
 - **Time display** (#180) — Settings → General: timecode, seconds or frames in the viewer; **?** opens Settings
@@ -104,6 +109,19 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   gentle starting point you can tune.
 
 ### AI Clips
+- **More titles like this one** (#60) — a quote gets the next-best quotes from the same words, a hook line gets
+  its siblings; three more each click, never a repeat.
+- **Merge moments** (#65) — ⌘-click two or more cards and “Merge into One Short”: each is cut the one-click way
+  and they're joined with a cut; the card shows how many moments and the total length.
+- **Running bits** (#66) — moments that reference each other (shared rare words, “remember when”, “again”) get
+  Part 1/2 labels so you post them as a series.
+- **End of every short** (#71, #76) — Settings → AI Features: “TELL ME IN THE COMMENTS 👇” (shaped by the tags:
+  a question asks for your answer, a fail asks if you'd have done the same) or “FOLLOW @you FOR MORE” over the
+  last 2.4 s, in the upper third so it never sits on the captions.
+- **Hashtags from the names said** (#72) — a game, a friend or a place said more than once becomes a tag; edit
+  them on the card and every platform post uses them.
+- **Never show moments like this** (#52) — in the card menu: a 👎 that weighs three times as much; the card goes
+  to Maybe later.
 - **Cold open on shorts** (#59) — Settings → AI Features: a 1.6 s flash of the payoff, a hard cut, then the
   story; captions and the story map skip the teaser.
 - **A/B** (#83) — one click makes two versions of a clip: the one-click cut, and an auto-edit with the other
@@ -154,6 +172,10 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 - **Quick Export ⌘E** (#359) — the current timeline straight into the queue with the project's last settings.
 
 ### Extras
+- **Presets** (#127) — Gaming, Just Chatting and Podcast tick sensible sets; everything stays editable.
+- **Ask once per project** (#128) — after the first answer, Edit My VOD in that project reuses it.
+- **Fine-tune** (#136–#139) — replay speed (0.5× / 0.35× / 0.25×), the tag over a replay, whether a whoosh and
+  the desaturated look apply; how long facecam punch-ins hold and at most how many; your own title-card phrases.
 - Extras that can't apply to this video (no facecam, not gameplay) are greyed out with the reason (#130), and each
   says roughly how long it adds (#129).
 
@@ -163,6 +185,10 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   "valerant" → "Valorant", "x q c" → "xQc", "sea of theives" → "Sea of Thieves", timings untouched.
 
 ### Captions
+- **Sentence case** and **Remove um / uh** (#239) — one click each; I, GG and NPC stay as they are and the
+  audio keeps the fillers.
+- **Shift after the playhead** (#241) — ±200 ms for only the words from the playhead on, after a re-cut.
+- **Position for TikTok / Shorts / Reels** (#245) — one click puts the captions just above the platform's own UI.
 - **Speaker names from the conversation** (#40) — "this is Mark", "joined by Sarah": a button in the Speakers
   section names the next voice; a suggestion you can change.
 - **Captions under platform UI** (#68) — the edit check notes a caption block sitting where TikTok / Shorts /
@@ -214,6 +240,15 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   "settings"… (fuzzy, so "qexp" finds Quick Export).
 
 ### Under the hood
+- **Project format 2 with migration** (#385) — older projects are brought forward on open (dangling references
+  cleared, clips re-sorted, snapshots of deleted timelines dropped) and a test opens a format-1 project.
+- **Remove unused media** (#469) — the media panel offers to trim the project to the files its timelines and
+  cards use; companions in a sync group stay; nothing on disk is touched.
+- **Statistics** (#478) — Settings → Statistics: shorts built, YouTube edits, exports, dead air removed, footage
+  analyzed, moments rated, and an honest hours-saved estimate. Counted on this Mac, never sent anywhere.
+- **Duplicate imports by content** (#5) — the same recording under another name is caught by a fingerprint of
+  its bytes, not its path.
+- **Last import folder per project** (#8).
 - **Fuzz-tested timeline** (#396) — 1,000 random edit sequences (splits, ripples, freeze frames, source removals,
   gap closes, word-safe extensions, inserts) must leave no overlaps, no reads outside the file and linked
   video/audio in sync. It found and fixed two real bugs before you'd hit them.

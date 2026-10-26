@@ -20,6 +20,21 @@ public struct EditExtras: Codable, Hashable, Sendable {
     /// The biggest plays get a slow-motion instant replay right after they happen (gameplay only).
     public var instantReplays = false
 
+    /// Slow-motion speed of an instant replay (#136).
+    public var replaySpeed: Double = 0.5
+    /// The tag over a replay (#136).
+    public var replayTag: String = "REPLAY"
+    /// A whoosh into each replay (#137).
+    public var replaySting = true
+    /// Replays slightly desaturated so they read as "again" (#137).
+    public var replayDesaturate = true
+    /// How long a facecam punch-in holds (#139).
+    public var punchInHold: Seconds = 1.8
+    /// At most this many punch-ins per video; 0 lets PULSE decide (#139).
+    public var punchInsPerVideo = 0
+    /// Your own title-card phrases, used in turn instead of the built-in ones when not empty (#138).
+    public var titleCardPhrases: [String] = []
+
     public init(facecamPunchIns: Bool = false, brollClips: Bool = false, beatSync: Bool = false, speakerAware: Bool = false,
                 approveCut: Bool = false, titleCards: Bool = false, loudnessCheck: Bool = false, instantReplays: Bool = false) {
         self.facecamPunchIns = facecamPunchIns
@@ -42,6 +57,58 @@ public struct EditExtras: Codable, Hashable, Sendable {
         titleCards = c.decode(Bool.self, forKey: .titleCards, default: false)
         loudnessCheck = c.decode(Bool.self, forKey: .loudnessCheck, default: false)
         instantReplays = c.decode(Bool.self, forKey: .instantReplays, default: false)
+        replaySpeed = c.decode(Double.self, forKey: .replaySpeed, default: 0.5).clamped(0.25, 1)
+        replayTag = c.decode(String.self, forKey: .replayTag, default: "REPLAY")
+        replaySting = c.decode(Bool.self, forKey: .replaySting, default: true)
+        replayDesaturate = c.decode(Bool.self, forKey: .replayDesaturate, default: true)
+        punchInHold = c.decode(Seconds.self, forKey: .punchInHold, default: 1.8).clamped(0.8, 4)
+        punchInsPerVideo = c.decode(Int.self, forKey: .punchInsPerVideo, default: 0).clamped(0, 20)
+        titleCardPhrases = c.decode([String].self, forKey: .titleCardPhrases, default: [])
+    }
+
+    /// The on/off answers only (the fine controls don't count).
+    public var toggles: [Bool] { [facecamPunchIns, brollClips, beatSync, speakerAware, approveCut, titleCards, loudnessCheck, instantReplays] }
+
+    /// Sensible sets of answers per kind of stream (#127). Applying one keeps the fine controls.
+    public enum Preset: String, CaseIterable, Sendable {
+        case gaming, justChatting, podcast
+
+        public var displayName: String {
+            switch self {
+            case .gaming: return "Gaming"
+            case .justChatting: return "Just Chatting"
+            case .podcast: return "Podcast"
+            }
+        }
+
+        public var extras: EditExtras {
+            switch self {
+            case .gaming:
+                return EditExtras(facecamPunchIns: true, brollClips: false, beatSync: true, speakerAware: false, approveCut: false,
+                                  titleCards: true, loudnessCheck: true, instantReplays: true)
+            case .justChatting:
+                return EditExtras(facecamPunchIns: false, brollClips: true, beatSync: false, speakerAware: true, approveCut: false,
+                                  titleCards: true, loudnessCheck: true, instantReplays: false)
+            case .podcast:
+                return EditExtras(facecamPunchIns: false, brollClips: false, beatSync: false, speakerAware: true, approveCut: true,
+                                  titleCards: false, loudnessCheck: true, instantReplays: false)
+            }
+        }
+
+        /// The preset these answers match, if any.
+        public static func matching(_ extras: EditExtras) -> Preset? { allCases.first { $0.extras.toggles == extras.toggles } }
+    }
+
+    public mutating func apply(_ preset: Preset) {
+        let p = preset.extras
+        facecamPunchIns = p.facecamPunchIns
+        brollClips = p.brollClips
+        beatSync = p.beatSync
+        speakerAware = p.speakerAware
+        approveCut = p.approveCut
+        titleCards = p.titleCards
+        loudnessCheck = p.loudnessCheck
+        instantReplays = p.instantReplays
     }
 
     public var anyEditTime: Bool { facecamPunchIns || brollClips || beatSync || speakerAware || titleCards || instantReplays }
@@ -100,12 +167,16 @@ public enum SpeakerAware {
 public enum RetentionCards {
     /// "THEN THIS HAPPENED…", "20 MINUTES LATER…", "IT GETS WORSE" — chosen from what comes next and how far
     /// the video jumped.
-    public static func text(for segment: LongFormSegment, after previous: LongFormSegment, index: Int, words: [TranscriptWord] = []) -> String {
+    public static func text(for segment: LongFormSegment, after previous: LongFormSegment, index: Int, words: [TranscriptWord] = [],
+                            phrases: [String] = []) -> String {
         let jump = segment.range.start - previous.range.end
         let tags = Set(segment.tags)
         if jump >= 600 { return "\(Int((jump / 60).rounded())) MINUTES LATER…" }
         // The streamer's own words when they make a short, punchy card ("THE 1V4!", "NO WAY…").
         if let phrase = phrase(from: words, in: segment) { return phrase }
+        // Your own phrases, in turn (#138).
+        let own = phrases.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        if !own.isEmpty { return own[index % own.count].uppercased() }
         if !tags.isDisjoint(with: [.fail, .rage]) { return "IT GETS WORSE" }
         if !tags.isDisjoint(with: [.story, .conversation]) { return index % 2 == 0 ? "STORY TIME" : "WAIT FOR IT…" }
         if !tags.isDisjoint(with: [.hype, .highEnergy, .gaming]) { return index % 2 == 0 ? "THEN THIS HAPPENED…" : "AND THEN…" }
@@ -133,7 +204,8 @@ public enum RetentionCards {
     /// One short card at the start of sections that follow a real jump in the stream (≥ 2 minutes),
     /// at most one every 90 seconds, never on top of other text. Returns how many were added.
     @discardableResult
-    public static func add(_ timeline: inout Timeline, segments: [LongFormSegment], starts: [Seconds?], hookEnd: Seconds, words: [TranscriptWord] = []) -> Int {
+    public static func add(_ timeline: inout Timeline, segments: [LongFormSegment], starts: [Seconds?], hookEnd: Seconds, words: [TranscriptWord] = [],
+                           phrases: [String] = []) -> Int {
         guard let t1 = timeline.tracks.firstIndex(where: { $0.kind == .text }) else { return 0 }
         var added = 0
         var last = -Double.infinity
@@ -143,7 +215,7 @@ public enum RetentionCards {
                   !timeline.tracks[t1].clips.contains(where: { $0.timelineRange.overlaps(TimeRange(start: t - 0.5, end: t + 2.5)) }) else { continue }
             let style = TextStyle(fontName: TextStyle.tiktokSans, fontSize: 64, weight: .black, textCase: .uppercase, color: .white,
                                   strokeColor: .black, strokeWidth: 8, shadowOpacity: 0.55, shadowRadius: 8, shadowOffsetY: 4)
-            var card = TimelineClip(name: "Title Card", content: .text(TextElement(text: text(for: segments[i], after: segments[i - 1], index: added, words: words),
+            var card = TimelineClip(name: "Title Card", content: .text(TextElement(text: text(for: segments[i], after: segments[i - 1], index: added, words: words, phrases: phrases),
                                                                                    style: style, animationIn: .pop, animationOut: .fadeIn,
                                                                                    animationDuration: 0.2, maxWidth: 0.7)),
                                     start: t + 0.1, sourceDuration: 1.7, aiGenerated: true)
@@ -472,7 +544,8 @@ public enum InstantReplay {
     public static let after: Seconds = 1.0
     public static let speed = 0.5
     /// Timeline seconds one replay adds.
-    public static var length: Seconds { (before + after) / speed }
+    public static var length: Seconds { length(speed: speed) }
+    public static func length(speed: Double) -> Seconds { (before + after) / max(speed, 0.1) }
 
     /// The plays worth seeing twice: the strongest gameplay moments (not the hook's), at least 3 minutes apart,
     /// one per ~6 minutes of video (2–3 in a normal edit). Source payoff times.
@@ -494,8 +567,12 @@ public enum InstantReplay {
     /// tag, a slow push-in and a whoosh; the story resumes where it left off. Only V1/A1/T1 exist at this stage
     /// of the build, so later clips on every track are shifted. Returns replays added.
     @discardableResult
-    public static func apply(_ timeline: inout Timeline, at payoffs: [Seconds], assetID: UUID, whoosh: MediaAsset?, hookEnd: Seconds) -> Int {
+    public static func apply(_ timeline: inout Timeline, at payoffs: [Seconds], assetID: UUID, whoosh: MediaAsset?, hookEnd: Seconds,
+                             speed: Double = InstantReplay.speed, tag: String = "REPLAY", sting: Bool = true, desaturate: Bool = true) -> Int {
         guard let v = timeline.tracks.firstIndex(where: { $0.kind == .video }) else { return 0 }
+        let speed = speed.clamped(0.25, 1)
+        let length = Self.length(speed: speed)
+        let tag = tag.trimmingCharacters(in: .whitespaces).isEmpty ? "REPLAY" : tag.uppercased()
         var added = 0
         for payoff in payoffs.sorted(by: >) {   // later first, so earlier insertions don't move later ones
             // The piece of the story holding the play (not the hook, not an earlier replay).
@@ -533,13 +610,13 @@ public enum InstantReplay {
             replay.transform.zoom.setKeyframe(at: 0, value: 1.0, interpolation: .linear, aiGenerated: true)
             replay.transform.zoom.setKeyframe(at: replay.duration, value: 1.12, interpolation: .linear, aiGenerated: true)
             replay.transitionIn = ClipTransition(kind: .zoomIn, duration: 0.3, aiGenerated: true)
-            replay.color.saturation = 0.1
+            if desaturate { replay.color.saturation = 0.1 }
             timeline.tracks[v].clips.append(replay)
             timeline.tracks[v].sortClips()
             if let t1 = timeline.tracks.firstIndex(where: { $0.kind == .text }) {
                 let style = TextStyle(fontName: TextStyle.tiktokSans, fontSize: 44, weight: .black, textCase: .uppercase, color: .white,
                                       strokeColor: .black, strokeWidth: 6, shadowOpacity: 0.5, shadowRadius: 6, shadowOffsetY: 3)
-                var tag = TimelineClip(name: "Replay Tag", content: .text(TextElement(text: "▶ REPLAY", style: style, animationIn: .slideUp,
+                var tag = TimelineClip(name: "Replay Tag", content: .text(TextElement(text: "▶ \(tag)", style: style, animationIn: .slideUp,
                                                                                       animationOut: .fadeIn, animationDuration: 0.2, maxWidth: 0.3)),
                                        start: at + 0.15, sourceDuration: min(1.6, replay.duration - 0.3), aiGenerated: true)
                 tag.transform.positionX = AnimatedDouble(0.13)
@@ -547,7 +624,7 @@ public enum InstantReplay {
                 timeline.tracks[t1].clips.append(tag)
                 timeline.tracks[t1].sortClips()
             }
-            if let whoosh { ShortBuilder.addPayoffHit(whoosh, at: at, to: &timeline) }
+            if sting, let whoosh { ShortBuilder.addPayoffHit(whoosh, at: at, to: &timeline) }
             added += 1
         }
         for ti in timeline.tracks.indices { timeline.tracks[ti].sortClips() }

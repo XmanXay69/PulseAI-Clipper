@@ -29,6 +29,10 @@ public struct ShortBuildOptions: Codable, Hashable, Sendable {
     public var speedRamp: Bool = false
     /// Open on 1.6 s of the payoff, then tell the story (#59).
     public var coldOpen: Bool = false
+    /// What the last two seconds ask for (#71, #76).
+    public var endCTA: EndCTA = .none
+    /// Your handle for the follow card (from the Brand Kit).
+    public var ctaHandle: String = ""
     public var profanity: ProfanityMode
 
     public init(mode: Mode = .oneClick, canvasPresetID: String = CanvasPreset.tiktok.id, frameRate: Double? = nil, layout: LayoutPreset? = nil,
@@ -79,6 +83,8 @@ public struct ShortBuildOptions: Codable, Hashable, Sendable {
         soundEffects = settings.aiSoundEffects
         speedRamp = settings.speedRamp
         coldOpen = settings.coldOpenShorts
+        endCTA = settings.shortsEndCTA
+        ctaHandle = settings.socialHandle
         if mode == .autoEdit {
             silence = settings.silenceRemoval ? .balanced : nil
             removeFillers = true
@@ -274,6 +280,11 @@ public enum ShortBuilder {
             let faceTrack = timeline.tracks.first { t in t.kind == .video && t.clips.contains { $0.role == .webcam && $0.isEnabled } }
             let target = faceTrack?.id ?? timeline.tracks[0].id
             PunchInGenerator.apply(moments: moments, to: &timeline, trackID: target, settings: options.punchInSettings)
+        }
+
+        // The last seconds ask for a comment or a follow (#71, #76).
+        if let line = EndCards.text(for: options.endCTA, tags: candidate.tags, handle: options.ctaHandle, seed: candidate.generation) {
+            EndCards.add(&timeline, text: line)
         }
 
         // Markers.

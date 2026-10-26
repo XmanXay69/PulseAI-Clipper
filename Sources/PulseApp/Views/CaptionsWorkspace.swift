@@ -56,6 +56,35 @@ struct CaptionStylePanel: View {
         session.app.toast("Captions moved \(delta > 0 ? "later" : "earlier") by \(Int(abs(delta) * 1000)) ms")
     }
 
+    /// Only the words from the playhead on (#241): the source time under the playhead decides.
+    func shiftCaptionsAfterPlayhead(by delta: Seconds) {
+        guard let timeline = session.activeTimeline, let captions = timeline.captions else { return }
+        let playhead = session.playhead
+        let source = timeline.tracks.first { $0.kind == .video }?.clips.first { $0.content.assetID == captions.sourceAssetID && $0.timelineRange.contains(playhead) }
+            .map { $0.sourceIn + (playhead - $0.start) * $0.speed }
+        guard let source else { session.app.toast("Put the playhead on the captioned video first"); return }
+        var count = 0
+        session.editTimeline("Shift Captions After Playhead") { count = $0.captions?.shiftTiming(by: delta, after: source) ?? 0 }
+        session.app.toast("\(count) words from the playhead on moved \(delta > 0 ? "later" : "earlier") by \(Int(abs(delta) * 1000)) ms")
+    }
+
+    func sentenceCase() {
+        var count = 0
+        session.editTimeline("Sentence Case") { count = $0.captions?.applySentenceCase() ?? 0 }
+        session.app.toast(count == 0 ? "Already in sentence case" : "\(count) words re-cased")
+    }
+
+    func stripFillers() {
+        var count = 0
+        session.editTimeline("Remove Fillers") { count = $0.captions?.stripFillers() ?? 0 }
+        session.app.toast(count == 0 ? "No um / uh in the captions" : "\(count) filler word\(count == 1 ? "" : "s") removed from the captions (the audio keeps them)")
+    }
+
+    func positionCaptions(for platform: SafeAreaPlatform) {
+        session.editTimeline("Captions for \(platform.displayName)") { $0.captions?.style.position(for: platform) }
+        session.app.toast("Captions sit at \(Int((platform.captionCenterY * 100).rounded())) %, above \(platform.displayName)'s own UI")
+    }
+
     func replaceAllInCaptions() {
         var count = 0
         session.editTimeline("Replace in Captions") { count = $0.captions?.replaceAll(findText, with: replaceText) ?? 0 }
@@ -198,6 +227,27 @@ struct CaptionStylePanel: View {
                                 Button("−50 ms") { shiftCaptions(by: -0.05) }.buttonStyle(.pulse(.secondary, compact: true))
                                 Button("+50 ms") { shiftCaptions(by: 0.05) }.buttonStyle(.pulse(.secondary, compact: true))
                                 Text("when the captions run early or late").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                            }
+                            HStack(spacing: 6) {
+                                Text("After playhead").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 74, alignment: .leading)
+                                Button("−200 ms") { shiftCaptionsAfterPlayhead(by: -0.2) }.buttonStyle(.pulse(.secondary, compact: true))
+                                Button("+200 ms") { shiftCaptionsAfterPlayhead(by: 0.2) }.buttonStyle(.pulse(.secondary, compact: true))
+                                Text("only the words from here on — after a re-cut").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                            }
+                            HStack(spacing: 6) {
+                                Text("Position").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 74, alignment: .leading)
+                                ForEach(SafeAreaPlatform.allCases, id: \.self) { platform in
+                                    let on = captions.map { abs($0.style.positionY - platform.captionCenterY) < 0.005 } ?? false
+                                    Button(platform.displayName) { positionCaptions(for: platform) }.buttonStyle(.pulse(on ? .primary : .secondary, compact: true))
+                                }
+                            }
+                            .help("Puts the captions just above the zone the platform's own buttons and caption cover")
+                            HStack(spacing: 6) {
+                                Text("Text").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 74, alignment: .leading)
+                                Button("Sentence case") { sentenceCase() }.buttonStyle(.pulse(.secondary, compact: true))
+                                    .help("First word of each sentence capitalised, shouting lowered; I, GG and the like stay")
+                                Button("Remove um / uh") { stripFillers() }.buttonStyle(.pulse(.secondary, compact: true))
+                                    .help("Takes filler-only words out of the captions; the audio is untouched")
                             }
                             HStack(spacing: 6) {
                                 TextField("Find", text: $findText).textFieldStyle(.roundedBorder).frame(width: 88)

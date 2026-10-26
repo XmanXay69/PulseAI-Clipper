@@ -15,6 +15,8 @@ struct EditExtrasSheet: View {
     let onDone: (EditExtras) -> Void
 
     @State private var extras = EditExtras()
+    @State private var fineTune = false
+    @State private var phrasesText = ""
 
     var analysis: MediaAnalysis? { session.document.primaryAsset.flatMap { session.analyses[$0.id] } }
 
@@ -36,6 +38,16 @@ struct EditExtrasSheet: View {
             Divider().overlay(Theme.divider)
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text("Start from").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                        ForEach(EditExtras.Preset.allCases, id: \.self) { preset in
+                            Button(preset.displayName) { extras.apply(preset) }
+                                .buttonStyle(.pulse(EditExtras.Preset.matching(extras) == preset ? .primary : .secondary, compact: true))
+                        }
+                        Spacer()
+                    }
+                    .padding(.bottom, 8)
+                    .help("Sensible answers for a kind of stream — change anything after")
                     SectionLabel(text: "While editing")
                     row("Facecam punch-ins", "person.crop.square", facecamDetail, \.facecamPunchIns, enabled: hasFacecam)
                     row("B-roll cutaways", "film", "Short Creative Commons meme and reaction clips cut in on the funniest moments, downloaded from YouTube. Credits go in the description. Adds about a minute.",
@@ -54,6 +66,46 @@ struct EditExtrasSheet: View {
                     SectionLabel(text: "When exporting").padding(.top, 10)
                     row("Loudness check", "speaker.wave.3", "Measures the finished mix (YouTube plays everything at −14 LUFS) and asks before changing anything. About 10 s per 20 minutes of video.",
                         \.loudnessCheck)
+                    DisclosureGroup(isExpanded: $fineTune) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Text("Replay speed").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 110, alignment: .leading)
+                                Picker("", selection: $extras.replaySpeed) {
+                                    Text("0.5×").tag(0.5)
+                                    Text("0.35×").tag(0.35)
+                                    Text("0.25×").tag(0.25)
+                                }
+                                .pickerStyle(.segmented).labelsHidden().frame(width: 180)
+                                TextField("REPLAY", text: $extras.replayTag).textFieldStyle(.roundedBorder).frame(width: 110)
+                                    .help("The tag over a replay")
+                            }
+                            HStack(spacing: 14) {
+                                Toggle("Whoosh into replays", isOn: $extras.replaySting).toggleStyle(.checkbox).font(.pulseCaption)
+                                Toggle("Slightly desaturated", isOn: $extras.replayDesaturate).toggleStyle(.checkbox).font(.pulseCaption)
+                            }
+                            HStack(spacing: 8) {
+                                Text("Punch-in hold").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 110, alignment: .leading)
+                                Slider(value: $extras.punchInHold, in: 0.8...4, step: 0.1).frame(width: 160)
+                                Text(String(format: "%.1f s", extras.punchInHold)).font(.pulseMono).foregroundStyle(Theme.textSecondary)
+                                Stepper(value: $extras.punchInsPerVideo, in: 0...20) {
+                                    Text(extras.punchInsPerVideo == 0 ? "PULSE decides how many" : "at most \(extras.punchInsPerVideo) per video").font(.pulseCaption)
+                                }
+                            }
+                            HStack(alignment: .top, spacing: 8) {
+                                Text("Card phrases").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 110, alignment: .leading)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    TextField("HERE WE GO, AND THEN…", text: $phrasesText, onCommit: commitPhrases)
+                                        .textFieldStyle(.roundedBorder)
+                                    Text("Your own title-card lines, comma-separated, used in turn when the streamer's words don't make a card.")
+                                        .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                                }
+                            }
+                        }
+                        .padding(.top, 6)
+                    } label: {
+                        Text("Fine-tune the extras").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    }
+                    .padding(.top, 12)
                 }
                 .padding(20)
             }
@@ -61,12 +113,17 @@ struct EditExtrasSheet: View {
             HStack {
                 Button("Untick All") { extras = EditExtras() }
                     .buttonStyle(.pulse(.ghost, compact: true))
+                Toggle("Ask once per project", isOn: $app.settings.ai.askExtrasOncePerProject)
+                    .toggleStyle(.checkbox).font(.pulseCaption)
+                    .help("After this, Edit My VOD in this project uses these answers without asking; Settings → AI Features turns it back on")
                 Spacer()
                 Button("Back") { onCancel() }.buttonStyle(.pulseSecondary).keyboardShortcut(.cancelAction)
                 Button {
+                    commitPhrases()
                     var answer = extras
                     if !offerApproveCut { answer.approveCut = app.settings.ai.editExtras.approveCut }
                     app.settings.ai.editExtras = answer
+                    session.edit("Answer Extras") { $0.extrasAnswered = true }
                     PulseLog.info("Edit extras: \(describe(extras))")
                     onDone(extras.with(approveCut: offerApproveCut && extras.approveCut))
                 } label: {
@@ -80,7 +137,11 @@ struct EditExtrasSheet: View {
         .frame(width: 540, height: 660)
         .background(Theme.panel)
         .preferredColorScheme(.dark)
-        .onAppear { extras = app.settings.ai.editExtras }
+        .onAppear {
+            extras = app.settings.ai.editExtras
+            phrasesText = extras.titleCardPhrases.joined(separator: ", ")
+            fineTune = extras.replaySpeed != 0.5 || extras.punchInsPerVideo != 0 || !extras.titleCardPhrases.isEmpty
+        }
     }
 
     /// Unknown until analyzed → offered; analyzed and absent → greyed out with the reason in the text.
@@ -124,6 +185,10 @@ struct EditExtrasSheet: View {
         .toggleStyle(.checkbox)
         .disabled(!enabled)
         .padding(.vertical, 5)
+    }
+
+    func commitPhrases() {
+        extras.titleCardPhrases = phrasesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
     }
 
     func describe(_ e: EditExtras) -> String {

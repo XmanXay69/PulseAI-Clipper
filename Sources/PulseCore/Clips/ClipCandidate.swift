@@ -168,8 +168,10 @@ public struct ClipCandidate: Codable, Hashable, Identifiable, Sendable {
     public var userAdjusted: Bool
     /// The AI's own score before your taste profile adjusted `potential`.
     public var basePotential: Int?
-    /// Your rating: +1 👍, -1 👎, nil = not rated.
+    /// Your rating: +1 👍, -1 👎, -2 never show moments like this (#52), nil = not rated.
     public var feedback: Int?
+    /// More moments cut into the same short, after `range` (#65).
+    public var extraRanges: [TimeRange]?
 
     public init(id: UUID = UUID(), assetID: UUID, range: TimeRange, payoffTime: Seconds, targetDuration: Seconds, potential: Int,
                 scores: ClipScores, tags: [ClipTag], title: String, copy: ClipCopy, transcriptSnippet: String,

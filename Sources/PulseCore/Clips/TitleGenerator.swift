@@ -34,7 +34,7 @@ public enum TitleGenerator {
         if titles.isEmpty { titles = ["YOU NEED TO SEE THIS", "WAIT FOR IT…"] }
         titles = Array(titles.prefix(5))
 
-        let hashtags = Array(Set(tags.map(\.hashtag) + ["#shorts", "#clips"])).sorted()
+        let hashtags = Hashtags.suggest(words: words, tags: tags)
         let main = titles[0]
         let plain = main.trimmingCharacters(in: .whitespaces)
         let sentenceCase = plain.prefix(1).uppercased() + plain.dropFirst().lowercased()
@@ -46,7 +46,12 @@ public enum TitleGenerator {
 
     /// Picks the most quotable sentence near the payoff and turns it into a punchy title.
     static func bestQuote(words: [TranscriptWord], payoff: Seconds) -> String? {
-        guard !words.isEmpty else { return nil }
+        rankedQuotes(words: words, payoff: payoff).first
+    }
+
+    /// Every quotable sentence near the payoff as a title, best first (#60).
+    static func rankedQuotes(words: [TranscriptWord], payoff: Seconds) -> [String] {
+        guard !words.isEmpty else { return [] }
         // Build sentences locally.
         var sentences: [[TranscriptWord]] = []
         var current: [TranscriptWord] = []
@@ -58,7 +63,7 @@ public enum TitleGenerator {
                 current = []
             }
         }
-        var best: (score: Double, text: [String])?
+        var scored: [(score: Double, text: [String])] = []
         for sentence in sentences {
             let content = sentence.map(\.text).filter { !stripWords.contains(TranscriptWord.normalize($0)) }
             guard content.count >= 2 else { continue }
@@ -73,9 +78,18 @@ public enum TitleGenerator {
             if sentence.last!.isQuestion { score += 0.3 }
             let n = content.count
             score *= n >= 3 && n <= 8 ? 1.2 : (n > 12 ? 0.6 : 0.9)
-            if best == nil || score > best!.score { best = (score, content) }
+            scored.append((score, content))
         }
-        guard let chosen = best?.text else { return nil }
+        var out: [String] = []
+        for item in scored.sorted(by: { $0.score > $1.score }) {
+            guard let title = quoteTitle(item.text), !out.contains(title) else { continue }
+            out.append(title)
+        }
+        return out
+    }
+
+    /// "“THAT WAS INSANE!”" from the content words of a sentence.
+    static func quoteTitle(_ chosen: [String]) -> String? {
         var tokens = Array(chosen.prefix(8))
         let endedWithQuestion = tokens.last?.hasSuffix("?") == true
         tokens = tokens.map { $0.trimmingCharacters(in: CharacterSet(charactersIn: ",.;:…\"")) }

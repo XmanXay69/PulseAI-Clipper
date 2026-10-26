@@ -119,6 +119,8 @@ extension ProjectSession {
             self.open(timelineID: timeline.id)
             self.autoApplyBrandKit(to: timeline.id)
             self.lastAIReport = result.report
+            let deadAir = timeline.removedSections.filter { $0.reason == .silence || $0.reason == .idleScreen }.reduce(0.0) { $0 + $1.sourceRange.duration }
+            self.app.settings.stats.note { $0.longEditsBuilt += 1; $0.deadAirRemoved += deadAir }
             self.app.logActivity(.autoEdit, title: "Edited “\(asset.name)” into a \(Timecode.short(timeline.duration)) video", detail: result.report)
             self.app.toast("Your edit is ready — \(result.report)")
         }

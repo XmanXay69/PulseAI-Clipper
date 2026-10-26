@@ -37,9 +37,19 @@ public struct TasteProfile: Codable, Hashable, Sendable {
 
     /// Learns from one rating.
     public mutating func learn(scores: ClipScores, tags: [ClipTag], liked: Bool) {
+        update(scores: scores, tags: tags, liked: liked, rate: Self.learningRate)
+        if liked { likes += 1 } else { dislikes += 1 }
+    }
+
+    /// "Never show moments like this" (#52): a 👎 that weighs three times as much, counted once.
+    public mutating func never(scores: ClipScores, tags: [ClipTag]) {
+        for _ in 0..<3 { update(scores: scores, tags: tags, liked: false, rate: Self.learningRate) }
+        dislikes += 1
+    }
+
+    mutating func update(scores: ClipScores, tags: [ClipTag], liked: Bool, rate lr: Double) {
         let p = 1 / (1 + exp(-logit(scores: scores, tags: tags)))
         let error = (liked ? 1.0 : 0.0) - p
-        let lr = Self.learningRate
         for (name, value) in scores.breakdown {
             let w = dimensionWeights[name] ?? 0
             dimensionWeights[name] = (w + lr * error * (value - 0.5) * 2) * (1 - Self.decay)
@@ -49,7 +59,6 @@ public struct TasteProfile: Codable, Hashable, Sendable {
             tagWeights[tag.rawValue] = (w + lr * error * 0.8) * (1 - Self.decay)
         }
         bias = (bias + lr * error * 0.1) * (1 - Self.decay)
-        if liked { likes += 1 } else { dislikes += 1 }
     }
 
     /// Undoes the counting of a rating that's being changed (weights keep their learning; it's a nudge).

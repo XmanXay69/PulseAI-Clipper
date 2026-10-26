@@ -67,6 +67,8 @@ final class ProjectSession: ObservableObject, Identifiable {
         return nil
     }
     @Published var selectedCandidateIDs: Set<UUID> = []
+    /// Series labels for the current set of cards (#66).
+    var seriesCache: (key: Int, labels: [UUID: String])?
     @Published var focusedCaptionWordID: UUID?
     @Published var tool: EditTool = .select
     @Published var pixelsPerSecond: Double = 60
@@ -401,7 +403,14 @@ final class ProjectSession: ObservableObject, Identifiable {
             for (i, item) in plan.items.enumerated() {
                 job.detail = item.url.lastPathComponent
                 do {
-                    let asset = try await MediaImporter.makeAsset(for: item, cacheRoot: cacheRoot)
+                    var asset = try await MediaImporter.makeAsset(for: item, cacheRoot: cacheRoot)
+                    // The same recording under another name is caught by content, not path (#5).
+                    asset.contentHash = try? ContentFingerprint.compute(url: item.url)
+                    if let hash = asset.contentHash,
+                       let twin = self.document.asset(contentHash: hash) ?? imported.first(where: { $0.contentHash == hash }) {
+                        failures.append("\(item.url.lastPathComponent): the same recording is already in the project as “\(twin.name)”")
+                        continue
+                    }
                     imported.append(asset)
                 } catch {
                     failures.append("\(item.url.lastPathComponent): \((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)")
@@ -418,6 +427,7 @@ final class ProjectSession: ObservableObject, Identifiable {
                     if doc.primaryAssetID == nil {
                         doc.primaryAssetID = imported.first(where: { $0.kind == .video && ($0.role == .main || $0.role == .gameplay) })?.id ?? imported.first?.id
                     }
+                    if let folder = plan.items.first?.url.deletingLastPathComponent().path { doc.lastImportFolder = folder }
                 }
                 self.save()
                 if let chat = self.pendingChat, let main = self.document.primaryAsset {
@@ -626,6 +636,7 @@ final class ProjectSession: ObservableObject, Identifiable {
                 self.edit("Analyze Video") { doc in
                     doc.updateAsset(id: assetID) { $0.preparation.analysisState = .complete }
                 }
+                self.app.settings.stats.note { $0.secondsAnalyzed += analysis.duration }
                 let location = output.analysis.processing["transcript"] ?? .local
                 self.app.logActivity(.analysis, title: "Analyzed \(asset.name)", detail: output.warnings.first ?? "Audio, video and faces", location: .local)
                 if output.analysis.transcript != nil {
@@ -693,7 +704,132 @@ final class ProjectSession: ObservableObject, Identifiable {
             if let i = doc.candidates.firstIndex(where: { $0.id == id }) { doc.candidates[i].feedback = liked.map { $0 ? 1 : -1 } }
             doc.candidates = doc.candidates.applyingTaste(taste)
         }
+        if liked != nil { app.settings.stats.note { $0.momentsRated += 1 } }
         PulseLog.info("Clip rated \(liked.map { $0 ? "up" : "down" } ?? "cleared") — taste now from \(taste.ratings) ratings")
+    }
+
+    /// "Never show moments like this" (#52): a 👎 that weighs three times as much, and the card goes to Maybe later.
+    func neverCandidate(_ id: UUID) {
+        guard let candidate = document.candidates.first(where: { $0.id == id }) else { return }
+        var taste = app.settings.ai.taste
+        if let old = candidate.feedback, old != -2 { taste.forget(liked: old > 0) }
+        if candidate.feedback != -2 { taste.never(scores: candidate.scores, tags: candidate.tags) }
+        app.settings.ai.taste = taste
+        app.settings.stats.note { $0.momentsRated += 1 }
+        edit("Never Like This") { doc in
+            if let i = doc.candidates.firstIndex(where: { $0.id == id }) {
+                doc.candidates[i].feedback = -2
+                doc.candidates[i].status = .dismissed
+            }
+            doc.candidates = doc.candidates.applyingTaste(taste)
+        }
+        selectedCandidateIDs.remove(id)
+        app.toast("Got it — moments like “\(candidate.title)” will score lower from now on")
+    }
+
+    /// Three more titles in the spirit of the current one (#60).
+    func moreTitles(for id: UUID) {
+        guard let candidate = document.candidates.first(where: { $0.id == id }) else { return }
+        let words = analyses[candidate.assetID]?.transcript?.words.filter { $0.start >= candidate.range.start - 2 && $0.end <= candidate.range.end + 2 } ?? []
+        let more = TitleGenerator.moreLike(candidate.title, words: words, payoff: candidate.payoffTime, tags: candidate.tags,
+                                           seed: candidate.generation + candidate.copy.titles.count, avoiding: candidate.copy.titles)
+        guard !more.isEmpty else { app.toast("No more titles in that spirit — try Regenerate"); return }
+        edit("More Titles") { doc in
+            guard let i = doc.candidates.firstIndex(where: { $0.id == id }) else { return }
+            doc.candidates[i].copy.titles = Array((doc.candidates[i].copy.titles + more).suffix(9))
+        }
+    }
+
+    /// The hashtags you typed for a card (#72).
+    func setHashtags(_ text: String, for id: UUID) {
+        let tags = Hashtags.parse(text)
+        edit("Edit Hashtags") { doc in
+            guard let i = doc.candidates.firstIndex(where: { $0.id == id }) else { return }
+            doc.candidates[i].copy.hashtags = tags
+        }
+    }
+
+    /// "Part 1/2" labels for moments that belong together (#66), cached per set of cards.
+    var seriesLabels: [UUID: String] {
+        let visible = document.visibleCandidates
+        var hasher = Hasher()
+        for c in visible { hasher.combine(c.id); hasher.combine(c.range.start) }
+        let words = document.primaryAsset.flatMap { analyses[$0.id]?.transcript?.words } ?? []
+        hasher.combine(words.count)
+        let key = hasher.finalize()
+        if let cached = seriesCache, cached.key == key { return cached.labels }
+        let labels = SeriesDetector.partLabels(SeriesDetector.series(candidates: visible, words: words))
+        seriesCache = (key, labels)
+        return labels
+    }
+
+    /// Two or more moments as one short (#65): each is cut the one-click way, then they're joined with a cut.
+    func mergeCandidates(_ ids: Set<UUID>) {
+        let picked = document.candidates.filter { ids.contains($0.id) && $0.status != .dismissed }.sorted { $0.range.start < $1.range.start }
+        guard picked.count >= 2 else { return }
+        var merged: Timeline?
+        var built = 0
+        for candidate in picked {
+            guard let piece = buildShort(for: candidate, mode: .oneClick, style: nil) else { continue }
+            var timeline = piece.timeline
+            if built > 0 {
+                // Only the first piece keeps the hook marker; the join is a plain cut.
+                timeline.markers.removeAll { $0.name == "Hook" }
+            }
+            if merged == nil { merged = timeline } else { merged?.append(timeline) }
+            built += 1
+        }
+        guard var timeline = merged, built >= 2 else { return }
+        var card = picked.dropFirst().reduce(picked[0]) { ClipCandidate.merged($0, $1) }
+        timeline.name = "\(picked[0].title) + \(picked.count - 1) more"
+        timeline.id = UUID()
+        card.timelineID = timeline.id
+        card.status = .opened
+        let cardID = card.id
+        edit("Merge Moments") { doc in
+            doc.timelines.append(timeline)
+            doc.candidates.insert(card, at: doc.candidates.firstIndex(where: { $0.id == picked[0].id }) ?? 0)
+            doc.activeTimelineID = timeline.id
+        }
+        selectedCandidateIDs = [cardID]
+        app.settings.stats.note { $0.shortsBuilt += 1 }
+        app.logActivity(.autoEdit, title: "Merged \(picked.count) moments into “\(timeline.name)”", detail: Timecode.duration(timeline.duration))
+        open(timelineID: timeline.id)
+        app.toast("\(picked.count) moments joined — \(Timecode.duration(timeline.duration)); trim the join on the timeline if you like")
+    }
+
+    /// What tightening pauses would save on the active timeline (#82).
+    func pauseEstimate(minimum: Seconds) -> (pauses: Int, saved: Seconds) {
+        guard let timeline = activeTimeline, let words = pauseWords(for: timeline) else { return (0, 0) }
+        return EditPolish.pauseRemovalEstimate(timeline, words: words, minimum: minimum)
+    }
+
+    func tightenPauses(minimum: Seconds) {
+        guard let timeline = activeTimeline, let words = pauseWords(for: timeline) else { return }
+        autoSnapshot("Before Tighten Pauses")
+        var removed = 0
+        var saved: Seconds = 0
+        editTimeline("Tighten Pauses") { t in
+            let before = t.duration
+            removed = EditPolish.shortenPauses(&t, words: words, after: 0, minimum: minimum)
+            saved = before - t.duration
+        }
+        app.toast(removed == 0 ? "No pauses longer than \(String(format: "%.1f", minimum)) s" : "\(removed) pause\(removed == 1 ? "" : "s") sped up — \(String(format: "%.1f", saved)) s shorter")
+    }
+
+    func pauseWords(for timeline: Timeline) -> [TranscriptWord]? {
+        guard let assetID = timeline.tracks.first(where: { $0.kind == .video })?.clips.first(where: { $0.role != .graphic })?.content.assetID,
+              let words = analyses[assetID]?.transcript?.words, !words.isEmpty else { return nil }
+        return words
+    }
+
+    /// Trims the project to the media it uses (#469); the files stay on disk.
+    func removeUnusedMedia() {
+        let unused = document.unusedMedia
+        guard !unused.isEmpty else { app.toast("Every file in the project is in use"); return }
+        var gone: [MediaAsset] = []
+        edit("Remove Unused Media") { doc in gone = doc.removeUnusedMedia() }
+        app.toast("Removed \(gone.count) unused file\(gone.count == 1 ? "" : "s") from the project — \(gone.map(\.name).prefix(3).joined(separator: ", "))\(gone.count > 3 ? "…" : "")")
     }
 
     func reshapeCandidate(_ id: UUID, targetDuration: Seconds?, regenerate: Bool) {
@@ -725,6 +861,29 @@ final class ProjectSession: ObservableObject, Identifiable {
             if open { self.open(timelineID: existing) }
             return existing
         }
+        guard let built = buildShort(for: candidate, mode: mode, style: style) else { return nil }
+        let (timeline, wantsMusic, options, music, sfx) = (built.timeline, built.wantsMusic, built.options, built.music, built.sfx)
+        edit(mode == .autoEdit ? "Auto Edit Short" : "Create Short") { doc in
+            doc.timelines.append(timeline)
+            if let i = doc.candidates.firstIndex(where: { $0.id == candidateID }) {
+                doc.candidates[i].timelineID = timeline.id
+                doc.candidates[i].status = .opened
+            }
+            doc.activeTimelineID = timeline.id
+        }
+        app.logActivity(.captions, title: "Captions + framing: \(timeline.name)", detail: "\(timeline.captions?.words.count ?? 0) caption words · \(timeline.layout?.displayName ?? "Full Frame")")
+        // No music / effects of the project's own: use the built-in library.
+        addLibraryAudio(toShort: timeline.id, music: wantsMusic && music == nil, effects: options.soundEffects && sfx.isEmpty)
+        autoApplyBrandKit(to: timeline.id)
+        app.settings.stats.note { $0.shortsBuilt += 1 }
+        if open { self.open(timelineID: timeline.id) }
+        return timeline.id
+    }
+
+    /// The short for a card, built but not added to the project.
+    func buildShort(for candidate: ClipCandidate, mode: ShortBuildOptions.Mode, style: (ReferenceStyle, ReferenceAnswers)?)
+        -> (timeline: Timeline, wantsMusic: Bool, options: ShortBuildOptions, music: MediaAsset?, sfx: [MediaAsset])? {
+        guard let asset = document.asset(id: candidate.assetID) else { return nil }
         var options = ShortBuildOptions(settings: app.settings.ai, mode: mode)
         options.canvasPresetID = app.settings.safeAreaPlatform == .youtubeShorts ? CanvasPreset.shorts.id : (app.settings.safeAreaPlatform == .instagramReels ? CanvasPreset.reels.id : CanvasPreset.tiktok.id)
         // "Make shorts like this reference": its captions, zooms, pacing and effects.
@@ -747,20 +906,7 @@ final class ProjectSession: ObservableObject, Identifiable {
         if app.settings.ai.censorAudio != .off, let words = analyses[asset.id]?.transcript?.words {
             AudioCensor.apply(app.settings.ai.censorAudio, to: &timeline, words: words, assetID: asset.id, extra: app.settings.ai.normalizedExtraProfanity)
         }
-        edit(mode == .autoEdit ? "Auto Edit Short" : "Create Short") { doc in
-            doc.timelines.append(timeline)
-            if let i = doc.candidates.firstIndex(where: { $0.id == candidateID }) {
-                doc.candidates[i].timelineID = timeline.id
-                doc.candidates[i].status = .opened
-            }
-            doc.activeTimelineID = timeline.id
-        }
-        app.logActivity(.captions, title: "Captions + framing: \(timeline.name)", detail: "\(timeline.captions?.words.count ?? 0) caption words · \(timeline.layout?.displayName ?? "Full Frame")")
-        // No music / effects of the project's own: use the built-in library.
-        addLibraryAudio(toShort: timeline.id, music: wantsMusic && music == nil, effects: options.soundEffects && sfx.isEmpty)
-        autoApplyBrandKit(to: timeline.id)
-        if open { self.open(timelineID: timeline.id) }
-        return timeline.id
+        return (timeline, wantsMusic, options, music, sfx)
     }
 
     func makeMoreEntertaining(options: EntertainmentOptions = EntertainmentOptions()) {

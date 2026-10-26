@@ -55,6 +55,8 @@ struct TimelineToolbar: View {
     @ObservedObject var session: ProjectSession
     @ObservedObject var playback: PlaybackController
     @State private var showMarkers = false
+    @State private var showSearch = false
+    @State private var showPauses = false
     @AppStorage("timeline.energyStrip") private var showEnergy = true
 
     var body: some View {
@@ -70,6 +72,10 @@ struct TimelineToolbar: View {
             IconButton(symbol: "bookmark", help: "Add marker (M)") { session.addMarker() }
             IconButton(symbol: "list.bullet.rectangle", help: "Markers list", isActive: showMarkers) { showMarkers.toggle() }
                 .popover(isPresented: $showMarkers, arrowEdge: .bottom) { MarkersListView(session: session, playback: playback).frame(width: 360) }
+            IconButton(symbol: "magnifyingglass", help: "Find on the timeline — a clip, a marker or a word spoken", isActive: showSearch) { showSearch.toggle() }
+                .popover(isPresented: $showSearch, arrowEdge: .bottom) { TimelineSearchView(session: session, playback: playback).frame(width: 380) }
+            IconButton(symbol: "waveform.badge.minus", help: "Tighten pauses — speed up the gaps between sentences", isActive: showPauses) { showPauses.toggle() }
+                .popover(isPresented: $showPauses, arrowEdge: .bottom) { PausesPopover(session: session).frame(width: 320) }
             Divider().frame(height: 16).padding(.horizontal, 4)
             IconButton(symbol: "arrow.uturn.backward", help: session.undoLabel.map { "Undo \($0) (⌘Z)" } ?? "Undo (⌘Z)") { session.undo() }
                 .disabled(!session.canUndo)
@@ -105,6 +111,77 @@ struct TimelineToolbar: View {
     }
 
     func zoomToFit() { session.zoomTimelineToFit() }
+}
+
+/// Find a clip by name, a marker, or a word spoken, and jump there (#174).
+struct TimelineSearchView: View {
+    @ObservedObject var session: ProjectSession
+    @ObservedObject var playback: PlaybackController
+    @State private var query = ""
+
+    var hits: [TimelineHit] { session.activeTimeline?.find(query) ?? [] }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            PanelHeader("Find", subtitle: query.count < 2 ? "A clip name, a marker, or words that were said" : "\(hits.count) found · click to jump") { EmptyView() }
+            TextField("Search the timeline…", text: $query)
+                .textFieldStyle(.roundedBorder)
+                .padding(.horizontal, 12).padding(.vertical, 8)
+            if query.count >= 2, hits.isEmpty {
+                Text("Nothing on this timeline matches.").font(.pulseCaption).foregroundStyle(Theme.textTertiary).padding(14)
+            } else if !hits.isEmpty {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(hits) { hit in
+                            HStack(spacing: 8) {
+                                Image(systemName: hit.kind.symbolName).font(.system(size: 11)).foregroundStyle(Theme.ai).frame(width: 16)
+                                Text(Timecode.short(hit.time)).font(.pulseMono).foregroundStyle(Theme.textTertiary).frame(width: 56, alignment: .leading)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(hit.title).font(.pulseCaption).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                                    if !hit.detail.isEmpty { Text(hit.detail).font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(1) }
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 5)
+                            .contentShape(Rectangle())
+                            .onTapGesture { playback.seek(to: hit.time) }
+                        }
+                    }
+                }
+                .frame(maxHeight: 320)
+            }
+        }
+    }
+}
+
+/// Speed up the pauses between sentences with a live readout of what it would save (#82).
+struct PausesPopover: View {
+    @ObservedObject var session: ProjectSession
+    @State private var minimum: Seconds = 1.2
+
+    var body: some View {
+        let estimate = session.pauseEstimate(minimum: minimum)
+        VStack(alignment: .leading, spacing: 10) {
+            PanelHeader("Tighten Pauses", subtitle: "Gaps between sentences play at 1.6× — speech is never touched") { EmptyView() }
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Pauses longer than").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    Spacer()
+                    Text(String(format: "%.1f s", minimum)).font(.pulseMono).foregroundStyle(Theme.textPrimary)
+                }
+                Slider(value: $minimum, in: 0.6...3, step: 0.1)
+                Text(estimate.pauses == 0 ? "No pauses that long on this timeline" : "\(estimate.pauses) pause\(estimate.pauses == 1 ? "" : "s") · \(String(format: "%.1f", estimate.saved)) s shorter")
+                    .font(.pulseCaption).foregroundStyle(estimate.pauses == 0 ? Theme.textTertiary : Theme.ai)
+                HStack {
+                    Spacer()
+                    Button { session.tightenPauses(minimum: minimum) } label: { Label("Tighten", systemImage: "waveform.badge.minus") }
+                        .buttonStyle(.pulse(.ai, compact: true))
+                        .disabled(estimate.pauses == 0)
+                }
+            }
+            .padding(.horizontal, 14).padding(.bottom, 12)
+        }
+    }
 }
 
 /// Every marker on the timeline: click to jump, rename inline, delete.

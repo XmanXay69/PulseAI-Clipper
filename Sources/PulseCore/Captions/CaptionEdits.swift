@@ -112,3 +112,71 @@ extension ProjectDocument {
         return count
     }
 }
+
+extension CaptionTrack {
+    static let fillerOnly: Set<String> = ["um", "umm", "uh", "uhh", "uhm", "erm", "er", "ah", "hmm", "mhm", "mm"]
+
+    /// Sentence case for every word (#239): the first word of a sentence capitalised, shouting lowered; "I",
+    /// short all-caps words (GG, OBS, NPC) and words with digits stay. Returns words changed.
+    @discardableResult
+    public mutating func applySentenceCase() -> Int {
+        var changed = 0
+        var startOfSentence = true
+        for i in words.indices {
+            let text = words[i].text
+            let letters = text.filter(\.isLetter)
+            guard !letters.isEmpty else { continue }
+            let hasDigits = text.contains(where: \.isNumber)
+            let acronym = letters.count >= 2 && letters.count <= 3 && letters == letters.uppercased() && !startOfSentence
+            var new = text
+            if !acronym && !hasDigits {
+                new = text.lowercased()
+                let lowered = new
+                if startOfSentence || lowered == "i" || lowered.hasPrefix("i'") || lowered.hasPrefix("i’") {
+                    if let first = new.firstIndex(where: \.isLetter) {
+                        new.replaceSubrange(first...first, with: String(new[first]).uppercased())
+                    }
+                }
+            }
+            if new != text {
+                words[i].text = new
+                changed += 1
+            }
+            let trimmed = text.trimmingCharacters(in: .whitespaces)
+            startOfSentence = trimmed.hasSuffix(".") || trimmed.hasSuffix("!") || trimmed.hasSuffix("?") || trimmed.hasSuffix("…")
+        }
+        return changed
+    }
+
+    /// Removes "um", "uh" and friends from the captions (#239) — the audio keeps them. Returns words removed.
+    @discardableResult
+    public mutating func stripFillers() -> Int {
+        let before = words.count
+        words.removeAll { CaptionTrack.fillerOnly.contains(TranscriptWord.normalize($0.text)) }
+        return before - words.count
+    }
+
+    /// Moves only the words from `after` on (#241) — fixes a transcript that drifts late after a re-cut.
+    @discardableResult
+    public mutating func shiftTiming(by delta: Seconds, after: Seconds) -> Int {
+        guard delta != 0 else { return 0 }
+        var count = 0
+        for i in words.indices where words[i].start >= after {
+            let d = max(delta, -words[i].start)
+            words[i].start += d
+            words[i].end += d
+            count += 1
+        }
+        return count
+    }
+}
+
+extension SafeAreaPlatform {
+    /// Where captions sit clear of this platform's own UI (#245): just above the bottom zone it covers.
+    public var captionCenterY: Double { (1 - insets.bottom - 0.09).clamped(0.5, 0.8) }
+}
+
+extension CaptionStyle {
+    /// Captions above the platform's caption and button zone (#245).
+    public mutating func position(for platform: SafeAreaPlatform) { positionY = platform.captionCenterY }
+}

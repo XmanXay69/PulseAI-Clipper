@@ -364,6 +364,7 @@ struct MediaOfflineBanner: View {
 }
 
 struct TransportBar: View {
+    @EnvironmentObject var app: AppModel
     @ObservedObject var session: ProjectSession
     @ObservedObject var playback: PlaybackController
     @State private var editingTimecode = false

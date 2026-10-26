@@ -120,6 +120,14 @@ extension EditPolish {
     /// main video clip around each pause (its linked audio follows) and ripples what comes after on those
     /// tracks, so it belongs early in an AI build, before overlays and music are placed. Returns the count.
     @discardableResult
+    /// What `shortenPauses` would do, without doing it (#82): pauses found and seconds saved.
+    public static func pauseRemovalEstimate(_ timeline: Timeline, words: [TranscriptWord], after: Seconds = 0, minimum: Seconds = 1.2,
+                                            maximum: Seconds = 4, speed: Double = 1.6) -> (pauses: Int, saved: Seconds) {
+        var copy = timeline
+        let n = shortenPauses(&copy, words: words, after: after, minimum: minimum, maximum: maximum, speed: speed)
+        return (n, max(0, timeline.duration - copy.duration))
+    }
+
     public static func shortenPauses(_ timeline: inout Timeline, words: [TranscriptWord], after: Seconds,
                                      minimum: Seconds = 1.2, maximum: Seconds = 4, speed: Double = 1.6) -> Int {
         guard words.count > 1, speed > 1, let vi = timeline.tracks.firstIndex(where: { $0.kind == .video }) else { return 0 }
