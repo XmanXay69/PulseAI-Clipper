@@ -16,6 +16,9 @@ struct LongFormStoryboard: View {
 
     @State private var plan: LongFormPlan?
     @State private var selected: Set<UUID> = []
+
+    /// The main recording's words, for chapter names (#86).
+    var words: [TranscriptWord] { session.document.primaryAsset.flatMap { session.analyses[$0.id]?.transcript?.words } ?? [] }
     @State private var hook: UUID?
     @State private var lengthScale = 1.0
     @State private var ratings: [UUID: Bool] = [:]
@@ -101,6 +104,18 @@ struct LongFormStoryboard: View {
                     }
                 }
                 .padding(.top, 6)
+                let chapters = ChapterOutline.propose(plan: plan.withSelection(selected), words: words)
+                if chapters.count >= 2 {
+                    HStack(spacing: 6) {
+                        Text("Outline").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                        ForEach(Array(chapters.enumerated()), id: \.element.id) { index, chapter in
+                            TagChip(text: "\(index + 1) · \(chapter.name) (\(chapter.momentIDs.count))", color: Theme.ai, symbol: nil)
+                                .help("Moments \(chapter.momentIDs.count) in this chapter — drop or keep them below")
+                        }
+                    }
+                    .padding(.top, 4)
+                    .help("How the video will read, chapter by chapter (#86): split at the biggest jumps in the stream")
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

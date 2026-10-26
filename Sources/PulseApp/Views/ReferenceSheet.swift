@@ -142,6 +142,18 @@ struct ReferenceSheet: View {
                     }
                 }
 
+                DisclosureGroup {
+                    VStack(alignment: .leading, spacing: 3) {
+                        ForEach(style.explain(answers), id: \.self) { line in
+                            Text("• " + line).font(.pulseMicro).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(.top, 4)
+                } label: {
+                    Text("What copying it changes").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                }
+                .help("Each setting the reference sets, with the measurement behind it (#368)")
+
                 question("How long should your video be?") {
                     ForEach(ReferenceAnswers.Length.allCases, id: \.self) { length in
                         choice(lengthTitle(length, style), selected: answers.length == length,

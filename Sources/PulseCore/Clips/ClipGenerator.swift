@@ -4,6 +4,10 @@ public enum ClipLengthPreset: String, Codable, CaseIterable, Sendable {
     case short15
     case medium30
     case long60
+    /// Instagram Reels' limit (#58).
+    case reels90
+    /// TikTok's limit (#58).
+    case tiktok180
     case custom
 
     public var seconds: Seconds? {
@@ -11,6 +15,8 @@ public enum ClipLengthPreset: String, Codable, CaseIterable, Sendable {
         case .short15: return 15
         case .medium30: return 30
         case .long60: return 60
+        case .reels90: return 90
+        case .tiktok180: return 180
         case .custom: return nil
         }
     }
@@ -19,7 +25,9 @@ public enum ClipLengthPreset: String, Codable, CaseIterable, Sendable {
         switch self {
         case .short15: return "15 sec"
         case .medium30: return "30 sec"
-        case .long60: return "60 sec"
+        case .long60: return "60 sec (Shorts max)"
+        case .reels90: return "90 sec (Reels max)"
+        case .tiktok180: return "3 min (TikTok max)"
         case .custom: return "Custom"
         }
     }
@@ -38,7 +46,7 @@ public struct ClipGenerationSettings: Codable, Hashable, Sendable {
     public var seed: Int
 
     public init(targetDuration: Seconds = 30, aggressiveness: Double = 0.5, minimumPotential: Int = 20, maxCandidates: Int? = nil, seed: Int = 0) {
-        self.targetDuration = targetDuration.clamped(10, 90)
+        self.targetDuration = targetDuration.clamped(10, 180)
         self.aggressiveness = aggressiveness.clamped(0, 1)
         self.minimumPotential = minimumPotential
         self.maxCandidates = maxCandidates
@@ -153,7 +161,7 @@ public struct ClipGenerator: Sendable {
     /// Recomputes a candidate around the same payoff, with a new length (Shorten / Extend / Regenerate).
     public func reshape(_ candidate: ClipCandidate, targetDuration: Seconds? = nil, generation: Int? = nil) -> ClipCandidate {
         var copy = self
-        if let targetDuration { copy.settings.targetDuration = targetDuration.clamped(10, 90) }
+        if let targetDuration { copy.settings.targetDuration = targetDuration.clamped(10, 180) }
         let gen = generation ?? candidate.generation
         copy.settings.seed = settings.seed &+ gen
         var reshaped = copy.makeCandidate(range: copy.window(forPayoff: candidate.payoffTime), payoff: candidate.payoffTime)

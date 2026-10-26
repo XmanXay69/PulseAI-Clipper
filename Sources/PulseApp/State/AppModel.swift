@@ -200,6 +200,7 @@ final class AppModel: ObservableObject {
         refreshProjects()
         refreshActivity()
         refreshDiskInfo()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in self?.remindAboutDeadlines() }
     }
 
     // MARK: Folders
@@ -303,6 +304,7 @@ final class AppModel: ObservableObject {
         session?.close()
         let newSession = ProjectSession(package: package, document: document, app: self)
         session = newSession
+        newSession.startEditingClock()
         // Menus, sidebar badges and the top bar reflect session state (undo labels, clip counts…).
         sessionObserver = newSession.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         library?.index(document, path: package.url.path, thumbnailPath: document.thumbnailPath.map { package.url.appendingPathComponent($0).path })
@@ -414,6 +416,28 @@ final class AppModel: ObservableObject {
         }
         if trashed, session?.package == package { closeProject() }
         refreshProjects()
+    }
+
+    /// When the project needs to be posted (#475); nil clears it.
+    func setDeadline(_ summary: ProjectSummary, _ deadline: Date?) {
+        let package = ProjectPackage(url: URL(fileURLWithPath: summary.path))
+        if session?.package == package {
+            session?.edit("Deadline") { $0.deadline = deadline }
+            session?.save()
+        } else if var doc = try? store.load(package).document {
+            doc.deadline = deadline
+            try? store.save(doc, to: package)
+            library?.index(doc, path: package.url.path, thumbnailPath: summary.thumbnailPath)
+        }
+        refreshProjects()
+    }
+
+    /// A reminder for projects due within two days, once per launch (#475).
+    func remindAboutDeadlines() {
+        let soon = projects.filter { p in !p.isTrashed && p.status != .exported && (p.deadline.map { $0.timeIntervalSinceNow < 2 * 86400 } ?? false) }
+        guard !soon.isEmpty else { return }
+        let names = soon.prefix(3).map { "“\($0.name)” (\($0.deadline!.formatted(.relative(presentation: .named))))" }.joined(separator: ", ")
+        toast(soon.count == 1 ? "Due soon: \(names)" : "\(soon.count) projects due soon: \(names)")
     }
 
     func setFavorite(_ summary: ProjectSummary, _ favorite: Bool) {

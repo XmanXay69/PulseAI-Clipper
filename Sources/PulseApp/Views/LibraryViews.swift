@@ -397,7 +397,16 @@ struct ExportSettingsForm: View {
                 GridRow {
                     Text("Filename").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
                     VStack(alignment: .leading, spacing: 2) {
-                        TextField("{clip}-{preset}", text: $settings.filenameTemplate).frame(width: 300)
+                        VStack(alignment: .leading, spacing: 4) {
+                            TextField("{clip}-{preset}", text: $settings.filenameTemplate).frame(width: 300)
+                            HStack(spacing: 4) {
+                                ForEach(["{project}", "{clip}", "{preset}", "{date}", "{index}"], id: \.self) { token in
+                                    Button(token) { settings.filenameTemplate += (settings.filenameTemplate.isEmpty ? "" : "-") + token }
+                                        .buttonStyle(.pulse(.ghost, compact: true))
+                                }
+                            }
+                            .help("Click to add a token; the name is built from them when the file is written (#352)")
+                        }
                         Text("Tokens: {project} {clip} {preset} {date} {index}").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
                     }
                 }
@@ -694,6 +703,8 @@ struct ExportJobRow: View {
                     Label("Completed", systemImage: "checkmark.circle.fill").font(.pulseMicro).foregroundStyle(Theme.success)
                     Spacer()
                     Button("Show in Finder") { queue.reveal(job) }.buttonStyle(.pulse(.ghost, compact: true))
+                    Button("Again") { queue.retry(job.id) }.buttonStyle(.pulse(.ghost, compact: true))
+                        .help("Export this timeline again with the same settings (#351)")
                 }
             case .failed(let message):
                 VStack(alignment: .leading, spacing: 4) {

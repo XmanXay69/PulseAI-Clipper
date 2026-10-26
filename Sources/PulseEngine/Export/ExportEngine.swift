@@ -196,6 +196,8 @@ extension ExportEngine {
 
     /// The frame worth a thumbnail: the "Payoff" or "Hook" marker inside the export, else a third of the way in.
     static func thumbnailTime(for timeline: Timeline, exportStart: Seconds, duration: Seconds) -> Seconds {
+        // The cover frame you picked (#70) wins when it's inside the export.
+        if let cover = timeline.coverTime, cover >= exportStart, cover < exportStart + duration { return cover - exportStart }
         let inside = timeline.markers.filter { $0.time >= exportStart && $0.time < exportStart + duration }
         if let payoff = inside.first(where: { $0.name == "Payoff" || $0.name == "Hook" }) { return payoff.time - exportStart }
         return duration * 0.35

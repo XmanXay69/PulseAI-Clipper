@@ -20,6 +20,7 @@ struct LongFormSheet: View {
     @AppStorage("longForm.shortenPauses") private var shortenPauses = false
     @AppStorage("longForm.musicLevel") private var musicLevel = 1.0
     @AppStorage("longForm.chapterTitles") private var chapterTitles = false
+    @AppStorage("longForm.cutGameOnly") private var cutGameOnly = false
     @AppStorage("longForm.deadAir") private var deadAir = SilencePreset.balanced.rawValue
     @State private var choosing = false
     /// The extras question is showing (asked before anything is built).
@@ -39,6 +40,7 @@ struct LongFormSheet: View {
         options.shortenPauses = shortenPauses
         options.musicLevel = musicLevel
         options.chapterTitles = chapterTitles
+        options.cutGameOnly = cutGameOnly
         options.deadAir = SilencePreset(rawValue: deadAir) ?? .balanced
         options.memeTexts = app.settings.ai.memeTextsByTag
         return options
@@ -175,6 +177,7 @@ struct LongFormSheet: View {
             touch("Tighten", "scissors", "Cut the ums, uhs and false starts (word timing isn't perfect — check the result)", $tighten)
             touch("Shorten pauses", "forward.frame", "Play 1–4 s pauses at 1.6× instead of cutting them — the breath stays, the wait goes", $shortenPauses)
             touch("Chapter titles", "text.below.photo", "A small lower-third with the chapter's name at the start of each chapter", $chapterTitles)
+            touch("Cut game-only stretches", "speaker.slash", "Drop 8 s or more of loud game with nobody talking inside a kept moment (its payoff stays)", $cutGameOnly)
             if music {
                 touch("Find music on YouTube", "globe", "Creative Commons tracks via the built-in downloader (credits go in the description)",
                       Binding(get: { app.settings.ai.onlineMusic }, set: { app.settings.ai.onlineMusic = $0 }))

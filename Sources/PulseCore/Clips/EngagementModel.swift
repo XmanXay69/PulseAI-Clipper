@@ -65,6 +65,8 @@ public struct EngagementSignals: Sendable {
     public var chat: [Float] = []
     /// Game banners (wins, kills, deaths) read off the screen (0…1); empty when none were read.
     public var hud: [Float] = []
+    /// Screams and shouts in the voice (#29): a loud burst while someone is talking, not a game explosion.
+    public var shouts: [Float] = []
 
     public func index(at time: Seconds) -> Int {
         Int((time / step).rounded(.down)).clamped(0, Swift.max(count - 1, 0))
@@ -236,10 +238,40 @@ public enum EngagementModel {
             if i < chatActivity.count { excitement[i] = excitement[i] * 0.75 + chatActivity[i] * 0.45 }
             if i < hudSignal.count { excitement[i] = Swift.min(excitement[i] + hudSignal[i] * 0.45, 1.2) }
         }
+        // Screams (#29): a sudden loud burst while a voice is going. Game explosions are loud too, but nobody is
+        // talking through them and their spectrum jumps far more than a voice can.
+        var shouts = [Float](repeating: 0, count: n)
+        for i in 0..<n where speech[i] > 0 && loudness[i] >= 1.8 && surprise[i] >= 5 && fluxZ[i] < 3 {
+            shouts[i] = Swift.min(1, (loudness[i] - 1.8) / 2 + 0.5)
+            excitement[i] = Swift.min(excitement[i] + shouts[i] * 0.12, 1.2)
+        }
         excitement = SeriesMath.smooth(excitement, sigma: 1.5 / step)
 
-        return EngagementSignals(step: step, count: n, loudness: loudness, surprise: surprise, speechRate: speechRate,
-                                 keywords: keywords, laughter: laughter, questions: questions, profanity: profanity,
-                                 motion: motion, cuts: cuts, speech: speech, excitement: excitement, chat: chatActivity, hud: hudSignal)
+        var signals = EngagementSignals(step: step, count: n, loudness: loudness, surprise: surprise, speechRate: speechRate,
+                                        keywords: keywords, laughter: laughter, questions: questions, profanity: profanity,
+                                        motion: motion, cuts: cuts, speech: speech, excitement: excitement, chat: chatActivity, hud: hudSignal)
+        signals.shouts = shouts
+        return signals
+    }
+
+    /// Stretches where the game is loud but nobody says a word (#30): loading fights, menus with music, AFK with
+    /// the game running. At least `minimum` seconds long.
+    public static func gameOnlyRanges(_ s: EngagementSignals, minimum: Seconds = 8) -> [TimeRange] {
+        guard s.count > 0 else { return [] }
+        var ranges: [TimeRange] = []
+        var runStart: Int?
+        for i in 0..<s.count {
+            let quietVoice = s.speech[i] <= 0 && s.loudness[i] >= 0.3
+            if quietVoice {
+                if runStart == nil { runStart = i }
+            } else if let start = runStart {
+                if Double(i - start) * s.step >= minimum { ranges.append(TimeRange(start: Double(start) * s.step, end: Double(i) * s.step)) }
+                runStart = nil
+            }
+        }
+        if let start = runStart, Double(s.count - start) * s.step >= minimum {
+            ranges.append(TimeRange(start: Double(start) * s.step, end: Double(s.count) * s.step))
+        }
+        return ranges
     }
 }

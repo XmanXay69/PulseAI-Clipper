@@ -180,3 +180,38 @@ extension CaptionStyle {
     /// Captions above the platform's caption and button zone (#245).
     public mutating func position(for platform: SafeAreaPlatform) { positionY = platform.captionCenterY }
 }
+
+extension CaptionTrack {
+    /// Fresh captions from a new transcript that keep your fixes (#258): a word you retyped keeps its text
+    /// where a word still sits at that time, hidden words stay hidden, and emphasis you set by hand stays.
+    /// `previous` is the transcript the old captions came from (to tell your edits from re-transcription);
+    /// without it, any word that differs from the new transcript counts as yours.
+    public static func rebuilt(from transcript: Transcript, range: TimeRange, assetID: UUID, keeping old: CaptionTrack, previous: Transcript? = nil,
+                               emphasize: Bool) -> CaptionTrack {
+        var fresh = make(from: transcript, range: range, assetID: assetID, style: old.style, emphasize: emphasize)
+        fresh.isEnabled = old.isEnabled
+        fresh.profanity = old.profanity
+        fresh.showSpeakerLabels = old.showSpeakerLabels
+        fresh.speakerStyles = old.speakerStyles
+        for (k, v) in old.speakerNames { fresh.speakerNames[k] = v }
+        let transcriptWords = (previous ?? transcript).words(in: range)
+        var kept = 0
+        for oldWord in old.words {
+            // The transcript's own word at this time: if the old caption differs from it, you changed it.
+            let original = transcriptWords.first { abs($0.start - oldWord.start) < 0.15 }
+            let edited = original.map { TranscriptWord.normalize($0.text) != TranscriptWord.normalize(oldWord.text) } ?? false
+            let manualEmphasis = oldWord.isEmphasized && !oldWord.emphasisIsAI
+            guard edited || oldWord.isHidden || manualEmphasis,
+                  let i = fresh.words.firstIndex(where: { abs($0.start - oldWord.start) < 0.15 }) else { continue }
+            if edited { fresh.words[i].text = oldWord.text }
+            if oldWord.isHidden { fresh.words[i].isHidden = true }
+            if manualEmphasis {
+                fresh.words[i].isEmphasized = true
+                fresh.words[i].emphasisIsAI = false
+            }
+            kept += 1
+        }
+        fresh.aiGenerated = kept == 0 && old.aiGenerated
+        return fresh
+    }
+}

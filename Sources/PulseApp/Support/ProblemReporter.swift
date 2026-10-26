@@ -47,7 +47,7 @@ enum ProblemReporter {
     }
 
     /// Writes the bundle as a .zip next to the user's Desktop and returns it.
-    static func makeReport(app: AppModel, description: String) throws -> URL {
+    static func makeReport(app: AppModel, description: String, structure: String? = nil) throws -> URL {
         PulseLog.info("Report a Problem: building bundle")
         PulseLog.flush()
         let stamp = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .short)
@@ -62,6 +62,7 @@ enum ProblemReporter {
             .write(to: work.appendingPathComponent("summary.txt"), atomically: true, encoding: .utf8)
         let activity = app.activity.prefix(60).map { "\($0.date) [\($0.kind.displayName)] \($0.title) — \($0.detail)" }.joined(separator: "\n")
         try activity.write(to: work.appendingPathComponent("activity.txt"), atomically: true, encoding: .utf8)
+        if let structure { try structure.write(to: work.appendingPathComponent("project-structure.txt"), atomically: true, encoding: .utf8) }
         for log in [PulseLog.fileURL, PulseLog.previousFileURL] where FileManager.default.fileExists(atPath: log.path) {
             try? FileManager.default.copyItem(at: log, to: work.appendingPathComponent(log.lastPathComponent))
         }

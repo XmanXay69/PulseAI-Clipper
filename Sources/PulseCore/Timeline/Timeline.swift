@@ -278,6 +278,8 @@ public struct RemovedSection: Codable, Hashable, Identifiable, Sendable {
         case crosstalk
         /// A loading screen, menu, BRB or starting-soon card.
         case idleScreen
+        /// The game was loud but nobody said a word for a while (#30).
+        case noTalking
 
         public var displayName: String {
             switch self {
@@ -286,6 +288,7 @@ public struct RemovedSection: Codable, Hashable, Identifiable, Sendable {
             case .transcriptEdit: return "Transcript edit"
             case .crosstalk: return "Crosstalk"
             case .idleScreen: return "Idle screen"
+            case .noTalking: return "No one talking"
             case .manual: return "Manual"
             }
         }
@@ -361,6 +364,8 @@ public struct Timeline: Codable, Hashable, Identifiable, Sendable {
     public var copy: ClipCopy?
     /// The length the edit was built for (Edit My VOD), shown next to the duration in the toolbar (#179).
     public var targetDuration: Seconds?
+    /// The frame people see before it plays (#70): the export thumbnail, in timeline seconds.
+    public var coverTime: Seconds?
 
     public init(id: UUID = UUID(), name: String, canvas: CanvasSettings = .vertical1080, tracks: [Track] = [],
                 captions: CaptionTrack? = nil, markers: [Marker] = [], layout: LayoutPreset? = nil,
@@ -401,6 +406,7 @@ public struct Timeline: Codable, Hashable, Identifiable, Sendable {
         notes = c.decode(String.self, forKey: .notes, default: "")
         copy = c.decode(ClipCopy?.self, forKey: .copy, default: nil)
         targetDuration = c.decode(Seconds?.self, forKey: .targetDuration, default: nil)
+        coverTime = c.decode(Seconds?.self, forKey: .coverTime, default: nil)
     }
 
     /// Standard empty editing timeline: V1, V2, T1, A1, A2.

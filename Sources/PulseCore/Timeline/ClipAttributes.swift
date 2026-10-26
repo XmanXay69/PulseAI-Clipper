@@ -67,6 +67,15 @@ public struct ClipAttributes: Codable, Hashable, Sendable {
 extension Timeline {
     /// Pastes attributes onto clips (linked partners of a different kind are skipped: a video clip's look
     /// doesn't apply to its audio). Returns how many clips changed.
+    /// The clip takes the look of the one before it on the same track (#226). False when it's the first clip.
+    @discardableResult
+    public mutating func matchPrevious(clipID: UUID, parts: ClipAttributes.Parts = .look) -> Bool {
+        guard let ti = tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
+              let ci = tracks[ti].clips.firstIndex(where: { $0.id == clipID }), ci > 0 else { return false }
+        let previous = tracks[ti].clips[ci - 1]
+        return paste(ClipAttributes(from: previous), onto: [clipID], parts: parts) > 0
+    }
+
     @discardableResult
     public mutating func paste(_ attributes: ClipAttributes, onto clipIDs: [UUID], parts: ClipAttributes.Parts = .all) -> Int {
         var count = 0

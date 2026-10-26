@@ -57,6 +57,7 @@ struct TimelineToolbar: View {
     @State private var showMarkers = false
     @State private var showSearch = false
     @State private var showPauses = false
+    @State private var showNotes = false
     @AppStorage("timeline.energyStrip") private var showEnergy = true
 
     var body: some View {
@@ -76,6 +77,10 @@ struct TimelineToolbar: View {
                 .popover(isPresented: $showSearch, arrowEdge: .bottom) { TimelineSearchView(session: session, playback: playback).frame(width: 380) }
             IconButton(symbol: "waveform.badge.minus", help: "Tighten pauses — speed up the gaps between sentences", isActive: showPauses) { showPauses.toggle() }
                 .popover(isPresented: $showPauses, arrowEdge: .bottom) { PausesPopover(session: session).frame(width: 320) }
+            let progress = NotesChecklist.progress(in: session.document.notes)
+            IconButton(symbol: progress.total > 0 && progress.done == progress.total ? "checklist.checked" : "note.text",
+                       help: progress.total > 0 ? "Project notes — \(progress.done) of \(progress.total) done" : "Project notes and to-dos", isActive: showNotes) { showNotes.toggle() }
+                .popover(isPresented: $showNotes, arrowEdge: .bottom) { ProjectNotesPopover(session: session).frame(width: 360) }
             Divider().frame(height: 16).padding(.horizontal, 4)
             IconButton(symbol: "arrow.uturn.backward", help: session.undoLabel.map { "Undo \($0) (⌘Z)" } ?? "Undo (⌘Z)") { session.undo() }
                 .disabled(!session.canUndo)
@@ -111,6 +116,67 @@ struct TimelineToolbar: View {
     }
 
     func zoomToFit() { session.zoomTimelineToFit() }
+}
+
+/// Notes for the project with a checklist (#476): "- [ ] grade the intro" lines become boxes you tick.
+struct ProjectNotesPopover: View {
+    @ObservedObject var session: ProjectSession
+    @State private var draft = ""
+    @State private var newItem = ""
+
+    var items: [NotesChecklist.Item] { NotesChecklist.items(in: session.document.notes) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            let progress = NotesChecklist.progress(in: session.document.notes)
+            PanelHeader("Notes", subtitle: progress.total > 0 ? "\(progress.done) of \(progress.total) done" : "To-dos, links, what to remember") { EmptyView() }
+            if !items.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(items) { item in
+                        Toggle(isOn: Binding(get: { item.done }, set: { _ in toggle(item) })) {
+                            Text(item.text).font(.pulseCaption).foregroundStyle(item.done ? Theme.textTertiary : Theme.textPrimary).strikethrough(item.done)
+                        }
+                        .toggleStyle(.checkbox)
+                        .padding(.horizontal, 12).padding(.vertical, 3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.vertical, 6)
+            }
+            HStack(spacing: 6) {
+                TextField("Add a to-do", text: $newItem, onCommit: addItem).textFieldStyle(.roundedBorder).font(.pulseCaption)
+                Button("Add") { addItem() }.buttonStyle(.pulse(.secondary, compact: true)).disabled(newItem.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            .padding(.horizontal, 12).padding(.bottom, 8)
+            TextEditor(text: $draft)
+                .font(.pulseCaption)
+                .scrollContentBackground(.hidden)
+                .padding(6)
+                .frame(height: 140)
+                .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.well))
+                .padding(.horizontal, 12).padding(.bottom, 12)
+                .onAppear { draft = session.document.notes }
+                .onChange(of: session.document.notes) { _, new in if new != draft { draft = new } }
+                .onChange(of: draft) { _, new in
+                    guard new != session.document.notes else { return }
+                    session.edit("Edit Notes", coalesce: "notes") { $0.notes = new }
+                }
+        }
+    }
+
+    func toggle(_ item: NotesChecklist.Item) {
+        let updated = NotesChecklist.toggle(session.document.notes, line: item.line)
+        session.edit(item.done ? "Untick To-do" : "Tick To-do") { $0.notes = updated }
+        draft = updated
+    }
+
+    func addItem() {
+        let updated = NotesChecklist.add(newItem, to: session.document.notes)
+        guard updated != session.document.notes else { return }
+        session.edit("Add To-do") { $0.notes = updated }
+        draft = updated
+        newItem = ""
+    }
 }
 
 /// Find a clip by name, a marker, or a word spoken, and jump there (#174).

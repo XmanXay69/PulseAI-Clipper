@@ -26,6 +26,24 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Words people search for that land on this tab (#443).
+    var keywords: String {
+        switch self {
+        case .general: return "theme timecode transition snapping autosave backups sidebar onboarding"
+        case .aiProcessing: return "cloud local privacy provider api key model claude openai"
+        case .aiFeatures: return "clips length aggressiveness captions zoom crop silence filler music sound effects extras censor swear banners taste cold open speed ramp hashtags end card follow handle"
+        case .brandKit: return "logo watermark intro outro font colors handle"
+        case .performance: return "threads memory cache proxies speed analysis"
+        case .transcription: return "whisper speech language vocabulary speakers words"
+        case .files: return "folders media projects cache export location storage disk"
+        case .proxies: return "proxy resolution playback quality"
+        case .shortcuts: return "keys keyboard hotkeys print cheat sheet"
+        case .statistics: return "stats hours saved shorts built exports"
+        case .diagnostics: return "log report problem dependencies gpu encoder"
+        case .privacy: return "data network telemetry offline"
+        }
+    }
+
     var symbol: String {
         switch self {
         case .general: return "gearshape"
@@ -48,13 +66,29 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 struct SettingsView: View {
     @EnvironmentObject var app: AppModel
     @State private var tab: SettingsTab = .general
+    @State private var query = ""
+
+    /// Tabs whose title or keywords match the search (#443); all of them when it's empty.
+    var visibleTabs: [SettingsTab] {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return SettingsTab.allCases }
+        return SettingsTab.allCases.filter { $0.title.lowercased().contains(q) || $0.keywords.contains(q) }
+    }
 
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Settings").font(.pulseHeadline).foregroundStyle(Theme.textPrimary)
-                    .padding(.horizontal, 10).padding(.bottom, 10)
-                ForEach(SettingsTab.allCases) { t in
+                    .padding(.horizontal, 10).padding(.bottom, 6)
+                TextField("Search settings", text: $query)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.pulseCaption)
+                    .padding(.horizontal, 6).padding(.bottom, 8)
+                    .onChange(of: query) { _, _ in if let first = visibleTabs.first, !visibleTabs.contains(tab) { tab = first } }
+                if visibleTabs.isEmpty {
+                    Text("Nothing matches “\(query)”").font(.pulseMicro).foregroundStyle(Theme.textTertiary).padding(.horizontal, 10)
+                }
+                ForEach(visibleTabs) { t in
                     Button { tab = t } label: {
                         HStack(spacing: 8) {
                             Image(systemName: t.symbol).frame(width: 16)
@@ -794,7 +828,7 @@ struct StatisticsPane: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(12)
-                        .background(RoundedRectangle(cornerRadius: Theme.radiusMedium).fill(Theme.panelRaised))
+                        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
                     }
                 }
                 if let since = stats.since {
@@ -818,7 +852,35 @@ struct ShortcutsPane: View {
                      ("⌘Z / ⇧⌘Z", "Undo / Redo"), ("⌘F", "Search everything"), ("⌘1 … ⌘9", "Switch section"), ("⌃⌘0", "Toggle sidebar")]),
     ]
 
+    /// A printable page of every shortcut (#451), opened in the browser.
+    static func html() -> String {
+        var rows = ""
+        for group in groups {
+            rows += "<h2>\(group.0)</h2><table>"
+            for item in group.1 { rows += "<tr><td class=k>\(item.0)</td><td>\(item.1)</td></tr>" }
+            rows += "</table>"
+        }
+        return """
+        <!doctype html><html><head><meta charset="utf-8"><title>PULSE shortcuts</title>
+        <style>body{font:13px -apple-system,Helvetica,Arial;margin:32px;color:#111}h1{font-size:22px}h2{font-size:14px;margin:18px 0 6px;text-transform:uppercase;letter-spacing:.06em;color:#555}
+        table{border-collapse:collapse;width:100%}td{padding:4px 8px;border-bottom:1px solid #eee}td.k{font-family:ui-monospace,Menlo,monospace;white-space:nowrap;width:140px;font-weight:600}
+        @media print{body{margin:12mm}}</style></head><body><h1>PULSE keyboard shortcuts</h1>\(rows)<p style="color:#888;margin-top:24px">PULSE \(AppModel.versionString) · press ⌘P to print</p></body></html>
+        """
+    }
+
+    func printSheet() {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("PULSE Shortcuts.html")
+        try? Self.html().write(to: url, atomically: true, encoding: .utf8)
+        NSWorkspace.shared.open(url)
+    }
+
     var body: some View {
+        HStack {
+            Spacer()
+            Button { printSheet() } label: { Label("Printable Cheat Sheet", systemImage: "printer") }
+                .buttonStyle(.pulse(.secondary, compact: true))
+                .help("Opens every shortcut as a page you can print or keep next to the keyboard (#451)")
+        }
         ForEach(Self.groups, id: \.0) { group in
             SettingsGroup(group.0) {
                 ForEach(group.1, id: \.0) { item in

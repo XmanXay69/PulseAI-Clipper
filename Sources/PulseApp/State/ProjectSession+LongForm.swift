@@ -160,7 +160,8 @@ extension ProjectSession {
     func brollCutaways(_ moments: [BrollPlacer.Moment], job: BackgroundJob) async -> (placements: [(asset: MediaAsset, at: Seconds)], clips: [OnlineTrack]) {
         var placements: [(asset: MediaAsset, at: Seconds)] = []
         var clips: [OnlineTrack] = []
-        var used = Set<String>()
+        // Not the same meme as the last few videos (#133).
+        var used = Set(app.settings.recentBrollIDs)
         // Your own clips first (Settings → AI Features → B-roll folder): a file whose name matches the moment's
         // mood ("fail", "hype", "laugh"…), else any clip not used yet in this edit.
         let own = ownBrollClips()
@@ -202,6 +203,11 @@ extension ProjectSession {
             clips.append(found.clip)
         }
         PulseLog.info("B-roll: \(placements.count) of \(moments.count) cutaways found")
+        if !clips.isEmpty {
+            var recent = app.settings.recentBrollIDs.filter { id in !clips.contains { $0.videoID == id } } + clips.map(\.videoID)
+            if recent.count > 60 { recent.removeFirst(recent.count - 60) }
+            app.settings.recentBrollIDs = recent
+        }
         return (placements, clips)
     }
 

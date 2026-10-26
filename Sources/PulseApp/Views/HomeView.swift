@@ -337,7 +337,18 @@ struct ProjectCard: View {
                     Label("\(project.clipCount)", systemImage: "sparkles")
                 }
                 .labelStyle(CompactLabelStyle())
-                Text("Edited \(project.modifiedAt.formatted(.relative(presentation: .named)))").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                HStack(spacing: 8) {
+                    Text("Edited \(project.modifiedAt.formatted(.relative(presentation: .named)))").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                    if let editing = project.editingSeconds, editing >= 60 {
+                        Text("· \(Timecode.duration(editing)) at it").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                            .help("Time spent editing this project with PULSE in front (#477)")
+                    }
+                    if let deadline = project.deadline, project.status != .exported {
+                        let overdue = deadline < Date()
+                        TagChip(text: overdue ? "Overdue" : "Due \(deadline.formatted(.relative(presentation: .named)))",
+                                color: overdue ? Theme.danger : (deadline.timeIntervalSinceNow < 2 * 86400 ? Theme.warning : Theme.info), symbol: "calendar")
+                    }
+                }
             }
             .padding(10)
         }
@@ -356,6 +367,16 @@ struct ProjectCard: View {
             Button("Duplicate") { app.duplicateProject(project) }
             Button(project.isFavorite ? "Remove from Favorites" : "Add to Favorites") { app.setFavorite(project, !project.isFavorite) }
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: project.path)]) }
+            Menu("Deadline") {
+                Button("Tomorrow") { app.setDeadline(project, Calendar.current.date(byAdding: .day, value: 1, to: Date())) }
+                Button("In 3 days") { app.setDeadline(project, Calendar.current.date(byAdding: .day, value: 3, to: Date())) }
+                Button("In a week") { app.setDeadline(project, Calendar.current.date(byAdding: .day, value: 7, to: Date())) }
+                Button("In two weeks") { app.setDeadline(project, Calendar.current.date(byAdding: .day, value: 14, to: Date())) }
+                if project.deadline != nil {
+                    Divider()
+                    Button("Clear Deadline") { app.setDeadline(project, nil) }
+                }
+            }
             Divider()
             if project.isTrashed {
                 Button("Restore") { app.setTrashed(project, false) }

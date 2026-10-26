@@ -107,12 +107,35 @@ public enum CaptionLayoutEngine {
                     lines[lines.count - 1].append(w)
                 }
             }
+            lines = balanced(lines, maxChars: maxChars)
             let start = group.first!.start
             let nextStart = gi + 1 < groups.count ? groups[gi + 1].first!.start : Double.infinity
             let end = min(nextStart, group.last!.end + 0.6)
             pages.append(CaptionPage(index: gi, range: TimeRange(start: start, end: max(end, start + 0.1)), lines: lines))
         }
         return pages
+    }
+
+    /// Two greedy lines re-broken at a phrase boundary (#255): after a comma or a pause when one is near the
+    /// middle, else where the lines come out most even. Both lines must still fit.
+    static func balanced(_ lines: [[TimedCaptionWord]], maxChars: Int) -> [[TimedCaptionWord]] {
+        guard lines.count == 2 else { return lines }
+        let words = lines[0] + lines[1]
+        guard words.count >= 3 else { return lines }
+        func chars(_ ws: ArraySlice<TimedCaptionWord>) -> Int { ws.map(\.text.count).reduce(0, +) + max(ws.count - 1, 0) }
+        var best: (cost: Double, split: Int)?
+        for split in 1..<words.count {
+            let left = words[..<split], right = words[split...]
+            let l = chars(left), r = chars(right)
+            guard l <= maxChars, r <= maxChars else { continue }
+            var cost = Double(abs(l - r))
+            let last = words[split - 1]
+            if last.text.hasSuffix(",") || last.text.hasSuffix(";") || last.text.hasSuffix(":") || last.text.hasSuffix("—") { cost -= 6 }
+            if words[split].start - last.end >= 0.25 { cost -= 4 }
+            if best == nil || cost < best!.cost { best = (cost, split) }
+        }
+        guard let best else { return lines }
+        return [Array(words[..<best.split]), Array(words[best.split...])]
     }
 
     /// Page visible at `time` (binary search over sorted pages).

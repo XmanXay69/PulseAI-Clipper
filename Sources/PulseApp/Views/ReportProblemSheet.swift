@@ -11,6 +11,7 @@ struct ReportProblemSheet: View {
     @State private var result: URL?
     @State private var failure: String?
     @State private var showLog = false
+    @State private var includeStructure = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -35,6 +36,15 @@ struct ReportProblemSheet: View {
                 Label("Never included: your videos, audio, transcripts or API keys.", systemImage: "lock.shield")
             }
             .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            if app.session != nil {
+                Toggle(isOn: $includeStructure) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Include the open project's structure").font(.pulseCaption).foregroundStyle(Theme.textPrimary)
+                        Text("Counts, kinds, lengths and settings only — no names, paths, words or titles (#455).").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                    }
+                }
+                .toggleStyle(.checkbox)
+            }
             DisclosureGroup("Show recent log", isExpanded: $showLog) {
                 ScrollView {
                     Text(PulseLog.tail(80).joined(separator: "\n")).font(.system(size: 10, design: .monospaced))
@@ -54,7 +64,7 @@ struct ReportProblemSheet: View {
                 Button(result == nil ? "Cancel" : "Done") { dismiss() }.buttonStyle(.pulseSecondary).keyboardShortcut(.cancelAction)
                 Button {
                     do {
-                        let zip = try ProblemReporter.makeReport(app: app, description: text)
+                        let zip = try ProblemReporter.makeReport(app: app, description: text, structure: includeStructure ? app.session?.document.anonymizedStructure() : nil)
                         result = zip
                         NSWorkspace.shared.activateFileViewerSelecting([zip])
                         if let url = ProblemReporter.issueURL(description: text) { NSWorkspace.shared.open(url) }

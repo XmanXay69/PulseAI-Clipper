@@ -3,6 +3,7 @@ import Foundation
 import PulseCore
 import PulseEngine
 import SwiftUI
+import UniformTypeIdentifiers
 
 enum EditTool: String, CaseIterable {
     case select, blade
@@ -100,7 +101,16 @@ final class ProjectSession: ObservableObject, Identifiable {
     @Published private(set) var redoLabel: String?
 
     let playback = PlaybackController()
-    private var history = History<ProjectDocument>()
+    /// Undo keeps up to 300 steps, but never more than roughly 60 big-timeline snapshots' worth (#397).
+    private var history = History<ProjectDocument>(limit: 300, maxCost: 2_000_000, cost: { doc in
+        doc.timelines.reduce(0) { $0 + $1.allClips.count * 20 + ($1.captions?.words.count ?? 0) } + doc.candidates.count * 5 + doc.media.count
+    })
+    /// The transcript each asset had before its last re-analysis, so rebuilt captions can tell your edits from
+    /// the machine's (#258).
+    var previousTranscripts: [UUID: Transcript] = [:]
+    /// Seconds of editing not yet written into the document (#477).
+    var pendingEditingSeconds: Seconds = 0
+    private var editingTimer: Timer?
     private var autosaveTask: Task<Void, Never>?
     private var snapshotDirty = false
 
@@ -294,6 +304,10 @@ final class ProjectSession: ObservableObject, Identifiable {
     // MARK: Persistence
 
     func save() {
+        if pendingEditingSeconds > 0 {
+            document.editingSeconds += pendingEditingSeconds
+            pendingEditingSeconds = 0
+        }
         do {
             if document.thumbnailPath == nil, let asset = document.primaryAsset, asset.kind == .video {
                 let relative = "thumbnails/poster.jpg"
@@ -340,7 +354,8 @@ final class ProjectSession: ObservableObject, Identifiable {
     }
 
     func close() {
-        if isDirty { save() }
+        stopEditingClock()
+        if isDirty || pendingEditingSeconds > 0 { save() }
         autosaveTask?.cancel()
         playback.pause()
     }
@@ -522,6 +537,7 @@ final class ProjectSession: ObservableObject, Identifiable {
     }
 
     func setAnalysis(_ analysis: MediaAnalysis) {
+        if let old = analyses[analysis.assetID]?.transcript, old != analysis.transcript { previousTranscripts[analysis.assetID] = old }
         analyses[analysis.assetID] = analysis
         try? app.store.saveAnalysis(analysis, in: package)
         if let transcript = analysis.transcript {
@@ -821,6 +837,74 @@ final class ProjectSession: ObservableObject, Identifiable {
         guard let assetID = timeline.tracks.first(where: { $0.kind == .video })?.clips.first(where: { $0.role != .graphic })?.content.assetID,
               let words = analyses[assetID]?.transcript?.words, !words.isEmpty else { return nil }
         return words
+    }
+
+    /// Counts a minute of editing whenever PULSE is in front with this project open (#477).
+    func startEditingClock() {
+        editingTimer?.invalidate()
+        editingTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, NSApp.isActive else { return }
+                self.pendingEditingSeconds += 60
+                if self.pendingEditingSeconds >= 300 && !self.isDirty { self.save() }
+            }
+        }
+    }
+
+    func stopEditingClock() {
+        editingTimer?.invalidate()
+        editingTimer = nil
+    }
+
+    /// The selected clip takes the look of the clip before it on its track (#226).
+    func matchPreviousClip() {
+        let ids = selectedClipIDs
+        guard !ids.isEmpty else { return }
+        var matched = 0
+        editTimeline("Match Previous Clip") { t in
+            for id in ids where t.matchPrevious(clipID: id) { matched += 1 }
+        }
+        app.toast(matched == 0 ? "Nothing before the selected clip on its track" : "\(matched) clip\(matched == 1 ? "" : "s") now look like the one before")
+    }
+
+    /// The frame under the playhead becomes the export thumbnail (#70).
+    func setCoverFrame() {
+        let time = playhead
+        editTimeline("Set Cover Frame") { $0.coverTime = time }
+        app.toast("Cover frame set at \(Timecode.short(time)) — exports use it for the thumbnail")
+    }
+
+    /// Captions rebuilt from the newest transcript, keeping your fixes (#258).
+    func rebuildCaptionsKeepingFixes() {
+        guard let timeline = activeTimeline, let old = timeline.captions,
+              let transcript = analyses[old.sourceAssetID]?.transcript else { app.toast("No transcript to rebuild from yet"); return }
+        let range = timeline.tracks.flatMap(\.clips).filter { $0.content.assetID == old.sourceAssetID }.map(\.sourceRange).merged()
+        guard let start = range.first?.start, let end = range.last?.end else { return }
+        let previous = previousTranscripts[old.sourceAssetID]
+        editTimeline("Rebuild Captions") { t in
+            t.captions = CaptionTrack.rebuilt(from: transcript, range: TimeRange(start: start, end: end), assetID: old.sourceAssetID,
+                                              keeping: old, previous: previous, emphasize: true)
+        }
+        app.toast("Captions rebuilt from the latest transcript — your edits were kept")
+    }
+
+    /// The timeline as Final Cut Pro XML for Final Cut Pro or DaVinci Resolve (#480).
+    func exportFCPXML() {
+        guard let timeline = activeTimeline else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = ExportSettings.cleanComponent(timeline.name) + ".fcpxml"
+        panel.allowedContentTypes = [UTType(filenameExtension: "fcpxml") ?? .xml]
+        panel.prompt = "Export XML"
+        panel.message = "The cut, titles and markers go to Final Cut Pro or Resolve; zooms, grades, captions and effects stay in PULSE."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let xml = FCPXMLExporter.xml(timeline: timeline, assets: document.media, projectName: document.name, compounds: document.compoundsByID)
+        do {
+            try xml.write(to: url, atomically: true, encoding: .utf8)
+            app.logActivity(.export, title: "Exported “\(timeline.name)” as Final Cut Pro XML", detail: url.lastPathComponent)
+            app.toast("Saved \(url.lastPathComponent) — open it in Final Cut Pro or Resolve")
+        } catch {
+            app.present(error, title: "Couldn't write the XML")
+        }
     }
 
     /// Trims the project to the media it uses (#469); the files stay on disk.

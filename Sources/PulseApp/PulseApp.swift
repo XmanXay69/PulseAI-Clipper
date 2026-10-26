@@ -167,12 +167,18 @@ struct PulseCommands: Commands {
                 .disabled(app.session?.copiedAttributes == nil)
             Button("Paste Look Only") { app.session?.pasteAttributes(parts: .look) }.keyboardShortcut("v", modifiers: [.command, .option, .shift])
                 .disabled(app.session?.copiedAttributes == nil)
+            Button("Match Previous Clip") { app.session?.matchPreviousClip() }.keyboardShortcut("m", modifiers: [.command, .option])
+                .disabled(app.session?.selectedClipIDs.isEmpty ?? true)
+            Button("Set Cover Frame at Playhead") { app.session?.setCoverFrame() }
+                .disabled(app.session?.activeTimeline == nil)
             Divider()
             Button("Loop In → Out") { app.session?.toggleLoopInOut() }.keyboardShortcut("l", modifiers: [.option])
             Button("Export In → Out") { app.session?.exportInOut() }.keyboardShortcut("e", modifiers: [.command, .option])
                 .disabled(app.session?.inOutRange == nil)
             Button("Export Selected Clips") { app.session?.exportSelectedClips() }.keyboardShortcut("e", modifiers: [.command, .option, .shift])
                 .disabled(app.session?.selectedClipIDs.isEmpty ?? true)
+            Button("Export Final Cut Pro XML…") { app.session?.exportFCPXML() }
+                .disabled(app.session?.activeTimeline == nil)
             Menu("Snapshots") {
                 Button("Take Snapshot") { app.session?.takeSnapshot() }.keyboardShortcut("s", modifiers: [.command, .option])
                     .disabled(app.session?.activeTimeline == nil)

@@ -56,6 +56,10 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
     public var lastImportFolder: String = ""
     /// The Extras question was answered for this project (#128).
     public var extrasAnswered: Bool = false
+    /// When this needs to be posted (#475).
+    public var deadline: Date?
+    /// Time spent with this project open and the app in front (#477).
+    public var editingSeconds: Seconds = 0
 
     public init(id: UUID = UUID(), name: String, createdAt: Date = Date()) {
         self.id = id
@@ -105,6 +109,8 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
         snapshots = c.decode([TimelineSnapshot].self, forKey: .snapshots, default: [])
         lastImportFolder = c.decode(String.self, forKey: .lastImportFolder, default: "")
         extrasAnswered = c.decode(Bool.self, forKey: .extrasAnswered, default: false)
+        deadline = c.decode(Date?.self, forKey: .deadline, default: nil)
+        editingSeconds = c.decode(Seconds.self, forKey: .editingSeconds, default: 0)
     }
 
     // MARK: Convenience
@@ -139,7 +145,8 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
         return ProjectSummary(id: id, name: name, path: "", modifiedAt: modifiedAt, createdAt: createdAt,
                               duration: main?.metadata.duration ?? 0, resolution: main?.metadata.resolutionLabel ?? "—",
                               clipCount: visibleCandidates.count, timelineCount: timelines.count, status: status,
-                              thumbnailPath: thumbnailPath, isFavorite: isFavorite, isTrashed: isTrashed)
+                              thumbnailPath: thumbnailPath, isFavorite: isFavorite, isTrashed: isTrashed,
+                              deadline: deadline, editingSeconds: editingSeconds > 0 ? editingSeconds : nil)
     }
 
     public mutating func touch() {
@@ -192,9 +199,16 @@ public struct ProjectSummary: Codable, Hashable, Identifiable, Sendable {
     public var thumbnailPath: String?
     public var isFavorite: Bool
     public var isTrashed: Bool
+    /// When this needs to be posted (#475).
+    public var deadline: Date?
+    /// Time spent editing (#477).
+    public var editingSeconds: Seconds?
 
     public init(id: UUID, name: String, path: String, modifiedAt: Date, createdAt: Date, duration: Seconds, resolution: String,
-                clipCount: Int, timelineCount: Int, status: ProjectStatus, thumbnailPath: String?, isFavorite: Bool, isTrashed: Bool) {
+                clipCount: Int, timelineCount: Int, status: ProjectStatus, thumbnailPath: String?, isFavorite: Bool, isTrashed: Bool,
+                deadline: Date? = nil, editingSeconds: Seconds? = nil) {
+        self.deadline = deadline
+        self.editingSeconds = editingSeconds
         self.id = id
         self.name = name
         self.path = path

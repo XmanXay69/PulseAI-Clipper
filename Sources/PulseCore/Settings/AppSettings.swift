@@ -78,6 +78,8 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var askExtrasOncePerProject: Bool = false
     /// Your @handle for follow cards (#76).
     public var socialHandle: String = ""
+    /// B-roll clips used in recent edits, newest last; the next edit avoids them (#133).
+    public var recentBrollIDs: [String] = []
     public var aiFraming: Bool = true
     /// Label who is talking after transcription (local diarization).
     public var detectSpeakers: Bool = true
@@ -153,6 +155,7 @@ public struct AISettings: Codable, Hashable, Sendable {
         shortsEndCTA = c.decode(EndCTA.self, forKey: .shortsEndCTA, default: d.shortsEndCTA)
         askExtrasOncePerProject = c.decode(Bool.self, forKey: .askExtrasOncePerProject, default: d.askExtrasOncePerProject)
         socialHandle = c.decode(String.self, forKey: .socialHandle, default: d.socialHandle)
+        recentBrollIDs = c.decode([String].self, forKey: .recentBrollIDs, default: d.recentBrollIDs)
         aiFraming = c.decode(Bool.self, forKey: .aiFraming, default: d.aiFraming)
         detectSpeakers = c.decode(Bool.self, forKey: .detectSpeakers, default: d.detectSpeakers)
         speakerCount = c.decode(Int.self, forKey: .speakerCount, default: d.speakerCount)

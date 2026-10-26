@@ -248,6 +248,8 @@ struct CaptionStylePanel: View {
                                     .help("First word of each sentence capitalised, shouting lowered; I, GG and the like stay")
                                 Button("Remove um / uh") { stripFillers() }.buttonStyle(.pulse(.secondary, compact: true))
                                     .help("Takes filler-only words out of the captions; the audio is untouched")
+                                Button("Rebuild") { session.rebuildCaptionsKeepingFixes() }.buttonStyle(.pulse(.secondary, compact: true))
+                                    .help("Captions again from the latest transcript — words you retyped, hid or emphasised stay as you left them")
                             }
                             HStack(spacing: 6) {
                                 TextField("Find", text: $findText).textFieldStyle(.roundedBorder).frame(width: 88)

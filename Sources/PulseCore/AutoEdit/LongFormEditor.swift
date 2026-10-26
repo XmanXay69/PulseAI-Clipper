@@ -33,6 +33,8 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
     public var musicLevel: Double = 1
     /// A small lower-third with the chapter's name at the start of each chapter (#91).
     public var chapterTitles = false
+    /// Cut stretches where the game is loud but nobody talks for 8 s or more (#30).
+    public var cutGameOnly = false
     /// Your own meme pop-up text per mood (Settings → AI Features); empty = PULSE's default.
     public var memeTexts: [ClipTag: String] = [:]
 
@@ -107,6 +109,13 @@ public struct LongFormPlan: Sendable {
     public var hook: UUID?
     /// Up to three moments that would open the video well, best first (#89).
     public var hookCandidates: [UUID] = []
+
+    /// The same plan with another set of kept moments.
+    public func withSelection(_ ids: Set<UUID>) -> LongFormPlan {
+        var copy = self
+        copy.selected = ids
+        return copy
+    }
 
     /// Kept length if built now (overlaps counted once, before dead air is cut).
     public func keptLength(_ selection: Set<UUID>? = nil) -> Seconds {
@@ -361,6 +370,15 @@ public enum LongFormEditor {
                 .filter { r in r.duration >= 4 && !(hookRange.map { r.overlaps($0) } ?? false) }
             if !idle.isEmpty {
                 removed += timeline.removeSourceRanges(idle.merged(), assetID: asset.id, reason: .idleScreen, aiGenerated: true)
+            }
+            // The game loud, nobody talking, for 8 s or more (#30) — opt-in; the payoff of a kept moment stays.
+            if options.cutGameOnly, let signals {
+                let quiet = EngagementModel.gameOnlyRanges(signals)
+                    .flatMap { range in segments.compactMap { s in range.intersection(s.range).flatMap { r in r.contains(s.payoff) ? nil : r } } }
+                    .filter { r in r.duration >= 8 && !(hookRange.map { r.overlaps($0) } ?? false) }
+                if !quiet.isEmpty {
+                    removed += timeline.removeSourceRanges(quiet.merged(), assetID: asset.id, reason: .noTalking, aiGenerated: true)
+                }
             }
         }
         // Pauses that are too short to cut but long enough to feel: play them at 1.6×.

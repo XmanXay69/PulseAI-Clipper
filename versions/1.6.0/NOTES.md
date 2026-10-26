@@ -5,6 +5,13 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 [1.5.0](../1.5.0/NOTES.md) and [1.4.0](../1.4.0/NOTES.md) for those two; what's new on top:
 
 ### Edit My VOD
+- **Story outline** (#86) — the storyboard shows the chapters the video will read as (split at the biggest
+  jumps in the stream, named from the streamer's own words or what the chapter mostly is), live as you keep
+  and drop moments.
+- **Cut game-only stretches** (#30) — opt-in: 8 s or more of loud game with nobody talking inside a kept
+  moment goes; the moment's payoff always stays.
+- **Not the same meme again** (#133) — B-roll used in the last 60 cutaways is avoided in the next edit.
+- **What copying a reference changes** (#368) — one plain line per setting with the measurement behind it.
 - **Mic checks and sign-offs stay out** (#120, #121) — "can you hear me?", "mic check", "thanks for watching,
   raiding now" and the like are recognised from what's said; moments inside them only make the cut when they're
   genuinely strong.
@@ -57,6 +64,11 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   music overlaps the next for 3 s instead of fading out, a gap, and fading in.
 
 ### Editing
+- **Match Previous Clip** (⌥⌘M, #226) — the selected clip takes the look of the one before it on its track.
+- **Cover frame** (#70) — Timeline → Set Cover Frame at Playhead; exports use it for the thumbnail.
+- **Project notes with to-dos** (#476) — a notes button on the timeline toolbar; “- [ ] grade the intro”
+  lines become boxes you tick, and the button shows how many are done.
+- **Undo never eats the Mac** (#397) — the undo history is capped by what the snapshots cost, not only by count.
 - **Tighten pauses** (#82) — a popover on the timeline toolbar: pick the shortest pause to speed up and see
   “7 pauses · 4.2 s shorter” before you press Tighten.
 - **Find on the timeline** (#174) — a clip by name, a marker by name or note, or words that were said; click to
@@ -109,6 +121,9 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   gentle starting point you can tune.
 
 ### AI Clips
+- **Screams count** (#29) — a sudden loud burst while a voice is going scores as a scream; a loud game with
+  nobody talking doesn't.
+- **Clip lengths up to TikTok's 3 minutes** (#58) — 90 s (Reels max) and 3 min (TikTok max) presets.
 - **More titles like this one** (#60) — a quote gets the next-best quotes from the same words, a hook line gets
   its siblings; three more each click, never a repeat.
 - **Merge moments** (#65) — ⌘-click two or more cards and “Merge into One Short”: each is cut the one-click way
@@ -147,6 +162,10 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 - **Overlap warning** (#73) — a clip that covers mostly the same stretch as a short you've already edited says so.
 
 ### Delivery
+- **Final Cut Pro XML** (#480) — Timeline → Export Final Cut Pro XML…: the cut, titles and markers open in
+  Final Cut Pro or DaVinci Resolve; zooms, grades, captions and effects stay in PULSE and the file says so.
+- **Export again** (#351) — one click re-exports a finished job with the same settings.
+- **Name tokens** (#352) — click {project} {clip} {preset} {date} {index} into the filename pattern.
 - **Export the selected clips** (⌥⇧⌘E, #335), **a thumbnail PNG next to the video** (#337), **a file-size
   cap** that lowers the video bitrate to fit (#344), **title, hashtags and app in the file's metadata**
   (#354), and **Copy description & credits** in the export panel (#299).
@@ -185,6 +204,10 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   "valerant" → "Valorant", "x q c" → "xQc", "sea of theives" → "Sea of Thieves", timings untouched.
 
 ### Captions
+- **Lines break at the phrase** (#255) — two-line pages break after a comma or a pause when one is near the
+  middle, else where the lines come out most even.
+- **Rebuild keeps your fixes** (#258) — captions rebuilt from a newer transcript keep the words you retyped,
+  hid or emphasised.
 - **Sentence case** and **Remove um / uh** (#239) — one click each; I, GG and NPC stay as they are and the
   audio keeps the fillers.
 - **Shift after the playhead** (#241) — ±200 ms for only the words from the playhead on, after a re-cut.
@@ -204,6 +227,13 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   per timeline. It's rendered into the enhance cache; the source file is never touched.
 
 ### Everywhere
+- **Settings search** (#443) — type what you're after; only the matching pages stay in the list.
+- **Printable shortcut sheet** (#451) — Settings → Shortcuts → Printable Cheat Sheet opens a page to print.
+- **Deadlines** (#475) — right-click a project → Deadline; the card shows when it's due and PULSE reminds you
+  at launch when something is due within two days.
+- **Time spent** (#477) — each project card shows how long you've been at it (counted while PULSE is in front).
+- **Report a Problem can include the project's shape** (#455) — counts, kinds, lengths and settings, never
+  names, paths, words or titles; off unless you tick it.
 - **Diagnostics and Privacy in Settings** (#447, #452) — one page with the Mac, encoders, transcription
   status, disk and the last log lines, with Copy for support; and a plain-words page of what leaves the Mac,
   showing the state of each switch.
