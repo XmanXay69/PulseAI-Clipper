@@ -250,3 +250,20 @@ public enum CandidateSort: String, CaseIterable, Sendable {
         }
     }
 }
+
+
+extension Array where Element == ClipCandidate {
+    /// Pairs of shorts that cover mostly the same stretch of the stream (posting both looks like a repost).
+    public func overlappingPairs(minimumShare: Double = 0.5) -> [(a: ClipCandidate, b: ClipCandidate, share: Double)] {
+        var out: [(ClipCandidate, ClipCandidate, Double)] = []
+        for i in indices {
+            for j in indices where j > i && self[i].assetID == self[j].assetID {
+                let a = self[i].range, b = self[j].range
+                let overlap = Swift.max(0, Swift.min(a.end, b.end) - Swift.max(a.start, b.start))
+                let share = overlap / Swift.max(Swift.min(a.duration, b.duration), 0.01)
+                if share >= minimumShare { out.append((self[i], self[j], share)) }
+            }
+        }
+        return out
+    }
+}

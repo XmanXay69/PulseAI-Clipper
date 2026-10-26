@@ -100,20 +100,33 @@ public enum SpeakerAware {
 public enum RetentionCards {
     /// "THEN THIS HAPPENED…", "20 MINUTES LATER…", "IT GETS WORSE" — chosen from what comes next and how far
     /// the video jumped.
-    public static func text(for segment: LongFormSegment, after previous: LongFormSegment, index: Int) -> String {
+    public static func text(for segment: LongFormSegment, after previous: LongFormSegment, index: Int, words: [TranscriptWord] = []) -> String {
         let jump = segment.range.start - previous.range.end
         let tags = Set(segment.tags)
         if jump >= 600 { return "\(Int((jump / 60).rounded())) MINUTES LATER…" }
+        // The streamer's own words when they make a short, punchy card ("THE 1V4!", "NO WAY…").
+        if let phrase = phrase(from: words, in: segment) { return phrase }
         if !tags.isDisjoint(with: [.fail, .rage]) { return "IT GETS WORSE" }
         if !tags.isDisjoint(with: [.story, .conversation]) { return index % 2 == 0 ? "STORY TIME" : "WAIT FOR IT…" }
         if !tags.isDisjoint(with: [.hype, .highEnergy, .gaming]) { return index % 2 == 0 ? "THEN THIS HAPPENED…" : "AND THEN…" }
         return ["MEANWHILE…", "THEN THIS HAPPENED…", "WAIT FOR IT…"][index % 3]
     }
 
+    /// A 2–4 word line from the section's own transcript around its payoff, or nil when nothing short and
+    /// punchy was said.
+    static func phrase(from words: [TranscriptWord], in segment: LongFormSegment) -> String? {
+        let around = words.filter { $0.start >= segment.payoff - 12 && $0.end <= segment.payoff + 6 }
+        guard around.count >= 3, let quote = TitleGenerator.bestQuote(words: around, payoff: segment.payoff) else { return nil }
+        let bare = quote.trimmingCharacters(in: CharacterSet(charactersIn: "“”\""))
+        let tokens = bare.split(separator: " ")
+        guard (2...4).contains(tokens.count), !bare.hasSuffix("…"), bare.count <= 24 else { return nil }
+        return bare
+    }
+
     /// One short card at the start of sections that follow a real jump in the stream (≥ 2 minutes),
     /// at most one every 90 seconds, never on top of other text. Returns how many were added.
     @discardableResult
-    public static func add(_ timeline: inout Timeline, segments: [LongFormSegment], starts: [Seconds?], hookEnd: Seconds) -> Int {
+    public static func add(_ timeline: inout Timeline, segments: [LongFormSegment], starts: [Seconds?], hookEnd: Seconds, words: [TranscriptWord] = []) -> Int {
         guard let t1 = timeline.tracks.firstIndex(where: { $0.kind == .text }) else { return 0 }
         var added = 0
         var last = -Double.infinity
@@ -123,7 +136,7 @@ public enum RetentionCards {
                   !timeline.tracks[t1].clips.contains(where: { $0.timelineRange.overlaps(TimeRange(start: t - 0.5, end: t + 2.5)) }) else { continue }
             let style = TextStyle(fontName: TextStyle.tiktokSans, fontSize: 64, weight: .black, textCase: .uppercase, color: .white,
                                   strokeColor: .black, strokeWidth: 8, shadowOpacity: 0.55, shadowRadius: 8, shadowOffsetY: 4)
-            var card = TimelineClip(name: "Title Card", content: .text(TextElement(text: text(for: segments[i], after: segments[i - 1], index: added),
+            var card = TimelineClip(name: "Title Card", content: .text(TextElement(text: text(for: segments[i], after: segments[i - 1], index: added, words: words),
                                                                                    style: style, animationIn: .pop, animationOut: .fadeIn,
                                                                                    animationDuration: 0.2, maxWidth: 0.7)),
                                     start: t + 0.1, sourceDuration: 1.7, aiGenerated: true)
@@ -134,6 +147,26 @@ public enum RetentionCards {
         }
         timeline.tracks[t1].sortClips()
         return added
+    }
+}
+
+extension RetentionCards {
+    /// Captions under a title card fight it for attention: hide the caption words shown while any card, meme
+    /// or replay tag is on screen. Returns words hidden.
+    @discardableResult
+    public static func hideCaptionsUnderCards(_ timeline: inout Timeline) -> Int {
+        guard var captions = timeline.captions else { return 0 }
+        let cards = timeline.tracks.filter { $0.kind == .text }.flatMap(\.clips)
+            .filter { $0.aiGenerated && ($0.name == "Title Card" || $0.name.hasPrefix("Meme:") || $0.name == "Replay Tag") }
+            .map(\.timelineRange)
+        guard !cards.isEmpty else { return 0 }
+        let timed = CaptionLayoutEngine.timelineWords(captions, in: timeline)
+        var hide = Set<UUID>()
+        for w in timed where cards.contains(where: { $0.overlaps(TimeRange(start: w.start, end: w.end)) }) { hide.insert(w.id) }
+        guard !hide.isEmpty else { return 0 }
+        for i in captions.words.indices where hide.contains(captions.words[i].id) { captions.words[i].isHidden = true }
+        timeline.captions = captions
+        return hide.count
     }
 }
 

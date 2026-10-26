@@ -37,22 +37,22 @@ struct EditExtrasSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
                     SectionLabel(text: "While editing")
-                    row("Facecam punch-ins", "person.crop.square", facecamDetail, \.facecamPunchIns)
-                    row("B-roll cutaways", "film", "Short Creative Commons meme and reaction clips cut in on the funniest moments, downloaded from YouTube. Credits go in the description.",
+                    row("Facecam punch-ins", "person.crop.square", facecamDetail, \.facecamPunchIns, enabled: hasFacecam)
+                    row("B-roll cutaways", "film", "Short Creative Commons meme and reaction clips cut in on the funniest moments, downloaded from YouTube. Credits go in the description. Adds about a minute.",
                         \.brollClips)
-                    row("Beat-synced music & zooms", "metronome", musicOn ? "Music starts on a beat and the zooms land on beats." : "Needs music; music is off for this edit.",
+                    row("Beat-synced music & zooms", "metronome", musicOn ? "Music starts on a beat and the zooms land on beats. Adds a few seconds." : "Needs music; music is off for this edit.",
                         \.beatSync, enabled: musicOn)
                     row("Speaker-aware cuts", "person.2.wave.2", speakerDetail, \.speakerAware)
                     row("Retention title cards", "text.badge.star", "Short “THEN THIS HAPPENED…” or “20 MINUTES LATER…” cards where the video jumps ahead.",
                         \.titleCards)
-                    row("Instant replays", "arrow.counterclockwise.circle", replayDetail, \.instantReplays)
+                    row("Instant replays", "arrow.counterclockwise.circle", replayDetail, \.instantReplays, enabled: isGameplay)
                     if offerApproveCut {
                         SectionLabel(text: "Before building").padding(.top, 10)
                         row("Approve the cut", "checklist", "Review every section first: preview it, keep or drop it, move its start and end. Nothing is built until you approve.",
                             \.approveCut)
                     }
                     SectionLabel(text: "When exporting").padding(.top, 10)
-                    row("Loudness check", "speaker.wave.3", "Measures the finished mix (YouTube plays everything at −14 LUFS) and asks before changing anything.",
+                    row("Loudness check", "speaker.wave.3", "Measures the finished mix (YouTube plays everything at −14 LUFS) and asks before changing anything. About 10 s per 20 minutes of video.",
                         \.loudnessCheck)
                 }
                 .padding(20)
@@ -82,6 +82,10 @@ struct EditExtrasSheet: View {
         .preferredColorScheme(.dark)
         .onAppear { extras = app.settings.ai.editExtras }
     }
+
+    /// Unknown until analyzed → offered; analyzed and absent → greyed out with the reason in the text.
+    var hasFacecam: Bool { analysis.map { $0.profile == .gameplayWithFacecam && $0.webcam != nil } ?? true }
+    var isGameplay: Bool { analysis.map { $0.profile == .gameplay || $0.profile == .gameplayWithFacecam } ?? true }
 
     var facecamDetail: String {
         let base = "Big reactions zoom into your facecam instead of the middle of the game."

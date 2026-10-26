@@ -367,6 +367,19 @@ public enum EditQualityCheck {
             }
         }
 
+        // 8c. Captions that fly by: more than 4 words a second for 3 s+ can't be read.
+        if let captions = timeline.captions, captions.isEnabled {
+            let timed = CaptionLayoutEngine.timelineWords(captions, in: timeline)
+            var rushed = 0.0
+            var windowStart = 0.0
+            while windowStart + 3 <= duration, !timed.isEmpty {
+                let count = timed.filter { $0.start >= windowStart && $0.start < windowStart + 3 }.count
+                if Double(count) / 3 > 4 { rushed += 3 }
+                windowStart += 3
+            }
+            if rushed >= 6 { add(.note, "Fast captions", "\(Int(rushed)) s of captions run over 4 words a second — fewer words per caption or a bigger font helps") }
+        }
+
         // 9. Length.
         if let target, !target.contains(duration) {
             add(.note, "Length", "\(Timecode.short(duration)) is outside the \(Timecode.short(target.lowerBound))–\(Timecode.short(target.upperBound)) target")

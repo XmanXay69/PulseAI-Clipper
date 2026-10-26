@@ -115,6 +115,40 @@ extension Timeline {
         return addTrack(kind: kind)
     }
 
+    // MARK: Freeze frame
+
+    /// Holds the frame under `time` for `hold` seconds: the piece is split there, a one-frame copy stretched to
+    /// `hold` goes in between (the compositor stretches it like any slowed clip), and everything after moves
+    /// along on every track (so the sound pauses with the picture). Returns the new clip's id.
+    @discardableResult
+    public mutating func freezeFrame(at time: Seconds, hold: Seconds = 2, trackID: UUID? = nil) throws -> UUID {
+        guard hold >= 0.2 else { throw TimelineEditError.wouldBeEmpty }
+        let frame = 1 / max(canvas.frameRate, 1)
+        guard let ti = tracks.firstIndex(where: { (trackID == nil ? $0.kind == .video : $0.id == trackID) && !$0.isLocked
+            && $0.clips.contains { $0.timelineRange.contains(time) && $0.content.assetID != nil && $0.role != .graphic } }),
+              let ci = tracks[ti].clips.firstIndex(where: { $0.timelineRange.contains(time) && $0.content.assetID != nil && $0.role != .graphic })
+        else { throw TimelineEditError.nothingToRestore }
+        let holder = tracks[ti].clips[ci]
+        let sourceAt = holder.sourceIn + (time - holder.start) * holder.speed
+        // Cut everything at `time` (linked pieces too), then make room.
+        _ = try? split(at: time)
+        for t in tracks.indices where !tracks[t].isLocked {
+            for c in tracks[t].clips.indices where tracks[t].clips[c].start >= time - TimeRange.epsilon {
+                tracks[t].clips[c].start += hold
+            }
+        }
+        var still = TimelineClip(name: "Freeze", content: .media(assetID: holder.content.assetID!), start: time, sourceIn: min(sourceAt, max(0, holder.sourceOut - frame)),
+                                 sourceDuration: frame, speed: frame / hold, transform: holder.transform, style: holder.style, color: holder.color,
+                                 role: holder.role, aiGenerated: false)
+        still.transform.zoom = AnimatedDouble(holder.transform.zoom.value(at: time - holder.start))
+        still.transform.panX = AnimatedDouble(holder.transform.panX.value(at: time - holder.start))
+        still.transform.panY = AnimatedDouble(holder.transform.panY.value(at: time - holder.start))
+        tracks[ti].clips.append(still)
+        for t in tracks.indices { tracks[t].sortClips() }
+        touch()
+        return still.id
+    }
+
     // MARK: Insert
 
     /// Places a clip on a track. Overwrite clears the destination range; insert ripples later clips.

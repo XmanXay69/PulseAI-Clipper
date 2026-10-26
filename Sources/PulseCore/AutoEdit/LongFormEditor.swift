@@ -467,7 +467,7 @@ public enum LongFormEditor {
         // Extra: "THEN THIS HAPPENED…" cards where the video jumps ahead in the stream.
         var cards = 0
         if options.extras.titleCards {
-            cards = RetentionCards.add(&timeline, segments: segments, starts: starts, hookEnd: hookEnd)
+            cards = RetentionCards.add(&timeline, segments: segments, starts: starts, hookEnd: hookEnd, words: words)
         }
 
         // A whoosh where the story jumps ahead in the stream (sparingly), and one out of the hook.
@@ -525,6 +525,9 @@ public enum LongFormEditor {
             }
         }
 
+        // Captions never fight a title card, meme or replay tag for attention.
+        let hiddenCaptions = RetentionCards.hideCaptionsUnderCards(&timeline)
+
         // Repeated whooshes and stings at exactly the same level sound copy-pasted: vary them a touch (deterministic
         // per edit, so re-running gives the same result).
         if options.soundEffects {
@@ -567,6 +570,7 @@ public enum LongFormEditor {
         if cards > 0 { parts.append("\(cards) title cards") }
         if replays > 0 { parts.append("\(replays) instant replay\(replays == 1 ? "" : "s")") }
         if pushIns > 0 { parts.append("\(pushIns) slow push-ins") }
+        if hiddenCaptions > 0 { parts.append("captions clear of \(cards + memes) cards") }
         if let style = options.style { parts.append("styled like “\(style.name)”") }
         parts.append(checks.summary.lowercased())
         return LongFormResult(timeline: timeline, segments: segments, report: parts.joined(separator: " · "), musicChapters: chapters,

@@ -4,6 +4,7 @@ import Foundation
 import PulseCore
 import PulseEngine
 import SwiftUI
+import UserNotifications
 import UniformTypeIdentifiers
 
 enum SidebarSection: String, CaseIterable, Identifiable {
@@ -154,6 +155,7 @@ final class AppModel: ObservableObject {
             switch job.status {
             case .completed(let path):
                 PulseLog.info("Export finished: \(job.timelineName) → \((path as NSString).lastPathComponent)")
+                self.notifyIfInBackground(title: "Export finished", body: "“\(job.timelineName)” is ready — \((path as NSString).lastPathComponent)")
                 self.rememberPrediction(timelineID: job.timelineID, fileName: ((path as NSString).lastPathComponent as NSString).deletingPathExtension)
                 self.logActivity(.export, title: "Exported “\(job.timelineName)”", detail: (path as NSString).lastPathComponent)
                 self.session?.edit("Mark Exported") { doc in doc.exportCount += 1 }
@@ -513,6 +515,20 @@ final class AppModel: ObservableObject {
     func present(title: String, message: String) {
         PulseLog.warning("\(title): \(message)")
         alert = AppAlert(title: title, message: message)
+    }
+
+    /// A system notification when PULSE isn't the active app (a toast is enough when it is). Only from the real
+    /// .app bundle — the notification center refuses bare executables (the CI harness).
+    func notifyIfInBackground(title: String, body: String) {
+        guard !NSApp.isActive, Bundle.main.bundleURL.pathExtension == "app", Bundle.main.bundleIdentifier != nil else { return }
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+            guard granted else { return }
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+        }
     }
 
     /// ⌘E: the current timeline into the export queue with the project's last export settings, no sheet.

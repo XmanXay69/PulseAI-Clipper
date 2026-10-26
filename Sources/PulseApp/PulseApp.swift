@@ -146,6 +146,7 @@ struct PulseCommands: Commands {
             Button("Detach Audio") { app.session?.detachAudio() }.keyboardShortcut("d", modifiers: [.command, .shift])
             Button("Ripple Delete In → Out") { app.session?.rippleDeleteInOut() }.keyboardShortcut(.delete, modifiers: [.command, .option])
             Button("Close All Gaps") { app.session?.closeAllGaps() }.disabled(app.session?.activeTimeline == nil)
+            Button("Freeze Frame") { app.session?.freezeFrame() }.keyboardShortcut("f", modifiers: [.shift]).disabled(app.session?.activeTimeline == nil)
             Divider()
             Button("Add Text") { app.session?.addText() }.keyboardShortcut("t", modifiers: [.command, .option])
             Divider()

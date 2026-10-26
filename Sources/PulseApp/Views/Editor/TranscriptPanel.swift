@@ -152,11 +152,16 @@ struct TranscriptPanel: View {
         let time = timelineTime(for: word, clips: visibleClips)
         let inTimeline = time != nil || session.activeTimeline == nil
         let selected = selection?.contains(index) ?? false
+        let lowConfidence = (word.confidence ?? 1) < 0.5
         return Text(word.text)
             .font(.system(size: 12.5, weight: current ? .semibold : .regular))
             .strikethrough(!inTimeline, color: Theme.textTertiary)
             .underline(filler, color: Theme.warning)
             .foregroundStyle(current ? Theme.accent : (inTimeline ? Theme.textPrimary : Theme.textTertiary))
+            // Words the transcriber wasn't sure about are dimmed and dotted, so they're easy to spot and fix.
+            .opacity(lowConfidence ? 0.6 : 1)
+            .overlay(alignment: .bottom) { if lowConfidence { Rectangle().fill(Theme.warning.opacity(0.7)).frame(height: 1).padding(.horizontal, 2) } }
+            .help(lowConfidence ? "Low confidence (\(Int((word.confidence ?? 0) * 100)) %) — double-click to fix" : "")
             .padding(.horizontal, 2)
             .background(RoundedRectangle(cornerRadius: 3).fill(selected ? Theme.info.opacity(0.35) : (hit ? Theme.warning.opacity(0.3) : .clear)))
             .onTapGesture {

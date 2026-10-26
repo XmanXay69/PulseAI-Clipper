@@ -208,6 +208,17 @@ extension ProjectSession {
         return (assets, used)
     }
 
+    /// Timeline → Freeze Frame (⇧F): hold the frame under the playhead for two seconds; the sound pauses with it.
+    func freezeFrame(hold: Seconds = 2) {
+        guard activeTimeline != nil else { return }
+        let at = playback.currentTime
+        var failed = false
+        editTimeline("Freeze Frame") { t in
+            do { try t.freezeFrame(at: at, hold: hold) } catch { failed = true }
+        }
+        if failed { app.toast("Put the playhead over a video clip to freeze a frame") }
+    }
+
     /// Timeline → Close All Gaps: ripple every black gap on the main track closed.
     func closeAllGaps() {
         guard let timeline = activeTimeline else { return }

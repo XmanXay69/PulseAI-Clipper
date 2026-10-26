@@ -136,6 +136,76 @@ final class RoadmapBatchTests: XCTestCase {
         XCTAssertFalse(even.issues.contains { $0.title == "Unbalanced chapters" }, even.text)
     }
 
+    func testFreezeFrameHoldsThePictureAndPausesTheSound() throws {
+        var t = Timeline(name: "t", canvas: .landscape1080, tracks: [Track(kind: .video, name: "V1"), Track(kind: .audio, name: "A1"), Track(kind: .text, name: "T1")])
+        let g = UUID()
+        t.tracks[0].clips = [TimelineClip(name: "v", content: .media(assetID: asset), start: 0, sourceIn: 100, sourceDuration: 20, linkGroup: g)]
+        t.tracks[1].clips = [TimelineClip(name: "a", content: .media(assetID: asset), start: 0, sourceIn: 100, sourceDuration: 20, linkGroup: g, role: .microphone)]
+        t.tracks[2].clips = [TimelineClip(name: "Meme", content: .text(TextElement(text: "LOL")), start: 12, sourceDuration: 1)]
+        let id = try t.freezeFrame(at: 8, hold: 2)
+        let v = t.tracks[0].clips
+        XCTAssertEqual(v.count, 3)
+        XCTAssertEqual(v[0].end, 8, accuracy: 0.001)
+        let still = v[1]
+        XCTAssertEqual(still.id, id)
+        XCTAssertEqual(still.start, 8, accuracy: 0.001)
+        XCTAssertEqual(still.duration, 2, accuracy: 0.001, "one frame stretched to the hold")
+        XCTAssertEqual(still.sourceIn, 108, accuracy: 0.001)
+        XCTAssertEqual(v[2].start, 10, accuracy: 0.001)
+        XCTAssertEqual(v[2].sourceIn, 108, accuracy: 0.001, "the story resumes on the same frame")
+        XCTAssertEqual(t.tracks[1].clips.map(\.start), [0, 10], "the sound pauses with the picture")
+        XCTAssertEqual(t.tracks[2].clips[0].start, 14, accuracy: 0.001)
+        XCTAssertTrue(EditQualityCheck.blackGaps(in: t.tracks[0].clips).isEmpty)
+    }
+
+    func testOverlappingShortsAreFlagged() {
+        func candidate(_ title: String, _ start: Seconds, _ end: Seconds) -> ClipCandidate {
+            ClipCandidate(assetID: asset, range: TimeRange(start: start, end: end), payoffTime: start + 10, targetDuration: 30, potential: 70,
+                          scores: ClipScores(), tags: [], title: title,
+                          copy: ClipCopy(titles: [], shortsTitle: "", tiktokCaption: "", instagramCaption: "", hashtags: []), transcriptSnippet: "")
+        }
+        let a = candidate("A", 100, 130), b = candidate("B", 110, 140), c = candidate("C", 500, 530)
+        let pairs = [a, b, c].overlappingPairs()
+        XCTAssertEqual(pairs.count, 1)
+        XCTAssertEqual(pairs[0].share, 20.0 / 30, accuracy: 0.001)
+        XCTAssertTrue([a, c].overlappingPairs().isEmpty)
+    }
+
+    func testFastCaptionsGetANote() {
+        var t = Timeline(name: "t", canvas: .landscape1080, tracks: [Track(kind: .video, name: "V1")])
+        t.tracks[0].clips = [TimelineClip(name: "v", content: .media(assetID: asset), start: 0, sourceDuration: 60)]
+        // 6 words a second for 12 s, then normal.
+        var words: [CaptionWord] = []
+        var at = 0.0
+        while at < 12 { words.append(CaptionWord(text: "w", start: at, end: at + 0.12)); at += 1.0 / 6 }
+        while at < 60 { words.append(CaptionWord(text: "w", start: at, end: at + 0.3)); at += 0.5 }
+        t.captions = CaptionTrack(sourceAssetID: asset, words: words, style: .youtube)
+        let report = EditQualityCheck.run(&t)
+        XCTAssertTrue(report.issues.contains { $0.title == "Fast captions" }, report.text)
+    }
+
+    func testCaptionsHideUnderTitleCards() {
+        var t = Timeline(name: "t", canvas: .landscape1080, tracks: [Track(kind: .video, name: "V1"), Track(kind: .text, name: "T1")])
+        t.tracks[0].clips = [TimelineClip(name: "v", content: .media(assetID: asset), start: 0, sourceDuration: 60)]
+        t.tracks[1].clips = [TimelineClip(name: "Title Card", content: .text(TextElement(text: "THEN THIS HAPPENED…")), start: 10, sourceDuration: 1.7, aiGenerated: true),
+                             TimelineClip(name: "Hook Title", content: .text(TextElement(text: "x")), start: 30, sourceDuration: 2, aiGenerated: true)]
+        t.captions = CaptionTrack(sourceAssetID: asset, words: [CaptionWord(text: "a", start: 9, end: 9.5), CaptionWord(text: "b", start: 10.5, end: 11),
+                                                                CaptionWord(text: "c", start: 30.5, end: 31)], style: .youtube)
+        XCTAssertEqual(RetentionCards.hideCaptionsUnderCards(&t), 1, "only the word under the card (not under the hook title)")
+        XCTAssertEqual(t.captions!.words.filter(\.isHidden).map(\.text), ["b"])
+    }
+
+    func testTitleCardsUseTheStreamersOwnWordsWhenShort() {
+        let w = [("that", 100.0), ("was", 100.4), ("the", 100.8), ("craziest", 101.2), ("clutch", 101.6), ("ever!", 102.0)].map {
+            TranscriptWord(text: $0.0, start: $0.1, end: $0.1 + 0.3)
+        }
+        let prev = LongFormSegment(range: TimeRange(start: 0, end: 60), payoff: 30, potential: 60, title: "", tags: [])
+        let seg = LongFormSegment(range: TimeRange(start: 90, end: 150), payoff: 102, potential: 80, title: "", tags: [.gaming, .hype])
+        let text = RetentionCards.text(for: seg, after: prev, index: 0, words: w)
+        XCTAssertEqual(text, "CRAZIEST CLUTCH EVER!")
+        XCTAssertEqual(RetentionCards.text(for: seg, after: prev, index: 0), "THEN THIS HAPPENED…", "no transcript → the stock line")
+    }
+
     func testSearchActionKindHasAnIcon() {
         XCTAssertEqual(SearchResultKind.action.symbolName, "command")
         XCTAssertEqual(SearchResultKind.action.displayName, "Action")

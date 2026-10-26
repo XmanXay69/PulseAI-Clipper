@@ -29,6 +29,19 @@ struct AIClipsView: View {
         return session.document.candidates.first { $0.id == id }
     }
 
+    func rateSelected(_ liked: Bool) {
+        guard let selected else { return }
+        session.rateCandidate(selected.id, liked: selected.feedback == (liked ? 1 : -1) ? nil : liked)
+    }
+
+    func moveSelection(_ step: Int) {
+        let list = candidates
+        guard !list.isEmpty else { return }
+        let current = selected.flatMap { s in list.firstIndex { $0.id == s.id } } ?? (step > 0 ? -1 : list.count)
+        let next = min(max(current + step, 0), list.count - 1)
+        session.selectedCandidateIDs = [list[next].id]
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
@@ -51,6 +64,14 @@ struct AIClipsView: View {
                         }
                         .padding(16)
                     }
+                    // Rate from the keyboard: K = 👍, J = 👎, ← → move (only while the grid has focus, so typing a
+                    // title in the panel never rates a clip).
+                    .focusable()
+                    .focusEffectDisabled()
+                    .onKeyPress(KeyEquivalent("k")) { rateSelected(true); return .handled }
+                    .onKeyPress(KeyEquivalent("j")) { rateSelected(false); return .handled }
+                    .onKeyPress(.rightArrow) { moveSelection(1); return .handled }
+                    .onKeyPress(.leftArrow) { moveSelection(-1); return .handled }
                 }
             }
             .frame(maxWidth: .infinity)
@@ -200,6 +221,10 @@ struct ClipCandidateCard: View {
                 if !candidate.transcriptSnippet.isEmpty {
                     Text(candidate.transcriptSnippet).font(.pulseCaption).foregroundStyle(Theme.textSecondary).lineLimit(2)
                 }
+                if let twin = overlappingShort {
+                    TagChip(text: "Overlaps “\(twin.title)”", color: Theme.warning, symbol: "exclamationmark.triangle.fill")
+                        .help("Both shorts cover mostly the same stretch — posting both looks like a repost")
+                }
                 HStack(spacing: 4) {
                     ForEach(candidate.tags.prefix(2), id: \.self) { tag in TagChip(text: tag.displayName, color: Theme.ai) }
                     Spacer(minLength: 2)
@@ -268,6 +293,15 @@ struct ClipCandidateCard: View {
                 hoverFrame = (hoverFrame + 1) % 6
             }
         }
+    }
+
+    /// Another clip (already edited, or this one is) that covers mostly the same stretch.
+    var overlappingShort: ClipCandidate? {
+        let pair = session.document.visibleCandidates.overlappingPairs().first { p in
+            (p.a.id == candidate.id || p.b.id == candidate.id) && (p.a.timelineID != nil || p.b.timelineID != nil)
+        }
+        guard let pair else { return nil }
+        return pair.a.id == candidate.id ? pair.b : pair.a
     }
 
     var preview: some View {
