@@ -5,6 +5,10 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 [1.5.0](../1.5.0/NOTES.md) and [1.4.0](../1.4.0/NOTES.md) for those two; what's new on top:
 
 ### Edit My VOD
+- **Chapters from the file** (#12) — chapter marks embedded in an MKV or MP4 become markers where they land
+  in the edit.
+- **Highlight reel** (#492) — File → Highlight Reel from the Last 30 Days: the best moments across every
+  recent project, cut as one short in a new project.
 - **Guests as loud as the host** (#266) — with speaker-aware cuts on, each speaker's level is measured from
   their own words and the dialogue gets volume steps so everyone sits at the host's level.
 - **Your handle on the end screen** (#374) — “@you · more videos →” when a handle is set.
@@ -218,6 +222,8 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   says roughly how long it adds (#129).
 
 ### Transcription
+- **Re-transcribe a stretch** (#42) — select words in the Transcript panel and press Again: just that
+  stretch runs through the current engine and vocabulary; the rest stays.
 - **Automatic language** (#37) — Whisper detects the language per stream; Apple's recogniser falls back to
   the Mac's own.
 - **Custom vocabulary** (#43) — Settings → Transcription: game names, usernames and catchphrases are favoured
@@ -251,6 +257,12 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   per timeline. It's rendered into the enhance cache; the source file is never touched.
 
 ### Everywhere
+- **YouTube VOD by link** (#1, #467) — File → Import from URL, or paste a YouTube link anywhere outside a text
+  field: PULSE fetches YouTube's own MP4 with sound (usually 720p) into ~/Movies/PULSE Downloads and imports it.
+- **One-sided mics** (#272) — a recording with sound on only one channel is flagged on import; one click plays
+  that channel through both ears (also per clip under Audio → Channels).
+- **Shortcuts** (#462, #463) — “Make Shorts and a YouTube Edit”, “Import into PULSE” and “Import a YouTube
+  VOD” as App Intents for the Shortcuts app and Finder quick actions.
 - **Undo on the toast** (#411) — setting clips aside, removing unused media and tightening pauses show an
   Undo button for six seconds.
 - **Activity by day** (#434) — Today, Yesterday, then dates.

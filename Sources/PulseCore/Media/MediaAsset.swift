@@ -87,6 +87,10 @@ public struct MediaMetadata: Codable, Hashable, Sendable {
     public var variableFrameRate: Bool?
     /// Colour primaries from the file ("ITU_R_709_2", "ITU_R_2020"…); Rec. 2020 means an HDR source (#203).
     public var colorPrimaries: String?
+    /// Chapter marks embedded in the file (MKV / MP4) (#12).
+    public var chapters: [ChapterMark]?
+    /// Only this channel carries sound (0 = left, 1 = right): a mic plugged into one side (#272).
+    public var audioOnlyChannel: Int?
 
     public init(duration: Seconds = 0, width: Int = 0, height: Int = 0, frameRate: Double = 0,
                 hasVideo: Bool = false, hasAudio: Bool = false, audioTrackCount: Int = 0,

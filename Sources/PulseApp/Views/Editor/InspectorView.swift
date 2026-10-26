@@ -498,6 +498,14 @@ struct AudioInspector: View {
                       help: "80 Hz rumble filter, less mud, more presence and gentle compression")
             ToggleRow(label: "Hum removal", isOn: b.value("Hum Removal", \.audio.humRemoval, fallback: false),
                       help: "Notches out 50/60 Hz mains hum and its first harmonics (cheap power supplies, long cables)")
+            HStack(spacing: 6) {
+                Text("Channels").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 74, alignment: .leading)
+                Picker("", selection: Binding(get: { clip.audio.monoSource }, set: { v in session.editClip(clip.id, "Channels") { $0.audio.monoSource = v } })) {
+                    ForEach(MonoSource.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .labelsHidden().frame(width: 150)
+            }
+            .help("When only one side has sound, play it through both ears (#272)")
             ToggleRow(label: "De-esser", isOn: b.value("De-esser", \.audio.deEss, fallback: false),
                       help: "Tames harsh s and sh sounds: the band above 5 kHz comes down while it dominates")
             b.plainSlider("Noise reduction", \.audio.noiseReduction, range: 0...1)

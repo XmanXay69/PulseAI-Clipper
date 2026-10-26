@@ -57,9 +57,20 @@ public enum MediaProbe {
                 throw EngineError.unsupportedMedia(url, reason: "macOS doesn't have a decoder for its video codec (\(meta.videoCodec ?? "unknown")). Re-encode it as H.264 or HEVC.")
             }
         }
+        // Chapters embedded in the file (#12).
+        if let locale = try? await asset.load(.availableChapterLocales).first,
+           let groups = try? await asset.loadChapterMetadataGroups(withTitleLocale: locale, containingItemsWithCommonKeys: []) {
+            var chapters: [ChapterMark] = []
+            for group in groups {
+                let title = try? await AVMetadataItem.metadataItems(from: group.items, filteredByIdentifier: .commonIdentifierTitle).first?.load(.stringValue)
+                chapters.append(ChapterMark(time: group.timeRange.start.seconds, title: (title ?? nil) ?? "Chapter \(chapters.count + 1)"))
+            }
+            if !chapters.isEmpty { meta.chapters = chapters }
+        }
         if let audio = audioTracks.first {
             meta.hasAudio = true
             meta.audioTrackCount = audioTracks.count
+            meta.audioOnlyChannel = await oneSidedChannel(asset: asset, track: audio)
             let formats = try await audio.load(.formatDescriptions)
             if let desc = formats.first {
                 meta.audioCodec = fourCC(CMFormatDescriptionGetMediaSubType(desc))
@@ -70,6 +81,42 @@ public enum MediaProbe {
             }
         }
         return meta
+    }
+
+    /// The first eight seconds, both channels: when one side is at least 26 dB quieter than the other, the
+    /// mic is plugged into one side only (#272). nil when stereo or mono.
+    static func oneSidedChannel(asset: AVAsset, track: AVAssetTrack) async -> Int? {
+        guard let reader = try? AVAssetReader(asset: asset) else { return nil }
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+            AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 16_000, AVNumberOfChannelsKey: 2,
+            AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true, AVLinearPCMIsNonInterleaved: false, AVLinearPCMIsBigEndianKey: false,
+        ])
+        output.alwaysCopiesSampleData = false
+        reader.add(output)
+        reader.timeRange = CMTimeRange(start: .zero, duration: CMTime(seconds: 8, preferredTimescale: 600))
+        guard reader.startReading() else { return nil }
+        var sumL = 0.0, sumR = 0.0, frames = 0
+        while let buffer = output.copyNextSampleBuffer(), let block = CMSampleBufferGetDataBuffer(buffer) {
+            var length = 0
+            var pointer: UnsafeMutablePointer<Int8>?
+            guard CMBlockBufferGetDataPointer(block, atOffset: 0, lengthAtOffsetOut: nil, totalLengthOut: &length, dataPointerOut: &pointer) == noErr, let pointer else { continue }
+            let count = length / MemoryLayout<Float>.size
+            pointer.withMemoryRebound(to: Float.self, capacity: count) { p in
+                var i = 0
+                while i + 1 < count {
+                    sumL += Double(p[i] * p[i])
+                    sumR += Double(p[i + 1] * p[i + 1])
+                    i += 2
+                    frames += 1
+                }
+            }
+        }
+        reader.cancelReading()
+        guard frames > 16_000 else { return nil }
+        let l = sqrt(sumL / Double(frames)), r = sqrt(sumR / Double(frames))
+        if l > 0.003, r < l * 0.05 { return 0 }
+        if r > 0.003, l < r * 0.05 { return 1 }
+        return nil
     }
 
     static func probeImage(_ url: URL, fileSize: Int64) throws -> MediaMetadata {

@@ -148,6 +148,11 @@ public enum AudioEnhanceChain {
     @discardableResult
     public static func process(_ channels: inout [[Float]], sampleRate: Double, settings: AudioSettings,
                                voiceIsolator: VoiceIsolator? = nil, sourceStart: Seconds = 0) -> NoiseReductionMethod? {
+        // 0. One side only (#272): copy the channel that has sound to both ears before anything else.
+        if settings.monoSource != .stereo, channels.count >= 2 {
+            let source = channels[settings.monoSource == .left ? 0 : 1]
+            channels = [source, source]
+        }
         guard !channels.isEmpty, let length = channels.first?.count, length > 0 else { return nil }
         var denoisedWith: NoiseReductionMethod?
 
@@ -452,6 +457,7 @@ extension AudioSettings {
             eq.isEnabled ? String(format: "eq%.2f,%.2f,%.2f,%.1f", eq.lowGain, eq.midGain, eq.highGain, eq.highPassHz) : "",
             compressor.isEnabled ? String(format: "c%.2f,%.2f,%.2f", compressor.thresholdDB, compressor.ratio, compressor.makeupGainDB) : "",
             censors ? "x" + censor.rawValue + (censor == .bleep ? "@\(Int(censorTone))" : "") + censorRanges.map { String(format: "%.2f-%.2f", $0.start, $0.end) }.joined(separator: ",") : "",
+            monoSource == .stereo ? "" : "mono" + monoSource.rawValue,
         ]
         return parts.joined(separator: "|")
     }

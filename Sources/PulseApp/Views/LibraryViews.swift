@@ -166,6 +166,16 @@ struct MediaView: View {
                     } else if let primaries = asset.metadata.colorPrimaries {
                         KeyValueRow(key: "Colour", value: primaries.contains("709") ? "Rec. 709 (SDR)" : primaries)
                     }
+                    if let side = asset.metadata.audioOnlyChannel {
+                        Label("Only the \(side == 0 ? "left" : "right") channel has sound — a mic plugged into one side.", systemImage: "speaker.wave.1")
+                            .font(.pulseMicro).foregroundStyle(Theme.warning).fixedSize(horizontal: false, vertical: true)
+                        Button("Use it for both ears") { session.applyMonoSource(assetID: asset.id, source: side == 0 ? .left : .right) }
+                            .buttonStyle(.pulse(.secondary, compact: true))
+                            .help("Every clip of this recording plays that channel through both ears (#272)")
+                    }
+                    if let chapters = asset.metadata.chapters, !chapters.isEmpty {
+                        KeyValueRow(key: "Chapters", value: "\(chapters.count) in the file — they become markers in Edit My VOD")
+                    }
                     if asset.kind == .video {
                         KeyValueRow(key: "Proxy", value: asset.preparation.proxyPath != nil ? "Made" : app.settings.proxy.proxyReason(sourceHeight: asset.metadata.height, duration: asset.metadata.duration, codec: asset.metadata.videoCodec))
                     }

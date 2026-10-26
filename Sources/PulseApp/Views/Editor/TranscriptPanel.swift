@@ -186,6 +186,9 @@ struct TranscriptPanel: View {
             Button { session.deleteTranscriptRange(range, assetID: assetID, text: text); self.selection = nil } label: { Label("Delete", systemImage: "scissors") }
                 .buttonStyle(.pulse(.secondary, compact: true))
                 .help("Removes this speech from the timeline (restorable)")
+            Button { session.retranscribe(range: range.expanded(by: 0.4), assetID: assetID); self.selection = nil } label: { Label("Again", systemImage: "arrow.clockwise") }
+                .buttonStyle(.pulse(.secondary, compact: true))
+                .help("Transcribe just this stretch again with the current engine and vocabulary (#42)")
             Button { session.createClip(fromSource: range.expanded(by: 0.3), assetID: assetID) } label: { Label("Clip", systemImage: "sparkles") }
                 .buttonStyle(.pulse(.ai, compact: true))
             Button {

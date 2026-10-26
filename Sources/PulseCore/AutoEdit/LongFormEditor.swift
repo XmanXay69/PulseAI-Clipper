@@ -642,6 +642,13 @@ public enum LongFormEditor {
         let checks = EditQualityCheck.run(&timeline, words: analysis.transcript?.words ?? [],
                                           target: options.polish ? (options.minimumLength * 0.8)...(options.maximumLength * 1.15) : nil)
 
+        // Chapter marks embedded in the recording (#12) become markers where they land inside the edit.
+        for chapter in asset.metadata.chapters ?? [] {
+            guard let t = timelineTime(ofSource: chapter.time), !timeline.markers.contains(where: { abs($0.time - t) < 2 }) else { continue }
+            timeline.markers.append(Marker(time: t, name: chapter.title.isEmpty ? "Chapter" : chapter.title, color: .blue, aiGenerated: true))
+        }
+        timeline.markers.sort { $0.time < $1.time }
+
         // YouTube chapters for the description.
         let outroAt = timeline.tracks[0].clips.first { $0.name == "End Screen" }?.start
         timeline.notes = chapterList(timeline.markers.filter { $0.color == .blue }, hasHook: hookRange != nil, outroAt: outroAt)

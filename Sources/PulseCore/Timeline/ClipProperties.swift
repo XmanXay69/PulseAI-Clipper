@@ -352,6 +352,19 @@ public struct ColorAdjustments: Codable, Hashable, Sendable {
     public static let neutral = ColorAdjustments()
 }
 
+/// Which channel feeds both ears (#272).
+public enum MonoSource: String, Codable, CaseIterable, Sendable {
+    case stereo, left, right
+
+    public var displayName: String {
+        switch self {
+        case .stereo: return "As recorded"
+        case .left: return "Left → both"
+        case .right: return "Right → both"
+        }
+    }
+}
+
 /// Non-destructive visual effects rendered by the compositor.
 public enum EffectKind: String, Codable, CaseIterable, Sendable {
     case gaussianBlur
@@ -551,6 +564,8 @@ public struct AudioSettings: Codable, Hashable, Sendable {
     public var censorRanges: [TimeRange] = []
     /// Pitch of the bleep (#277).
     public var censorTone: Double = 1000
+    /// Play one channel through both ears when only one has sound (#272).
+    public var monoSource: MonoSource = .stereo
 
     public init(volume: Double = 1) {
         self.volume = AnimatedDouble(volume)
@@ -592,6 +607,8 @@ public struct AudioSettings: Codable, Hashable, Sendable {
         deEss = c.decode(Bool.self, forKey: .deEss, default: false)
         censor = c.decode(CensorAudio.self, forKey: .censor, default: .off)
         censorRanges = c.decode([TimeRange].self, forKey: .censorRanges, default: [])
+        censorTone = c.decode(Double.self, forKey: .censorTone, default: 1000)
+        monoSource = c.decode(MonoSource.self, forKey: .monoSource, default: .stereo)
     }
 
     /// True when swear words are muted or bleeped in this clip.

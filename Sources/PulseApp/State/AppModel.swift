@@ -100,6 +100,9 @@ final class AppModel: ObservableObject {
         }
     }
     @Published var section: SidebarSection = .home
+    @Published var showImportURLSheet = false
+    /// The running app model, for App Intents (#462, #463).
+    nonisolated(unsafe) static weak var current: AppModel?
     @Published private(set) var session: ProjectSession?
     @Published private(set) var projects: [ProjectSummary] = []
     @Published private(set) var activity: [ActivityRecord] = []
@@ -159,6 +162,7 @@ final class AppModel: ObservableObject {
     nonisolated static let cacheFolderNames = ["Thumbnails", "Waveforms", "Analysis", "Proxies", "Converted", "Enhanced Audio", "Reference", "Beats"]
 
     init() {
+        defer { AppModel.current = self }
         PulseLog.info("PULSE \(AppModel.versionString) launched on macOS \(ProcessInfo.processInfo.operatingSystemVersionString), \(ProblemReporter.machineModel), \(ProcessInfo.processInfo.activeProcessorCount) cores, \(ProcessInfo.processInfo.physicalMemory / 1_073_741_824) GB")
         settings = AppModel.loadSettings()
         library = try? LibraryDatabase(url: LibraryDatabase.defaultURL())
@@ -603,6 +607,88 @@ final class AppModel: ObservableObject {
             toast("Restored “\(doc.name)”\(relinked > 0 ? " — \(relinked) media file\(relinked == 1 ? "" : "s") relinked" : "")")
         } catch {
             present(error, title: "Couldn't restore the archive")
+        }
+    }
+
+    // MARK: Links (#1, #467)
+
+    /// Pasted anywhere outside a text field: a YouTube link downloads the VOD; a file path imports it.
+    func importPastedText(_ text: String) {
+        if let id = YouTubeURL.videoID(from: text) {
+            importFromYouTube(videoID: id)
+        } else if let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)), url.isFileURL {
+            importMedia([url])
+        }
+    }
+
+    /// A YouTube VOD by link: fetched the way the B-roll library fetches clips (YouTube's own MP4 with sound,
+    /// usually 720p) into ~/Movies/PULSE Downloads, then imported.
+    func importFromYouTube(videoID: String) {
+        jobs.start("Downloading VOD \(videoID)", kind: .importMedia) { [weak self] job in
+            guard let self else { return }
+            do {
+                let url = try await VODDownloader.download(videoID: videoID) { status in Task { @MainActor in job.detail = status } }
+                self.logActivity(.importMedia, title: "Downloaded VOD \(videoID)", detail: url.lastPathComponent)
+                self.importMedia([url])
+            } catch {
+                self.present(error, title: "Couldn't download the VOD")
+            }
+        }
+    }
+
+    // MARK: Highlight reel (#492)
+
+    /// The best moments of the last `days` days across every project, cut as one short in a new project.
+    func makeHighlightReel(days: Int = 30) {
+        let since = Date().addingTimeInterval(-Double(days) * 86400)
+        let recent = projects.filter { !$0.isTrashed && $0.modifiedAt > since }
+        guard !recent.isEmpty else { toast("No projects edited in the last \(days) days"); return }
+        session?.save()
+        jobs.start("Highlight reel", kind: .autoEdit) { [weak self] job in
+            guard let self else { return }
+            var picks: [(candidate: ClipCandidate, asset: MediaAsset, analysis: MediaAnalysis?)] = []
+            for summary in recent {
+                let package = ProjectPackage(url: URL(fileURLWithPath: summary.path))
+                guard let doc = try? self.store.load(package).document else { continue }
+                for candidate in doc.visibleCandidates.sorted(by: { $0.potential > $1.potential }).prefix(3) {
+                    guard let asset = doc.asset(id: candidate.assetID), FileManager.default.fileExists(atPath: asset.path) else { continue }
+                    picks.append((candidate, asset, self.store.loadAnalysis(assetID: asset.id, in: package)))
+                }
+            }
+            picks.sort { $0.candidate.potential > $1.candidate.potential }
+            let chosen = Array(picks.prefix(10)).sorted { ($0.asset.importedAt, $0.candidate.range.start) < ($1.asset.importedAt, $1.candidate.range.start) }
+            guard chosen.count >= 2 else { self.toast("Not enough moments yet — analyze a couple of streams first"); return }
+            var reel: Timeline?
+            var media: [MediaAsset] = []
+            let options = ShortBuildOptions(settings: self.settings.ai, mode: .oneClick)
+            for pick in chosen {
+                job.detail = pick.candidate.title
+                let piece = ShortBuilder.build(ShortBuildInput(candidate: pick.candidate, asset: pick.asset, analysis: pick.analysis), options: options)
+                if reel == nil { reel = piece } else { reel?.append(piece) }
+                if !media.contains(where: { $0.id == pick.asset.id }) { media.append(pick.asset) }
+            }
+            guard var timeline = reel else { return }
+            let month = Date().formatted(.dateTime.month(.wide).year())
+            timeline.name = "Highlights · \(month)"
+            timeline.id = UUID()
+            do {
+                let created = try self.store.create(name: "Highlights \(month)", in: self.projectsFolder)
+                let package = created.0
+                var doc = created.1
+                doc.media = media
+                doc.primaryAssetID = media.first?.id
+                doc.timelines = [timeline]
+                doc.activeTimelineID = timeline.id
+                try self.store.save(doc, to: package)
+                for pick in chosen { if let analysis = pick.analysis { try? self.store.saveAnalysis(analysis, in: package) } }
+                self.library?.index(doc, path: package.url.path, thumbnailPath: nil)
+                self.refreshProjects()
+                self.openProject(at: package.url)
+                self.settings.stats.note { $0.shortsBuilt += 1 }
+                self.toast("Highlight reel: \(chosen.count) moments from \(Set(chosen.map(\.asset.id)).count) streams — \(Timecode.duration(timeline.duration))")
+            } catch {
+                self.present(error, title: "Couldn't make the highlight reel")
+            }
         }
     }
 

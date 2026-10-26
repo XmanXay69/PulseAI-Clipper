@@ -47,6 +47,11 @@ struct RootView: View {
         .sheet(isPresented: $app.showRecordSheet) { RecordView(recorder: app.recording).environmentObject(app) }
         .sheet(isPresented: $app.showReportProblem) { ReportProblemSheet().environmentObject(app) }
         .sheet(isPresented: $app.showBatchSheet) { BatchSheet(batch: app.batch).environmentObject(app) }
+        .sheet(isPresented: $app.showImportURLSheet) { ImportURLSheet().environmentObject(app) }
+        .onPasteCommand(of: [UTType.plainText, UTType.url]) { _ in
+            // Paste a YouTube link anywhere outside a text field to fetch the VOD (#467).
+            if let text = NSPasteboard.general.string(forType: .string) { app.importPastedText(text) }
+        }
         .sheet(isPresented: Binding(get: { app.updater.showSheet }, set: { app.updater.showSheet = $0 })) { UpdateSheet(updater: app.updater) }
         .sheet(isPresented: $app.showReferenceSheet) { ReferenceSheet(reference: app.reference).environmentObject(app) }
         .sheet(isPresented: $app.showSetupWizard) { SetupWizardSheet().environmentObject(app) }
@@ -528,5 +533,41 @@ struct ToastView: View {
             .id(toast.id)
             .animation(.spring(response: 0.3, dampingFraction: 0.85), value: toast.id)
         }
+    }
+}
+
+
+/// File → Import from URL (#1): a YouTube link becomes a recording in the project.
+struct ImportURLSheet: View {
+    @EnvironmentObject var app: AppModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+
+    var videoID: String? { YouTubeURL.videoID(from: text) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Import a YouTube VOD").font(.pulseTitle).foregroundStyle(Theme.textPrimary)
+            Text("PULSE fetches YouTube's own MP4 with sound (usually 720p) into ~/Movies/PULSE Downloads and imports it. Twitch VODs: download them with Twitch's own tools first.")
+                .font(.pulseCaption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+            TextField("https://www.youtube.com/watch?v=…", text: $text, onCommit: start).textFieldStyle(.roundedBorder)
+            HStack {
+                if !text.isEmpty, videoID == nil { Text("That doesn't look like a YouTube link").font(.pulseMicro).foregroundStyle(Theme.warning) }
+                Spacer()
+                Button("Cancel") { dismiss() }.buttonStyle(.pulseSecondary).keyboardShortcut(.cancelAction)
+                Button("Import") { start() }.buttonStyle(.pulsePrimary).keyboardShortcut(.defaultAction).disabled(videoID == nil)
+            }
+        }
+        .padding(20)
+        .frame(width: 480)
+        .background(Theme.panel)
+        .preferredColorScheme(.dark)
+        .onAppear { if let pasted = NSPasteboard.general.string(forType: .string), YouTubeURL.videoID(from: pasted) != nil { text = pasted } }
+    }
+
+    func start() {
+        guard let id = videoID else { return }
+        app.importFromYouTube(videoID: id)
+        dismiss()
     }
 }

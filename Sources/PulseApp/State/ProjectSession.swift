@@ -971,6 +971,45 @@ final class ProjectSession: ObservableObject, Identifiable {
         }
     }
 
+    /// This stretch transcribed again (#42) with the current engine and vocabulary; the rest stays.
+    func retranscribe(range: TimeRange, assetID: UUID) {
+        guard let asset = document.asset(id: assetID), var analysis = analyses[assetID], let transcript = analysis.transcript else { return }
+        let settings = app.settings.ai
+        let voice = voiceCompanion(for: asset).map { url(for: $0) }
+        app.jobs.start("Re-transcribing \(Timecode.duration(range.duration))", kind: .transcription) { [weak self] job in
+            guard let self else { return }
+            job.detail = Timecode.short(range.start)
+            do {
+                var words = try await Retranscriber.transcribe(asset: asset, range: range, settings: settings, voiceSource: voice)
+                if !settings.customVocabulary.isEmpty {
+                    words = TranscriptCorrector.correct(Transcript(language: transcript.language, words: words, source: transcript.source), vocabulary: settings.customVocabulary).transcript.words
+                }
+                analysis.transcript = transcript.replacingWords(in: range, with: words)
+                self.setAnalysis(analysis)
+                self.app.logActivity(.transcription, title: "Re-transcribed \(Timecode.duration(range.duration)) of \(asset.name)", detail: "\(words.count) words")
+                self.app.toast("Re-transcribed that stretch — \(words.count) words")
+            } catch {
+                self.app.present(error, title: "Couldn't re-transcribe")
+            }
+        }
+    }
+
+    /// One channel through both ears on every clip of this recording (#272).
+    func applyMonoSource(assetID: UUID, source: MonoSource) {
+        var changed = 0
+        edit("Mono Source") { doc in
+            for ti in doc.timelines.indices {
+                for tr in doc.timelines[ti].tracks.indices where doc.timelines[ti].tracks[tr].kind == .audio {
+                    for ci in doc.timelines[ti].tracks[tr].clips.indices where doc.timelines[ti].tracks[tr].clips[ci].content.assetID == assetID {
+                        doc.timelines[ti].tracks[tr].clips[ci].audio.monoSource = source
+                        changed += 1
+                    }
+                }
+            }
+        }
+        app.toast(changed == 0 ? "No clips of this recording on a timeline yet — set Channels in the clip's Audio section later" : "\(changed) clip\(changed == 1 ? "" : "s") now play the \(source == .left ? "left" : "right") channel through both ears", undo: changed > 0)
+    }
+
     /// Every undo step, oldest first (#175).
     var undoLabels: [String] { history.labels }
 
