@@ -87,6 +87,9 @@ struct CoachSection: View {
                     .help(factor.note)
                 }
             }
+            if let timeline = session.activeTimeline, timeline.duration > 90 {
+                PacingGraph(timeline: timeline)
+            }
             if review.suggestions.isEmpty {
                 Label("Nothing to fix — this edit is in great shape.", systemImage: "checkmark.seal.fill")
                     .font(.pulseCaption).foregroundStyle(Theme.success)
@@ -104,6 +107,54 @@ struct CoachSection: View {
                                     : "A prediction from the video's energy, hook, pacing and polish — a guide, not a guarantee. Import your analytics in Settings → Performance to calibrate it.")
                 .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
         }
+    }
+}
+
+/// Cuts per minute across the video, with the comfortable band for long-form (6–20) shaded.
+struct PacingGraph: View {
+    let timeline: Timeline
+
+    var buckets: [Int] {
+        guard let v = timeline.tracks.first(where: { $0.kind == .video }) else { return [] }
+        let minutes = max(1, Int((timeline.duration / 60).rounded(.up)))
+        var counts = Array(repeating: 0, count: minutes)
+        for clip in v.clips.dropFirst() where clip.isEnabled {
+            let i = min(minutes - 1, max(0, Int(clip.start / 60)))
+            counts[i] += 1
+        }
+        return counts
+    }
+
+    var body: some View {
+        let counts = buckets
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                SectionLabel(text: "Pacing")
+                Spacer()
+                Text("\(counts.reduce(0, +)) cuts · \(String(format: "%.0f", Double(counts.reduce(0, +)) / max(timeline.duration / 60, 1)))/min")
+                    .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            }
+            GeometryReader { geo in
+                let top = max(Double(counts.max() ?? 1), 24)
+                ZStack(alignment: .bottomLeading) {
+                    // The comfortable band for a long video.
+                    Rectangle().fill(Theme.success.opacity(0.08))
+                        .frame(height: geo.size.height * CGFloat((20 - 6) / top))
+                        .offset(y: -geo.size.height * CGFloat(6 / top))
+                    HStack(alignment: .bottom, spacing: 1) {
+                        ForEach(Array(counts.enumerated()), id: \.offset) { _, n in
+                            RoundedRectangle(cornerRadius: 1)
+                                .fill(n > 30 ? Theme.warning : (n < 4 ? Theme.textTertiary.opacity(0.5) : Theme.info))
+                                .frame(height: max(1, geo.size.height * CGFloat(Double(n) / top)))
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+            }
+            .frame(height: 34)
+            .background(RoundedRectangle(cornerRadius: 4).fill(Theme.well))
+        }
+        .help("Cuts per minute, minute by minute. The green band (6–20) feels lively without tiring; orange minutes over 30 may feel frantic.")
     }
 }
 

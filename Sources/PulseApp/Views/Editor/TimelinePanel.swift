@@ -55,6 +55,7 @@ struct TimelineToolbar: View {
     @ObservedObject var session: ProjectSession
     @ObservedObject var playback: PlaybackController
     @State private var showMarkers = false
+    @AppStorage("timeline.energyStrip") private var showEnergy = true
 
     var body: some View {
         HStack(spacing: 4) {
@@ -77,6 +78,7 @@ struct TimelineToolbar: View {
             Divider().frame(height: 16).padding(.horizontal, 4)
             IconButton(symbol: "arrow.right.and.line.vertical.and.arrow.left", help: "Snapping (S)", isActive: app.settings.snapping) { app.settings.snapping.toggle() }
             IconButton(symbol: "rectangle.compress.vertical", help: "Magnetic timeline — deleting closes gaps", isActive: app.settings.magneticTimeline) { app.settings.magneticTimeline.toggle() }
+            IconButton(symbol: "waveform.path.ecg", help: "Excitement strip on the ruler — where the energy is", isActive: showEnergy) { showEnergy.toggle() }
             Spacer()
             Button { session.makeMoreEntertaining() } label: { Label("Make More Entertaining", systemImage: "wand.and.stars") }
                 .buttonStyle(.pulse(.ai, compact: true))
@@ -348,6 +350,7 @@ struct TimelineRuler: View {
     let timeline: Timeline
     let pps: CGFloat
     let width: CGFloat
+    @AppStorage("timeline.energyStrip") private var showEnergy = true
 
     var body: some View {
         Canvas { ctx, size in
@@ -376,6 +379,30 @@ struct TimelineRuler: View {
                 p.addLine(to: CGPoint(x: x - 5, y: 8))
                 p.closeSubpath()
                 ctx.fill(p, with: .color(Color(marker.color.rgba)))
+            }
+            // Excitement strip along the bottom: the recording's energy, mapped through the cuts.
+            if showEnergy, let v = timeline.tracks.first(where: { $0.kind == .video }) {
+                let bottom = size.height - 1
+                let h: CGFloat = 9
+                for clip in v.clips where clip.isEnabled && clip.role != .graphic {
+                    guard let assetID = clip.content.assetID, let signals = session.energySignal(for: assetID), signals.step > 0 else { continue }
+                    let x0 = CGFloat(clip.start) * pps, x1 = CGFloat(clip.end) * pps
+                    guard x1 > 0, x0 < size.width else { continue }
+                    var path = Path()
+                    path.move(to: CGPoint(x: x0, y: bottom))
+                    var x = max(x0, 0)
+                    while x <= min(x1, size.width) {
+                        let sourceT = clip.sourceIn + Double((x - x0) / pps) * clip.speed
+                        let i = Int(sourceT / signals.step)
+                        let e = i >= 0 && i < signals.excitement.count ? CGFloat(signals.excitement[i]) : 0
+                        path.addLine(to: CGPoint(x: x, y: bottom - h * min(max(e, 0), 1)))
+                        x += 2
+                    }
+                    path.addLine(to: CGPoint(x: min(x1, size.width), y: bottom))
+                    path.closeSubpath()
+                    ctx.fill(path, with: .linearGradient(Gradient(colors: [Theme.accent.opacity(0.75), Theme.ai.opacity(0.35)]),
+                                                         startPoint: CGPoint(x: 0, y: bottom - h), endPoint: CGPoint(x: 0, y: bottom)))
+                }
             }
             // Layout morphs: a violet bar spanning each morph on the ruler's bottom edge.
             for change in timeline.layoutChanges {

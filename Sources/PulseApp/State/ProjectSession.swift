@@ -51,6 +51,21 @@ final class ProjectSession: ObservableObject, Identifiable {
     @Published var selectedClipIDs: Set<UUID> = []
     /// The last Edit My VOD settings, so "Edit Again" (and ±10 %) can re-run them.
     var lastLongFormOptions: LongFormOptions?
+    /// Excitement over source time per asset (for the strip on the timeline ruler), computed once on demand.
+    @Published private(set) var energySignals: [UUID: EngagementSignals] = [:]
+    private var energyRequests: Set<UUID> = []
+
+    /// The asset's excitement curve if it's ready; kicks off the computation (off the main thread) if not.
+    func energySignal(for assetID: UUID) -> EngagementSignals? {
+        if let ready = energySignals[assetID] { return ready }
+        guard !energyRequests.contains(assetID), let analysis = analyses[assetID] else { return nil }
+        energyRequests.insert(assetID)
+        Task { [weak self] in
+            let signals = await Task.detached(priority: .utility) { EngagementModel.compute(analysis: analysis) }.value
+            await MainActor.run { self?.energySignals[assetID] = signals }
+        }
+        return nil
+    }
     @Published var selectedCandidateIDs: Set<UUID> = []
     @Published var focusedCaptionWordID: UUID?
     @Published var tool: EditTool = .select
