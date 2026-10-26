@@ -134,6 +134,27 @@ extension ProjectSession {
         job.expect(longFormEstimate(options: options))
     }
 
+    /// Keeps a track's beats with its analysis so the timeline can draw the grid (#287).
+    func rememberBeats(_ grid: [Seconds], for asset: MediaAsset) {
+        var analysis = analyses[asset.id] ?? MediaAnalysis(assetID: asset.id, duration: asset.metadata.duration)
+        analysis.beats = grid
+        setAnalysis(analysis)
+    }
+
+    /// Timeline → clip menu → Detect Beats (#287): finds the beat grid of a music track and draws it on its clips.
+    func detectBeats(assetID: UUID) {
+        guard let asset = document.asset(id: assetID) else { return }
+        app.jobs.start("Beats · \(asset.name)", kind: .analysis) { [weak self] job in
+            guard let self else { return }
+            job.detail = "Listening for the beat"
+            let grid = try await BeatDetector.shared.beats(url: self.url(for: asset))
+            guard grid.count >= 8 else { self.app.toast("No steady beat found in \(asset.name)"); return }
+            self.rememberBeats(grid, for: asset)
+            let bpm = grid.count > 1 ? 60 / ((grid.last! - grid.first!) / Double(grid.count - 1)) : 0
+            self.app.toast(String(format: "%@: %.0f BPM — beat grid drawn on its clips", asset.name, bpm))
+        }
+    }
+
     /// "Beat-synced music & zooms": music pieces start on a beat, AI zooms land on beats.
     func syncToBeats(_ timeline: inout Timeline, assets: [UUID: MediaAsset], drops: [Seconds] = []) async -> String {
         let musicIDs = Set(timeline.tracks.filter { $0.kind == .audio }.flatMap(\.clips).filter { $0.role == .music }.compactMap(\.content.assetID))
@@ -146,6 +167,7 @@ extension ProjectSession {
                 if grid.count >= 8 {
                     beats[id] = grid
                     durations[id] = asset.metadata.duration
+                    rememberBeats(grid, for: asset)
                 }
             } catch {
                 PulseLog.warning("Beat detection failed for “\(asset.name)”: \(error.localizedDescription)")

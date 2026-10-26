@@ -169,7 +169,19 @@ struct ClipBindings {
                       onReset: { session.editClip(clipID, "Reset \(label)", coalesce: nil) { $0[keyPath: keyPath] = Self.pristine[keyPath: keyPath] } },
                       animated: clip?[keyPath: keyPath].isAnimated ?? false,
                       onPreviousKeyframe: { jumpKeyframe(keyPath, direction: -1) },
-                      onNextKeyframe: { jumpKeyframe(keyPath, direction: 1) })
+                      onNextKeyframe: { jumpKeyframe(keyPath, direction: 1) },
+                      curve: curveSamples(keyPath, range: range),
+                      curveProgress: clip.map { $0.duration > 0 ? local / $0.duration : 0 } ?? 0)
+    }
+
+    /// 24 samples of an animated value across the clip, normalized to the slider's range (#211); nil when static.
+    func curveSamples(_ keyPath: WritableKeyPath<TimelineClip, AnimatedDouble>, range: ClosedRange<Double>) -> [Double]? {
+        guard let clip, clip[keyPath: keyPath].isAnimated, clip.duration > 0 else { return nil }
+        let span = max(range.upperBound - range.lowerBound, 1e-6)
+        return (0..<24).map { i in
+            let t = clip.duration * Double(i) / 23
+            return (clip[keyPath: keyPath].value(at: t) - range.lowerBound) / span
+        }
     }
 
     func plainSlider(_ label: String, _ keyPath: WritableKeyPath<TimelineClip, Double>, range: ClosedRange<Double>, format: String = "%.2f", unit: String = "") -> some View {

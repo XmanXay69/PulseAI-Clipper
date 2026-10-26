@@ -80,6 +80,11 @@ struct ViewerView: View {
                 ScrollView([.horizontal, .vertical], showsIndicators: zoom != .fit) {
                     ZStack {
                         PlayerView(player: playback.player)
+                        // The last picture, dimmed, while the composition rebuilds — no black flash (#204).
+                        if playback.isBuilding, let frame = playback.lastFrame {
+                            Image(decorative: frame, scale: 1).resizable().aspectRatio(contentMode: .fit).opacity(0.7)
+                                .allowsHitTesting(false)
+                        }
                         if app.settings.showSafeAreas, canvas.aspect < 1 {
                             SafeAreaOverlay(platform: app.settings.safeAreaPlatform, chrome: app.settings.showPlatformChrome)
                         }
@@ -589,13 +594,17 @@ struct PlaybackQualityMenu: View {
             }
             Divider()
             Toggle("Drop a step when playback stutters", isOn: $app.settings.autoPlaybackQuality)
+            Toggle("Use proxies for playback", isOn: Binding(get: { app.settings.proxy.useProxiesForPlayback }, set: { on in
+                app.settings.proxy.useProxiesForPlayback = on
+                session.reloadPlayback(debounce: 0)
+            }))
             if dropped {
                 Button("Back to \(app.settings.playbackQuality.longName.lowercased())") { session.setPlaybackQuality(app.settings.playbackQuality) }
             }
         } label: {
             HStack(spacing: 3) {
                 Image(systemName: quality == .full ? "sparkles.tv" : "tv").font(.system(size: 10, weight: .semibold))
-                Text(quality == .full ? "Full" : quality.displayName + (dropped ? " auto" : ""))
+                Text((quality == .full ? "Full" : quality.displayName + (dropped ? " auto" : "")) + (app.settings.proxy.useProxiesForPlayback ? " · proxy" : ""))
                     .font(.pulseMicro).monospacedDigit()
             }
             .foregroundStyle(dropped ? Theme.warning : Theme.textSecondary)
@@ -638,6 +647,11 @@ struct DetachedViewerContent: View {
         let canvas = session.activeTimeline?.canvas ?? .vertical1080
         VStack(spacing: 0) {
             PlayerView(player: playback.player)
+                .overlay {
+                    if playback.isBuilding, let frame = playback.lastFrame {
+                        Image(decorative: frame, scale: 1).resizable().aspectRatio(contentMode: .fit).opacity(0.7).allowsHitTesting(false)
+                    }
+                }
                 .aspectRatio(CGFloat(max(canvas.width, 1)) / CGFloat(max(canvas.height, 1)), contentMode: .fit)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(12)

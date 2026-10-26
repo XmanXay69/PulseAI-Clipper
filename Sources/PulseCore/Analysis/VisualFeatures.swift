@@ -183,6 +183,8 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
     public var chat: ChatLog?
     /// Banners read off the screen (wins, kills, deaths…) when the game banner reader ran; nil = not read.
     public var hudEvents: [HUDEvent]?
+    /// Beat times of a music track once detected (#287): drawn as a grid on its clips.
+    public var beats: [Seconds]?
 
     public init(assetID: UUID, duration: Seconds, audio: AudioFeatureSeries? = nil, visual: VisualFeatureSeries? = nil,
                 transcript: Transcript? = nil, webcam: WebcamEstimate? = nil, profile: ContentProfile = .unknown,

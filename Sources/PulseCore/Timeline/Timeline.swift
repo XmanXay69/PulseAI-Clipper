@@ -159,9 +159,11 @@ public struct Track: Codable, Hashable, Identifiable, Sendable {
     public var isSolo: Bool
     /// Linear track gain.
     public var volume: Double
+    /// A colour label for the track header (#149); nil = the kind's colour.
+    public var color: MarkerColor?
 
     public init(id: UUID = UUID(), kind: TrackKind, name: String, clips: [TimelineClip] = [], isMuted: Bool = false,
-                isLocked: Bool = false, isHidden: Bool = false, isSolo: Bool = false, volume: Double = 1) {
+                isLocked: Bool = false, isHidden: Bool = false, isSolo: Bool = false, volume: Double = 1, color: MarkerColor? = nil) {
         self.id = id
         self.kind = kind
         self.name = name
@@ -171,6 +173,7 @@ public struct Track: Codable, Hashable, Identifiable, Sendable {
         self.isHidden = isHidden
         self.isSolo = isSolo
         self.volume = volume
+        self.color = color
     }
 
     public init(from decoder: Decoder) throws {
@@ -184,6 +187,7 @@ public struct Track: Codable, Hashable, Identifiable, Sendable {
         isHidden = c.decode(Bool.self, forKey: .isHidden, default: false)
         isSolo = c.decode(Bool.self, forKey: .isSolo, default: false)
         volume = c.decode(Double.self, forKey: .volume, default: 1)
+        color = c.decode(MarkerColor?.self, forKey: .color, default: nil)
     }
 
     public var end: Seconds { clips.map(\.end).max() ?? 0 }

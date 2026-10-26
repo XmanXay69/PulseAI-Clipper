@@ -97,6 +97,17 @@ extension Timeline {
         return track.id
     }
 
+    /// Moves a track up (negative) or down the stack (#149); clamped at the ends. Returns the new index.
+    @discardableResult
+    public mutating func moveTrack(id: UUID, by offset: Int) -> Int? {
+        guard let from = trackIndex(id: id) else { return nil }
+        let to = min(max(from + offset, 0), tracks.count - 1)
+        guard to != from else { return from }
+        let track = tracks.remove(at: from)
+        tracks.insert(track, at: to)
+        return to
+    }
+
     public mutating func removeTrack(id: UUID) {
         tracks.removeAll { $0.id == id }
     }

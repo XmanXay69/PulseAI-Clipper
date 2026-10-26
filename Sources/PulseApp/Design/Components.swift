@@ -387,6 +387,9 @@ struct LabeledSlider: View {
     var animated: Bool = false
     var onPreviousKeyframe: (() -> Void)? = nil
     var onNextKeyframe: (() -> Void)? = nil
+    /// The value across the clip, normalized 0…1, drawn as a sparkline when animated (#211).
+    var curve: [Double]? = nil
+    var curveProgress: Double = 0
     @State private var editing = false
     @State private var draft = ""
 
@@ -428,6 +431,11 @@ struct LabeledSlider: View {
                     .contentShape(Rectangle())
                     .onTapGesture { draft = String(format: format, value); editing = true }
                     .help("Click to type a value")
+            }
+            if let curve, curve.count > 1 {
+                Sparkline(samples: curve, progress: curveProgress)
+                    .frame(width: 36, height: 12)
+                    .help("How \(label.lowercased()) changes across the clip; the bright dot is the playhead")
             }
             if animated, let onPreviousKeyframe {
                 Button(action: onPreviousKeyframe) { Image(systemName: "chevron.left").font(.system(size: 8, weight: .bold)) }
@@ -570,4 +578,30 @@ struct ClockObserving<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View { content() }
+}
+
+
+/// A tiny curve of an animated property (#211): samples 0…1 left to right, the playhead as a dot.
+struct Sparkline: View {
+    let samples: [Double]
+    var progress: Double = 0
+
+    var body: some View {
+        Canvas { ctx, size in
+            guard samples.count > 1 else { return }
+            var path = Path()
+            for (i, v) in samples.enumerated() {
+                let x = CGFloat(i) / CGFloat(samples.count - 1) * size.width
+                let y = size.height - CGFloat(v.clamped(0, 1)) * (size.height - 2) - 1
+                if i == 0 { path.move(to: CGPoint(x: x, y: y)) } else { path.addLine(to: CGPoint(x: x, y: y)) }
+            }
+            ctx.stroke(path, with: .color(Theme.accent.opacity(0.8)), lineWidth: 1)
+            let p = progress.clamped(0, 1)
+            let index = p * Double(samples.count - 1)
+            let lo = Int(index.rounded(.down)), hi = min(lo + 1, samples.count - 1)
+            let v = samples[lo] + (samples[hi] - samples[lo]) * (index - Double(lo))
+            let dot = CGRect(x: CGFloat(p) * size.width - 1.5, y: size.height - CGFloat(v.clamped(0, 1)) * (size.height - 2) - 2.5, width: 3, height: 3)
+            ctx.fill(Path(ellipseIn: dot), with: .color(Theme.textPrimary))
+        }
+    }
 }

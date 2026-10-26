@@ -49,10 +49,29 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
 - **Memory ceiling** (#377) — Settings → Performance → Memory sets how much decoded frame cache PULSE keeps,
   shows what it's using right now, and PULSE empties the cache itself on a system memory warning.
 
+### Batch 25
+
+- **No black flash** (#204) — while the timeline rebuilds the viewer keeps the last picture, dimmed, until the
+  new composition is ready.
+- **Proxies from the viewer** (#382) — the quality menu has the proxy switch and the pill says "proxy" when
+  they're in use.
+- **Track rename, reorder and colour** (#149) — double-click a track name to rename it; the header menu moves a
+  track up or down and gives it a colour label.
+- **Keyframe sparklines** (#211) — an animated property shows its curve beside the slider, with the playhead on it.
+- **Beat grid** (#287) — music clips show a tick per beat once PULSE knows the track's beats: after a
+  beat-synced Edit My VOD, or from the clip menu's Detect Beats.
+- **Sound packs** (#298) — Cinematic, Punchy, Soft or Retro switch the payoff hit and the whoosh as a family
+  (Settings → AI Features); the rows below still fine-tune each.
+- **Thumbnail after export** (#357) — with the setting on and Thumbnail Studio installed, every finished export
+  sends a design for that edit to the studio.
+- **A/B thumbnail pairs** (#375) — the thumbnail sheet can save two moments in one layout as "… A" and "… B".
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
-  the viewer's strip shows the format, resolution and frame rate (#419).
+  the viewer's strip shows the format, resolution and frame rate (#419); replays get a sting and a slightly
+  desaturated look you can switch off (#137) and title cards draw on your own phrase list (#138), both in the
+  Extras controls.
 
 ### Under the hood
 - `ChapterArt` (engine) draws with AppKit on the source frame, so a marker over a cutaway or gap is skipped.

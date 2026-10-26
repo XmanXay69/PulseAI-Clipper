@@ -283,6 +283,9 @@ struct GeneralSettings: View {
             SettingsRow("Frame-step tick", detail: "A soft click on every ← / → frame step.") {
                 Toggle("", isOn: $app.settings.scrubTick).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
             }
+            SettingsRow("Thumbnail after export", detail: "Send a thumbnail design for every finished export to Thumbnail Studio (when it's installed).") {
+                Toggle("", isOn: $app.settings.thumbnailAfterExport).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
+            }
             SettingsRow("Import preset", detail: app.settings.importPreset.detail) {
                 Picker("", selection: $app.settings.importPreset) {
                     ForEach(ImportPreset.allCases, id: \.self) { Text($0.displayName).tag($0) }
@@ -549,6 +552,14 @@ struct AIFeatureSettings: View {
             }
             SettingsRow("Whoosh on the hook", detail: "A quiet whoosh under the first words of every short (#77). Needs sound effects on.") {
                 Toggle("", isOn: $app.settings.ai.hookSting).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
+            }
+            SettingsRow("Sound pack", detail: SoundPack.matching(app.settings.ai.preferredEffects)?.detail ?? "Custom mix — the rows below set each sound") {
+                Picker("", selection: Binding(get: { SoundPack.matching(app.settings.ai.preferredEffects) ?? .pulse },
+                                              set: { app.settings.ai.preferredEffects = $0.preferences })) {
+                    ForEach(SoundPack.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .labelsHidden().frame(width: 160)
+                .help("Switch the hit and the whoosh as a family (#298); the rows below fine-tune each")
             }
             EffectChoiceRow(job: "hit", category: "Impacts", title: "Payoff hit", detail: "Which impact lands on a short's payoff and on replays (#105).")
             EffectChoiceRow(job: "whoosh", category: "Transitions", title: "Whoosh", detail: "Which sweep PULSE uses for the hook, replays and cutaways.")

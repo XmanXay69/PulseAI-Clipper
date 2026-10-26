@@ -24,6 +24,8 @@ struct ThumbnailSheet: View {
     @State private var included: Set<UUID> = []
     @State private var previews: [UUID: CGImage] = [:]
     @State private var layouts: Set<ThumbnailLayout> = [.fullFrame, .faceZoom]
+    /// Two picks, one layout, named A and B (#375).
+    @State private var abPair = false
     @State private var working = false
     @State private var studioInstalled = ThumbnailStudioLink.isInstalled
 
@@ -54,6 +56,8 @@ struct ThumbnailSheet: View {
                     SectionLabel(text: "Layouts")
                     HStack(spacing: 8) {
                         ForEach(ThumbnailLayout.allCases) { layout in layoutChip(layout) }
+                        Toggle("A/B pair", isOn: $abPair).toggleStyle(.checkbox).font(.pulseCaption)
+                            .help("Two of the ticked moments in one layout, saved as “… A” and “… B” to test against each other (#375)")
                     }
                     if app.settings.brandKit.enabled, app.settings.brandKit.hasAnything {
                         Label("Your brand kit's color and logo are used.", systemImage: "paintpalette")
@@ -184,7 +188,9 @@ struct ThumbnailSheet: View {
         let chosen = picks.filter { included.contains($0.id) }
         let order = ThumbnailLayout.allCases.filter { layouts.contains($0) }
         do {
-            let designs = try await session.writeThumbnailDesigns(asset: setup.asset, picks: chosen, layouts: order)
+            let designs = abPair
+                ? try await session.writeThumbnailDesigns(asset: setup.asset, picks: Array(chosen.prefix(2)), layouts: [order.first ?? .fullFrame], abPair: true)
+                : try await session.writeThumbnailDesigns(asset: setup.asset, picks: chosen, layouts: order)
             guard !designs.isEmpty else {
                 app.presentMessage(title: "Couldn't grab the frames", message: "PULSE couldn't read frames from this video. Check that the file is still where it was imported from.")
                 return

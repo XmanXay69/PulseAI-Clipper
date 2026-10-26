@@ -450,6 +450,8 @@ struct MarkersListView: View {
 struct TrackHeader: View {
     @ObservedObject var session: ProjectSession
     let track: Track
+    @State private var renaming = false
+    @State private var draftName = ""
 
     var body: some View {
         HStack(spacing: 6) {
@@ -458,7 +460,23 @@ struct TrackHeader: View {
                 .foregroundStyle(Theme.textSecondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
-                .help(track.name)
+                .help("\(track.name) — double-click to rename")
+                .onTapGesture(count: 2) { draftName = track.name; renaming = true }
+                .popover(isPresented: $renaming, arrowEdge: .trailing) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Track name").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                        TextField("Name", text: $draftName)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 200)
+                            .onSubmit { commitRename() }
+                        HStack {
+                            Spacer()
+                            Button("Cancel") { renaming = false }.buttonStyle(.pulse(.ghost, compact: true))
+                            Button("Rename") { commitRename() }.buttonStyle(.pulse(.primary, compact: true)).keyboardShortcut(.defaultAction)
+                        }
+                    }
+                    .padding(12)
+                }
             Spacer(minLength: 2)
             if track.kind == .video {
                 toggle("eye", "eye.slash", on: !track.isHidden, help: "Show/hide") { t in t.isHidden.toggle() }
@@ -481,10 +499,24 @@ struct TrackHeader: View {
         .frame(height: TimelineMetrics.laneHeight(track.kind))
         .background(Theme.panelRaised)
         .overlay(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 1.5).fill(kindColor.opacity(track.isHidden || track.isMuted ? 0.3 : 0.9)).frame(width: 3).padding(.vertical, 6)
+            RoundedRectangle(cornerRadius: 1.5).fill(labelColor.opacity(track.isHidden || track.isMuted ? 0.3 : 0.9)).frame(width: 3).padding(.vertical, 6)
         }
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
         .contextMenu {
+            Button("Rename Track…") { draftName = track.name; renaming = true }
+            Button("Move Track Up") { let id = track.id; session.editTimeline("Move Track") { $0.moveTrack(id: id, by: -1) } }
+                .disabled(session.activeTimeline?.trackIndex(id: track.id) == 0)
+            Button("Move Track Down") { let id = track.id; session.editTimeline("Move Track") { $0.moveTrack(id: id, by: 1) } }
+                .disabled((session.activeTimeline?.trackIndex(id: track.id) ?? 0) >= (session.activeTimeline?.tracks.count ?? 1) - 1)
+            Menu("Colour") {
+                Button("None") { update { $0.color = nil } }
+                ForEach(MarkerColor.allCases, id: \.self) { c in
+                    Button { update { $0.color = c } } label: {
+                        if track.color == c { Label(c.rawValue.capitalized, systemImage: "checkmark") } else { Text(c.rawValue.capitalized) }
+                    }
+                }
+            }
+            Divider()
             Button("Add Video Track") { session.editTimeline("Add Track") { $0.addTrack(kind: .video) } }
             Button("Add Audio Track") { session.editTimeline("Add Track") { $0.addTrack(kind: .audio) } }
             Button("Add Text Track") { session.editTimeline("Add Track") { $0.addTrack(kind: .text) } }
@@ -503,6 +535,16 @@ struct TrackHeader: View {
         case .audio: return Theme.audioClip
         case .text: return Theme.textClip
         }
+    }
+
+    /// The track's own colour label when set (#149), else the kind's colour.
+    var labelColor: Color { track.color.map { Color($0.rgba) } ?? kindColor }
+
+    func commitRename() {
+        let name = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
+        renaming = false
+        guard !name.isEmpty, name != track.name else { return }
+        update { $0.name = name }
     }
 
     func update(_ body: @escaping (inout Track) -> Void) {
@@ -1031,6 +1073,12 @@ struct TimelineClipView: View, Equatable {
                     WaveformStrip(url: session.url(for: asset), sourceRange: clip.sourceRange, color: color,
                                   gain: clip.audio.isMuted ? 0.15 : min(2, pow(10, clip.audio.gainDB / 20) * clip.audio.volume.value(at: 0)))
                         .padding(.top, 14)
+                        .overlay {
+                            // Beat grid (#287): a tick per detected beat once the track's beats are known.
+                            if clip.role == .music, pps >= 6, let beats = session.analyses[assetID]?.beats, !beats.isEmpty {
+                                BeatGrid(beats: beats, sourceRange: clip.sourceRange, speed: clip.speed, pps: pps)
+                            }
+                        }
                         .overlay(alignment: .topLeading) {
                             if !clip.audio.volume.keyframes.isEmpty {
                                 VolumeEnvelope(volume: clip.audio.volume, duration: clip.duration, pps: pps).padding(.top, 14)
@@ -1228,6 +1276,9 @@ struct TimelineClipView: View, Equatable {
             Button("Auto Reframe (follow face)") { autoReframe() }
             Button("Remove AI Keyframes") { session.editClip(clip.id, "Remove AI Keyframes") { $0.transform.removeAIKeyframes() } }
         }
+        if clip.role == .music, let assetID = clip.assetID {
+            Button(session.analyses[assetID]?.beats == nil ? "Detect Beats" : "Detect Beats Again") { session.detectBeats(assetID: assetID) }
+        }
         Button("Add Marker at Playhead") { session.addMarker() }
     }
 
@@ -1393,5 +1444,38 @@ struct BrollTrayMenu: View {
             .help("B-roll tray — the cutaways in this edit: go to, remove or swap each one (#132)")
             .accessibilityLabel("B-roll tray")
         }
+    }
+}
+
+
+/// Tick marks on a music clip at its beats (#287); every bar's first beat is taller.
+struct BeatGrid: View {
+    let beats: [Seconds]
+    let sourceRange: TimeRange
+    let speed: Double
+    let pps: CGFloat
+
+    var body: some View {
+        Canvas { ctx, size in
+            let inRange = beats.filter { $0 >= sourceRange.start && $0 <= sourceRange.end }
+            guard !inRange.isEmpty else { return }
+            // Keep the grid readable when zoomed out: thin it to at most one tick per 4 points.
+            let minGap = 4.0 / Double(pps)
+            var lastX = -Double.infinity
+            var path = Path()
+            var bars = Path()
+            for (i, beat) in inRange.enumerated() {
+                let x = (beat - sourceRange.start) / max(speed, 0.01)
+                guard x - lastX >= minGap else { continue }
+                lastX = x
+                let px = CGFloat(x) * pps
+                let tall = i % 4 == 0
+                let rect = CGRect(x: px, y: 2, width: 1, height: tall ? 8 : 4)
+                if tall { bars.addRect(rect) } else { path.addRect(rect) }
+            }
+            ctx.fill(path, with: .color(.white.opacity(0.35)))
+            ctx.fill(bars, with: .color(.white.opacity(0.7)))
+        }
+        .allowsHitTesting(false)
     }
 }

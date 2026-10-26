@@ -352,6 +352,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var thumbnailCacheMB: Int = 200
     /// Roles and sync behaviour applied to imports (#25).
     public var importPreset: ImportPreset = .auto
+    /// After every finished export, write a thumbnail design for the edit to Thumbnail Studio (#357).
+    public var thumbnailAfterExport: Bool = false
 
     public init() {}
 
@@ -407,6 +409,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
         scrubTick = c.decode(Bool.self, forKey: .scrubTick, default: d.scrubTick)
         thumbnailCacheMB = c.decode(Int.self, forKey: .thumbnailCacheMB, default: d.thumbnailCacheMB).clamped(50, 2000)
         importPreset = c.decode(ImportPreset.self, forKey: .importPreset, default: d.importPreset)
+        thumbnailAfterExport = c.decode(Bool.self, forKey: .thumbnailAfterExport, default: d.thumbnailAfterExport)
         showPlatformChrome = c.decode(Bool.self, forKey: .showPlatformChrome, default: d.showPlatformChrome)
         watchFolderAnalyzes = c.decode(Bool.self, forKey: .watchFolderAnalyzes, default: d.watchFolderAnalyzes)
         nightlyBatchHour = c.decode(Int?.self, forKey: .nightlyBatchHour, default: nil)

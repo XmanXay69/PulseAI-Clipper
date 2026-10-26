@@ -1,5 +1,6 @@
 import AVFoundation
 import Combine
+import CoreImage
 import Foundation
 import PulseCore
 
@@ -39,6 +40,12 @@ public final class PlaybackController: ObservableObject {
     @Published public private(set) var isStruggling = false
     /// What the current composition renders at (1 = canvas size).
     @Published public private(set) var renderScale: Double = 1
+    /// The picture that was showing when the last rebuild started (#204): the viewer keeps it, dimmed,
+    /// until the new composition is ready instead of flashing black.
+    @Published public private(set) var lastFrame: CGImage?
+    private var videoOutput: AVPlayerItemVideoOutput?
+    private var lastTimelineID: UUID?
+    private lazy var snapshotContext = CIContext(options: [.cacheIntermediates: false])
     private var paceSamples = 0
     private var laggingSamples = 0
     private var lastTick: (wall: TimeInterval, media: Seconds)?
@@ -117,6 +124,7 @@ public final class PlaybackController: ObservableObject {
         isEnhancingAudio = false
         let generation = buildGeneration
         frameRate = timeline.canvas.frameRate
+        if lastTimelineID != timeline.id { lastFrame = nil; lastTimelineID = timeline.id } else if !isBuilding { captureLastFrame() }
         isBuilding = true
         isStruggling = false
         paceSamples = 0
@@ -192,10 +200,22 @@ public final class PlaybackController: ObservableObject {
         }
     }
 
+    /// Copies the frame the player is showing right now into `lastFrame`.
+    private func captureLastFrame() {
+        guard let output = videoOutput, let item = player.currentItem else { return }
+        let time = item.currentTime()
+        guard let buffer = output.copyPixelBuffer(forItemTime: time, itemTimeForDisplay: nil) else { return }
+        let image = CIImage(cvPixelBuffer: buffer)
+        if let cg = snapshotContext.createCGImage(image, from: image.extent) { lastFrame = cg }
+    }
+
     private func install(_ built: BuiltComposition) {
         let time = player.currentTime()
         let wasPlaying = isPlaying
         let item = built.makePlayerItem()
+        let output = AVPlayerItemVideoOutput(pixelBufferAttributes: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
+        item.add(output)
+        videoOutput = output
         if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
         endObserver = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {

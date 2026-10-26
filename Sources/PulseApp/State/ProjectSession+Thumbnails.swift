@@ -57,14 +57,15 @@ extension ProjectSession {
 
     /// Saves each frame at full resolution and writes one studio design per frame × layout.
     /// Returns the design files, first one first.
-    func writeThumbnailDesigns(asset: MediaAsset, picks: [ThumbnailPick], layouts: [ThumbnailLayout]) async throws -> [URL] {
+    /// `abPair` names the designs "… A" and "… B" (#375): the two picks as a pair to test against each other.
+    func writeThumbnailDesigns(asset: MediaAsset, picks: [ThumbnailPick], layouts: [ThumbnailLayout], abPair: Bool = false) async throws -> [URL] {
         let source = url(for: asset)
         let kit = app.settings.brandKit
         let brandHex = kit.enabled ? kit.highlightColor.map(ThumbnailDesigner.hex) : nil
         let logo = kit.enabled && !kit.logoPath.isEmpty && FileManager.default.fileExists(atPath: kit.logoPath) ? kit.logoPath : nil
         let project = document.name.isEmpty ? asset.name : document.name
         var written: [URL] = []
-        for pick in picks {
+        for (pickIndex, pick) in picks.enumerated() {
             guard let image = await ThumbnailService.shared.image(for: source, at: pick.time, maxWidth: 1920, precise: true) else {
                 PulseLog.warning("Thumbnail: no frame at \(pick.time)s of \(asset.name)")
                 continue
@@ -77,11 +78,23 @@ extension ProjectSession {
                 let design = ThumbnailDesigner.design(layout, framePath: frame.path, sourceAspect: aspect, face: pick.face,
                                                       headline: pick.headline, accentHex: brandHex ?? "FFD60A",
                                                       panelHex: brandHex ?? "FF2D55", logoPath: logo)
-                let name = ThumbnailDesigner.designName(project: project, headline: pick.headline, layout: layout)
+                var name = ThumbnailDesigner.designName(project: project, headline: pick.headline, layout: layout)
+                if abPair { name += " " + (pickIndex == 0 ? "A" : "B") }
                 written.append(try ThumbnailStudioLink.writeDesign(design, named: name))
             }
         }
         PulseLog.info("Thumbnail Studio: wrote \(written.count) designs for \(asset.name)")
         return written
+    }
+
+    /// After an export (#357): one design for the edit, sent to Thumbnail Studio when it's installed.
+    func thumbnailAfterExport(timelineID: UUID) async {
+        guard ThumbnailStudioLink.isInstalled, let setup = thumbnailSetup(for: ThumbnailRequest(timelineID: timelineID)),
+              let pick = setup.picks.first else { return }
+        let layouts: [ThumbnailLayout] = pick.face == nil ? [.fullFrame] : [.faceZoom]
+        guard let designs = try? await writeThumbnailDesigns(asset: setup.asset, picks: [pick], layouts: layouts), let first = designs.first else { return }
+        if await ThumbnailStudioLink.open(design: first) {
+            app.toast("Thumbnail design for “\(setup.subject)” sent to Thumbnail Studio")
+        }
     }
 }
