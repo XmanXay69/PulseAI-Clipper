@@ -4,11 +4,13 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject var app: AppModel
+    @AppStorage("home.tips") private var showTips = true
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 heroBanner
+                if showTips { tipOfTheDay }
                 quickActions
                 HStack(alignment: .top, spacing: 18) {
                     recentProjects.frame(maxWidth: .infinity)
@@ -87,6 +89,19 @@ struct HomeView: View {
                 if app.session?.document.primaryAsset != nil { app.showLongFormSheet = true } else { app.showImportPanel() }
             }
         }
+    }
+
+    /// One tip a day (#450).
+    var tipOfTheDay: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "lightbulb").foregroundStyle(Theme.warning)
+            Text(HomeTips.tip()).font(.pulseCaption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+            Spacer()
+            Button("Don't show tips") { showTips = false }.buttonStyle(.pulse(.ghost, compact: true))
+        }
+        .padding(.horizontal, 14).padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(Theme.panelRaised))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(Theme.border))
     }
 
     var quickActions: some View {

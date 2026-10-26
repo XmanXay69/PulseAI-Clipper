@@ -61,6 +61,13 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var censorAudio: CensorAudio = .off
     /// Game names, usernames and catchphrases speech-to-text should get right (#43).
     public var customVocabulary: [String] = []
+    /// Creative Commons tracks you want again (#292) and never again.
+    public var favoriteTrackIDs: [String] = []
+    public var blockedTrackIDs: [String] = []
+    /// A folder of your own licensed music the music picker uses first (#297); empty = online / built-in only.
+    public var musicFolder: String = ""
+    /// Threads for local transcription (0 = all but two cores) so the Mac stays usable during analysis (#378).
+    public var analysisThreads: Int = 0
     public var aiFraming: Bool = true
     /// Label who is talking after transcription (local diarization).
     public var detectSpeakers: Bool = true
@@ -127,6 +134,10 @@ public struct AISettings: Codable, Hashable, Sendable {
         hudCues = c.decode(Bool.self, forKey: .hudCues, default: d.hudCues)
         censorAudio = c.decode(CensorAudio.self, forKey: .censorAudio, default: d.censorAudio)
         customVocabulary = c.decode([String].self, forKey: .customVocabulary, default: d.customVocabulary)
+        favoriteTrackIDs = c.decode([String].self, forKey: .favoriteTrackIDs, default: d.favoriteTrackIDs)
+        blockedTrackIDs = c.decode([String].self, forKey: .blockedTrackIDs, default: d.blockedTrackIDs)
+        musicFolder = c.decode(String.self, forKey: .musicFolder, default: d.musicFolder)
+        analysisThreads = c.decode(Int.self, forKey: .analysisThreads, default: d.analysisThreads)
         aiFraming = c.decode(Bool.self, forKey: .aiFraming, default: d.aiFraming)
         detectSpeakers = c.decode(Bool.self, forKey: .detectSpeakers, default: d.detectSpeakers)
         speakerCount = c.decode(Int.self, forKey: .speakerCount, default: d.speakerCount)

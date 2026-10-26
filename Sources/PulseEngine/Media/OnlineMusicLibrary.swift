@@ -33,11 +33,23 @@ public actor OnlineMusicLibrary {
         track.fileName.map { Self.folder.appendingPathComponent($0) }
     }
 
+    /// The library track behind a media file (a Creative Commons bed in a project), if it came from here.
+    public func track(forPath path: String) -> OnlineTrack? {
+        let name = (path as NSString).lastPathComponent
+        return tracks.first { $0.fileName == name }
+    }
+
     /// `count` tracks for the mood: new downloads first (variety), topped up from the library. Throws only
     /// when nothing at all could be found or downloaded.
-    public func tracks(for tags: [ClipTag], count: Int, avoiding: Set<String> = [], progress: (@Sendable (String) -> Void)? = nil) async throws -> [OnlineTrack] {
+    public func tracks(for tags: [ClipTag], count: Int, avoiding: Set<String> = [], favorites: Set<String> = [], blocked: Set<String> = [],
+                       progress: (@Sendable (String) -> Void)? = nil) async throws -> [OnlineTrack] {
         let (mood, queries) = MusicPicker.queries(for: tags)
         var chosen: [OnlineTrack] = []
+        // Favourites you already have in this mood come first (#292); "never again" tracks never come back.
+        for track in downloaded where favorites.contains(track.videoID) && track.mood == mood && !avoiding.contains(track.videoID) && chosen.count < count {
+            chosen.append(track)
+        }
+        let avoiding = avoiding.union(blocked)
         var candidates: [VideoSearchResult] = []
         for query in queries where candidates.count < count * 3 {
             progress?("Searching Creative Commons music (\(mood))")
@@ -50,7 +62,7 @@ public actor OnlineMusicLibrary {
             }
         }
         let known = Set(downloaded.map(\.videoID))
-        for result in MusicPicker.rank(candidates, count: count * 4 + 2) where chosen.count < count && !avoiding.contains(result.videoID) {
+        for result in MusicPicker.rank(candidates, count: count * 4 + 2) where chosen.count < count && !avoiding.contains(result.videoID) && !chosen.contains(where: { $0.videoID == result.videoID }) {
             if known.contains(result.videoID), let existing = downloaded.first(where: { $0.videoID == result.videoID }) {
                 chosen.append(existing)
                 continue

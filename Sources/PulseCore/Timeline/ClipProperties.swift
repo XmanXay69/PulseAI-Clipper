@@ -319,13 +319,35 @@ public struct ColorAdjustments: Codable, Hashable, Sendable {
     /// Path to a `.cube` LUT file.
     public var lutPath: String?
     public var lutIntensity: Double = 1
+    /// "Grade off": keep the values, render none of them (for before/after comparing) (#316).
+    public var bypass: Bool = false
 
     public init() {}
 
-    public var isIdentity: Bool {
-        exposure == 0 && contrast == 0 && highlights == 0 && shadows == 0 && saturation == 0 &&
-            temperature == 0 && tint == 0 && sharpness == 0 && vignette == 0 && lutPath == nil
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        exposure = c.decode(Double.self, forKey: .exposure, default: 0)
+        contrast = c.decode(Double.self, forKey: .contrast, default: 0)
+        highlights = c.decode(Double.self, forKey: .highlights, default: 0)
+        shadows = c.decode(Double.self, forKey: .shadows, default: 0)
+        saturation = c.decode(Double.self, forKey: .saturation, default: 0)
+        temperature = c.decode(Double.self, forKey: .temperature, default: 0)
+        tint = c.decode(Double.self, forKey: .tint, default: 0)
+        sharpness = c.decode(Double.self, forKey: .sharpness, default: 0)
+        vignette = c.decode(Double.self, forKey: .vignette, default: 0)
+        lutPath = c.decode(String?.self, forKey: .lutPath, default: nil)
+        lutIntensity = c.decode(Double.self, forKey: .lutIntensity, default: 1)
+        bypass = c.decode(Bool.self, forKey: .bypass, default: false)
     }
+
+    /// True when the grade has values worth showing (whatever `bypass` says).
+    public var hasAdjustments: Bool {
+        !(exposure == 0 && contrast == 0 && highlights == 0 && shadows == 0 && saturation == 0 &&
+            temperature == 0 && tint == 0 && sharpness == 0 && vignette == 0 && lutPath == nil)
+    }
+
+    /// Nothing to render: no values, or the grade is bypassed.
+    public var isIdentity: Bool { bypass || !hasAdjustments }
 
     public static let neutral = ColorAdjustments()
 }

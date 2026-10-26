@@ -140,7 +140,17 @@ final class AppModel: ObservableObject {
         var totalBytes: Int64 = 0
         /// The "Enhance" audio renders (#290).
         var enhancedAudioBytes: Int64 = 0
+        /// Each cache folder with its size, biggest first (#388, #456).
+        var cacheBreakdown: [CacheFolder] = []
     }
+
+    struct CacheFolder: Identifiable {
+        let name: String
+        let bytes: Int64
+        var id: String { name }
+    }
+
+    static let cacheFolderNames = ["Thumbnails", "Waveforms", "Analysis", "Proxies", "Converted", "Enhanced Audio", "Reference", "Beats"]
 
     init() {
         PulseLog.info("PULSE \(AppModel.versionString) launched on macOS \(ProcessInfo.processInfo.operatingSystemVersionString), \(ProblemReporter.machineModel), \(ProcessInfo.processInfo.activeProcessorCount) cores, \(ProcessInfo.processInfo.physicalMemory / 1_073_741_824) GB")
@@ -516,9 +526,85 @@ final class AppModel: ObservableObject {
         Task.detached(priority: .utility) {
             let info = DiskInfo(projectsBytes: DiskSpace.size(of: projectsFolder), cacheBytes: DiskSpace.size(of: cacheFolder), mediaBytes: mediaBytes,
                                 availableBytes: DiskSpace.available(at: projectsFolder), totalBytes: DiskSpace.total(at: projectsFolder),
-                                enhancedAudioBytes: DiskSpace.size(of: cacheFolder.appendingPathComponent("Enhanced Audio")))
+                                enhancedAudioBytes: DiskSpace.size(of: cacheFolder.appendingPathComponent("Enhanced Audio")),
+                                cacheBreakdown: AppModel.cacheFolderNames.map { CacheFolder(name: $0, bytes: DiskSpace.size(of: cacheFolder.appendingPathComponent($0))) }
+                                    .filter { $0.bytes > 0 }.sorted { $0.bytes > $1.bytes })
             await MainActor.run { [weak self] in self?.diskInfo = info }
         }
+    }
+
+    /// Drops one cache folder; everything in it comes back on demand (#388).
+    func clearCacheFolder(_ name: String) {
+        let folder = cacheFolder.appendingPathComponent(name)
+        Task.detached(priority: .utility) {
+            try? FileManager.default.removeItem(at: folder)
+            await MainActor.run { [weak self] in
+                self?.refreshDiskInfo()
+                self?.toast("\(name) cache cleared")
+            }
+        }
+        if name == "Thumbnails" { Task { await ThumbnailService.shared.clearMemory() } }
+    }
+
+    /// Settings as a JSON file, to move to another Mac (#444).
+    func exportSettingsFile() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "PULSE Settings.json"
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        do {
+            try encoder.encode(settings).write(to: url)
+            toast("Settings saved to \(url.lastPathComponent)")
+        } catch {
+            present(error, title: "Couldn't save the settings file")
+        }
+    }
+
+    func importSettingsFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.message = "Choose a PULSE Settings.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            var imported = try JSONDecoder().decode(AppSettings.self, from: Data(contentsOf: url))
+            // Paths and the project list stay this Mac's own.
+            imported.recentProjectPaths = settings.recentProjectPaths
+            imported.projectFolder = settings.projectFolder
+            imported.cacheFolder = settings.cacheFolder
+            imported.exportFolder = settings.exportFolder
+            imported.mediaFolder = settings.mediaFolder
+            settings = imported
+            toast("Settings imported from \(url.lastPathComponent)")
+        } catch {
+            present(error, title: "That isn't a PULSE settings file")
+        }
+    }
+
+    /// Everything support would ask for (#447), as text.
+    func diagnosticsText() -> String {
+        let info = ProcessInfo.processInfo
+        var chip = "unknown"
+        var size = 0
+        if sysctlbyname("machdep.cpu.brand_string", nil, &size, nil, 0) == 0, size > 0 {
+            var buffer = [CChar](repeating: 0, count: size)
+            if sysctlbyname("machdep.cpu.brand_string", &buffer, &size, nil, 0) == 0 { chip = String(cString: buffer) }
+        }
+        let transcription = TranscriptionEngineFactory.friendlyStatus(settings: settings.ai)
+        var lines = [
+            "PULSE \(AppModel.versionString)",
+            "macOS \(info.operatingSystemVersionString) · \(chip) · \(info.processorCount) cores · \(ByteCountFormatter.string(fromByteCount: Int64(info.physicalMemory), countStyle: .memory)) RAM",
+            "Hardware encoders: H.264 \(VideoEncoders.hardwareAvailable(for: .h264) ? "yes" : "no") · HEVC \(VideoEncoders.hardwareAvailable(for: .hevc) ? "yes" : "no") · ProRes \(VideoEncoders.hardwareAvailable(for: .proRes422) ? "yes" : "no")",
+            "Transcription: \(transcription.text)",
+            "Cache: \(cacheFolder.path) (\(ByteCountFormatter.string(fromByteCount: diskInfo.cacheBytes, countStyle: .file))) · free \(ByteCountFormatter.string(fromByteCount: diskInfo.availableBytes, countStyle: .file))",
+            "Processing policy: \(settings.ai.processingPolicy) · cloud provider: \(settings.ai.cloudProvider.displayName) · online music: \(settings.ai.onlineMusic)",
+            "Open project: \(session?.document.name ?? "none") · \(session?.document.timelines.count ?? 0) timelines · \(session?.document.media.count ?? 0) media",
+            "",
+            "Last log lines:",
+        ]
+        lines += PulseLog.tail(25)
+        return lines.joined(separator: "\n")
     }
 
     /// Drops the "Enhance" audio renders only; they come back on demand (#290).

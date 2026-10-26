@@ -12,6 +12,14 @@ struct ThumbnailSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var setup: ProjectSession.ThumbnailSetup?
+
+    /// Short, loud lines from the clip's titles (#362).
+    var textIdeas: [String] {
+        let candidateID = request.candidateID ?? request.timelineID.flatMap { session.document.timeline(id: $0)?.origin?.candidateID }
+        let candidate = candidateID.flatMap { id in session.document.candidates.first { $0.id == id } }
+        let titles = candidate?.copy.titles ?? request.timelineID.flatMap { session.document.timeline(id: $0)?.copy?.titles } ?? []
+        return ThumbnailHeadline.textSuggestions(from: titles)
+    }
     @State private var picks: [ThumbnailPick] = []
     @State private var included: Set<UUID> = []
     @State private var previews: [UUID: CGImage] = [:]
@@ -97,6 +105,9 @@ struct ThumbnailSheet: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 14, weight: .heavy))
                 Text("Keep it to 2–4 words — it's read at phone size.").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                if !textIdeas.isEmpty {
+                    FlowChips(items: textIdeas) { pick.headline.wrappedValue = $0 }
+                }
             }
         }
         .padding(10)

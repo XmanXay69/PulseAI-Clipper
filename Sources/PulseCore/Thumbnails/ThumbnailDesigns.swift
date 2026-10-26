@@ -445,3 +445,25 @@ public enum ThumbnailDesigner {
         return String(name.prefix(60))
     }
 }
+
+extension ThumbnailHeadline {
+    static let thumbnailStopWords: Set<String> = ["the", "a", "an", "and", "but", "or", "so", "to", "of", "in", "on", "at", "is", "it", "this", "that",
+                                                  "was", "be", "i", "you", "he", "she", "we", "they", "my", "your", "just", "really", "like", "for"]
+
+    /// Short, loud thumbnail lines from a clip's titles (#362): emoji and filler out, two to four words, upper case.
+    public static func textSuggestions(from titles: [String], max count: Int = 5) -> [String] {
+        var out: [String] = []
+        var seen = Set<String>()
+        for title in titles {
+            let letters = String(String.UnicodeScalarView(title.unicodeScalars.filter { !$0.properties.isEmojiPresentation && $0.value != 0xFE0F }))
+            let words = letters.split { !$0.isLetter && !$0.isNumber && $0 != "'" }.map { String($0) }
+            let strong = words.filter { !thumbnailStopWords.contains($0.lowercased()) }
+            let picked = (strong.count >= 2 ? strong : words).prefix(4)
+            guard picked.count >= 1 else { continue }
+            let line = picked.joined(separator: " ").uppercased()
+            if seen.insert(line).inserted { out.append(line) }
+            if out.count >= count { break }
+        }
+        return out
+    }
+}

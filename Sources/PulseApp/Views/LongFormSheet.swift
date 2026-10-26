@@ -18,6 +18,7 @@ struct LongFormSheet: View {
     @AppStorage("longForm.restraint") private var restraint = LongFormOptions.Restraint.balanced.rawValue
     @AppStorage("longForm.tighten") private var tighten = false
     @AppStorage("longForm.shortenPauses") private var shortenPauses = false
+    @AppStorage("longForm.musicLevel") private var musicLevel = 1.0
     @AppStorage("longForm.deadAir") private var deadAir = SilencePreset.balanced.rawValue
     @State private var choosing = false
     /// The extras question is showing (asked before anything is built).
@@ -35,6 +36,7 @@ struct LongFormSheet: View {
         options.extras = extras ?? EditExtras()
         options.tighten = tighten
         options.shortenPauses = shortenPauses
+        options.musicLevel = musicLevel
         options.deadAir = SilencePreset(rawValue: deadAir) ?? .balanced
         options.memeTexts = app.settings.ai.memeTextsByTag
         return options
@@ -154,6 +156,14 @@ struct LongFormSheet: View {
             touch("Memes", "face.smiling", "Pop-up text on the funniest moments", $memes)
             touch("Sound effects", "speaker.wave.2.fill", "Whooshes, booms and comedy stings", $soundEffects)
             touch("Music", "music.note", "A quiet, calm bed under each chapter, ducked under talking", $music)
+            if music {
+                HStack(spacing: 8) {
+                    Text("Music level").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    Slider(value: $musicLevel, in: 0.5...2, step: 0.25).frame(width: 140)
+                    Text(musicLevel == 1 ? "normal" : String(format: "%.2g×", musicLevel)).font(.pulseMono).foregroundStyle(Theme.textTertiary)
+                }
+                .padding(.leading, 20)
+            }
             touch("Tighten", "scissors", "Cut the ums, uhs and false starts (word timing isn't perfect — check the result)", $tighten)
             touch("Shorten pauses", "forward.frame", "Play 1–4 s pauses at 1.6× instead of cutting them — the breath stays, the wait goes", $shortenPauses)
             if music {

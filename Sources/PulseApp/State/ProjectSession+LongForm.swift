@@ -81,7 +81,8 @@ extension ProjectSession {
                     if prepared.isNew { newAssets.append(prepared.asset) }
                     job.progress = 0.3 + 0.65 * Double(i + 1) / Double(result.musicChapters.count)
                 }
-                LongFormEditor.addMusic(beds, chapters: result.musicChapters, to: &result.timeline, drops: result.musicDrops)
+                LongFormEditor.addMusic(beds, chapters: result.musicChapters, to: &result.timeline, drops: result.musicDrops,
+                                        level: options.musicLevel * LongFormEditor.musicLevel)
             }
             // 4. The extras you said yes to.
             if options.extras.beatSync {
@@ -213,8 +214,34 @@ extension ProjectSession {
             .sorted { $0.lastPathComponent.count < $1.lastPathComponent.count }
     }
 
-    /// Creative Commons tracks for the edit, imported as project media.
+    /// Audio files in the music folder from Settings (your own licensed tracks) (#297).
+    func ownMusicTracks() -> [URL] {
+        let path = app.settings.ai.musicFolder.trimmingCharacters(in: .whitespaces)
+        guard !path.isEmpty else { return [] }
+        let folder = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+        return files.filter { ["mp3", "m4a", "wav", "aac", "aiff", "aif", "flac", "ogg"].contains($0.pathExtension.lowercased()) }
+            .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+    }
+
+    /// Creative Commons tracks for the edit, imported as project media — after your own music folder.
     func onlineMusicBeds(tags: [ClipTag], chapterTags: [[ClipTag]] = [], count: Int, job: BackgroundJob) async -> (assets: [MediaAsset], tracks: [OnlineTrack]) {
+        // Your own licensed tracks first (no credits needed); a different pick each run.
+        let own = ownMusicTracks()
+        if !own.isEmpty {
+            job.detail = "Picking music from your folder"
+            var assets: [MediaAsset] = []
+            for url in own.shuffled().prefix(max(1, count)) {
+                if let existing = document.media.first(where: { $0.path == url.path }) { assets.append(existing); continue }
+                let plan = ImportPlan.make(urls: [url], existingPaths: [])
+                guard let item = plan.items.first, var asset = try? await MediaImporter.makeAsset(for: item, cacheRoot: app.cacheFolder) else { continue }
+                asset.role = .music
+                asset.tags.append("own-music")
+                assets.append(asset)
+            }
+            if !assets.isEmpty { return (assets, []) }
+        }
+        let favorites = Set(app.settings.ai.favoriteTrackIDs), blocked = Set(app.settings.ai.blockedTrackIDs)
         job.detail = "Finding Creative Commons music"
         var tracks: [OnlineTrack] = []
         // One bed per chapter, chosen for that chapter's mood (a fight gets driving music, a story gets ambient),
@@ -224,7 +251,7 @@ extension ProjectSession {
             var used = Set<String>()
             for (i, chapterTag) in perChapter.enumerated() {
                 job.detail = "Finding music for chapter \(i + 1) of \(perChapter.count)"
-                if let track = try? await OnlineMusicLibrary.shared.tracks(for: chapterTag, count: 1, avoiding: used, progress: { status in
+                if let track = try? await OnlineMusicLibrary.shared.tracks(for: chapterTag, count: 1, avoiding: used, favorites: favorites, blocked: blocked, progress: { status in
                     Task { @MainActor in job.detail = status }
                 }).first {
                     tracks.append(track)
@@ -234,7 +261,7 @@ extension ProjectSession {
         }
         if tracks.isEmpty {
             do {
-                tracks = try await OnlineMusicLibrary.shared.tracks(for: tags, count: max(1, count)) { status in
+                tracks = try await OnlineMusicLibrary.shared.tracks(for: tags, count: max(1, count), favorites: favorites, blocked: blocked) { status in
                     Task { @MainActor in job.detail = status }
                 }
             } catch {
@@ -277,6 +304,23 @@ extension ProjectSession {
 
     /// Timeline → Make a Short from Selection: the selected piece of the main recording (or the in → out
     /// range) becomes an AI clip and opens as a short.
+    /// What changed since a snapshot (#472).
+    func compareSnapshot(_ id: UUID) {
+        guard let snapshot = document.snapshots.first(where: { $0.id == id }), let live = document.timeline(id: snapshot.timelineID) else { return }
+        let lines = TimelineDiff.summarize(before: snapshot.timeline, after: live)
+        app.presentMessage(title: "Since “\(snapshot.name)”", message: lines.joined(separator: "\n"))
+    }
+
+    /// ⌥⇧⌘E: export just the stretch the selected clips cover (#335).
+    func exportSelectedClips() {
+        let clips = selectedClips
+        guard let start = clips.map(\.start).min(), let end = clips.map(\.end).max(), end > start + 0.1 else {
+            app.toast("Select the clips to export first")
+            return
+        }
+        app.quickExport(range: TimeRange(start: start, end: end))
+    }
+
     /// The best three shorts hiding in the open YouTube edit (#69), added to AI Clips.
     func makeShortsFromEdit(count: Int = 3) {
         guard let timeline = activeTimeline, let asset = document.primaryAsset, let analysis = analyses[asset.id] else {
@@ -357,6 +401,7 @@ extension ProjectSession {
         var closed = timeline
         let n = EditQualityCheck.closeGaps(&closed)
         guard n > 0 else { app.toast("No gaps on the main track"); return }
+        autoSnapshot("Before Close All Gaps")
         edit("Close Gaps") { doc in doc.editTimeline(id: timeline.id) { $0 = closed } }
         app.toast("Closed \(n) gap\(n == 1 ? "" : "s")")
     }
@@ -369,6 +414,7 @@ extension ProjectSession {
         var checked = timeline
         let report = EditQualityCheck.run(&checked, words: words)
         if !report.fixed.isEmpty {
+            autoSnapshot("Before Check Edit fixes")
             edit("Check Edit") { doc in doc.editTimeline(id: timeline.id) { $0 = checked } }
         }
         PulseLog.info("Check Edit on “\(timeline.name)”: \(report.summary)")

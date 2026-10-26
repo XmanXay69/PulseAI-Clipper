@@ -5,7 +5,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, aiProcessing, aiFeatures, brandKit, performance, transcription, files, proxies, shortcuts
+    case general, aiProcessing, aiFeatures, brandKit, performance, transcription, files, proxies, shortcuts, diagnostics, privacy
 
     var id: String { rawValue }
 
@@ -20,6 +20,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .files: return "Files & Storage"
         case .proxies: return "Proxies"
         case .shortcuts: return "Shortcuts"
+        case .diagnostics: return "Diagnostics"
+        case .privacy: return "Privacy"
         }
     }
 
@@ -34,6 +36,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .files: return "externaldrive"
         case .proxies: return "square.stack.3d.down.right"
         case .shortcuts: return "keyboard"
+        case .diagnostics: return "stethoscope"
+        case .privacy: return "hand.raised"
         }
     }
 }
@@ -81,6 +85,8 @@ struct SettingsView: View {
                     case .files: FileSettings()
                     case .proxies: ProxySettingsPane()
                     case .shortcuts: ShortcutsPane()
+                    case .diagnostics: DiagnosticsPane()
+                    case .privacy: PrivacyPane()
                     }
                 }
                 .padding(24)
@@ -152,6 +158,34 @@ struct GeneralSettings: View {
             SettingsRow("Set up for my stream", detail: app.settings.streamSetup.map { "\($0.platform.displayName) · \($0.content.displayName) · \($0.facecam ? "facecam" : "no facecam") · shorts for \($0.shortsTarget.displayName)" }
                         ?? "Answer six questions and PULSE sets clip length, captions, extras, safe areas and the export preset to match.") {
                 Button(app.settings.streamSetup == nil ? "Set Up…" : "Change…") { app.showSetupWizard = true }.buttonStyle(.pulse(.secondary, compact: true))
+            }
+        }
+        SettingsGroup("Settings file", footnote: "Move your settings to another Mac. Folders and the recent-projects list stay this Mac's own.") {
+            SettingsRow("Export / import", detail: "Everything in Settings as one JSON file.") {
+                HStack(spacing: 6) {
+                    Button("Export…") { app.exportSettingsFile() }.buttonStyle(.pulse(.secondary, compact: true))
+                    Button("Import…") { app.importSettingsFile() }.buttonStyle(.pulse(.secondary, compact: true))
+                }
+            }
+            SettingsRow("Reset a section", detail: "Back to PULSE's defaults for that part only.") {
+                HStack(spacing: 6) {
+                    Button("Editing") {
+                        let d = AppSettings()
+                        app.settings.magneticTimeline = d.magneticTimeline; app.settings.snapping = d.snapping
+                        app.settings.showSafeAreas = d.showSafeAreas; app.settings.safeAreaPlatform = d.safeAreaPlatform
+                        app.settings.defaultTransitionKind = d.defaultTransitionKind; app.settings.defaultTransitionDuration = d.defaultTransitionDuration
+                    }
+                    .buttonStyle(.pulse(.ghost, compact: true))
+                    Button("AI Features") {
+                        var fresh = AISettings()
+                        fresh.taste = app.settings.ai.taste; fresh.coachCalibration = app.settings.ai.coachCalibration
+                        fresh.analysisSpeed = app.settings.ai.analysisSpeed
+                        fresh.whisperModelPath = app.settings.ai.whisperModelPath; fresh.whisperExecutablePath = app.settings.ai.whisperExecutablePath
+                        app.settings.ai = fresh
+                    }
+                    .buttonStyle(.pulse(.ghost, compact: true))
+                    Button("Proxies") { app.settings.proxy = ProxySettings() }.buttonStyle(.pulse(.ghost, compact: true))
+                }
             }
         }
         SettingsGroup("Editing") {
@@ -439,6 +473,28 @@ struct TranscriptionSettings: View {
     ]
 
     var body: some View {
+        SettingsGroup("Music", footnote: "Your own licensed tracks are used first for Edit My VOD music (no credits needed); Creative Commons tracks fill in. Favourites and never-again tracks are set from a music clip's inspector.") {
+            SettingsRow("Your own music folder", detail: app.settings.ai.musicFolder.isEmpty ? "Not set — Creative Commons / built-in only" : app.settings.ai.musicFolder) {
+                HStack(spacing: 6) {
+                    Button("Choose…") {
+                        let panel = NSOpenPanel()
+                        panel.canChooseDirectories = true
+                        panel.canChooseFiles = false
+                        panel.message = "Choose a folder of music you have the rights to use"
+                        if panel.runModal() == .OK, let url = panel.url { app.settings.ai.musicFolder = url.path }
+                    }
+                    .buttonStyle(.pulse(.secondary, compact: true))
+                    if !app.settings.ai.musicFolder.isEmpty {
+                        Button("Clear") { app.settings.ai.musicFolder = "" }.buttonStyle(.pulse(.ghost, compact: true))
+                    }
+                }
+            }
+            if !app.settings.ai.blockedTrackIDs.isEmpty || !app.settings.ai.favoriteTrackIDs.isEmpty {
+                SettingsRow("Track memory", detail: "\(app.settings.ai.favoriteTrackIDs.count) favourite\(app.settings.ai.favoriteTrackIDs.count == 1 ? "" : "s"), \(app.settings.ai.blockedTrackIDs.count) never again") {
+                    Button("Forget all") { app.settings.ai.favoriteTrackIDs = []; app.settings.ai.blockedTrackIDs = [] }.buttonStyle(.pulse(.ghost, compact: true))
+                }
+            }
+        }
         SettingsGroup("B-roll", footnote: "With the B-roll extra on, clips from this folder are cut in first (a file named after the mood — fail, hype, laugh, shocked — is picked for that mood); YouTube Creative Commons clips fill the rest.") {
             SettingsRow("Your own clips folder", detail: app.settings.ai.brollFolder.isEmpty ? "Not set — YouTube only" : app.settings.ai.brollFolder) {
                 HStack(spacing: 6) {
@@ -619,7 +675,15 @@ struct FileSettings: View {
             let info = app.diskInfo
             KeyValueRow(key: "Projects", value: ByteCountFormatter.string(fromByteCount: info.projectsBytes, countStyle: .file))
             KeyValueRow(key: "Cache (thumbnails, waveforms, analysis, proxies)", value: ByteCountFormatter.string(fromByteCount: info.cacheBytes, countStyle: .file))
-            KeyValueRow(key: "Audio renders (Enhance, censoring)", value: ByteCountFormatter.string(fromByteCount: info.enhancedAudioBytes, countStyle: .file))
+            ForEach(info.cacheBreakdown) { folder in
+                HStack(spacing: 8) {
+                    Text(folder.name).font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    Spacer()
+                    Text(ByteCountFormatter.string(fromByteCount: folder.bytes, countStyle: .file)).font(.pulseMono).foregroundStyle(Theme.textTertiary)
+                    Button("Clear") { app.clearCacheFolder(folder.name) }.buttonStyle(.pulse(.ghost, compact: true))
+                        .help("Safe: everything in here comes back when it's needed")
+                }
+            }
             KeyValueRow(key: "Referenced media", value: ByteCountFormatter.string(fromByteCount: info.mediaBytes, countStyle: .file))
             KeyValueRow(key: "Free space", value: ByteCountFormatter.string(fromByteCount: info.availableBytes, countStyle: .file))
             if info.totalBytes > 0 {
@@ -799,6 +863,15 @@ struct PerformanceSettings: View {
     var withViews: [PerformanceRecord] { app.performanceHistory.filter { $0.views != nil }.sorted { ($0.views ?? 0) > ($1.views ?? 0) } }
 
     var body: some View {
+        SettingsGroup("Analysis", footnote: "Local transcription uses every core but two by default; fewer keeps the Mac snappier while it runs.") {
+            SettingsRow("Transcription threads") {
+                Picker("", selection: $app.settings.ai.analysisThreads) {
+                    Text("Automatic").tag(0)
+                    ForEach([2, 4, 6, 8], id: \.self) { Text("\($0)").tag($0) }
+                }
+                .labelsHidden().frame(width: 130)
+            }
+        }
         SettingsGroup("Calibrate the score with your real views", footnote: "Every export remembers what PULSE predicted. Import an analytics export and PULSE matches the videos by title, then re-weights the coach toward what actually worked on your channel (after 5 matched videos of a format). Only titles and numbers are read.") {
             SettingsRow("Analytics export", detail: "YouTube Studio → Analytics → Advanced mode → Export (CSV), or TikTok's analytics export.") {
                 Button("Import CSV…") {
@@ -840,5 +913,69 @@ struct PerformanceSettings: View {
                 }
             }
         }
+    }
+}
+
+// MARK: Diagnostics
+
+/// What support would ask for, on one page, with a copy button (#447).
+struct DiagnosticsPane: View {
+    @EnvironmentObject var app: AppModel
+    @State private var text = ""
+
+    var body: some View {
+        SettingsGroup("Diagnostics", footnote: "Nothing here is sent anywhere by itself. Copy it into a bug report if PULSE asks.") {
+            HStack {
+                Button { app.refreshDiskInfo(); text = app.diagnosticsText() } label: { Label("Refresh", systemImage: "arrow.clockwise") }
+                    .buttonStyle(.pulse(.secondary, compact: true))
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(text, forType: .string)
+                    app.toast("Diagnostics copied")
+                } label: { Label("Copy for support", systemImage: "doc.on.doc") }
+                    .buttonStyle(.pulse(.primary, compact: true))
+                Button("Open Log Folder") { NSWorkspace.shared.open(PulseLog.directory) }.buttonStyle(.pulse(.ghost, compact: true))
+            }
+            ScrollView {
+                Text(text.isEmpty ? "Gathering…" : text)
+                    .font(.pulseMono).foregroundStyle(Theme.textSecondary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(height: 360)
+            .padding(8)
+            .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.control))
+        }
+        .onAppear { text = app.diagnosticsText() }
+    }
+}
+
+// MARK: Privacy
+
+/// What leaves the Mac, in plain words, with the current state of each switch (#452).
+struct PrivacyPane: View {
+    @EnvironmentObject var app: AppModel
+
+    var body: some View {
+        SettingsGroup("What leaves your Mac", footnote: "Video, audio, transcripts and projects stay on this Mac. Nothing is uploaded unless a line below says so, and each one has its own switch.") {
+            line("Analysis, transcription, captions, edits, exports", on: false, detail: "On this Mac, always. Whisper and Apple Speech run locally.")
+            line("Cloud AI (titles, captions rewrite)", on: app.settings.ai.cloudProvider != .none,
+                 detail: app.settings.ai.cloudProvider == .none ? "Off — PULSE's local generator is used." : "Only transcript text goes to \(app.settings.ai.cloudProvider.displayName), and only when you ask (policy: \(app.settings.ai.processingPolicy)).")
+            line("Creative Commons music and B-roll", on: app.settings.ai.onlineMusic || app.settings.ai.editExtras.brollClips,
+                 detail: "Searches and downloads go to youtube.com / googlevideo.com. Nothing about your video is sent — only the mood words.")
+            line("Update check", on: true, detail: "Help → Check for Updates reads GitHub Releases. No identifiers are sent.")
+            line("Report a Problem", on: false, detail: "Only when you send one, and you see the text and log first.")
+        }
+    }
+
+    func line(_ title: String, on: Bool, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: on ? "arrow.up.circle.fill" : "lock.fill").foregroundStyle(on ? Theme.warning : Theme.success).frame(width: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.pulseBody).foregroundStyle(Theme.textPrimary)
+                Text(detail).font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }

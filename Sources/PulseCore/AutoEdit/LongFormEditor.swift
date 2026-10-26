@@ -29,6 +29,8 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
     public var deadAir: SilencePreset = .balanced
     /// Speed up 1.2–4 s pauses to 1.6× instead of jump-cutting them (keeps the breath, loses the wait) (#96).
     public var shortenPauses = false
+    /// Music bed level as a multiple of PULSE's quiet default (0.5 = half, 2 = twice) (#296).
+    public var musicLevel: Double = 1
     /// Your own meme pop-up text per mood (Settings → AI Features); empty = PULSE's default.
     public var memeTexts: [ClipTag: String] = [:]
 
@@ -676,7 +678,8 @@ public enum LongFormEditor {
     /// How long one chapter's music overlaps the next (a crossfade instead of a fade out, a gap, a fade in).
     public static let musicCrossfade: Seconds = 3
 
-    public static func addMusic(_ beds: [MediaAsset], chapters: [TimeRange], to timeline: inout Timeline, drops: [Seconds] = []) {
+    public static func addMusic(_ beds: [MediaAsset], chapters: [TimeRange], to timeline: inout Timeline, drops: [Seconds] = [],
+                                level: Double = LongFormEditor.musicLevel) {
         guard let ti = timeline.tracks.firstIndex(where: { $0.name.hasPrefix("A2") }), !beds.isEmpty else { return }
         timeline.tracks[ti].clips.removeAll { $0.role == .music && $0.aiGenerated }
         // Chapters alternate between two music tracks so neighbouring chapters can overlap and crossfade.
@@ -708,7 +711,7 @@ public enum LongFormEditor {
                 // A bed, not a feature: leveled first (so loud and quiet tracks sit the same), then well under
                 // the voice and ducked further while anyone talks.
                 clip.audio.normalize = true
-                clip.audio.volume = AnimatedDouble(musicLevel)
+                clip.audio.volume = AnimatedDouble(level)
                 clip.audio.duckUnderDialogue = true
                 clip.audio.duckAmountDB = -14
                 clip.audio.fadeIn = t == start ? (index == 0 ? 2.5 : overlap) : 1

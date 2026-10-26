@@ -167,6 +167,8 @@ struct PulseCommands: Commands {
             Button("Loop In → Out") { app.session?.toggleLoopInOut() }.keyboardShortcut("l", modifiers: [.option])
             Button("Export In → Out") { app.session?.exportInOut() }.keyboardShortcut("e", modifiers: [.command, .option])
                 .disabled(app.session?.inOutRange == nil)
+            Button("Export Selected Clips") { app.session?.exportSelectedClips() }.keyboardShortcut("e", modifiers: [.command, .option, .shift])
+                .disabled(app.session?.selectedClipIDs.isEmpty ?? true)
             Menu("Snapshots") {
                 Button("Take Snapshot") { app.session?.takeSnapshot() }.keyboardShortcut("s", modifiers: [.command, .option])
                     .disabled(app.session?.activeTimeline == nil)
@@ -177,6 +179,7 @@ struct PulseCommands: Commands {
                         ForEach(list) { snapshot in
                             Menu("\(snapshot.name) · \(snapshot.summary)") {
                                 Button("Restore") { session.restoreSnapshot(snapshot.id) }
+                                Button("Compare with Current") { session.compareSnapshot(snapshot.id) }
                                 Button("Delete", role: .destructive) { session.deleteSnapshot(snapshot.id) }
                             }
                         }

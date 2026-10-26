@@ -157,6 +157,9 @@ struct ClipInspector: View {
                 if session.selectedClipIDs.count > 1 {
                     Text("Changes apply to all \(session.selectedClipIDs.count) selected clips").font(.pulseMicro).foregroundStyle(Theme.ai)
                 }
+                if clip.role == .music, let asset = clip.assetID.flatMap({ session.document.asset(id: $0) }) {
+                    MusicTrackRow(path: asset.path)
+                }
             }
             if clip.isVisual, let id = clip.assetID, let group = session.activeMulticamGroup, group.angle(id) != nil {
                 MulticamAngleInspector(session: session, clip: clip, group: group)
@@ -512,6 +515,8 @@ struct ColorInspector: View {
             Button { session.editClip(clip.id, "Reset Color") { $0.color = .neutral } } label: { Image(systemName: "arrow.counterclockwise") }
                 .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help("Reset color")
         )) {
+            ToggleRow(label: "Bypass grade", isOn: b.value("Bypass Grade", \.color.bypass, fallback: false),
+                      help: "Keep the values, render none of them — flip it to compare before and after")
             // One-click looks: a gentle starting point you can then tune below.
             HStack(spacing: 5) {
                 ForEach(ColorAdjustments.Look.allCases, id: \.self) { look in
@@ -832,5 +837,51 @@ struct LayoutChangesEditor: View {
             }
         }
         .padding(.top, 4)
+    }
+}
+
+/// A Creative Commons bed's library controls (#292, #304): favourite it, never hear it again, or open its
+/// YouTube page to check the license yourself.
+struct MusicTrackRow: View {
+    @EnvironmentObject var app: AppModel
+    let path: String
+    @State private var track: OnlineTrack?
+
+    var body: some View {
+        Group {
+            if let track {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(track.credit).font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(2)
+                    HStack(spacing: 6) {
+                        let favorite = app.settings.ai.favoriteTrackIDs.contains(track.videoID)
+                        Button { toggleFavorite(track) } label: { Label(favorite ? "Favourite" : "Favourite", systemImage: favorite ? "star.fill" : "star") }
+                            .buttonStyle(.pulse(favorite ? .primary : .secondary, compact: true))
+                            .help("Picked first for this mood next time")
+                        Button { block(track) } label: { Label("Never again", systemImage: "hand.raised") }
+                            .buttonStyle(.pulse(.ghost, compact: true))
+                            .help("Never picked again (undo in Settings → Transcription → Music)")
+                        Button { NSWorkspace.shared.open(track.url) } label: { Label("YouTube", systemImage: "play.rectangle") }
+                            .buttonStyle(.pulse(.ghost, compact: true))
+                            .help("The track's page — check the license yourself")
+                    }
+                }
+            }
+        }
+        .task(id: path) { track = await OnlineMusicLibrary.shared.track(forPath: path) }
+    }
+
+    func toggleFavorite(_ track: OnlineTrack) {
+        if let i = app.settings.ai.favoriteTrackIDs.firstIndex(of: track.videoID) {
+            app.settings.ai.favoriteTrackIDs.remove(at: i)
+        } else {
+            app.settings.ai.favoriteTrackIDs.append(track.videoID)
+            app.settings.ai.blockedTrackIDs.removeAll { $0 == track.videoID }
+        }
+    }
+
+    func block(_ track: OnlineTrack) {
+        if !app.settings.ai.blockedTrackIDs.contains(track.videoID) { app.settings.ai.blockedTrackIDs.append(track.videoID) }
+        app.settings.ai.favoriteTrackIDs.removeAll { $0 == track.videoID }
+        app.toast("“\(track.title)” won't be picked again")
     }
 }

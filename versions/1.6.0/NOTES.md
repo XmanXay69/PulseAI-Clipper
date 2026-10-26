@@ -42,6 +42,11 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 - **Sections open on scene changes** (#31) — a section that starts within a second of a scene cut snaps to it, so
   chapters open on a fresh screen instead of mid-transition.
 
+- **Your own music folder, favourites and never-again** (#297, #292, #304) — Settings → Transcription → Music
+  points at a folder of licensed tracks, used first (no credits needed). A Creative Commons bed's inspector
+  has Favourite (picked first for that mood next time), Never again, and its YouTube page to check the license.
+- **Music level** (#296) — a slider in Edit My VOD from half to twice PULSE's quiet default.
+- **Chapter lower-thirds** are listed under Editing; **"Less busy / More busy"** re-runs are under Edit My VOD Again.
 - **Music crossfades between chapters** (#101) — beds now sit on two music tracks (A2 / A2b) so one chapter's
   music overlaps the next for 3 s instead of fading out, a gap, and fading in.
 
@@ -101,6 +106,9 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 - **Overlap warning** (#73) — a clip that covers mostly the same stretch as a short you've already edited says so.
 
 ### Delivery
+- **Export the selected clips** (⌥⇧⌘E, #335), **a thumbnail PNG next to the video** (#337), **a file-size
+  cap** that lowers the video bitrate to fit (#344), **title, hashtags and app in the file's metadata**
+  (#354), and **Copy description & credits** in the export panel (#299).
 - **Audio only** (#278) — an export checkbox renders the mix alone as an .m4a (the podcast version of an edit).
 - **Audio renders in Storage** (#290) — Settings → Files & Storage shows how much the Enhance renders take and
   clears them on their own.
@@ -143,6 +151,17 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   per timeline. It's rendered into the enhance cache; the source file is never touched.
 
 ### Everywhere
+- **Diagnostics and Privacy in Settings** (#447, #452) — one page with the Mac, encoders, transcription
+  status, disk and the last log lines, with Copy for support; and a plain-words page of what leaves the Mac,
+  showing the state of each switch.
+- **Settings as a file** (#444) and **reset per section** (#446) — Settings → General.
+- **Cache breakdown** (#388, #456) — Settings → Files & Storage lists each cache folder with a Clear button.
+- **Transcription threads** (#378) — Settings → Performance, so the Mac stays usable during analysis.
+- **Snapshots → Compare with Current** (#472) — what changed since a snapshot, in plain lines.
+- **Tip of the day on Home** (#450), with "Don't show tips".
+- **Thumbnail text ideas** (#362) — short, loud lines from the clip's titles, one click into the field.
+- **Bypass grade** (#316) — a toggle in the color inspector keeps the values and renders none of them.
+- **Snapshots before Check Edit fixes and Close All Gaps** (#384), on top of Make More Entertaining.
 - **Shorts + YouTube video in one click** (#460) — a Home tile picks a recording (or a folder of them) and
   runs the whole pipeline: analysis, the best shorts, the YouTube edit with your saved extras, and the Mac stays
   awake until it's done.

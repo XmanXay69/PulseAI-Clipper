@@ -1,3 +1,4 @@
+import AppKit
 import AVFoundation
 import Foundation
 import PulseCore
@@ -25,7 +26,8 @@ public final class ExportEngine: @unchecked Sendable {
         let duration = range.map { max(0.1, min($0.end, built.duration) - exportStart) } ?? built.duration
         let fps = settings.frameRate ?? timeline.canvas.frameRate
         let audioOnly = settings.audioOnly
-        let estimatedBytes = Int64(Double((audioOnly ? 0 : settings.effectiveVideoBitrate) + settings.audioBitrate) * duration / 8 * 1.15)
+        let videoBitrate = settings.videoBitrate(for: duration)
+        let estimatedBytes = Int64(Double((audioOnly ? 0 : videoBitrate) + settings.audioBitrate) * duration / 8 * 1.15)
         try DiskSpace.ensure(estimatedBytes, at: destination.deletingLastPathComponent())
 
         let videoComposition = built.videoComposition.mutableCopy() as! AVMutableVideoComposition
@@ -72,6 +74,7 @@ public final class ExportEngine: @unchecked Sendable {
         try? FileManager.default.removeItem(at: temp)
         let writer = try AVAssetWriter(outputURL: temp, fileType: audioOnly ? .m4a : (settings.codec == .proRes422 ? .mov : .mp4))
         writer.shouldOptimizeForNetworkUse = true
+        writer.metadata = Self.metadata(for: timeline)
 
         var videoSettings: [String: Any] = [
             AVVideoWidthKey: size.width,
@@ -81,7 +84,7 @@ public final class ExportEngine: @unchecked Sendable {
         case .h264:
             videoSettings[AVVideoCodecKey] = AVVideoCodecType.h264
             videoSettings[AVVideoCompressionPropertiesKey] = [
-                AVVideoAverageBitRateKey: settings.effectiveVideoBitrate,
+                AVVideoAverageBitRateKey: videoBitrate,
                 AVVideoExpectedSourceFrameRateKey: fps,
                 AVVideoMaxKeyFrameIntervalKey: Int(fps * 2),
                 AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
@@ -89,7 +92,7 @@ public final class ExportEngine: @unchecked Sendable {
         case .hevc:
             videoSettings[AVVideoCodecKey] = AVVideoCodecType.hevc
             videoSettings[AVVideoCompressionPropertiesKey] = [
-                AVVideoAverageBitRateKey: settings.effectiveVideoBitrate,
+                AVVideoAverageBitRateKey: videoBitrate,
                 AVVideoExpectedSourceFrameRateKey: fps,
                 AVVideoMaxKeyFrameIntervalKey: Int(fps * 2),
             ] as [String: Any]
@@ -159,6 +162,12 @@ public final class ExportEngine: @unchecked Sendable {
         try? FileManager.default.removeItem(at: destination)
         try FileManager.default.moveItem(at: temp, to: destination)
 
+        // A representative frame as a PNG next to the video (#337): the payoff marker when there is one.
+        if settings.exportThumbnail, !audioOnly {
+            let at = Self.thumbnailTime(for: timeline, exportStart: exportStart, duration: duration)
+            await Self.writeThumbnail(of: destination, at: at, to: destination.deletingPathExtension().appendingPathExtension("png"))
+        }
+
         if settings.exportSRT, let captions = timeline.captions {
             let srt = CaptionLayoutEngine.srt(track: captions, timeline: timeline)
             try? srt.write(to: destination.deletingPathExtension().appendingPathExtension("srt"), atomically: true, encoding: .utf8)
@@ -168,6 +177,41 @@ public final class ExportEngine: @unchecked Sendable {
 }
 
 /// Moves samples from reader outputs to writer inputs on background queues.
+extension ExportEngine {
+    /// Title, artist, comment and the app in the file's own metadata (#354).
+    static func metadata(for timeline: Timeline) -> [AVMetadataItem] {
+        func item(_ identifier: AVMetadataIdentifier, _ value: String) -> AVMetadataItem {
+            let m = AVMutableMetadataItem()
+            m.identifier = identifier
+            m.value = value as NSString
+            m.extendedLanguageTag = "und"
+            return m
+        }
+        var items = [item(.commonIdentifierTitle, timeline.copy?.titles.first ?? timeline.name),
+                     item(.commonIdentifierSoftware, "PULSE"),
+                     item(.quickTimeMetadataSoftware, "PULSE")]
+        if let hashtags = timeline.copy?.hashtags, !hashtags.isEmpty { items.append(item(.commonIdentifierDescription, hashtags.joined(separator: " "))) }
+        return items
+    }
+
+    /// The frame worth a thumbnail: the "Payoff" or "Hook" marker inside the export, else a third of the way in.
+    static func thumbnailTime(for timeline: Timeline, exportStart: Seconds, duration: Seconds) -> Seconds {
+        let inside = timeline.markers.filter { $0.time >= exportStart && $0.time < exportStart + duration }
+        if let payoff = inside.first(where: { $0.name == "Payoff" || $0.name == "Hook" }) { return payoff.time - exportStart }
+        return duration * 0.35
+    }
+
+    static func writeThumbnail(of video: URL, at time: Seconds, to destination: URL) async {
+        let generator = AVAssetImageGenerator(asset: AVURLAsset(url: video))
+        generator.appliesPreferredTrackTransform = true
+        generator.requestedTimeToleranceBefore = .zero
+        generator.requestedTimeToleranceAfter = CMTime(seconds: 0.5, preferredTimescale: 600)
+        guard let cg = try? await generator.image(at: CMTime(seconds: time, preferredTimescale: 600)).image,
+              let data = NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:]) else { return }
+        try? data.write(to: destination)
+    }
+}
+
 final class ExportPump: @unchecked Sendable {
     let reader: AVAssetReader
     let writer: AVAssetWriter

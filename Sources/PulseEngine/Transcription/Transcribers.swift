@@ -253,7 +253,9 @@ public enum TranscriptionEngineFactory {
         let whisper: WhisperCppTranscriber? = {
             guard let exe = WhisperCppTranscriber.locateExecutable(preferred: settings.whisperExecutablePath),
                   let model = WhisperCppTranscriber.locateModel(preferred: settings.whisperModelPath) else { return nil }
-            var w = WhisperCppTranscriber(executable: exe, model: model)
+            var w = settings.analysisThreads > 0
+                ? WhisperCppTranscriber(executable: exe, model: model, threads: max(1, settings.analysisThreads))
+                : WhisperCppTranscriber(executable: exe, model: model)
             w.vocabulary = vocabulary
             return w
         }()

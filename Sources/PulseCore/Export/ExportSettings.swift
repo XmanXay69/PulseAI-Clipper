@@ -95,6 +95,10 @@ public struct ExportSettings: Codable, Hashable, Sendable {
     public var folderPerProject: Bool
     /// Only the mix, as an .m4a (the podcast version of an edit) (#278).
     public var audioOnly: Bool
+    /// Keep the file under this many megabytes by lowering the video bitrate (nil = no limit) (#344).
+    public var targetFileMB: Int?
+    /// Also save a PNG of a representative frame next to the video (#337).
+    public var exportThumbnail: Bool
 
     public init(preset: ExportPreset = .tiktok, outputDirectory: String = "", quality: ExportQuality = .high) {
         self.presetID = preset.id
@@ -112,6 +116,19 @@ public struct ExportSettings: Codable, Hashable, Sendable {
         self.exportSRT = false
         self.folderPerProject = false
         self.audioOnly = false
+        self.targetFileMB = nil
+        self.exportThumbnail = false
+    }
+
+    /// The video bitrate for a file of `duration` seconds: the effective bitrate, lowered when a target size
+    /// is set (never below 0.25 Mbps). The audio and container overhead (about 2 %) come out of the budget.
+    public func videoBitrate(for duration: Seconds) -> Int {
+        var bitrate = effectiveVideoBitrate
+        if let mb = targetFileMB, mb > 0, duration > 0 {
+            let budget = Double(mb) * 1_000_000 * 8 * 0.98 / duration - Double(audioBitrate)
+            bitrate = Swift.min(bitrate, Swift.max(250_000, Int(budget)))
+        }
+        return bitrate
     }
 
     /// The file extension the export gets.
@@ -135,6 +152,8 @@ public struct ExportSettings: Codable, Hashable, Sendable {
         exportSRT = c.decode(Bool.self, forKey: .exportSRT, default: d.exportSRT)
         folderPerProject = c.decode(Bool.self, forKey: .folderPerProject, default: d.folderPerProject)
         audioOnly = c.decode(Bool.self, forKey: .audioOnly, default: d.audioOnly)
+        targetFileMB = c.decode(Int?.self, forKey: .targetFileMB, default: nil)
+        exportThumbnail = c.decode(Bool.self, forKey: .exportThumbnail, default: d.exportThumbnail)
     }
 
     /// Where a job's files go: the export folder, or the project's own sub-folder inside it.

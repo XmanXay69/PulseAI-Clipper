@@ -462,6 +462,23 @@ struct ExportsView: View {
                         }
                     }
                     .toggleStyle(.checkbox)
+                    Toggle(isOn: $settings.exportThumbnail) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Save a thumbnail PNG").font(.pulseBody).foregroundStyle(Theme.textPrimary)
+                            Text("A frame at the payoff, next to the video.").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                        }
+                    }
+                    .toggleStyle(.checkbox)
+                    HStack(spacing: 8) {
+                        Text("Keep under").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                        TextField("MB", value: $settings.targetFileMB, format: .number).textFieldStyle(.roundedBorder).frame(width: 70)
+                        Text("MB — lowers the video bitrate to fit (empty = no limit)").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                    }
+                    if let notes = app.session?.activeTimeline?.notes, !notes.isEmpty {
+                        Button { copyDescription(notes) } label: { Label("Copy description & credits", systemImage: "doc.on.doc") }
+                            .buttonStyle(.pulse(.secondary, compact: true))
+                            .help("Chapters and music credits, ready to paste under the video")
+                    }
                     Toggle(isOn: $settings.folderPerProject) {
                         VStack(alignment: .leading, spacing: 1) {
                             Text("One folder per project").font(.pulseBody).foregroundStyle(Theme.textPrimary)
@@ -576,6 +593,12 @@ struct ExportsView: View {
                 queue(timeline)
             }
         }
+    }
+
+    func copyDescription(_ notes: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(notes, forType: .string)
+        app.toast("Copied the description (\(notes.split(separator: "\n").count) lines)")
     }
 
     func queue(_ timeline: Timeline) {
