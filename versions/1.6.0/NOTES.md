@@ -1,6 +1,8 @@
 ## PULSE 1.6.0
 
-The first batch from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impact:
+Three releases in one: the **studio look** (1.5.0), the **instant replays and editing fixes** (1.4.0), and the
+first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impact. See
+[1.5.0](../1.5.0/NOTES.md) and [1.4.0](../1.4.0/NOTES.md) for those two; what's new on top:
 
 ### Edit My VOD
 - **Mic checks and sign-offs stay out** (#120, #121) — "can you hear me?", "mic check", "thanks for watching,

@@ -16,13 +16,16 @@ concurrency:
 jobs:
   build-and-test:
     name: Build & Test (macOS)
-    runs-on: macos-15
+    runs-on: macos-14
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
       - name: Toolchain
         run: |
+          # macos-14 keeps several Xcodes; use the newest 16.x (Swift 6) so builds match the macos-15 runner.
+          newest=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$newest" ]; then sudo xcode-select -s "$newest"; fi
           sw_vers
           xcodebuild -version
           swift --version
