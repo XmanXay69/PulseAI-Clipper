@@ -413,6 +413,23 @@ struct TranscriptionSettings: View {
     ]
 
     var body: some View {
+        SettingsGroup("B-roll", footnote: "With the B-roll extra on, clips from this folder are cut in first (a file named after the mood — fail, hype, laugh, shocked — is picked for that mood); YouTube Creative Commons clips fill the rest.") {
+            SettingsRow("Your own clips folder", detail: app.settings.ai.brollFolder.isEmpty ? "Not set — YouTube only" : app.settings.ai.brollFolder) {
+                HStack(spacing: 6) {
+                    Button("Choose…") {
+                        let panel = NSOpenPanel()
+                        panel.canChooseDirectories = true
+                        panel.canChooseFiles = false
+                        panel.message = "Choose a folder of your meme / reaction clips"
+                        if panel.runModal() == .OK, let url = panel.url { app.settings.ai.brollFolder = url.path }
+                    }
+                    .buttonStyle(.pulse(.secondary, compact: true))
+                    if !app.settings.ai.brollFolder.isEmpty {
+                        Button("Clear") { app.settings.ai.brollFolder = "" }.buttonStyle(.pulse(.ghost, compact: true))
+                    }
+                }
+            }
+        }
         SettingsGroup("Meme pop-ups", footnote: "Edit My VOD pops one of these on the biggest moments of each kind. Leave a field empty for PULSE's default.") {
             ForEach(LongFormEditor.memeMoods, id: \.self) { mood in
                 SettingsRow(mood.displayName, detail: "Default: \(LongFormEditor.defaultMemeText(for: mood))") {

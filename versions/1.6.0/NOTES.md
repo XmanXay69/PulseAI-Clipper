@@ -26,11 +26,18 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 - **Your own meme pop-ups** (#103) — Settings → AI Features lets you set the text for each mood (fail, hype,
   funny…); leave one empty for PULSE's default.
 - **Words to censor** (#44) — add your own to the caption filter.
+- **Your own B-roll folder** (#131) — point Settings → Transcription → B-roll at a folder of meme / reaction clips
+  and the B-roll extra cuts those in first (a file named after the mood — fail, hype, laugh — is picked for that
+  mood); YouTube Creative Commons clips fill the rest.
+- **Sections open on scene changes** (#31) — a section that starts within a second of a scene cut snaps to it, so
+  chapters open on a fresh screen instead of mid-transition.
 
 - **Music crossfades between chapters** (#101) — beds now sit on two music tracks (A2 / A2b) so one chapter's
   music overlaps the next for 3 s instead of fading out, a gap, and fading in.
 
 ### Editing
+- **Hum removal** (#275) — a toggle in the audio inspector notches 50/60 Hz mains hum and its harmonics out of a
+  clip, as part of the enhance chain.
 - **J/K/L shuttle** (#157) — L plays 1×, then 2×, 4×, 8× on each press; J the same backwards (or a second back
   per press when the composition can't play in reverse); K stops.
 - **Zoom In / Out / to Fit** in the Timeline menu (⌘= / ⌘- / ⇧Z) (#153).

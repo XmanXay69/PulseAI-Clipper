@@ -154,9 +154,28 @@ extension ProjectSession {
         var placements: [(asset: MediaAsset, at: Seconds)] = []
         var clips: [OnlineTrack] = []
         var used = Set<String>()
+        // Your own clips first (Settings → AI Features → B-roll folder): a file whose name matches the moment's
+        // mood ("fail", "hype", "laugh"…), else any clip not used yet in this edit.
+        let own = ownBrollClips()
+        var ownUsed = Set<String>()
         for (i, moment) in moments.enumerated() {
             if job.state != .running { break }
             job.detail = "Finding B-roll \(i + 1) of \(moments.count)"
+            if let local = own.first(where: { url in !ownUsed.contains(url.path) && moment.query.split(separator: " ").contains { url.lastPathComponent.lowercased().contains($0) } })
+                ?? own.first(where: { !ownUsed.contains($0.path) }) {
+                ownUsed.insert(local.path)
+                if let existing = document.media.first(where: { $0.path == local.path }) {
+                    placements.append((existing, moment.time))
+                } else {
+                    let plan = ImportPlan.make(urls: [local], existingPaths: [])
+                    if let item = plan.items.first, var asset = try? await MediaImporter.makeAsset(for: item, cacheRoot: app.cacheFolder) {
+                        asset.role = .graphic
+                        asset.tags.append("b-roll")
+                        placements.append((asset, moment.time))
+                    }
+                }
+                continue
+            }
             guard let found = await OnlineMusicLibrary.shared.brollClip(query: moment.query, avoiding: used, progress: { status in
                 Task { @MainActor in job.detail = status }
             }) else { continue }
@@ -177,6 +196,17 @@ extension ProjectSession {
         }
         PulseLog.info("B-roll: \(placements.count) of \(moments.count) cutaways found")
         return (placements, clips)
+    }
+
+    /// Video files in the B-roll folder from Settings (mp4/mov/m4v), shortest names first so "fail.mp4" beats
+    /// "fail-compilation-long.mp4".
+    func ownBrollClips() -> [URL] {
+        let path = app.settings.ai.brollFolder.trimmingCharacters(in: .whitespaces)
+        guard !path.isEmpty else { return [] }
+        let folder = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+        return files.filter { ["mp4", "mov", "m4v"].contains($0.pathExtension.lowercased()) }
+            .sorted { $0.lastPathComponent.count < $1.lastPathComponent.count }
     }
 
     /// Creative Commons tracks for the edit, imported as project media.

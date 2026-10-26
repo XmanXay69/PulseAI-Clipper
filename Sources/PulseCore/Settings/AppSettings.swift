@@ -53,6 +53,8 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var memeTexts: [String: String] = [:]
     /// Extra words to censor in captions, on top of the built-in list.
     public var extraProfanity: [String] = []
+    /// A folder of your own meme / reaction clips for the B-roll extra (used before YouTube; empty = YouTube only).
+    public var brollFolder: String = ""
     public var aiFraming: Bool = true
     /// Label who is talking after transcription (local diarization).
     public var detectSpeakers: Bool = true
@@ -115,6 +117,7 @@ public struct AISettings: Codable, Hashable, Sendable {
         editExtras = c.decode(EditExtras.self, forKey: .editExtras, default: d.editExtras)
         memeTexts = c.decode([String: String].self, forKey: .memeTexts, default: d.memeTexts)
         extraProfanity = c.decode([String].self, forKey: .extraProfanity, default: d.extraProfanity)
+        brollFolder = c.decode(String.self, forKey: .brollFolder, default: d.brollFolder)
         aiFraming = c.decode(Bool.self, forKey: .aiFraming, default: d.aiFraming)
         detectSpeakers = c.decode(Bool.self, forKey: .detectSpeakers, default: d.detectSpeakers)
         speakerCount = c.decode(Int.self, forKey: .speakerCount, default: d.speakerCount)
