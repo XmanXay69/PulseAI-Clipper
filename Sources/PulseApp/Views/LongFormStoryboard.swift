@@ -102,7 +102,7 @@ struct LongFormStoryboard: View {
                     .padding(16)
                 }
                 .focusable()
-                .onKeyPress(handleKey)
+                .onKeyPress(phases: .down, action: handleKey)
                 .help("↑ ↓ move · space previews · return keeps or drops · ⌫ drops (#111)")
             } else {
                 VStack(spacing: 10) {
