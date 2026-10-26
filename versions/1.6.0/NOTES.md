@@ -1,7 +1,7 @@
 ## PULSE 1.6.0
 
-Three releases in one: the **studio look** (1.5.0), the **instant replays and editing fixes** (1.4.0), and the
-first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impact. See
+Three releases in one: the **studio look** (1.5.0), the **instant replays and editing fixes** (1.4.0), and
+fifteen batches — more than 250 items — from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impact. See
 [1.5.0](../1.5.0/NOTES.md) and [1.4.0](../1.4.0/NOTES.md) for those two; what's new on top:
 
 ### Edit My VOD

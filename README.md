@@ -15,11 +15,18 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
 Already installed? PULSE shows an **Update** button when a new version is out — no need to download again.
 
 **New in 1.6.0:** a studio look (lit surfaces, gradient controls, grouped sidebar, breadcrumb, pill page bar,
-richer timeline), instant replays on the biggest plays, and the first 40-odd items from the
-[500-item roadmap](docs/ROADMAP-500.md): mic checks and sign-offs kept out, cuts that never land inside a
-word, a Tighten pass, dead-air sensitivity, music per chapter, your own meme pop-ups, one-click looks, freeze
-frames, nudging, a markers list, typed timecodes, an export description `.txt` and `.srt` beside every file,
-verified exports, Quick Export ⌘E, actions in ⌘F search, J/K rating, and a fuzz-tested timeline.
+richer timeline), instant replays on the biggest plays, and more than 250 items from the
+[500-item roadmap](docs/ROADMAP-500.md). Edit My VOD now shows you a chapter outline before it cuts, can open
+cold on the payoff, speed-ramps into it, levels your guests to your voice, adds chapter lower-thirds and an end
+card with your handle, and hands you a plain-language edit report plus a review page you can send to anyone.
+AI Clips offer more titles like the one you liked, hashtags, series labels, merged moments, a "never" button and
+a per-project aggressiveness dial. The editor gained timeline search, a pauses pass, project notes, an undo
+history, a minimap, follow-playhead, compact tracks, Match Previous, cover frames, grade presets, an inspector
+search box and FCPXML export. Captions can be cleaned up, shifted after the playhead, placed per platform,
+rebuilt without losing your fixes, coloured per speaker, and imported. Delivery got loudness targets, a pausable
+queue, naming tokens and one-click re-export. Plus: import a YouTube link, file chapters as markers,
+re-transcribe a stretch, a watch folder and nightly batch, deadlines and archive, a media trash, Shortcuts
+actions, lifetime statistics, settings search, battery-aware batches, and a 346-test CI on four macOS runners.
 
 1. Double-click **PULSE.dmg** and drag **PULSE** into **Applications**.
 2. Open PULSE from Launchpad or Applications.

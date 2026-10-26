@@ -2,9 +2,16 @@
 
 Release notes live in [`versions/`](versions/README.md), one folder per version:
 
-- [1.6.0](versions/1.6.0/NOTES.md) — studio UI + instant replays + the first roadmap batches (word-safe cuts, intro/outro
-  trimming, tighten, dead-air picker, music per chapter, own memes, looks, freeze frame, nudge, markers list, typed
-  timecode, export sidecars + verification, Quick Export, search actions, J/K rating, fuzz-tested timeline).
+- [1.6.0](versions/1.6.0/NOTES.md) — studio UI + instant replays + fifteen roadmap batches from `docs/ROADMAP-500.md`:
+  Edit My VOD gets a chapter outline, cold opens, speed ramps, chapter lower-thirds, end CTA cards, speaker
+  levelling, game-only audio, an edit report and a shareable review page; AI Clips get more titles, hashtags,
+  series, merge moments, never, per-project aggressiveness and taste transparency; the editor gets timeline search,
+  pauses, notes, undo history, a minimap, follow-playhead, compact tracks, match previous, cover frame, freeze
+  frame, speed ramps, grade presets and FCPXML export; captions get cleanup, shift-after, platform positions,
+  rebuild-keeping-fixes, speaker colours and import; delivery gets sidecars, verification, loudness targets, a
+  pausable queue, naming tokens and re-export; plus YouTube link import, file chapters, re-transcribe a stretch,
+  watch folder + nightly batch, deadlines, archive, media trash, App Intents/Shortcuts, statistics, settings and
+  inspector search, battery-aware batches, and a 346-test CI matrix on four macOS runners.
 - [1.5.0](versions/1.5.0/NOTES.md) (folded into 1.6.0) — studio UI (gradients, elevation, grouped sidebar, breadcrumb, pill page bar, richer
   timeline); ships with 1.4.0's features; 500-item roadmap.
 - [1.4.0](versions/1.4.0/NOTES.md) (folded into 1.5.0) — instant replays (ask-first), slow push-ins, B-roll replaces memes on a shared beat,

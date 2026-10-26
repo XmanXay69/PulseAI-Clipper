@@ -6,8 +6,10 @@
 
 **Branch:** `claude/exciting-bardeen-df149p`
 **Build:** Swift Package (`Package.swift`, tools 5.10, Swift 5 language mode), macOS 14+ (Apple Silicon first,
-works on macOS 15). CI compiles, tests and screenshots the app on a GitHub Actions `macos-15` runner
-(`.github/workflows/ci.yml`) because the cloud dev box used to write it is Linux.
+works on macOS 15 and 26). CI compiles, tests and screenshots the app on GitHub Actions runners
+(`.github/workflows/ci.yml`, matrix `macos-14`, `macos-15`, `macos-26`, `macos-15-intel`) because the cloud dev
+box used to write it is Linux. Apple-silicon runners are often queued or cancelled for lack of capacity; the
+Intel and `macos-15` jobs are the ones that usually finish, and one green job is enough to trust a push.
 
 ## Versions
 
@@ -49,7 +51,7 @@ open build/PULSE.app
 
 | Module | What it is |
 |---|---|
-| `PulseCore` (pure Swift, 110 unit tests) | Timeline model + all edit ops (split, ripple, trim, speed, link, text-based delete/restore), snapshot undo/redo, `.pulse` project packages (autosave, rotating backups, versions, crash recovery), transcripts (SRT/VTT/whisper.cpp/OpenAI JSON), filler words, silence detection, audio sync, engagement model + AI clip generation (HOOK→CONTEXT→PAYOFF→END, AI Potential), titles/hooks, captions (8 presets, paging, word timing, emphasis, safe areas), streamer layouts + facecam detection, AI reframing, punch-ins, one-click short builder, "Make More Entertaining", templates, export presets/queue, AI provider abstraction + privacy policy (Local / Claude / OpenAI-compatible), settings, global search, multicam (sync groups, angle cuts, AI switching, grid layouts), compound clips (nested timelines), speaker diarization (segmenting, embedding clustering, MFCC fallback clustering, labels) |
+| `PulseCore` (pure Swift, 325 unit tests) | Timeline model + all edit ops (split, ripple, trim, speed, link, text-based delete/restore), snapshot undo/redo, `.pulse` project packages (autosave, rotating backups, versions, crash recovery), transcripts (SRT/VTT/whisper.cpp/OpenAI JSON), filler words, silence detection, audio sync, engagement model + AI clip generation (HOOK→CONTEXT→PAYOFF→END, AI Potential), titles/hooks, captions (8 presets, paging, word timing, emphasis, safe areas), streamer layouts + facecam detection, AI reframing, punch-ins, one-click short builder, "Make More Entertaining", templates, export presets/queue, AI provider abstraction + privacy policy (Local / Claude / OpenAI-compatible), settings, global search, multicam (sync groups, angle cuts, AI switching, grid layouts), compound clips (nested timelines), speaker diarization (segmenting, embedding clustering, MFCC fallback clustering, labels) |
 | `PulseEngine` (AVFoundation, Vision, Speech, Core Image/Metal, SQLite) | Media probing/import, thumbnails, waveforms, proxies, audio analysis, Vision face detection, Apple Speech + whisper.cpp transcription, composition builder + custom `AVVideoCompositing` compositor (layouts, masks, crops, keyframes, captions, text, color, LUTs, effects, transitions), AVAssetWriter export (H.264/HEVC hardware, ProRes), playback controller, demo media generator, SQLite library index with FTS5 transcript search, ScreenCaptureKit + camera/mic session recorder (pause/resume), audio enhance chain, neural speaker encoder (GE2E LSTM via BLAS) + MFCC fallback |
 | `PulseApp` (SwiftUI) | Sidebar app: Home, Projects, Import, AI Clips, Editor (viewer, timeline, inspector, transcript), Captions, Media, Templates, Exports, Settings; onboarding, recovery, ⌘F global search, background jobs, toasts, keyboard shortcuts |
 
@@ -74,10 +76,11 @@ Key files to know:
       synced sessions, Angles panel, live 1–9 cuts, AI active-speaker switching, grid layouts (2-up, 3-up, 2×2, featured)
 - [x] Phase 9 — compound clips (nest/open/break apart, rendered and exported) and local speaker diarization
 
-### What CI actually verifies on every push (macOS 15 runner)
+### What CI actually verifies on every push (macOS 14 / 15 / 26 / 15-intel runners)
 
-- 154 unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
-  captions, layouts, export settings, audio DSP, …).
+- 346 unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
+  captions, layouts, export settings, audio DSP, the fuzzed timeline invariants, and one `BatchNTests.swift`
+  per 1.6.0 roadmap batch, …).
 - **Engine end-to-end:** generate a 75 s gameplay+facecam stream → probe → analyze (audio + Vision faces) →
   AI clip candidates → one-click 9:16 short (split-screen, captions, normalized dialogue audio) → rendered
   stills → exported H.264 MP4 → landscape re-layout → two-sided cross-dissolve → multicam edit → 2-up grid render → compound clip render.
@@ -253,9 +256,31 @@ prompt), cloud AI providers with live keys.
   editable timecode, per-chapter music in `onlineMusicBeds`, sidecar `.txt`/`.srt` + verification in
   `ExportQueueController`. `Tests/PulseCoreTests/TimelineFuzzTests.swift` is the invariant check for every
   timeline edit (run it after touching `TimelineEditor`, `EditPolish` or `EditExtras`).
-- **Local core check (no Mac needed)** — PulseCore and its tests compile on Linux with a swift.org toolchain if
-  `Audio/SpectralDenoiser.swift` (Accelerate) is stubbed and `AudioDSPTests.swift` left out; everything else in
-  the core is portable. Useful when CI is down.
+- **1.6.0 roadmap batches 3–15** — each batch is one commit (`git log --grep 'batch'`), one `Tests/PulseCoreTests/BatchNTests.swift`
+  and one section in `versions/1.6.0/NOTES.md`. The bigger core pieces: `AutoEdit/EndCards.swift` (end CTA),
+  `AutoEdit/ChapterOutline.swift` (story chapters before the edit), `AutoEdit/ReferenceExplain.swift` /
+  `ReferenceBlend.swift`, `AutoEdit/EditReport.swift` (plain-language edit report), `Audio/SpeakerLeveler.swift`
+  (guests levelled to the host via hold keyframes), `Audio/AudioCensor` tone + `MonoSource` fold, `Clips/TitleVariations.swift`,
+  `Clips/Hashtags.swift`, `Clips/SeriesDetector.swift`, `Timeline/TimelineMerge.swift` (merge moments),
+  `Timeline/TimelineSearch.swift`, `Captions/CaptionEdits.swift` (sentence case, fillers, shift-after, platform
+  positions), `CaptionLayoutEngine.balanced`, `Export/FCPXMLExporter.swift`, `Export/ReviewPage.swift` (HTML
+  review page), `Media/ContentFingerprint.swift` (duplicate imports), `Media/ChapterMark.swift` (file chapters,
+  YouTube IDs), `Project/ProjectMaintenance.swift` (schema migration v2, unused media, trash), `Project/ProjectStructure.swift`
+  (anonymized bug reports), `Settings/GradePresets.swift`, `Settings/LifetimeStats.swift`, `Settings/NotesChecklist.swift`,
+  `History(limit:coalesceWindow:maxCost:)`. Engine: `Media/VODDownloader.swift` (YouTube link import via YouTubeKit),
+  `Transcription/Retranscriber.swift` (re-run a stretch), `System/PowerState.swift` (battery-aware batch),
+  `MediaProbe` VFR / colour primaries / chapters / one-sided mic detection, `LibraryDatabase` deadline + editing columns.
+  App: `Support/Intents.swift` (App Intents + Shortcuts), `ImportURLSheet`, watch folder + nightly batch in
+  `AppModel`, the timeline toolbar popovers (search, pauses, notes, undo history, edit report, edit check, minimap)
+  in `Views/Editor/TimelinePanel.swift`, inspector search (`InspectorQueryKey`), settings search + Statistics pane,
+  smart project filters, deadlines/archive on Home. Every new `Codable` field is decoded tolerantly
+  (`decode(_:forKey:default:)`) so older projects and settings files keep loading.
+- **Local core check (no Mac needed)** — the scratch package `corepkg` (see the `scratchpad` folder of a cloud
+  session; recreate it from `Package.swift` with only PulseCore + PulseCoreTests, `Audio/SpectralDenoiser.swift`
+  stubbed and `AudioDSPTests.swift` left out) builds and runs 309 core tests on Linux with the swift.org 6.0.3
+  toolchain: `./sync.sh && swift build --build-tests && swift test --skip-build`. `swiftc -parse` over every file
+  (`parse-all.sh`) catches syntax slips in the engine/app before a 20-minute CI round; type errors there are
+  only caught by CI, so read the `COMPILER ERRORS` summary at the end of a failed Build step.
 - Cross-dissolves (video + linked audio crossfade) need media handles; at the very start/end of a recording they
   fall back to a fade over lower tracks.
 - whisper.cpp itself must be installed with Homebrew (`brew install whisper-cpp`); models download in-app
@@ -268,8 +293,13 @@ prompt), cloud AI providers with live keys.
   release workflow's first step fails the release if any of these don't match `VERSION`.
 
 - Artifact/log blob URLs are blocked from the cloud box. Read CI output with the GitHub MCP tool
-  `get_job_logs` (`return_content: true`). The workflow prints `SNAPSHOT <name> <base64 jpeg>` lines;
-  decode them with a small Python script to view engine stills and `ui-*.png` app screenshots.
+  `get_job_logs` (`return_content: true`, `tail_lines` 300–400 is enough for the `COMPILER ERRORS` summary). The
+  workflow prints `SNAPSHOT <name> <base64 jpeg>` lines; decode them with a small Python script to view engine
+  stills and `ui-*.png` app screenshots.
+- Find the jobs of a run with `gh api repos/XmanXay69/PulseAI-Clipper/actions/runs/<run>/jobs --jq '.jobs[] |
+  "\(.id) \(.name) \(.status) \(.conclusion)"'`. The workflow's concurrency group cancels an in-progress run
+  when you push again, and Apple-silicon jobs are frequently cancelled by GitHub for lack of runners — a run
+  whose only failures are those cancellations is not red.
 - `PULSE --ui-snapshots <dir>` opens the sample project, visits every section and saves PNGs, then quits.
 - `PULSE --render-icon <dir>` writes the app iconset (used by `scripts/build-app.sh`).
 - Put `[app]` in a commit message to also build and upload `PULSE.zip` as a CI artifact.
@@ -281,3 +311,6 @@ prompt), cloud AI providers with live keys.
 2. Report anything confusing or broken; the CI screenshot loop (`--ui-snapshots`) makes UI fixes quick to verify.
 3. Candidates for the next build phase: test with real recordings and tune from what breaks (speaker
    clustering threshold, music mix levels, layout morph timing), then notarized Developer ID builds.
+4. Keep working through `docs/ROADMAP-500.md`; items done so far are cited by number in `versions/1.6.0/NOTES.md`
+   and in the batch commits. The big remaining ones (#481–#500: plugins, a render farm, collaborative editing,
+   an iOS companion) need design work first.
