@@ -195,6 +195,12 @@ struct GeneralSettings: View {
             SettingsRow("Snapping", detail: "Clips snap to the playhead, markers and other clip edges. Toggle with S.") {
                 Toggle("", isOn: $app.settings.snapping).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
             }
+            SettingsRow("Time display", detail: "How the viewer shows the playhead and duration.") {
+                Picker("", selection: $app.settings.timecodeStyle) {
+                    ForEach(TimecodeStyle.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .labelsHidden().frame(width: 200)
+            }
             SettingsRow("Default transition", detail: "⌘T puts it on the selected clips' edges, or on the cut under the playhead.") {
                 HStack(spacing: 8) {
                     Picker("", selection: $app.settings.defaultTransitionKind) {
@@ -448,6 +454,9 @@ struct AIFeatureSettings: View {
                     ForEach(CensorAudio.allCases, id: \.self) { Text($0.displayName).tag($0) }
                 }
                 .pickerStyle(.segmented).labelsHidden().frame(width: 220)
+            }
+            SettingsRow("Speed ramp on the payoff", detail: "Shorts play 0.9× into the payoff and 1.1× out of it — a small push you feel more than see.") {
+                Toggle("", isOn: $app.settings.ai.speedRamp).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
             }
             SettingsRow("Read game banners", detail: "During analysis of gameplay, reads VICTORY, ELIMINATED, DOUBLE KILL, YOU DIED and the like off the screen so wins and deaths score as moments (about a minute per hour of video).") {
                 Toggle("", isOn: $app.settings.ai.hudCues).labelsHidden().toggleStyle(.switch).tint(Theme.ai)

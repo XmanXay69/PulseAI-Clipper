@@ -17,6 +17,7 @@ struct LongFormStoryboard: View {
     @State private var plan: LongFormPlan?
     @State private var selected: Set<UUID> = []
     @State private var hook: UUID?
+    @State private var lengthScale = 1.0
     @State private var ratings: [UUID: Bool] = [:]
     /// Edges you moved, by moment.
     @State private var trims: [UUID: TimeRange] = [:]
@@ -80,6 +81,27 @@ struct LongFormStoryboard: View {
                  ? "Nothing is built yet. Preview each section (▶), keep or drop it, move its start and end, and choose the moment that opens the video — then build."
                  : "PULSE picked these for your video. Untick anything you don't want, tick alternatives, and choose the moment that opens the video.")
                 .font(.pulseCaption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+            if let plan {
+                HStack(spacing: 10) {
+                    Text("Length").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    Slider(value: Binding(get: { lengthScale }, set: { v in lengthScale = v; selected = plan.selection(forLength: plan.target * v) }),
+                           in: 0.5...1.6, step: 0.05)
+                        .frame(width: 200)
+                        .help("Preview what a shorter or longer video keeps (#88)")
+                    Text("\(Timecode.short(plan.keptLength(selected))) kept · \(selected.count) of \(plan.moments.count)")
+                        .font(.pulseMono).foregroundStyle(Theme.textTertiary)
+                    if !plan.hookCandidates.isEmpty {
+                        Spacer(minLength: 8)
+                        Text("Open with").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                        ForEach(Array(plan.hookCandidates.enumerated()), id: \.element) { index, id in
+                            Button("Hook \(index + 1)") { hook = id; selected.insert(id) }
+                                .buttonStyle(.pulse(hook == id ? .primary : .secondary, compact: true))
+                                .help(plan.moments.first { $0.id == id }?.title ?? "")
+                        }
+                    }
+                }
+                .padding(.top, 6)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)

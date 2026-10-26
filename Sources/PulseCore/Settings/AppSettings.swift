@@ -68,6 +68,8 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var musicFolder: String = ""
     /// Threads for local transcription (0 = all but two cores) so the Mac stays usable during analysis (#378).
     public var analysisThreads: Int = 0
+    /// Shorts get a 0.9× → 1.1× speed ramp on the payoff (#80).
+    public var speedRamp: Bool = false
     public var aiFraming: Bool = true
     /// Label who is talking after transcription (local diarization).
     public var detectSpeakers: Bool = true
@@ -138,6 +140,7 @@ public struct AISettings: Codable, Hashable, Sendable {
         blockedTrackIDs = c.decode([String].self, forKey: .blockedTrackIDs, default: d.blockedTrackIDs)
         musicFolder = c.decode(String.self, forKey: .musicFolder, default: d.musicFolder)
         analysisThreads = c.decode(Int.self, forKey: .analysisThreads, default: d.analysisThreads)
+        speedRamp = c.decode(Bool.self, forKey: .speedRamp, default: d.speedRamp)
         aiFraming = c.decode(Bool.self, forKey: .aiFraming, default: d.aiFraming)
         detectSpeakers = c.decode(Bool.self, forKey: .detectSpeakers, default: d.detectSpeakers)
         speakerCount = c.decode(Int.self, forKey: .speakerCount, default: d.speakerCount)
@@ -255,6 +258,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var showSafeAreas: Bool = true
     public var safeAreaPlatform: SafeAreaPlatform = .tiktok
     public var defaultExportPresetID: String = ExportPreset.tiktok.id
+    /// How the viewer shows time (#180).
+    public var timecodeStyle: TimecodeStyle = .timecode
     /// ⌘T adds this at the selected clips' edges (#168).
     public var defaultTransitionKind: TransitionKind = .crossDissolve
     public var defaultTransitionDuration: Seconds = 0.4
@@ -309,6 +314,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
         referenceStyles = c.decode([ReferenceStyle].self, forKey: .referenceStyles, default: d.referenceStyles)
         defaultExportPresetID = c.decode(String.self, forKey: .defaultExportPresetID, default: d.defaultExportPresetID)
         recentProjectPaths = c.decode([String].self, forKey: .recentProjectPaths, default: d.recentProjectPaths)
+        timecodeStyle = c.decode(TimecodeStyle.self, forKey: .timecodeStyle, default: d.timecodeStyle)
         defaultTransitionKind = c.decode(TransitionKind.self, forKey: .defaultTransitionKind, default: d.defaultTransitionKind)
         defaultTransitionDuration = c.decode(Seconds.self, forKey: .defaultTransitionDuration, default: d.defaultTransitionDuration)
         streamSetup = c.decode(StreamSetup?.self, forKey: .streamSetup, default: nil)

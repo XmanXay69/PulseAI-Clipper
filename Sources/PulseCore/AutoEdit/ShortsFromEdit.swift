@@ -42,6 +42,32 @@ extension LongFormEditor {
 }
 
 extension EditPolish {
+    /// A speed ramp on the payoff (#80): the piece before it at `slow` and the piece after at `fast`, linked
+    /// audio following. Returns false when the payoff isn't inside a main-asset clip with room on both sides.
+    @discardableResult
+    public static func speedRamp(_ timeline: inout Timeline, assetID: UUID, payoffAtSource payoff: Seconds, before: Seconds = 1.2, after: Seconds = 0.8,
+                                 slow: Double = 0.9, fast: Double = 1.1) -> Bool {
+        guard let vi = timeline.tracks.firstIndex(where: { $0.kind == .video }),
+              let clip = timeline.tracks[vi].clips.first(where: {
+                  $0.content.assetID == assetID && $0.role != .graphic && abs($0.speed - 1) < 1e-6 &&
+                      $0.sourceIn + before + 0.3 <= payoff && $0.sourceOut - after - 0.3 >= payoff
+              }) else { return false }
+        let t0 = clip.timelineTime(atSource: payoff - before), t1 = clip.timelineTime(atSource: payoff), t2 = clip.timelineTime(atSource: payoff + after)
+        do {
+            _ = try timeline.split(at: t2, clipIDs: [clip.id])
+            let afterPieces = try timeline.split(at: t1, clipIDs: [clip.id])
+            let beforePieces = try timeline.split(at: t0, clipIDs: [clip.id])
+            if let piece = beforePieces.first { try timeline.setSpeed(clipID: piece, speed: slow) }
+            if let piece = afterPieces.first { try timeline.setSpeed(clipID: piece, speed: fast) }
+            for id in beforePieces + afterPieces {
+                if let l = timeline.location(ofClip: id) { timeline.tracks[l.trackIndex].clips[l.clipIndex].name = "Ramp" }
+            }
+            return true
+        } catch {
+            return false
+        }
+    }
+
     /// Plays 1.2–4 s pauses at `speed` instead of cutting them (#96): the breath stays, the wait goes. Splits the
     /// main video clip around each pause (its linked audio follows) and ripples what comes after on those
     /// tracks, so it belongs early in an AI build, before overlays and music are placed. Returns the count.

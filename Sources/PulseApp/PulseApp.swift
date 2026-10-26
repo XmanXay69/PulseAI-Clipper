@@ -104,7 +104,11 @@ struct PulseCommands: Commands {
                 Button("Same Settings") { app.session?.editAgain() }
                 Button("10 % Shorter") { app.session?.editAgain(lengthScale: 0.9) }
                 Button("10 % Longer") { app.session?.editAgain(lengthScale: 1.1) }
+                Divider()
+                Button("Less Busy") { app.session?.editAgain(restraint: .subtle) }
+                Button("More Busy") { app.session?.editAgain(restraint: .energetic) }
             }
+            Button("Edit All Shorts Like This One") { app.session?.applyEditDecisionsToAllShorts() }.disabled(app.session?.activeTimeline == nil)
             .disabled(app.session?.lastLongFormOptions == nil)
             Button("Make a Short from Selection") { app.session?.makeShortFromSelection() }
             Button("Top 3 Shorts from This Edit") { app.session?.makeShortsFromEdit() }.disabled(app.session?.activeTimeline == nil)
@@ -297,6 +301,7 @@ final class KeyboardShortcutMonitor {
         case "s" where modifiers.isEmpty: app.settings.snapping.toggle(); app.toast(app.settings.snapping ? "Snapping on" : "Snapping off"); return true
         case "j": playback.shuttle(-1); return true    // backwards, faster on each press
         case "k": playback.shuttle(0); return true     // stop
+        case "?": app.section = .settings; app.toast("Settings → Shortcuts lists every key"); return true
         case "l": playback.shuttle(1); return true     // forwards: 1×, 2×, 4×, 8×
         case "=", "+": session.pixelsPerSecond = min(session.pixelsPerSecond * 1.3, 600); return true
         case "-": session.pixelsPerSecond = max(session.pixelsPerSecond / 1.3, 2); return true

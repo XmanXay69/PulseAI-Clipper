@@ -291,19 +291,35 @@ extension ProjectSession {
 
     /// Edit → Edit My VOD Again: the same answers (optionally a little shorter or longer) as a new timeline;
     /// the previous edit stays.
-    func editAgain(lengthScale: Double = 1) {
+    func editAgain(lengthScale: Double = 1, restraint: LongFormOptions.Restraint? = nil) {
         guard var options = lastLongFormOptions else {
             app.toast("Run Edit My VOD first — Edit Again repeats its settings")
             return
         }
         options.minimumLength *= lengthScale
         options.maximumLength *= lengthScale
+        if let restraint { options.restraint = restraint }
         options.extras.approveCut = false
         editMyVOD(options: options)
     }
 
     /// Timeline → Make a Short from Selection: the selected piece of the main recording (or the in → out
     /// range) becomes an AI clip and opens as a short.
+    /// Back from the "Maybe later" tray (#85).
+    func restoreCandidate(_ id: UUID) {
+        edit("Restore Clip") { doc in
+            if let i = doc.candidates.firstIndex(where: { $0.id == id }) { doc.candidates[i].status = .new }
+        }
+    }
+
+    /// "Edit all like this one" (#62): layout, blur, framing and caption look onto every other short.
+    func applyEditDecisionsToAllShorts() {
+        guard let id = activeTimeline?.id else { return }
+        var count = 0
+        edit("Edit All Like This One") { count = $0.applyEditDecisions(from: id) }
+        app.toast(count == 0 ? "No other timelines of this kind" : "Applied this edit's layout and captions to \(count) other\(count == 1 ? "" : "s")")
+    }
+
     /// What changed since a snapshot (#472).
     func compareSnapshot(_ id: UUID) {
         guard let snapshot = document.snapshots.first(where: { $0.id == id }), let live = document.timeline(id: snapshot.timelineID) else { return }

@@ -184,3 +184,27 @@ extension Int {
         Swift.min(Swift.max(self, lower), upper)
     }
 }
+
+/// How the viewer shows time (#180).
+public enum TimecodeStyle: String, Codable, CaseIterable, Sendable {
+    case timecode, seconds, frames
+
+    public var displayName: String {
+        switch self {
+        case .timecode: return "Timecode (HH:MM:SS:FF)"
+        case .seconds: return "Seconds"
+        case .frames: return "Frames"
+        }
+    }
+}
+
+extension Timecode {
+    public static func display(_ seconds: Seconds, fps: Double, style: TimecodeStyle) -> String {
+        let clamped = Swift.max(0, seconds.isFinite ? seconds : 0)
+        switch style {
+        case .timecode: return string(clamped, fps: fps)
+        case .seconds: return String(format: "%.2f s", clamped)
+        case .frames: return "\(Int((clamped * Swift.max(fps, 1)).rounded(.down))) f"
+        }
+    }
+}

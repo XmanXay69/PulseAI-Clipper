@@ -13,8 +13,10 @@ struct AIClipsView: View {
 
     enum LengthFilter: String, CaseIterable { case all = "All", s15 = "≤ 20s", s30 = "20–45s", s60 = "45s+" }
 
+    @State private var showMaybeLater = false
+
     var candidates: [ClipCandidate] {
-        var list = session.document.visibleCandidates
+        var list = showMaybeLater ? session.document.candidates.filter { $0.status == .dismissed } : session.document.visibleCandidates
         switch lengthFilter {
         case .all: break
         case .s15: list = list.filter { $0.duration <= 20 }
@@ -91,7 +93,13 @@ struct AIClipsView: View {
     var header: some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(session.document.visibleCandidates.count) potential clips found")
+                Text(showMaybeLater ? "Maybe later — \(session.document.candidates.filter { $0.status == .dismissed }.count) set aside" : "\(session.document.visibleCandidates.count) potential clips found")
+                let dismissed = session.document.candidates.filter { $0.status == .dismissed }.count
+                if dismissed > 0 || showMaybeLater {
+                    Button(showMaybeLater ? "Back to clips" : "Maybe later (\(dismissed))") { showMaybeLater.toggle() }
+                        .buttonStyle(.pulse(showMaybeLater ? .primary : .ghost, compact: true))
+                        .help("Clips you set aside stay here instead of being deleted (#85)")
+                }
                     .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                 if let asset = session.document.primaryAsset {
                     Text("from \(asset.name) · \(Timecode.duration(asset.metadata.duration))").font(.pulseCaption).foregroundStyle(Theme.textTertiary)
@@ -242,9 +250,15 @@ struct ClipCandidateCard: View {
                     PotentialMeter(potential: candidate.potential)
                 }
                 HStack(spacing: 6) {
-                    Button { session.createShort(from: candidate.id) } label: { Label("Open in Editor", systemImage: "wand.and.stars").lineLimit(1) }
-                        .buttonStyle(.pulse(.ai, compact: true))
-                        .fixedSize()
+                    if candidate.status == .dismissed {
+                        Button { session.restoreCandidate(candidate.id) } label: { Label("Restore", systemImage: "arrow.uturn.backward").lineLimit(1) }
+                            .buttonStyle(.pulse(.secondary, compact: true))
+                            .fixedSize()
+                    } else {
+                        Button { session.createShort(from: candidate.id) } label: { Label("Open in Editor", systemImage: "wand.and.stars").lineLimit(1) }
+                            .buttonStyle(.pulse(.ai, compact: true))
+                            .fixedSize()
+                    }
                     Spacer()
                     IconButton(symbol: candidate.feedback == 1 ? "hand.thumbsup.fill" : "hand.thumbsup", help: "More like this — PULSE learns your taste",
                                isActive: candidate.feedback == 1, size: 22) {

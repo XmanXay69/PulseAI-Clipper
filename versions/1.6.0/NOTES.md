@@ -46,11 +46,21 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   points at a folder of licensed tracks, used first (no credits needed). A Creative Commons bed's inspector
   has Favourite (picked first for that mood next time), Never again, and its YouTube page to check the license.
 - **Music level** (#296) — a slider in Edit My VOD from half to twice PULSE's quiet default.
-- **Chapter lower-thirds** are listed under Editing; **"Less busy / More busy"** re-runs are under Edit My VOD Again.
+- **Chapter lower-thirds** (#91) — a toggle in Edit My VOD puts a small card with the chapter's name at the
+  start of each chapter.
+- **The hook title says what was said** (#124) — when the hook's own words make a short, punchy line, the
+  opening title uses them instead of a stock line.
+- **Length slider and hook variants in the storyboard** (#88, #89) — drag to preview what a shorter or longer
+  video keeps; pick one of three openers with a click.
+- **Less Busy / More Busy** (#106) — Edit My VOD Again re-runs with fewer or more effects.
 - **Music crossfades between chapters** (#101) — beds now sit on two music tracks (A2 / A2b) so one chapter's
   music overlaps the next for 3 s instead of fading out, a gap, and fading in.
 
 ### Editing
+- **To-do markers in the edit check** (#161) — a marker named TODO… (or with "todo" in its note) is listed
+  with its time until you clear it.
+- **Time display** (#180) — Settings → General: timecode, seconds or frames in the viewer; **?** opens Settings
+  for the shortcut list (#181).
 - **Typed values, keyframe states and keyframe jumps** (#207, #208, #209) — click a slider's number to type
   one; the diamond shows none / at a keyframe / between keyframes, with arrows to jump to the previous or
   next keyframe.
@@ -94,6 +104,11 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   gentle starting point you can tune.
 
 ### AI Clips
+- **Speed ramp on the payoff** (#80) — Settings → AI Features: shorts play 0.9× into the payoff and 1.1× out of
+  it, linked audio following.
+- **Maybe later** (#85) — clips you set aside stay in a tray with a Restore button instead of disappearing.
+- **Edit all shorts like this one** (#62) — Edit My VOD menu: every other short takes this one's layout, blur,
+  framing setting and caption look.
 - **Why this moment** (#49, #50) — every card says it in plain words ("big laugh + chat spike", "a win banner +
   a shout"), and the detail panel lists the signals behind the score with their strength.
 - **20 % shorter** (#64) — a button in the detail panel trims setup and tail by what's in them: the weaker end

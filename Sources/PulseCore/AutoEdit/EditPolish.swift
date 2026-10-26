@@ -286,6 +286,13 @@ public enum EditQualityCheck {
         }
         if wordy > 0 { add(.note, "Very short pieces", "\(wordy) hold a whole word — check they don't feel choppy") }
 
+        // 1b. To-do markers you left for yourself.
+        let todos = timeline.markers.filter { $0.name.uppercased().hasPrefix("TODO") || $0.note.lowercased().contains("todo") || $0.name.hasPrefix("☐") }
+        if !todos.isEmpty {
+            let names = todos.sorted { $0.time < $1.time }.prefix(4).map { "\(Timecode.short($0.time)) \($0.name)" }.joined(separator: ", ")
+            add(.warning, "To-do markers", "\(todos.count) left: \(names)\(todos.count > 4 ? ", …" : "")")
+        }
+
         // 2. Clicks at cuts.
         let unfaded = timeline.tracks.filter { $0.kind == .audio }.flatMap(\.clips)
             .filter { $0.role != .music && $0.role != .soundEffect && $0.content.assetID != nil && $0.duration > EditPolish.cutFade * 3

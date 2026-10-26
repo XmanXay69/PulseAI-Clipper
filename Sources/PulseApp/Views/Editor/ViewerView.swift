@@ -388,7 +388,7 @@ struct TransportBar: View {
                     .onAppear { timecodeFocused = true }
             } else {
                 ClockObserving(clock: playback.clock) {
-                    Text(Timecode.string(playback.currentTime, fps: playback.frameRate))
+                    Text(Timecode.display(playback.currentTime, fps: playback.frameRate, style: app.settings.timecodeStyle))
                         .font(.pulseTimecode)
                         .foregroundStyle(Theme.accent)
                         .fixedSize()
@@ -464,7 +464,7 @@ struct TransportBar: View {
     }
 
     var duration: some View {
-        Text(Timecode.string(playback.duration, fps: playback.frameRate))
+        Text(Timecode.display(playback.duration, fps: playback.frameRate, style: app.settings.timecodeStyle))
             .font(.pulseMono)
             .foregroundStyle(Theme.textTertiary)
             .fixedSize()

@@ -31,6 +31,8 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
     public var shortenPauses = false
     /// Music bed level as a multiple of PULSE's quiet default (0.5 = half, 2 = twice) (#296).
     public var musicLevel: Double = 1
+    /// A small lower-third with the chapter's name at the start of each chapter (#91).
+    public var chapterTitles = false
     /// Your own meme pop-up text per mood (Settings → AI Features); empty = PULSE's default.
     public var memeTexts: [ClipTag: String] = [:]
 
@@ -103,11 +105,27 @@ public struct LongFormPlan: Sendable {
     public var target: Seconds
     /// The suggested hook (the strongest selected moment).
     public var hook: UUID?
+    /// Up to three moments that would open the video well, best first (#89).
+    public var hookCandidates: [UUID] = []
 
     /// Kept length if built now (overlaps counted once, before dead air is cut).
     public func keptLength(_ selection: Set<UUID>? = nil) -> Seconds {
         let ids = selection ?? selected
         return LongFormEditor.mergedLength(moments.filter { ids.contains($0.id) })
+    }
+
+    /// The moments that survive at a different length (#88): best first until the length is reached, the way
+    /// Edit My VOD picks them, so a slider can preview what a shorter or longer video keeps.
+    public func selection(forLength length: Seconds) -> Set<UUID> {
+        var chosen: [LongFormSegment] = []
+        var total: Seconds = 0
+        for m in moments.sorted(by: { $0.potential != $1.potential ? $0.potential > $1.potential : $0.range.start < $1.range.start }) {
+            if total >= length { break }
+            if m.potential < 35 && total > length * 0.6 { continue }
+            chosen.append(m)
+            total = LongFormEditor.mergedLength(chosen)
+        }
+        return Set(chosen.map(\.id))
     }
 }
 
@@ -202,8 +220,15 @@ public enum LongFormEditor {
             chosen.append(m)
             total = mergedLength(chosen)
         }
-        return LongFormPlan(moments: moments.sorted { $0.range.start < $1.range.start }, selected: Set(chosen.map(\.id)),
-                            target: target, hook: chosen.max { $0.potential < $1.potential }?.id)
+        // Hooks: a strong moment whose own opening grabs (hook score), best first.
+        let hooks = chosen.sorted { a, b in
+            let ha = Double(a.potential) * (0.6 + 0.4 * a.scores.hook), hb = Double(b.potential) * (0.6 + 0.4 * b.scores.hook)
+            return ha != hb ? ha > hb : a.range.start < b.range.start
+        }.prefix(3).map(\.id)
+        var plan = LongFormPlan(moments: moments.sorted { $0.range.start < $1.range.start }, selected: Set(chosen.map(\.id)),
+                                target: target, hook: chosen.max { $0.potential < $1.potential }?.id)
+        plan.hookCandidates = Array(hooks)
+        return plan
     }
 
     static func mergedLength(_ segments: [LongFormSegment]) -> Seconds {
@@ -291,11 +316,13 @@ public enum LongFormEditor {
             hookRange = range
             cursor = range.duration
             timeline.markers.append(Marker(time: 0, name: "Hook", note: best.title, color: .orange, aiGenerated: true))
-            if !best.title.isEmpty {
+            // The hook's own words when they make a short, punchy line; the generated title otherwise (#124).
+            let hookText = RetentionCards.phrase(from: words, in: best) ?? best.title
+            if !hookText.isEmpty {
                 var style = TextStyle(fontName: TextStyle.tiktokSans, fontSize: 92, weight: .black, textCase: .uppercase, color: .white,
                                       strokeColor: .black, strokeWidth: 10, shadowOpacity: 0.5, shadowRadius: 8, shadowOffsetY: 6)
                 style.letterSpacing = 0.5
-                var title = TimelineClip(name: "Hook Title", content: .text(TextElement(text: best.title, style: style, animationIn: .pop,
+                var title = TimelineClip(name: "Hook Title", content: .text(TextElement(text: hookText, style: style, animationIn: .pop,
                                                                                          animationOut: .fadeIn, animationDuration: 0.25, maxWidth: 0.8)),
                                          start: 0.15, sourceDuration: min(2.6, range.duration - 0.2), aiGenerated: true)
                 title.transform.positionY = AnimatedDouble(0.2)
@@ -392,6 +419,19 @@ public enum LongFormEditor {
             guard let t = starts[i] else { continue }
             let name = segment.title.isEmpty ? "Part \(i + 1)" : segment.title
             timeline.markers.append(Marker(time: t, name: name, note: "From \(Timecode.short(segment.range.start)) of the stream", color: .blue, aiGenerated: true))
+            // A quiet lower-third naming the chapter (#91), after the hook, never two within a few seconds.
+            if options.chapterTitles, !segment.title.isEmpty, t >= hookEnd - 0.01,
+               !timeline.tracks[1].clips.contains(where: { $0.name == "Chapter Title" && abs($0.start - t) < 6 }) {
+                var style = TextStyle(fontName: TextStyle.tiktokSans, fontSize: 44, weight: .heavy, textCase: .uppercase, color: .white,
+                                      strokeColor: .black, strokeWidth: 5, shadowOpacity: 0.5, shadowRadius: 6, shadowOffsetY: 3)
+                style.letterSpacing = 1
+                var card = TimelineClip(name: "Chapter Title", content: .text(TextElement(text: segment.title, style: style, animationIn: .slideUp,
+                                                                                             animationOut: .fadeIn, animationDuration: 0.3, maxWidth: 0.6)),
+                                        start: t + 0.4, sourceDuration: 2.8, aiGenerated: true)
+                card.transform.positionX = AnimatedDouble(0.24)
+                card.transform.positionY = AnimatedDouble(0.84)
+                timeline.tracks[1].clips.append(card)
+            }
         }
 
         // Hide the jump cuts: every other cut inside a stretch steps the framing in a little.

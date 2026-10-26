@@ -93,3 +93,22 @@ extension ProjectDocument {
         return count
     }
 }
+
+extension ProjectDocument {
+    /// "Edit all like this one" (#62): every other short takes this one's layout, background blur, AI framing
+    /// setting and caption look. Returns how many changed.
+    @discardableResult
+    public mutating func applyEditDecisions(from sourceTimelineID: UUID) -> Int {
+        guard let source = timeline(id: sourceTimelineID) else { return 0 }
+        var count = 0
+        for i in timelines.indices where timelines[i].id != sourceTimelineID && EditFormat.of(timelines[i]) == EditFormat.of(source) {
+            timelines[i].layout = source.layout
+            timelines[i].canvas.backgroundBlur = source.canvas.backgroundBlur
+            timelines[i].aiFramingEnabled = source.aiFramingEnabled
+            if let style = source.captions?.style, timelines[i].captions != nil { timelines[i].captions?.style = style }
+            timelines[i].modifiedAt = Date()
+            count += 1
+        }
+        return count
+    }
+}
