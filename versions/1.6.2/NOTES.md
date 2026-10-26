@@ -66,12 +66,28 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   sends a design for that edit to the studio.
 - **A/B thumbnail pairs** (#375) — the thumbnail sheet can save two moments in one layout as "… A" and "… B".
 
+### Batch 26
+
+- **Chroma key** (#221) — Inspector → Chroma Key: green or blue screen (or any hue) goes transparent, with
+  tolerance, softness, spill removal and a floor so hair and shadows stay.
+- **Feathered masks** (#220) — a soft edge on any mask shape, for a circle facecam that fades into the game.
+- **Scopes** (#310) — a luma waveform and a vectorscope of the frame in the viewer (header button), with a
+  clipping readout.
+- **Match grade** (#311) — Inspector → Colour → Match grade to previous clip: exposure, saturation and
+  temperature set so the two clips' average look lines up (the webcam from two days).
+- **Brand logo on an export** (#353) — the export sheet burns the Brand Kit logo into that export, in the kit's
+  corner, size and opacity (#369).
+- **Captions never clip** (#234) — a page wider than the safe width shrinks its type to fit.
+- **Media cards say "Preparing preview…"** (#15) while a thumbnail decodes instead of sitting blank.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
   the viewer's strip shows the format, resolution and frame rate (#419); replays get a sting and a slightly
   desaturated look you can switch off (#137) and title cards draw on your own phrase list (#138), both in the
-  Extras controls.
+  Extras controls; each multicam cut is its own undo step (#329); waveforms are generated at low priority in the
+  background on import (#381); the Edit / Captions / Colour / Audio / Deliver workspaces each remember their own
+  panel sizes (#427, #428).
 
 ### Under the hood
 - `ChapterArt` (engine) draws with AppKit on the source frame, so a marker over a cutaway or gap is skipped.
@@ -80,5 +96,8 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   `ProjectSession` turns into a `playbackQualityOverride`.
 - `MemoryPressure` (engine) wraps a `DispatchSourceMemoryPressure` and reads the process footprint with
   `task_info`; `ThumbnailService.setMemoryCeiling` / `trimMemory` act on it.
+- Chroma keying is a cached 32³ `CIColorCube` built from `ChromaKey.alpha(red:green:blue:)` (core, tested);
+  feathering insets the mask shape by the feather and blurs it. `ScopeData` and `FrameStats` (core) read RGBA
+  bytes; the app downsamples `PlaybackController.currentFrame()` (an `AVPlayerItemVideoOutput`) to feed them.
 - `LoopPoints` (core) finds the seam in a peak envelope and `segments(loop:trackDuration:duration:)` lays the
   pieces; `LongFormEditor` uses it for music beds when the app hands it the bed's peaks.

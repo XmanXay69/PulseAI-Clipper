@@ -16,6 +16,7 @@ public final class ExportEngine: @unchecked Sendable {
         let renderSize = CGSize(width: size.width, height: size.height)
         var buildOptions = CompositionBuilder.Options(renderSize: renderSize, useProxies: false, includeCaptions: settings.burnInCaptions)
         buildOptions.compounds = compounds
+        buildOptions.watermark = settings.watermark
         let built = try await CompositionBuilder.build(timeline: timeline, assets: assets, options: buildOptions)
         if !built.missingAssetIDs.isEmpty {
             let names = built.missingAssetIDs.compactMap { assets[$0]?.name }.joined(separator: ", ")

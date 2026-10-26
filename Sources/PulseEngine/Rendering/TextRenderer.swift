@@ -224,7 +224,9 @@ public enum TextRenderer {
         public var offsetY: CGFloat
     }
 
-    public static func renderCaption(page: CaptionPage, style: CaptionStyle, at t: Seconds, renderScale: Double) -> CaptionFrame? {
+    /// `maxWidth` (output pixels) shrinks the type when a page would run past the safe width (#234), never
+    /// below 55 % of the style's size.
+    public static func renderCaption(page: CaptionPage, style: CaptionStyle, at t: Seconds, renderScale: Double, maxWidth: CGFloat? = nil) -> CaptionFrame? {
         let speed = max(style.animationSpeed, 0.1)
         let active = CaptionLayoutEngine.activeWordIndex(in: page, at: t)
         var flatIndex = 0
@@ -266,7 +268,11 @@ public enum TextRenderer {
             lines.append(runs)
         }
         let pointSize = CGFloat(style.text.fontSize * renderScale)
-        guard let rendered = draw(lines: lines, style: style.text, pointSize: pointSize, maxWidth: nil) else { return nil }
+        guard var rendered = draw(lines: lines, style: style.text, pointSize: pointSize, maxWidth: nil) else { return nil }
+        if let maxWidth, maxWidth > 10, rendered.size.width > maxWidth {
+            let fitted = max(pointSize * 0.55, pointSize * maxWidth / rendered.size.width)
+            if let smaller = draw(lines: lines, style: style.text, pointSize: fitted, maxWidth: nil) { rendered = smaller }
+        }
         // Page-level entrance animation.
         let age = max(0, t - page.range.start) * speed
         var pageScale: CGFloat = 1

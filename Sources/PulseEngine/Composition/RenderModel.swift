@@ -1,6 +1,8 @@
 import AVFoundation
+import CoreImage
 import CoreMedia
 import Foundation
+import ImageIO
 import PulseCore
 
 /// What a render layer draws.
@@ -54,16 +56,41 @@ public struct CaptionRenderData: @unchecked Sendable {
 
 /// Settings shared by the whole composition.
 public final class RenderScene: @unchecked Sendable {
+    /// A logo burned into every frame (#353).
+    public struct Watermark: @unchecked Sendable {
+        public var image: CIImage
+        public var corner: BrandKit.Corner
+        public var size: Double
+        public var opacity: Double
+
+        public init(image: CIImage, corner: BrandKit.Corner, size: Double, opacity: Double) {
+            self.image = image
+            self.corner = corner
+            self.size = size
+            self.opacity = opacity
+        }
+
+        /// Loads the spec's image; nil when the file can't be read.
+        public init?(spec: WatermarkSpec) {
+            guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: spec.path) as CFURL, nil),
+                  let cg = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+            self.init(image: CIImage(cgImage: cg), corner: spec.corner, size: spec.size, opacity: spec.opacity)
+        }
+    }
+
     public let canvas: CanvasSettings
     public let renderSize: CGSize
     public let captions: CaptionRenderData?
     public let showSafeArea: SafeAreaPlatform?
+    public let watermark: Watermark?
 
-    public init(canvas: CanvasSettings, renderSize: CGSize, captions: CaptionRenderData?, showSafeArea: SafeAreaPlatform? = nil) {
+    public init(canvas: CanvasSettings, renderSize: CGSize, captions: CaptionRenderData?, showSafeArea: SafeAreaPlatform? = nil,
+                watermark: Watermark? = nil) {
         self.canvas = canvas
         self.renderSize = renderSize
         self.captions = captions
         self.showSafeArea = showSafeArea
+        self.watermark = watermark
     }
 
     /// Output pixels per canvas unit.

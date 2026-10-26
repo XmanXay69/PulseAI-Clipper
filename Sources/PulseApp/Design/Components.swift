@@ -539,6 +539,7 @@ struct ThumbnailView: View {
     var maxWidth: Int = 320
     var contentMode: ContentMode = .fill
     @State private var image: CGImage?
+    @State private var failed = false
 
     var body: some View {
         ZStack {
@@ -547,6 +548,12 @@ struct ThumbnailView: View {
                 Image(decorative: image, scale: 1)
                     .resizable()
                     .aspectRatio(contentMode: contentMode)
+            } else if url != nil, !failed {
+                // Still decoding (#15): say so instead of leaving a blank card.
+                VStack(spacing: 4) {
+                    ProgressView().controlSize(.mini)
+                    Text("Preparing preview…").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                }
             } else {
                 Image(systemName: "film").foregroundStyle(Theme.textTertiary)
             }
@@ -554,7 +561,9 @@ struct ThumbnailView: View {
         .clipped()
         .task(id: "\(url?.path ?? "")|\(Int(time * 10))|\(maxWidth)") {
             guard let url else { image = nil; return }
+            failed = false
             image = await ThumbnailService.shared.image(for: url, at: time, maxWidth: maxWidth)
+            failed = image == nil
         }
     }
 }

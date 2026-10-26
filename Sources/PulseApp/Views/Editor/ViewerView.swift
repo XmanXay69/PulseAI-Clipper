@@ -60,6 +60,7 @@ struct ViewerView: View {
     @ObservedObject var playback: PlaybackController
     @State private var zoom: ViewerZoom = .fit
     @AppStorage("viewer.grid") private var showGrid = false
+    @AppStorage("viewer.scopes") private var showScopes = false
     @State private var fullscreen = false
 
     init(session: ProjectSession) {
@@ -110,6 +111,11 @@ struct ViewerView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                             .allowsHitTesting(false)
                             .help("You can play and edit right away — the original audio plays until the leveled audio is ready")
+                        }
+                        if showScopes {
+                            ScopesPanel(playback: playback)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                                .padding(8)
                         }
                         if !playback.missingAssetIDs.isEmpty {
                             MediaOfflineBanner(session: session, missing: playback.missingAssetIDs)
@@ -166,6 +172,7 @@ struct ViewerView: View {
                 .layoutPriority(1)
                 if t.hasAIContent { AIBadge(label: "AI edit").fixedSize() }
                 IconButton(symbol: "grid", help: "Grid, center lines and thirds", isActive: showGrid) { showGrid.toggle() }
+                IconButton(symbol: "waveform.path", help: "Scopes — luma waveform and vectorscope of the frame (#310)", isActive: showScopes) { showScopes.toggle() }
                 if let review = session.activeReview {
                     Button { session.selectedClipIDs = [] } label: { PerformanceBadge(prediction: review.prediction) }
                         .buttonStyle(.plain).fixedSize()
@@ -658,5 +665,88 @@ struct DetachedViewerContent: View {
             TransportBar(session: session, playback: playback)
         }
         .background(Theme.well)
+    }
+}
+
+
+/// Luma waveform and vectorscope of the current frame (#310), refreshed a few times a second.
+struct ScopesPanel: View {
+    @ObservedObject var playback: PlaybackController
+    @State private var data: ScopeData?
+
+    var body: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("WAVEFORM").font(.pulseMicro).foregroundStyle(.white.opacity(0.6))
+                Canvas { ctx, size in
+                    guard let data else { return }
+                    for (c, column) in data.waveform.enumerated() {
+                        let x = CGFloat(c) / CGFloat(data.columns) * size.width
+                        let w = size.width / CGFloat(data.columns)
+                        for (b, v) in column.enumerated() where v > 0.02 {
+                            let y = size.height - CGFloat(b + 1) / CGFloat(data.bins) * size.height
+                            ctx.fill(Path(CGRect(x: x, y: y, width: w, height: size.height / CGFloat(data.bins))),
+                                     with: .color(Color(red: 0.4, green: 0.95, blue: 0.5).opacity(Double(v) * 0.9)))
+                        }
+                    }
+                    // 100 % and 0 % lines.
+                    ctx.stroke(Path { p in p.move(to: CGPoint(x: 0, y: 0.5)); p.addLine(to: CGPoint(x: size.width, y: 0.5)) }, with: .color(.white.opacity(0.3)), lineWidth: 1)
+                }
+                .frame(width: 150, height: 72)
+                .background(Color.black.opacity(0.85))
+                .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(.white.opacity(0.15)))
+                if let data {
+                    Text(data.clippedShare > 0.01 ? String(format: "%.0f%% clipping", data.clippedShare * 100) :
+                            (data.crushedShare > 0.3 ? String(format: "%.0f%% crushed blacks", data.crushedShare * 100) : "no clipping"))
+                        .font(.pulseMicro).foregroundStyle(data.clippedShare > 0.01 ? Theme.warning : .white.opacity(0.6))
+                }
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("VECTORSCOPE").font(.pulseMicro).foregroundStyle(.white.opacity(0.6))
+                Canvas { ctx, size in
+                    guard let data else { return }
+                    let cell = size.width / CGFloat(data.grid)
+                    for gy in 0..<data.grid { for gx in 0..<data.grid {
+                        let v = data.vectorscope[gy * data.grid + gx]
+                        guard v > 0.03 else { continue }
+                        ctx.fill(Path(CGRect(x: CGFloat(gx) * cell, y: CGFloat(gy) * cell, width: cell, height: cell)),
+                                 with: .color(Color(red: 0.95, green: 0.8, blue: 0.4).opacity(Double(v))))
+                    } }
+                    ctx.stroke(Path(ellipseIn: CGRect(x: 1, y: 1, width: size.width - 2, height: size.height - 2)), with: .color(.white.opacity(0.25)), lineWidth: 1)
+                    ctx.stroke(Path { p in
+                        p.move(to: CGPoint(x: size.width / 2, y: 0)); p.addLine(to: CGPoint(x: size.width / 2, y: size.height))
+                        p.move(to: CGPoint(x: 0, y: size.height / 2)); p.addLine(to: CGPoint(x: size.width, y: size.height / 2))
+                    }, with: .color(.white.opacity(0.15)), lineWidth: 1)
+                }
+                .frame(width: 72, height: 72)
+                .background(Color.black.opacity(0.85))
+                .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(.white.opacity(0.15)))
+            }
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: 7).fill(.black.opacity(0.55)))
+        .allowsHitTesting(false)
+        .task(id: playback.isPlaying) {
+            // Playing: a few times a second; paused: once per seek (the clock tick) — cheap either way.
+            while !Task.isCancelled {
+                refresh()
+                try? await Task.sleep(nanoseconds: playback.isPlaying ? 250_000_000 : 400_000_000)
+            }
+        }
+    }
+
+    func refresh() {
+        guard let frame = playback.currentFrame() else { return }
+        let width = 160, height = 90
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                                          space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            context.interpolationQuality = .low
+            context.draw(frame, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else { return }
+        data = ScopeData.compute(pixels: pixels, width: width, height: height, bytesPerRow: width * 4)
     }
 }

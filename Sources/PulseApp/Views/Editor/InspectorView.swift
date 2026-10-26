@@ -367,6 +367,53 @@ struct ClipInspector: View {
             ColorRow(label: "Border color", color: b.value("Border Color", \.style.borderColor, fallback: .white))
             b.plainSlider("Shadow", \.style.shadowOpacity, range: 0...1)
             b.plainSlider("Softness", \.style.shadowRadius, range: 0...60, format: "%.0f")
+            LabeledSlider(label: "Feather", value: optionalStyle("Feather", \.style.feather, fallback: 0), range: 0...0.25,
+                          onEditingChanged: { if !$0 { session.commitCoalescing() } }, defaultValue: 0)
+                .help("Soft edge on the mask — a circle facecam that fades into the game (#220)")
+        }
+        InspectorSection("Chroma Key", expanded: clip.style.chromaKey?.enabled == true) {
+            ToggleRow(label: "Key out a colour", isOn: Binding(get: { clip.style.chromaKey?.enabled ?? false }, set: { on in
+                session.editSelectedClips(primary: clip.id, "Chroma Key") { c in
+                    if on { var key = c.style.chromaKey ?? .green; key.enabled = true; c.style.chromaKey = key } else { c.style.chromaKey?.enabled = false }
+                }
+            }), help: "Green-screen facecams and B-roll: the colour goes transparent (#221)")
+            if clip.style.chromaKey?.enabled == true {
+                HStack(spacing: 4) {
+                    Button("Green") { setKey { $0.hue = 120 } }.buttonStyle(.pulse(abs((clip.style.chromaKey?.hue ?? 0) - 120) < 1 ? .primary : .secondary, compact: true))
+                    Button("Blue") { setKey { $0.hue = 225 } }.buttonStyle(.pulse(abs((clip.style.chromaKey?.hue ?? 0) - 225) < 1 ? .primary : .secondary, compact: true))
+                    Spacer()
+                }
+                LabeledSlider(label: "Hue", value: keyValue("Key Hue", \.hue), range: 0...359, format: "%.0f", unit: "°",
+                              onEditingChanged: { if !$0 { session.commitCoalescing() } })
+                LabeledSlider(label: "Tolerance", value: keyValue("Key Tolerance", \.tolerance), range: 0.05...0.6,
+                              onEditingChanged: { if !$0 { session.commitCoalescing() } })
+                LabeledSlider(label: "Softness", value: keyValue("Key Softness", \.softness), range: 0...0.4,
+                              onEditingChanged: { if !$0 { session.commitCoalescing() } })
+                LabeledSlider(label: "Spill", value: keyValue("Key Spill", \.spill), range: 0...1,
+                              onEditingChanged: { if !$0 { session.commitCoalescing() } })
+                LabeledSlider(label: "Min. colour", value: keyValue("Key Minimum", \.minimumSaturation), range: 0...0.6,
+                              onEditingChanged: { if !$0 { session.commitCoalescing() } })
+                    .help("Pixels greyer than this are never keyed — keeps hair and shadows")
+            }
+        }
+    }
+
+    /// A binding for an optional style value, written as nil when it's back at the fallback.
+    func optionalStyle(_ label: String, _ keyPath: WritableKeyPath<TimelineClip, Double?>, fallback: Double) -> Binding<Double> {
+        Binding(get: { session.activeTimeline?.clip(id: clip.id)?[keyPath: keyPath] ?? fallback },
+                set: { v in session.editSelectedClips(primary: clip.id, label) { $0[keyPath: keyPath] = abs(v - fallback) < 1e-6 ? nil : v } })
+    }
+
+    func keyValue(_ label: String, _ keyPath: WritableKeyPath<ChromaKey, Double>) -> Binding<Double> {
+        Binding(get: { (session.activeTimeline?.clip(id: clip.id)?.style.chromaKey ?? .green)[keyPath: keyPath] },
+                set: { v in setKey(label) { $0[keyPath: keyPath] = v } })
+    }
+
+    func setKey(_ label: String = "Chroma Key", _ body: @escaping (inout ChromaKey) -> Void) {
+        session.editSelectedClips(primary: clip.id, label) { c in
+            var key = c.style.chromaKey ?? .green
+            body(&key)
+            c.style.chromaKey = key
         }
     }
 
@@ -639,6 +686,13 @@ struct ColorInspector: View {
                 }
             }
             GradePresetsRow(session: session, clip: clip)
+            if session.previousVisualClip(before: clip.id) != nil {
+                Button {
+                    session.matchGrade(of: clip.id, toClipBefore: true)
+                } label: { Label("Match grade to previous clip", systemImage: "wand.and.rays") }
+                    .buttonStyle(.pulse(.secondary, compact: true))
+                    .help("Sets exposure, saturation and temperature so this clip's average look lands where the clip before it sits (#311)")
+            }
             b.plainSlider("Exposure", \.color.exposure, range: -2...2, unit: " EV")
             b.plainSlider("Contrast", \.color.contrast, range: -1...1)
             b.plainSlider("Highlights", \.color.highlights, range: -1...0)

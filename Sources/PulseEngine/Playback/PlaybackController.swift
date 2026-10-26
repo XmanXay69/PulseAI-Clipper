@@ -200,6 +200,14 @@ public final class PlaybackController: ObservableObject {
         }
     }
 
+    /// The frame the player is showing right now, for scopes and grade matching (#310).
+    public func currentFrame() -> CGImage? {
+        guard let output = videoOutput, let item = player.currentItem,
+              let buffer = output.copyPixelBuffer(forItemTime: item.currentTime(), itemTimeForDisplay: nil) else { return nil }
+        let image = CIImage(cvPixelBuffer: buffer)
+        return snapshotContext.createCGImage(image, from: image.extent)
+    }
+
     /// Copies the frame the player is showing right now into `lastFrame`.
     private func captureLastFrame() {
         guard let output = videoOutput, let item = player.currentItem else { return }

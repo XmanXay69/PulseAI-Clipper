@@ -218,6 +218,10 @@ public struct LayerStyle: Codable, Hashable, Sendable {
     public var shadowRadius: Double
     public var shadowOpacity: Double
     public var shadowOffsetY: Double
+    /// Soft edge on the mask, as a fraction of the layer's shorter side (0…0.25) (#220); nil = hard edge.
+    public var feather: Double?
+    /// Green-screen keying for this layer (#221); nil = off.
+    public var chromaKey: ChromaKey?
 
     public init(mask: MaskShape = .rectangle, cornerRadius: Double = 0, borderWidth: Double = 0,
                 borderColor: RGBAColor = .white, shadowRadius: Double = 0, shadowOpacity: Double = 0,
@@ -232,7 +236,9 @@ public struct LayerStyle: Codable, Hashable, Sendable {
     }
 
     public static let plain = LayerStyle()
-    public var isPlain: Bool { mask == .rectangle && borderWidth <= 0 && shadowOpacity <= 0 }
+    public var isPlain: Bool { mask == .rectangle && borderWidth <= 0 && shadowOpacity <= 0 && featherAmount <= 0 }
+    /// The feather clamped to its range (0 when off).
+    public var featherAmount: Double { (feather ?? 0).clamped(0, 0.25) }
 
     /// Corner rounding as a fraction of the shorter side (circle = 0.5).
     var roundness: Double {
@@ -266,6 +272,8 @@ public struct LayerStyle: Codable, Hashable, Sendable {
         out.shadowRadius = mix(shadowRadius, other.shadowRadius)
         out.shadowOpacity = mix(shadowOpacity, other.shadowOpacity)
         out.shadowOffsetY = mix(shadowOffsetY, other.shadowOffsetY)
+        out.feather = p < 0.5 ? feather : other.feather
+        out.chromaKey = p < 0.5 ? chromaKey : other.chromaKey
         return out
     }
 }
@@ -370,6 +378,60 @@ public enum MonoSource: String, Codable, CaseIterable, Sendable {
         case .left: return "Left → both"
         case .right: return "Right → both"
         }
+    }
+}
+
+/// Green-screen keying (#221): pixels near `hue` (degrees) go transparent; `tolerance` is the width of the
+/// keyed band, `softness` the fade beyond it, `spill` how much of the key colour is pulled out of the edges.
+public struct ChromaKey: Codable, Hashable, Sendable {
+    public var enabled: Bool = true
+    public var hue: Double = 120
+    public var tolerance: Double = 0.25
+    public var softness: Double = 0.1
+    public var spill: Double = 0.3
+    /// Pixels this dark or this grey are never keyed (shadows, hair) (0…1).
+    public var minimumSaturation: Double = 0.2
+
+    public init(enabled: Bool = true, hue: Double = 120, tolerance: Double = 0.25, softness: Double = 0.1, spill: Double = 0.3,
+                minimumSaturation: Double = 0.2) {
+        self.enabled = enabled
+        self.hue = hue
+        self.tolerance = tolerance
+        self.softness = softness
+        self.spill = spill
+        self.minimumSaturation = minimumSaturation
+    }
+
+    public static let green = ChromaKey(hue: 120)
+    public static let blue = ChromaKey(hue: 225)
+
+    /// Alpha (0 = keyed out, 1 = kept) for a colour, from its hue distance and saturation.
+    public func alpha(red r: Double, green g: Double, blue b: Double) -> Double {
+        let (h, sat, v) = ChromaKey.hsv(r, g, b)
+        guard sat >= minimumSaturation, v >= 0.08 else { return 1 }
+        var d = abs(h - hue).truncatingRemainder(dividingBy: 360)
+        if d > 180 { d = 360 - d }
+        let band = max(tolerance, 0.01) * 90          // tolerance 0.25 ≈ ±22°
+        let soft = max(softness, 0) * 90
+        if d <= band { return 0 }
+        if soft <= 0 || d >= band + soft { return 1 }
+        return (d - band) / soft
+    }
+
+    /// Hue in degrees, saturation and value (0…1).
+    public static func hsv(_ r: Double, _ g: Double, _ b: Double) -> (hue: Double, saturation: Double, value: Double) {
+        let maxC = max(r, g, b), minC = min(r, g, b)
+        let delta = maxC - minC
+        let v = maxC
+        let s = maxC > 0 ? delta / maxC : 0
+        var h = 0.0
+        if delta > 1e-6 {
+            if maxC == r { h = 60 * ((g - b) / delta).truncatingRemainder(dividingBy: 6) }
+            else if maxC == g { h = 60 * ((b - r) / delta + 2) }
+            else { h = 60 * ((r - g) / delta + 4) }
+            if h < 0 { h += 360 }
+        }
+        return (h, s, v)
     }
 }
 

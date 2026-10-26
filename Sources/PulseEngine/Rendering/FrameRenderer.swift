@@ -63,7 +63,31 @@ public final class FrameRenderer: @unchecked Sendable {
         if let captions = scene.captions, let caption = renderCaptions(captions, at: time, scene: scene) {
             output = caption.composited(over: output)
         }
+        if let watermark = scene.watermark, let logo = place(watermark: watermark, in: bounds) {
+            output = logo.composited(over: output)
+        }
         return output.cropped(to: bounds)
+    }
+
+    /// The brand logo scaled to `size` of the frame width, in its corner with a 3 % margin (#353).
+    func place(watermark: RenderScene.Watermark, in bounds: CGRect) -> CIImage? {
+        let extent = watermark.image.extent
+        guard extent.width > 0, extent.height > 0 else { return nil }
+        let width = bounds.width * CGFloat(watermark.size.clamped(0.03, 0.5))
+        let scale = width / extent.width
+        let height = extent.height * scale
+        let margin = bounds.width * 0.03
+        let x: CGFloat, y: CGFloat
+        switch watermark.corner {
+        case .topLeft: (x, y) = (margin, bounds.height - margin - height)
+        case .topRight: (x, y) = (bounds.width - margin - width, bounds.height - margin - height)
+        case .bottomLeft: (x, y) = (margin, margin)
+        case .bottomRight: (x, y) = (bounds.width - margin - width, margin)
+        }
+        var image = watermark.image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        image = image.transformed(by: CGAffineTransform(translationX: x - image.extent.minX, y: y - image.extent.minY))
+        if watermark.opacity < 0.999 { image = withOpacity(image, watermark.opacity) }
+        return image
     }
 
     /// A darkened, heavily blurred copy of the bottom main video, scaled to cover the whole frame.
@@ -137,6 +161,7 @@ public final class FrameRenderer: @unchecked Sendable {
         let cropRect = CGRect(x: c.x * sw, y: (1 - c.y - c.height) * sh, width: max(c.width * sw, 1), height: max(c.height * sh, 1))
         var image = source.cropped(to: cropRect).transformed(by: CGAffineTransform(translationX: -cropRect.minX, y: -cropRect.minY))
 
+        if let key = clip.style.chromaKey, key.enabled { image = applyChromaKey(image, key) }
         image = applyColor(image, clip.color)
         var shake = CGPoint.zero
         var pulse = 1.0
@@ -181,6 +206,53 @@ public final class FrameRenderer: @unchecked Sendable {
         return image
     }
 
+    // MARK: Chroma key (#221)
+
+    nonisolated(unsafe) private static var keyCubes: [String: Data] = [:]
+    private static let keyCubeLock = NSLock()
+    private static let keyCubeSize = 32
+
+    /// A colour cube for the key: keyed colours go transparent (premultiplied), the soft band fades and loses
+    /// some of the key colour (spill). Cubes are cached per setting so playback never rebuilds them.
+    static func keyCube(for key: ChromaKey) -> Data {
+        let id = String(format: "%.1f|%.3f|%.3f|%.3f|%.3f", key.hue, key.tolerance, key.softness, key.spill, key.minimumSaturation)
+        keyCubeLock.lock(); defer { keyCubeLock.unlock() }
+        if let cached = keyCubes[id] { return cached }
+        let n = keyCubeSize
+        var cube = [Float](repeating: 0, count: n * n * n * 4)
+        var i = 0
+        for b in 0..<n { for g in 0..<n { for r in 0..<n {
+            let rf = Double(r) / Double(n - 1), gf = Double(g) / Double(n - 1), bf = Double(b) / Double(n - 1)
+            let alpha = key.alpha(red: rf, green: gf, blue: bf)
+            var (ro, go, bo) = (rf, gf, bf)
+            if alpha < 1, key.spill > 0 {
+                // Pull the key colour toward the other two channels on the soft edge.
+                let (h, _, _) = ChromaKey.hsv(rf, gf, bf)
+                let d = min(abs(h - key.hue), 360 - abs(h - key.hue))
+                if d < 60 {
+                    let mix = key.spill * (1 - alpha)
+                    if key.hue >= 60 && key.hue < 180 { go = go * (1 - mix) + max(ro, bo) * mix }
+                    else if key.hue >= 180 && key.hue < 300 { bo = bo * (1 - mix) + max(ro, go) * mix }
+                    else { ro = ro * (1 - mix) + max(go, bo) * mix }
+                }
+            }
+            cube[i] = Float(ro * alpha); cube[i + 1] = Float(go * alpha); cube[i + 2] = Float(bo * alpha); cube[i + 3] = Float(alpha)
+            i += 4
+        } } }
+        let data = cube.withUnsafeBufferPointer { Data(buffer: $0) }
+        if keyCubes.count > 16 { keyCubes.removeAll() }
+        keyCubes[id] = data
+        return data
+    }
+
+    func applyChromaKey(_ input: CIImage, _ key: ChromaKey) -> CIImage {
+        let f = CIFilter.colorCube()
+        f.inputImage = input
+        f.cubeDimension = Float(Self.keyCubeSize)
+        f.cubeData = Self.keyCube(for: key)
+        return f.outputImage ?? input
+    }
+
     // MARK: Style (mask, border, shadow)
 
     func applyStyle(_ image: CIImage, style: LayerStyle, size: CGSize, renderScale rs: Double) -> CIImage {
@@ -193,6 +265,12 @@ public final class FrameRenderer: @unchecked Sendable {
         case .roundedRectangle: radius = max(CGFloat(style.cornerRadius), 0.04) * shorter
         case .circle, .ellipse: radius = shorter / 2
         }
+        // Feather (#220): the shape is inset by the feather and blurred, so the soft edge ends at the layer's bounds.
+        let feather = CGFloat(style.featherAmount) * shorter
+        func soften(_ maskImage: CIImage) -> CIImage {
+            guard feather > 0.5 else { return maskImage }
+            return maskImage.applyingGaussianBlur(sigma: Double(feather) / 2).cropped(to: rect)
+        }
         var result = image
         if style.mask == .ellipse {
             let gradient = CIFilter.radialGradient()
@@ -202,11 +280,14 @@ public final class FrameRenderer: @unchecked Sendable {
             gradient.color0 = CIColor.white
             gradient.color1 = CIColor.clear
             if let unit = gradient.outputImage?.cropped(to: CGRect(x: 0, y: 0, width: 1, height: 1)) {
-                let ellipseMask = unit.transformed(by: CGAffineTransform(scaleX: size.width, y: size.height))
-                result = mask(result, with: ellipseMask)
+                let inset = rect.insetBy(dx: feather, dy: feather)
+                let ellipseMask = unit.transformed(by: CGAffineTransform(scaleX: inset.width, y: inset.height))
+                    .transformed(by: CGAffineTransform(translationX: inset.minX, y: inset.minY))
+                result = mask(result, with: soften(ellipseMask))
             }
-        } else if radius > 0.5 {
-            result = mask(result, with: roundedRect(rect, radius: radius, color: .white))
+        } else if radius > 0.5 || feather > 0.5 {
+            let inset = rect.insetBy(dx: feather, dy: feather)
+            result = mask(result, with: soften(roundedRect(inset, radius: max(0, radius - feather), color: .white)))
         }
         if style.borderWidth > 0 {
             let b = CGFloat(style.borderWidth * rs)
@@ -533,7 +614,7 @@ public final class FrameRenderer: @unchecked Sendable {
         guard let page = CaptionLayoutEngine.page(at: time, in: captions.pages) else { return nil }
         let style = captions.style(for: page)
         let rs = scene.renderScale
-        guard let frame = TextRenderer.renderCaption(page: page, style: style, at: time, renderScale: rs) else { return nil }
+        guard let frame = TextRenderer.renderCaption(page: page, style: style, at: time, renderScale: rs, maxWidth: scene.renderSize.width * 0.92) else { return nil }
         var image = CIImage(cgImage: frame.rendered.image)
         let W = Double(scene.renderSize.width)
         let H = Double(scene.renderSize.height)

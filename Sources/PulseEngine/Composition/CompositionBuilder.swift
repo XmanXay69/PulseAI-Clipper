@@ -58,6 +58,8 @@ public enum CompositionBuilder {
         /// `pendingEnhancements` (the viewer: picture first, processed audio a moment later).
         /// Exports keep true and wait for every render.
         public var renderEnhancements = true
+        /// A logo to burn into every frame (exports, #353).
+        public var watermark: WatermarkSpec?
 
         public init(renderSize: CGSize? = nil, useProxies: Bool = false, includeCaptions: Bool = true, showSafeArea: SafeAreaPlatform? = nil,
                     enhanceCacheDirectory: URL? = PulseDirectories.cache("Enhanced Audio")) {
@@ -77,7 +79,8 @@ public enum CompositionBuilder {
             guard options.includeCaptions, let captions = timeline.captions, captions.isEnabled else { return nil }
             return CaptionRenderData(track: captions, timeline: timeline)
         }()
-        let scene = RenderScene(canvas: timeline.canvas, renderSize: renderSize, captions: captionData, showSafeArea: options.showSafeArea)
+        let scene = RenderScene(canvas: timeline.canvas, renderSize: renderSize, captions: captionData, showSafeArea: options.showSafeArea,
+                                watermark: options.watermark.flatMap { RenderScene.Watermark(spec: $0) })
 
         // Background filler keeps a video track alive so the compositor always runs (text-only, gaps).
         let filler = try await BlackFiller.shared.asset()

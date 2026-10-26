@@ -97,6 +97,8 @@ public struct ExportSettings: Codable, Hashable, Sendable {
     public var audioOnly: Bool
     /// Keep the file under this many megabytes by lowering the video bitrate (nil = no limit) (#344).
     public var targetFileMB: Int?
+    /// Burn the brand logo into this export (#353); nil = no watermark.
+    public var watermark: WatermarkSpec?
     /// Also save a PNG of a representative frame next to the video (#337).
     public var exportThumbnail: Bool
     /// Bring the mix to this integrated loudness at export (−14 YouTube, −16 podcasts, −18 quiet); nil = only check (#279).
@@ -157,6 +159,7 @@ public struct ExportSettings: Codable, Hashable, Sendable {
         folderPerProject = c.decode(Bool.self, forKey: .folderPerProject, default: d.folderPerProject)
         audioOnly = c.decode(Bool.self, forKey: .audioOnly, default: d.audioOnly)
         targetFileMB = c.decode(Int?.self, forKey: .targetFileMB, default: nil)
+        watermark = c.decode(WatermarkSpec?.self, forKey: .watermark, default: nil)
         exportThumbnail = c.decode(Bool.self, forKey: .exportThumbnail, default: d.exportThumbnail)
         loudnessTarget = c.decode(Double?.self, forKey: .loudnessTarget, default: nil)
         lowPriority = c.decode(Bool.self, forKey: .lowPriority, default: false)
@@ -391,5 +394,29 @@ public enum AudioQuality: Int, CaseIterable, Codable, Sendable {
     /// The choice closest to a bitrate from an older preset or a typed value.
     public static func nearest(_ bitrate: Int) -> AudioQuality {
         allCases.min { abs($0.bitrate - bitrate) < abs($1.bitrate - bitrate) } ?? .high
+    }
+}
+
+/// A logo burned into an export (#353): the Brand Kit's logo, corner, size and opacity at the time of export.
+public struct WatermarkSpec: Codable, Hashable, Sendable {
+    public var path: String
+    public var corner: BrandKit.Corner
+    /// Width as a fraction of the output width.
+    public var size: Double
+    public var opacity: Double
+
+    public init(path: String, corner: BrandKit.Corner = .bottomRight, size: Double = 0.14, opacity: Double = 0.85) {
+        self.path = path
+        self.corner = corner
+        self.size = size.clamped(0.03, 0.5)
+        self.opacity = opacity.clamped(0.05, 1)
+    }
+}
+
+extension BrandKit {
+    /// The watermark an export would burn in, or nil when the kit has no logo.
+    public var watermarkSpec: WatermarkSpec? {
+        guard !logoPath.isEmpty else { return nil }
+        return WatermarkSpec(path: logoPath, corner: logoCorner, size: logoSize, opacity: logoOpacity)
     }
 }

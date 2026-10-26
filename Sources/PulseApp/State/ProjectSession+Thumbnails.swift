@@ -98,3 +98,53 @@ extension ProjectSession {
         }
     }
 }
+
+
+// MARK: - Grade matching (#311)
+
+extension ProjectSession {
+    /// The visual clip that ends where this one starts (or the nearest earlier one on the same track).
+    func previousVisualClip(before clipID: UUID) -> TimelineClip? {
+        guard let timeline = activeTimeline, let track = timeline.tracks.first(where: { $0.clips.contains { $0.id == clipID } }),
+              let clip = track.clips.first(where: { $0.id == clipID }) else { return nil }
+        return track.clips.filter { $0.id != clipID && $0.end <= clip.start + 0.01 && $0.assetID != nil }.max { $0.end < $1.end }
+    }
+
+    /// Average colour of a source frame from the middle of a clip (ungraded), via a 64×36 downsample.
+    func frameStats(for clip: TimelineClip) async -> FrameStats? {
+        guard let id = clip.assetID, let asset = document.asset(id: id) else { return nil }
+        let t = clip.sourceIn + clip.sourceDuration / 2
+        guard let image = await ThumbnailService.shared.image(for: url(for: asset), at: t, maxWidth: 160, precise: true) else { return nil }
+        return Self.stats(of: image)
+    }
+
+    nonisolated static func stats(of image: CGImage) -> FrameStats? {
+        let width = 64, height = 36
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                                          space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            context.interpolationQuality = .medium
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else { return nil }
+        return FrameStats.compute(pixels: pixels, width: width, height: height, bytesPerRow: width * 4, step: 1)
+    }
+
+    /// Inspector → Colour → Match grade: this clip takes on the look of the clip before it.
+    func matchGrade(of clipID: UUID, toClipBefore: Bool) {
+        guard let timeline = activeTimeline, let clip = timeline.clip(id: clipID), let reference = previousVisualClip(before: clipID) else { return }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard let refStats = await self.frameStats(for: reference), let targetStats = await self.frameStats(for: clip) else {
+                self.app.toast("Couldn't read frames from both clips to match them")
+                return
+            }
+            let grade = GradeMatch.match(reference: refStats, referenceGrade: reference.color, target: targetStats, targetGrade: clip.color)
+            self.editClip(clipID, "Match Grade", coalesce: nil) { $0.color = grade }
+            self.app.toast(String(format: "Matched to “%@”: %+.2f EV, saturation %+.2f, temperature %+.2f", reference.name,
+                                  grade.exposure - clip.color.exposure, grade.saturation - clip.color.saturation, grade.temperature - clip.color.temperature))
+        }
+    }
+}

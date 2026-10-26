@@ -400,6 +400,7 @@ struct TemplateCard: View {
 // MARK: Exports
 
 struct ExportSettingsForm: View {
+    @EnvironmentObject var app: AppModel
     @Binding var settings: ExportSettings
 
     var body: some View {
@@ -479,6 +480,14 @@ struct ExportSettingsForm: View {
                         .labelsHidden().frame(width: 190)
                         Text(AudioQuality.nearest(settings.audioBitrate).detail).font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(2)
                     }
+                }
+                GridRow {
+                    Text("Brand logo").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    Toggle(app.settings.brandKit.watermarkSpec == nil ? "Add a logo in Settings → Brand Kit first" : "Burn the Brand Kit logo into this export",
+                           isOn: Binding(get: { settings.watermark != nil }, set: { settings.watermark = $0 ? app.settings.brandKit.watermarkSpec : nil }))
+                        .toggleStyle(.checkbox).font(.pulseCaption)
+                        .disabled(app.settings.brandKit.watermarkSpec == nil)
+                        .help("A watermark in the Brand Kit's corner, size and opacity, on this export only (#353)")
                 }
                 GridRow {
                     Text("Priority").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
