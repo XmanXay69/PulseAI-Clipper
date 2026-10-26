@@ -188,6 +188,8 @@ struct PulseCommands: Commands {
                 .disabled(app.session?.activeTimeline == nil)
             Button("Export Review Page…") { app.session?.exportReviewPage() }
                 .disabled(app.session?.activeTimeline == nil)
+            Button("Export Chapter Art…") { app.session?.exportChapterArt() }
+                .disabled(app.session?.activeTimeline == nil)
             Menu("Snapshots") {
                 Button("Take Snapshot") { app.session?.takeSnapshot() }.keyboardShortcut("s", modifiers: [.command, .option])
                     .disabled(app.session?.activeTimeline == nil)

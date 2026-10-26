@@ -9,10 +9,14 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
 
 ## Download
 
-**[⬇ Download PULSE 1.6.1](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
-(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.6.1/NOTES.md)
+**[⬇ Download PULSE 1.6.2](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
+(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.6.2/NOTES.md)
 
 Already installed? PULSE shows an **Update** button when a new version is out — no need to download again.
+
+**New in 1.6.2:** chapter art (a picture per chapter marker for the description), a sortable list view in the
+media panel, a GPU self-test that switches to safe mode by itself, and the shuttle speed on the transport bar
+([notes](versions/1.6.2/NOTES.md)).
 
 **New in 1.6.1:** colour labels on clips with a filter, keyboard caption editing (tab, return, ⌫), a caption
 spell-check, a generated 3-second intro card from the Brand Kit, cuts that land on sentence ends, "Drop"

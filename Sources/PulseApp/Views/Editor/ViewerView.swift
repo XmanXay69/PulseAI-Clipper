@@ -375,6 +375,15 @@ struct TransportBar: View {
     @State private var typedTimecode = ""
     @FocusState private var timecodeFocused: Bool
 
+    /// "2×", "8×" or "−4×" while shuttling; nothing at normal speed or when paused (#420).
+    private var shuttleReadout: String? {
+        let rate = playback.playbackRate
+        guard rate != 0, rate != 1 else { return nil }
+        let magnitude = abs(rate)
+        let text = magnitude == magnitude.rounded() ? String(Int(magnitude)) : String(format: "%.2g", magnitude)
+        return (rate < 0 ? "−" : "") + text + "×"
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             if editingTimecode {
@@ -428,6 +437,11 @@ struct TransportBar: View {
             IconButton(symbol: "forward.end.fill", help: "Go to end (End)") { playback.goToEnd() }
             IconButton(symbol: "repeat", help: "Loop", isActive: playback.loopEnabled && playback.loopRange == nil) { playback.loopRange = nil; playback.loopEnabled.toggle() }
             IconButton(symbol: "repeat.1", help: "Loop in → out (⌥L)", isActive: playback.loopEnabled && playback.loopRange != nil) { session.toggleLoopInOut() }
+            if let speed = shuttleReadout {
+                TagChip(text: speed, color: Theme.accent, symbol: playback.playbackRate < 0 ? "backward.fill" : "forward.fill")
+                    .help("Shuttle speed — J/L to go faster, K to stop")
+                    .transition(.opacity)
+            }
             Spacer(minLength: 4)
             // In/out chips drop out first when the viewer is narrow; the duration always shows.
             ViewThatFits(in: .horizontal) {

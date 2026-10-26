@@ -30,6 +30,9 @@ public final class PlaybackController: ObservableObject {
     }
     @Published public private(set) var duration: Seconds = 0
     @Published public private(set) var isPlaying = false
+    /// The player's live rate (0 when paused, 1 for normal play, ±2/4/8 while shuttling, negative backwards).
+    /// Drives the transport bar's speed readout so J/K/L presses are visible, not just audible.
+    @Published public private(set) var playbackRate: Float = 0
     @Published public private(set) var isBuilding = false
     /// Processed audio for the open edit is still rendering (the picture is already showing).
     @Published public private(set) var isEnhancingAudio = false
@@ -71,8 +74,11 @@ public final class PlaybackController: ObservableObject {
             }
         }
         rateObservation = player.observe(\.rate, options: [.new]) { [weak self] player, _ in
-            let playing = player.rate != 0
-            Task { @MainActor in self?.isPlaying = playing }
+            let rate = player.rate
+            Task { @MainActor in
+                self?.isPlaying = rate != 0
+                self?.playbackRate = rate
+            }
         }
     }
 

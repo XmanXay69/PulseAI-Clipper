@@ -1093,6 +1093,28 @@ final class ProjectSession: ObservableObject, Identifiable {
         app.toast("Captions rebuilt from the latest transcript — your edits were kept")
     }
 
+    /// Timeline → Export Chapter Art… (#493): one 1280×720 PNG per chapter marker, the frame with its name over it.
+    func exportChapterArt() {
+        guard let timeline = activeTimeline else { return }
+        let chapters = timeline.markers.filter { $0.color == .blue }
+        guard !chapters.isEmpty else { return app.toast("Add chapter markers first — blue markers become chapters") }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Save Here"
+        panel.message = "A folder for \(chapters.count) chapter picture\(chapters.count == 1 ? "" : "s")"
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+        let assets = Dictionary(uniqueKeysWithValues: document.media.map { ($0.id, $0) })
+        app.jobs.start("Chapter art for \(timeline.name)", kind: .export) { [weak self] job in
+            guard let self else { return }
+            let result = try await ChapterArt.render(timeline: timeline, assets: assets, into: folder) { p in Task { @MainActor in job.progress = p } }
+            self.app.logActivity(.export, title: "Chapter art for “\(timeline.name)”", detail: "\(result.files.count) pictures")
+            self.app.toast(result.skipped > 0 ? "\(result.files.count) chapter pictures saved · \(result.skipped) marker\(result.skipped == 1 ? "" : "s") sat over a cutaway and were skipped" : "\(result.files.count) chapter pictures saved")
+            NSWorkspace.shared.open(folder)
+        }
+    }
+
     /// A review page for someone without PULSE (#471).
     func exportReviewPage() {
         guard let timeline = activeTimeline else { return }

@@ -536,6 +536,12 @@ final class AppModel: ObservableObject {
         }
         if !settings.ai.brollFolder.isEmpty, !FileManager.default.fileExists(atPath: (settings.ai.brollFolder as NSString).expandingTildeInPath) { problems.append("the B-roll folder is missing") }
         if !settings.ai.musicFolder.isEmpty, !FileManager.default.fileExists(atPath: (settings.ai.musicFolder as NSString).expandingTildeInPath) { problems.append("the music folder is missing") }
+        // A one-frame render through the GPU (#392); when it fails, rendering falls back to the CPU on its own.
+        if !FrameRenderer.safeMode, !FrameRenderer.selfTest() {
+            FrameRenderer.safeMode = true
+            PulseLog.warning("GPU render self-test failed — safe mode (CPU rendering) switched on")
+            problems.append("the GPU failed a render test, so safe mode (CPU rendering) is on")
+        }
         guard !problems.isEmpty else { return }
         toast("Heads-up: \(problems.joined(separator: ", ")) — Settings → Diagnostics has the fixes")
     }

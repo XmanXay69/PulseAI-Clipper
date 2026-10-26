@@ -2,6 +2,7 @@
 
 Release notes live in [`versions/`](versions/README.md), one folder per version:
 
+- [1.6.2](versions/1.6.2/NOTES.md) — roadmap batch 23: chapter art, media list view, GPU self-test with automatic safe mode, shuttle speed readout.
 - [1.6.1](versions/1.6.1/NOTES.md) — roadmap batches 16–22: clip colour labels + filter, keyboard caption editing, caption spelling,
   auto + bulk relink, import sidecars, replace-by-drop, insert mode, blade preview, cold-open card, preferred sounds, status board,
   slip/slide/roll, level curves on clips, chapter band, 10 s export preview, platform chrome, recording presets + size estimate,

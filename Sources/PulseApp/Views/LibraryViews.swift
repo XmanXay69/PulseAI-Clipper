@@ -20,6 +20,7 @@ struct MediaView: View {
     @State private var renameText = ""
 
     enum Sort: String, CaseIterable { case imported = "Date Imported", name = "Name", duration = "Duration", size = "Size" }
+    @AppStorage("media.listView") private var listView = false
 
     var assets: [MediaAsset] {
         var list = session.document.media.filter { $0.isTrashed == showTrash }
@@ -96,6 +97,7 @@ struct MediaView: View {
                         }
                     Picker("", selection: $sort) { ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
                         .frame(width: 150)
+                    IconButton(symbol: listView ? "square.grid.2x2" : "list.bullet", help: listView ? "Grid" : "List with sortable columns (#18)", isActive: listView) { listView.toggle() }
                     Spacer()
                     Button { app.showImportPanel() } label: { Label("Import", systemImage: "plus") }.buttonStyle(.pulseSecondary)
                 }
@@ -105,6 +107,8 @@ struct MediaView: View {
                 if assets.isEmpty {
                     EmptyStateView(symbol: "photo.stack", title: "No media", message: "Import videos, audio, music, sound effects and graphics. Drag them straight onto the timeline.",
                                    actionTitle: "Import Media") { app.showImportPanel() }
+                } else if listView {
+                    MediaTable(session: session, assets: assets, selectedID: $selectedID)
                 } else {
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 180, maximum: 240), spacing: 12)], spacing: 12) {
@@ -923,5 +927,41 @@ struct BatchExportSheet: View {
         app.toast("Queued \(timelines.count) exports")
         dismiss()
         app.section = .exports
+    }
+}
+
+/// The media panel as a table (#18): name, length, size, date and role, sortable by clicking a column.
+struct MediaTable: View {
+    @EnvironmentObject var app: AppModel
+    @ObservedObject var session: ProjectSession
+    let assets: [MediaAsset]
+    @Binding var selectedID: UUID?
+    @State private var order: [KeyPathComparator<MediaAsset>] = [KeyPathComparator(\.importedAt, order: .reverse)]
+
+    var rows: [MediaAsset] { assets.sorted(using: order) }
+
+    var body: some View {
+        Table(rows, selection: Binding(get: { selectedID.map { Set([$0]) } ?? [] }, set: { selectedID = $0.first }), sortOrder: $order) {
+            TableColumn("Name", value: \.name) { asset in
+                HStack(spacing: 6) {
+                    Image(systemName: asset.kind == .video ? "film" : (asset.kind == .audio ? "waveform" : "photo")).foregroundStyle(Theme.textTertiary)
+                    Text(asset.name).lineLimit(1)
+                    if asset.availability == .missing { TagChip(text: "Missing", color: Theme.warning) }
+                }
+            }
+            TableColumn("Length", value: \.metadata.duration) { asset in Text(asset.metadata.duration > 0 ? Timecode.short(asset.metadata.duration) : "—").monospacedDigit() }.width(80)
+            TableColumn("Size", value: \.metadata.fileSize) { asset in Text(asset.metadata.fileSize > 0 ? ByteCountFormatter.string(fromByteCount: asset.metadata.fileSize, countStyle: .file) : "—") }.width(90)
+            TableColumn("Imported", value: \.importedAt) { asset in Text(asset.importedAt.formatted(date: .abbreviated, time: .shortened)) }.width(150)
+            TableColumn("Role", value: \.role.displayName) { asset in Text(asset.role.displayName) }.width(100)
+        }
+        .contextMenu(forSelectionType: UUID.self) { ids in
+            if let id = ids.first, let asset = assets.first(where: { $0.id == id }) {
+                Button("Add to Timeline") { session.placeAsset(asset.id) }
+                Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([session.url(for: asset)]) }
+                Button("Open in Default App") { NSWorkspace.shared.open(session.url(for: asset)) }
+            }
+        } primaryAction: { ids in
+            if let id = ids.first { session.placeAsset(id); app.section = .editor }
+        }
     }
 }

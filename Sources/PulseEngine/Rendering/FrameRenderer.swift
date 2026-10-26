@@ -26,6 +26,17 @@ public final class FrameRenderer: @unchecked Sendable {
         set { UserDefaults.standard.set(newValue, forKey: "render.safeMode") }
     }
 
+    /// Renders one small colour frame through the GPU context (#392). False means the driver or Metal setup
+    /// is broken on this Mac; the app then switches to safe mode (CPU) on its own.
+    public static func selfTest() -> Bool {
+        guard let device = MTLCreateSystemDefaultDevice() else { return false }
+        let context = CIContext(mtlDevice: device, options: [.workingColorSpace: CGColorSpace(name: CGColorSpace.sRGB)!])
+        let rect = CGRect(x: 0, y: 0, width: 64, height: 36)
+        let image = CIImage(color: CIColor(red: 0.2, green: 0.6, blue: 0.9)).cropped(to: rect)
+        guard let cg = context.createCGImage(image, from: rect), cg.width == 64, cg.height == 36 else { return false }
+        return true
+    }
+
     public init() {
         if !Self.safeMode, let device = MTLCreateSystemDefaultDevice() {
             context = CIContext(mtlDevice: device, options: [.workingColorSpace: CGColorSpace(name: CGColorSpace.sRGB)!, .cacheIntermediates: false])
