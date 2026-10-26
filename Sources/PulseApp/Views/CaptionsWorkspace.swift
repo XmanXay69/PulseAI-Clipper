@@ -48,6 +48,33 @@ struct CaptionStylePanel: View {
     @ObservedObject var session: ProjectSession
 
     var captions: CaptionTrack? { session.activeTimeline?.captions }
+    @State private var findText = ""
+    @State private var replaceText = ""
+
+    func shiftCaptions(by delta: Seconds) {
+        session.editTimeline("Shift Captions") { $0.captions?.shiftTiming(by: delta) }
+        session.app.toast("Captions moved \(delta > 0 ? "later" : "earlier") by \(Int(abs(delta) * 1000)) ms")
+    }
+
+    func replaceAllInCaptions() {
+        var count = 0
+        session.editTimeline("Replace in Captions") { count = $0.captions?.replaceAll(findText, with: replaceText) ?? 0 }
+        session.app.toast(count == 0 ? "“\(findText)” isn't in the captions" : "Replaced in \(count) word\(count == 1 ? "" : "s")")
+    }
+
+    func applyShadow(_ preset: CaptionStyle.ShadowPreset) {
+        session.editTimeline("Shadow: \(preset.displayName)") { t in
+            guard var style = t.captions?.style else { return }
+            preset.apply(to: &style)
+            t.captions?.style = style
+        }
+    }
+
+    func addLaughEmoji() {
+        var count = 0
+        session.editTimeline("Laugh Emoji") { count = $0.captions?.addLaughEmoji() ?? 0 }
+        session.app.toast(count == 0 ? "No laughter words without an emoji" : "😂 on \(count) laugh\(count == 1 ? "" : "s")")
+    }
 
     /// The audio censoring in force on this timeline (the first clip that has any).
     var audioCensor: CensorAudio { session.activeTimeline?.allClips.first { $0.audio.censors }?.audio.censor ?? .off }
@@ -164,6 +191,34 @@ struct CaptionStylePanel: View {
                         }
                         if let captions, captions.captionSpeakers.count >= 2 {
                             SpeakerCaptionSection(session: session, captions: captions)
+                        }
+                        InspectorSection("Timing & text") {
+                            HStack(spacing: 6) {
+                                Text("Timing").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 74, alignment: .leading)
+                                Button("−50 ms") { shiftCaptions(by: -0.05) }.buttonStyle(.pulse(.secondary, compact: true))
+                                Button("+50 ms") { shiftCaptions(by: 0.05) }.buttonStyle(.pulse(.secondary, compact: true))
+                                Text("when the captions run early or late").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                            }
+                            HStack(spacing: 6) {
+                                TextField("Find", text: $findText).textFieldStyle(.roundedBorder).frame(width: 88)
+                                TextField("Replace", text: $replaceText).textFieldStyle(.roundedBorder).frame(width: 88)
+                                Button("Replace All") { replaceAllInCaptions() }.buttonStyle(.pulse(.secondary, compact: true)).disabled(findText.isEmpty)
+                            }
+                            HStack(spacing: 6) {
+                                Text("Shadow").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 74, alignment: .leading)
+                                ForEach(CaptionStyle.ShadowPreset.allCases, id: \.self) { preset in
+                                    let on = captions.map { preset.matches($0.style) } ?? false
+                                    Button(preset.displayName) { applyShadow(preset) }.buttonStyle(.pulse(on ? .primary : .secondary, compact: true))
+                                }
+                            }
+                            HStack(spacing: 6) {
+                                Button { addLaughEmoji() } label: { Label("Laugh emoji", systemImage: "face.smiling") }
+                                    .buttonStyle(.pulse(.secondary, compact: true))
+                                    .help("Adds 😂 to hahaha, lol, lmao… once")
+                                Button { session.applyCaptionStyleToAllShorts() } label: { Label("Style to all shorts", systemImage: "square.on.square") }
+                                    .buttonStyle(.pulse(.secondary, compact: true))
+                                    .help("Every other short with captions takes this look; split layouts keep their caption height")
+                            }
                         }
                         InspectorSection("Swear words") {
                             Picker("Audio", selection: Binding(get: { audioCensor }, set: { setAudioCensor($0) })) {

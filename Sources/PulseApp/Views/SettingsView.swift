@@ -619,6 +619,7 @@ struct FileSettings: View {
             let info = app.diskInfo
             KeyValueRow(key: "Projects", value: ByteCountFormatter.string(fromByteCount: info.projectsBytes, countStyle: .file))
             KeyValueRow(key: "Cache (thumbnails, waveforms, analysis, proxies)", value: ByteCountFormatter.string(fromByteCount: info.cacheBytes, countStyle: .file))
+            KeyValueRow(key: "Audio renders (Enhance, censoring)", value: ByteCountFormatter.string(fromByteCount: info.enhancedAudioBytes, countStyle: .file))
             KeyValueRow(key: "Referenced media", value: ByteCountFormatter.string(fromByteCount: info.mediaBytes, countStyle: .file))
             KeyValueRow(key: "Free space", value: ByteCountFormatter.string(fromByteCount: info.availableBytes, countStyle: .file))
             if info.totalBytes > 0 {
@@ -629,6 +630,7 @@ struct FileSettings: View {
                     .buttonStyle(.pulse(.ghost, compact: true))
                 Spacer()
                 Button("Refresh") { app.refreshDiskInfo() }.buttonStyle(.pulse(.secondary, compact: true))
+                Button("Clear Audio Renders") { app.clearEnhancedAudioCache() }.buttonStyle(.pulse(.secondary, compact: true))
                 Button("Clear Cache") { app.clearCache() }.buttonStyle(.pulse(.secondary, compact: true))
                     .help("Thumbnails, waveforms, proxies and analysis caches are rebuilt when needed. Projects and media are untouched.")
             }

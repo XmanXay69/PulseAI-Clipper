@@ -455,6 +455,13 @@ struct ExportsView: View {
                             .buttonStyle(.pulseSecondary)
                             .disabled((app.session?.document.timelines.isEmpty ?? true))
                     }
+                    Toggle(isOn: $settings.audioOnly) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Audio only (.m4a)").font(.pulseBody).foregroundStyle(Theme.textPrimary)
+                            Text("The mix alone — the podcast version of an edit.").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                        }
+                    }
+                    .toggleStyle(.checkbox)
                     Toggle(isOn: $settings.folderPerProject) {
                         VStack(alignment: .leading, spacing: 1) {
                             Text("One folder per project").font(.pulseBody).foregroundStyle(Theme.textPrimary)

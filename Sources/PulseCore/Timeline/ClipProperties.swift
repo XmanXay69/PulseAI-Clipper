@@ -456,6 +456,22 @@ public struct EQSettings: Codable, Hashable, Sendable {
     public var highPassHz: Double = 0
 
     public init() {}
+
+    public init(low: Double, mid: Double, high: Double, highPass: Double) {
+        isEnabled = true
+        lowGain = low
+        midGain = mid
+        highGain = high
+        highPassHz = highPass
+    }
+
+    /// Voice presets (#265): warm (fuller lows), clear (presence and air), radio (tight, mid-forward).
+    public static let warm = EQSettings(low: 3, mid: -1, high: -1.5, highPass: 60)
+    public static let clear = EQSettings(low: -2, mid: 1, high: 3, highPass: 100)
+    public static let radio = EQSettings(low: -6, mid: 4, high: -3, highPass: 200)
+    public static let presets: [(name: String, settings: EQSettings)] = [("Warm", .warm), ("Clear", .clear), ("Radio", .radio)]
+
+    public var presetName: String? { EQSettings.presets.first { $0.settings == self }?.name }
 }
 
 public struct CompressorSettings: Codable, Hashable, Sendable {
@@ -506,6 +522,8 @@ public struct AudioSettings: Codable, Hashable, Sendable {
     public var duckAmountDB: Double
     /// Notch out mains hum (50/60 Hz and the first harmonics).
     public var humRemoval: Bool = false
+    /// Tame harsh "s" and "sh" sounds (split-band de-esser) (#264).
+    public var deEss: Bool = false
     /// Mute or bleep the swear words (`censorRanges`, in source time) as part of the enhance render.
     public var censor: CensorAudio = .off
     public var censorRanges: [TimeRange] = []
@@ -547,6 +565,7 @@ public struct AudioSettings: Codable, Hashable, Sendable {
         duckUnderDialogue = c.decode(Bool.self, forKey: .duckUnderDialogue, default: false)
         duckAmountDB = c.decode(Double.self, forKey: .duckAmountDB, default: -12)
         humRemoval = c.decode(Bool.self, forKey: .humRemoval, default: false)
+        deEss = c.decode(Bool.self, forKey: .deEss, default: false)
         censor = c.decode(CensorAudio.self, forKey: .censor, default: .off)
         censorRanges = c.decode([TimeRange].self, forKey: .censorRanges, default: [])
     }
@@ -556,7 +575,7 @@ public struct AudioSettings: Codable, Hashable, Sendable {
 
     /// True when the processed-audio render path is needed.
     public var needsProcessing: Bool {
-        noiseReduction > 0 || voiceEnhance || eq.isEnabled || compressor.isEnabled || limiter || normalize || humRemoval || censors
+        noiseReduction > 0 || voiceEnhance || eq.isEnabled || compressor.isEnabled || limiter || normalize || humRemoval || censors || deEss
     }
 
     /// Effective linear gain at clip-relative time `t` (volume × gain × fades), before ducking.

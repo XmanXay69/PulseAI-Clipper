@@ -387,6 +387,13 @@ struct TimelineRuler: View {
                 p.closeSubpath()
                 ctx.fill(p, with: .color(Color(marker.color.rgba)))
             }
+            // In → out range (I / O) as a band on the ruler (#199).
+            if let a = session.inPoint, let b = session.outPoint, b > a {
+                let x0 = CGFloat(a) * pps, x1 = CGFloat(b) * pps
+                ctx.fill(Path(CGRect(x: x0, y: 0, width: x1 - x0, height: size.height)), with: .color(Theme.info.opacity(0.16)))
+                ctx.fill(Path(CGRect(x: x0, y: 0, width: 1.5, height: size.height)), with: .color(Theme.info))
+                ctx.fill(Path(CGRect(x: x1 - 1.5, y: 0, width: 1.5, height: size.height)), with: .color(Theme.info))
+            }
             // Excitement strip along the bottom: the recording's energy, mapped through the cuts.
             if showEnergy, let v = timeline.tracks.first(where: { $0.kind == .video }) {
                 let bottom = size.height - 1

@@ -46,6 +46,16 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   music overlaps the next for 3 s instead of fading out, a gap, and fading in.
 
 ### Editing
+- **Typed values, keyframe states and keyframe jumps** (#207, #208, #209) — click a slider's number to type
+  one; the diamond shows none / at a keyframe / between keyframes, with arrows to jump to the previous or
+  next keyframe.
+- **One value on all selected clips** (#225) — with several clips selected, the inspector edits them together
+  (a rename stays on one).
+- **Why is this here** and **Make Mine** (#230, #210) — an AI-placed clip says which pass put it there
+  (replay, meme, title card, sound effect…); Make Mine keeps everything and drops the AI flags so later passes
+  leave it alone.
+- **Split all tracks at the playhead** (⇧⌘K, #145) is now listed next to in → out on the ruler (#199), a
+  loop-in→out button in the viewer (#201) and a grid / thirds overlay (#190).
 - **Snapshots** (#185, #118) — Timeline → Snapshots → Take Snapshot (⌥⌘S) keeps a named copy of the timeline;
   restore any of them from the same menu (the version you're leaving is kept too). Make More Entertaining
   takes one by itself before it changes anything. Twenty per timeline; automatic ones go first.
@@ -91,6 +101,9 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 - **Overlap warning** (#73) — a clip that covers mostly the same stretch as a short you've already edited says so.
 
 ### Delivery
+- **Audio only** (#278) — an export checkbox renders the mix alone as an .m4a (the podcast version of an edit).
+- **Audio renders in Storage** (#290) — Settings → Files & Storage shows how much the Enhance renders take and
+  clears them on their own.
 - **One folder per project** (#74) — a checkbox in the export panel puts every export of a project in its own
   sub-folder, so one stream's shorts stay together.
 - **Share-ready posts** (#84) — TikTok / Shorts / Reels / X buttons in the clip panel copy the whole post
@@ -119,6 +132,10 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   "valerant" → "Valorant", "x q c" → "xQc", "sea of theives" → "Sea of Thieves", timings untouched.
 
 ### Captions
+- **Timing, find & replace, shadow presets, laugh emoji** (#240, #250, #254, #237) — nudge every caption by
+  50 ms, replace a misheard name across the track, pick none / soft / hard shadows, and put 😂 on the laughs.
+- **One caption look for the whole project** (#259) — "Style to all shorts" copies this timeline's caption
+  style onto every other short (split layouts keep their caption height).
 - **Six highlight looks** (#232) — Classic, Boxed, Pop, Neon, Fill and Subtle, one click each in the captions
   workspace; the current one is lit.
 - **Bleep or mute swear words** (#243) — Settings → AI Features → Audio under swear words makes every AI-built

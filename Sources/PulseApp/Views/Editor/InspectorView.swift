@@ -21,10 +21,9 @@ struct InspectorView: View {
                     VStack(spacing: 0) {
                         if let timeline = session.activeTimeline {
                             let clips = session.selectedClips
-                            if clips.count == 1, let clip = clips.first, let track = timeline.track(containingClip: clip.id) {
+                            if let clip = clips.first, let track = timeline.track(containingClip: clip.id) {
+                                if clips.count > 1 { MultiSelectionInspector(session: session, count: clips.count) }
                                 ClipInspector(session: session, playback: playback, clip: clip, track: track)
-                            } else if clips.count > 1 {
-                                MultiSelectionInspector(session: session, count: clips.count)
                             } else {
                                 TimelineInspector(session: session, timeline: timeline)
                             }
@@ -55,19 +54,34 @@ struct ClipBindings {
 
     var clip: TimelineClip? { session.activeTimeline?.clip(id: clipID) }
 
+    /// A change made with several clips selected applies to all of them (#225); a rename stays on this clip.
     func value<T>(_ label: String, _ keyPath: WritableKeyPath<TimelineClip, T>, fallback: T) -> Binding<T> {
         Binding(get: { clip?[keyPath: keyPath] ?? fallback },
-                set: { newValue in session.editClip(clipID, label) { $0[keyPath: keyPath] = newValue } })
+                set: { newValue in
+                    if label == "Rename" {
+                        session.editClip(clipID, label) { $0[keyPath: keyPath] = newValue }
+                    } else {
+                        session.editSelectedClips(primary: clipID, label) { $0[keyPath: keyPath] = newValue }
+                    }
+                })
     }
 
     func animated(_ label: String, _ keyPath: WritableKeyPath<TimelineClip, AnimatedDouble>) -> Binding<Double> {
         let t = local
         return Binding(get: { clip?[keyPath: keyPath].value(at: t) ?? 0 },
                        set: { v in
-                           session.editClip(clipID, label) { c in
+                           session.editSelectedClips(primary: clipID, label) { c in
                                if c[keyPath: keyPath].isAnimated { c[keyPath: keyPath].setKeyframe(at: t, value: v) } else { c[keyPath: keyPath].value = v }
                            }
                        })
+    }
+
+    /// Jump the playhead to the previous / next keyframe of a property (#209).
+    func jumpKeyframe(_ keyPath: WritableKeyPath<TimelineClip, AnimatedDouble>, direction: Int) {
+        guard let clip, clip[keyPath: keyPath].isAnimated else { return }
+        let times = clip[keyPath: keyPath].keyframes.map(\.time).sorted()
+        let target = direction < 0 ? times.last { $0 < local - 1.0 / 60 } : times.first { $0 > local + 1.0 / 60 }
+        if let target { session.playback.seek(to: clip.start + target) }
     }
 
     func hasKeyframe(_ keyPath: WritableKeyPath<TimelineClip, AnimatedDouble>) -> Bool {
@@ -95,7 +109,10 @@ struct ClipBindings {
                       keyframed: hasKeyframe(keyPath), onKeyframe: { toggleKeyframe(label, keyPath) },
                       onEditingChanged: { editing in if !editing { session.commitCoalescing() } },
                       defaultValue: Self.pristine[keyPath: keyPath].value(at: 0),
-                      onReset: { session.editClip(clipID, "Reset \(label)", coalesce: nil) { $0[keyPath: keyPath] = Self.pristine[keyPath: keyPath] } })
+                      onReset: { session.editClip(clipID, "Reset \(label)", coalesce: nil) { $0[keyPath: keyPath] = Self.pristine[keyPath: keyPath] } },
+                      animated: clip?[keyPath: keyPath].isAnimated ?? false,
+                      onPreviousKeyframe: { jumpKeyframe(keyPath, direction: -1) },
+                      onNextKeyframe: { jumpKeyframe(keyPath, direction: 1) })
     }
 
     func plainSlider(_ label: String, _ keyPath: WritableKeyPath<TimelineClip, Double>, range: ClosedRange<Double>, format: String = "%.2f", unit: String = "") -> some View {
@@ -129,6 +146,17 @@ struct ClipInspector: View {
                     KeyValueRow(key: "Source", value: "\(Timecode.short(clip.sourceIn)) → \(Timecode.short(clip.sourceOut))")
                 }
                 if let role = clip.role { KeyValueRow(key: "Role", value: role.displayName) }
+                if let why = clip.aiPassDescription {
+                    Text(why).font(.pulseMicro).foregroundStyle(Theme.ai).fixedSize(horizontal: false, vertical: true)
+                }
+                if clip.hasAIMarks {
+                    Button("Make Mine") { session.editClip(clip.id, "Make Mine") { $0.stripAIFlags() } }
+                        .buttonStyle(.pulse(.ghost, compact: true))
+                        .help("Keep every value and keyframe; drop the AI flags so later AI passes leave this clip alone")
+                }
+                if session.selectedClipIDs.count > 1 {
+                    Text("Changes apply to all \(session.selectedClipIDs.count) selected clips").font(.pulseMicro).foregroundStyle(Theme.ai)
+                }
             }
             if clip.isVisual, let id = clip.assetID, let group = session.activeMulticamGroup, group.angle(id) != nil {
                 MulticamAngleInspector(session: session, clip: clip, group: group)
@@ -417,6 +445,8 @@ struct AudioInspector: View {
                       help: "80 Hz rumble filter, less mud, more presence and gentle compression")
             ToggleRow(label: "Hum removal", isOn: b.value("Hum Removal", \.audio.humRemoval, fallback: false),
                       help: "Notches out 50/60 Hz mains hum and its first harmonics (cheap power supplies, long cables)")
+            ToggleRow(label: "De-esser", isOn: b.value("De-esser", \.audio.deEss, fallback: false),
+                      help: "Tames harsh s and sh sounds: the band above 5 kHz comes down while it dominates")
             b.plainSlider("Noise reduction", \.audio.noiseReduction, range: 0...1)
             if clip.audio.noiseReduction > 0.001 {
                 Picker("Method", selection: Binding(get: { clip.audio.noiseMethod },
@@ -438,6 +468,15 @@ struct AudioInspector: View {
                 b.plainSlider("Makeup", \.audio.compressor.makeupGainDB, range: 0...18, format: "%.1f", unit: " dB")
             }
             ToggleRow(label: "EQ", isOn: b.value("EQ", \.audio.eq.isEnabled, fallback: false))
+            if clip.audio.eq.isEnabled {
+                HStack(spacing: 5) {
+                    ForEach(EQSettings.presets, id: \.name) { preset in
+                        Button(preset.name) { session.editClip(clip.id, "EQ \(preset.name)") { $0.audio.eq = preset.settings } }
+                            .buttonStyle(.pulse(clip.audio.eq == preset.settings ? .primary : .secondary, compact: true))
+                    }
+                    Text("Warm, clear or radio voice").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                }
+            }
             if clip.audio.eq.isEnabled {
                 b.plainSlider("Low (120 Hz)", \.audio.eq.lowGain, range: -12...12, format: "%.1f", unit: " dB")
                 b.plainSlider("Mid (1.2 kHz)", \.audio.eq.midGain, range: -12...12, format: "%.1f", unit: " dB")

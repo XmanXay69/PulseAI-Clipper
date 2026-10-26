@@ -336,6 +336,21 @@ struct LabeledSlider: View {
     /// When set, a reset arrow appears while the value differs (double-clicking the label resets too).
     var defaultValue: Double? = nil
     var onReset: (() -> Void)? = nil
+    /// Between keyframes (the value is animated but there's no keyframe at the playhead).
+    var animated: Bool = false
+    var onPreviousKeyframe: (() -> Void)? = nil
+    var onNextKeyframe: (() -> Void)? = nil
+    @State private var editing = false
+    @State private var draft = ""
+
+    /// Typed value → clamped to the range (#207).
+    func commitDraft() {
+        editing = false
+        let cleaned = draft.filter { "0123456789.-".contains($0) }
+        guard let typed = Double(cleaned) else { return }
+        value = min(max(typed, range.lowerBound), range.upperBound)
+        onEditingChanged(false)
+    }
 
     var isOffDefault: Bool { defaultValue.map { abs(value - $0) > 1e-6 } ?? false }
 
@@ -351,10 +366,26 @@ struct LabeledSlider: View {
             Slider(value: $value, in: range, onEditingChanged: onEditingChanged)
                 .controlSize(.mini)
                 .tint(Theme.accent)
-            Text(String(format: format, value) + unit)
-                .font(.pulseMono)
-                .foregroundStyle(Theme.textPrimary)
-                .frame(width: 48, alignment: .trailing)
+            if editing {
+                TextField("", text: $draft, onCommit: commitDraft)
+                    .textFieldStyle(.plain)
+                    .font(.pulseMono)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 48)
+                    .onExitCommand { editing = false }
+            } else {
+                Text(String(format: format, value) + unit)
+                    .font(.pulseMono)
+                    .foregroundStyle(Theme.textPrimary)
+                    .frame(width: 48, alignment: .trailing)
+                    .contentShape(Rectangle())
+                    .onTapGesture { draft = String(format: format, value); editing = true }
+                    .help("Click to type a value")
+            }
+            if animated, let onPreviousKeyframe {
+                Button(action: onPreviousKeyframe) { Image(systemName: "chevron.left").font(.system(size: 8, weight: .bold)) }
+                    .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help("Previous keyframe")
+            }
             if defaultValue != nil {
                 Button(action: reset) {
                     Image(systemName: "arrow.counterclockwise").font(.system(size: 9, weight: .semibold))
@@ -366,12 +397,16 @@ struct LabeledSlider: View {
             }
             if let onKeyframe {
                 Button(action: onKeyframe) {
-                    Image(systemName: keyframed ? "diamond.fill" : "diamond")
+                    Image(systemName: keyframed ? "diamond.fill" : (animated ? "diamond.lefthalf.filled" : "diamond"))
                         .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(keyframed ? Theme.warning : Theme.textTertiary)
+                        .foregroundStyle(keyframed ? Theme.warning : (animated ? Theme.textSecondary : Theme.textTertiary))
                 }
                 .buttonStyle(.plain)
-                .help(keyframed ? "Keyframe at playhead — click to remove" : "Add keyframe at playhead")
+                .help(keyframed ? "Keyframe at playhead — click to remove" : (animated ? "Between keyframes — click to add one here" : "Add keyframe at playhead"))
+            }
+            if animated, let onNextKeyframe {
+                Button(action: onNextKeyframe) { Image(systemName: "chevron.right").font(.system(size: 8, weight: .bold)) }
+                    .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help("Next keyframe")
             }
         }
     }

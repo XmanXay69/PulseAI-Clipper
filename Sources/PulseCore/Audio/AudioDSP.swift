@@ -224,6 +224,11 @@ public enum AudioEnhanceChain {
             }
         }
 
+        // 3b. De-esser: the band above 5 kHz is turned down while it dominates (an "s" or "sh").
+        if settings.deEss {
+            deEss(&channels, sampleRate: sampleRate)
+        }
+
         // 4. Compressor (voice enhance implies gentle compression).
         if settings.compressor.isEnabled {
             compress(&channels, sampleRate: sampleRate, thresholdDB: settings.compressor.thresholdDB,
@@ -260,6 +265,45 @@ public enum AudioEnhanceChain {
             AudioCensor.process(&channels, sampleRate: sampleRate, ranges: local, mode: settings.censor)
         }
         return denoisedWith
+    }
+
+    /// Split-band de-esser (#264): an "s" or "sh" is a burst in the band above 4 kHz that is several times
+    /// louder than that band usually is in this clip. While one lasts, the band comes down by up to
+    /// `amountDB` (1 ms attack, 40 ms release); the rest of the voice passes untouched. The split is a
+    /// Linkwitz-Riley crossover (the two bands sum back flat), so nothing leaks between them.
+    public static func deEss(_ channels: inout [[Float]], sampleRate: Double, amountDB: Double = 9, sensitivity: Float = 3, crossoverHz: Double = 4000) {
+        guard sampleRate > 0, amountDB > 0 else { return }
+        let floorGain = Float(pow(10, -amountDB / 20))
+        let attack = Float(exp(-1 / (0.001 * sampleRate))), release = Float(exp(-1 / (0.04 * sampleRate)))
+        let envAttack = Float(exp(-1 / (0.002 * sampleRate))), envRelease = Float(exp(-1 / (0.02 * sampleRate)))
+        let slow = Float(exp(-1 / (0.4 * sampleRate)))
+        for c in channels.indices {
+            guard !channels[c].isEmpty else { continue }
+            // Fourth-order Linkwitz-Riley: two Butterworth stages per band.
+            var hp1 = Biquad.highPass(frequency: crossoverHz, q: 0.7071, sampleRate: sampleRate), hp2 = hp1
+            var lp1 = Biquad.lowPass(frequency: crossoverHz, q: 0.7071, sampleRate: sampleRate), lp2 = lp1
+            var high = channels[c]
+            hp1.process(&high)
+            hp2.process(&high)
+            var low = channels[c]
+            lp1.process(&low)
+            lp2.process(&low)
+            // What the band usually carries in this clip: the floor the bursts are measured against.
+            let typical = max(high.reduce(0) { $0 + abs($1) } / Float(high.count), 1e-4)
+            var envHigh: Float = 0, envFull: Float = 0, running = typical, gain: Float = 1
+            for i in channels[c].indices {
+                let h = abs(high[i]), f = abs(channels[c][i])
+                envHigh = h > envHigh ? envAttack * envHigh + (1 - envAttack) * h : envRelease * envHigh + (1 - envRelease) * h
+                envFull = f > envFull ? envAttack * envFull + (1 - envAttack) * f : envRelease * envFull + (1 - envRelease) * f
+                running = slow * running + (1 - slow) * h
+                let reference = max(running, typical * 0.5) * sensitivity
+                let share = envHigh / max(envFull, 1e-5)
+                let excess = envHigh / max(reference, 1e-5)
+                let target: Float = excess > 1 && share > 0.25 ? max(floorGain, 1 / excess) : 1
+                gain = target < gain ? attack * gain + (1 - attack) * target : release * gain + (1 - release) * target
+                channels[c][i] = low[i] + high[i] * gain
+            }
+        }
     }
 
     /// Constant-power pan for mono, balance for stereo (the far side is attenuated).
@@ -402,7 +446,7 @@ extension AudioSettings {
     /// Stable key for the cached render of the enhance chain.
     public var enhanceFingerprint: String {
         let parts: [String] = [
-            normalize ? "n" : "", voiceEnhance ? "v" : "", limiter ? "l" : "", humRemoval ? "h" : "",
+            normalize ? "n" : "", voiceEnhance ? "v" : "", limiter ? "l" : "", humRemoval ? "h" : "", deEss ? "de" : "",
             String(format: "nr%.3f", noiseReduction), String(format: "p%.3f", pan),
             noiseReduction > 0.001 && noiseMethod == .voiceIsolation ? "vi" : "",
             eq.isEnabled ? String(format: "eq%.2f,%.2f,%.2f,%.1f", eq.lowGain, eq.midGain, eq.highGain, eq.highPassHz) : "",

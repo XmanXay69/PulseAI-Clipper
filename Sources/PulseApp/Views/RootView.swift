@@ -405,6 +405,7 @@ struct SaveStateBadge: View {
                 Circle().fill(Theme.success).frame(width: 6, height: 6)
                 Text("Saved \(saved.formatted(date: .omitted, time: .shortened))").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
             }
+        }
     }
 }
 

@@ -138,6 +138,8 @@ final class AppModel: ObservableObject {
         var mediaBytes: Int64 = 0
         var availableBytes: Int64 = 0
         var totalBytes: Int64 = 0
+        /// The "Enhance" audio renders (#290).
+        var enhancedAudioBytes: Int64 = 0
     }
 
     init() {
@@ -513,8 +515,21 @@ final class AppModel: ObservableObject {
         let mediaBytes = library?.stats().mediaBytes ?? 0
         Task.detached(priority: .utility) {
             let info = DiskInfo(projectsBytes: DiskSpace.size(of: projectsFolder), cacheBytes: DiskSpace.size(of: cacheFolder), mediaBytes: mediaBytes,
-                                availableBytes: DiskSpace.available(at: projectsFolder), totalBytes: DiskSpace.total(at: projectsFolder))
+                                availableBytes: DiskSpace.available(at: projectsFolder), totalBytes: DiskSpace.total(at: projectsFolder),
+                                enhancedAudioBytes: DiskSpace.size(of: cacheFolder.appendingPathComponent("Enhanced Audio")))
             await MainActor.run { [weak self] in self?.diskInfo = info }
+        }
+    }
+
+    /// Drops the "Enhance" audio renders only; they come back on demand (#290).
+    func clearEnhancedAudioCache() {
+        let folder = cacheFolder.appendingPathComponent("Enhanced Audio")
+        Task.detached(priority: .utility) {
+            try? FileManager.default.removeItem(at: folder)
+            await MainActor.run { [weak self] in
+                self?.refreshDiskInfo()
+                self?.toast("Audio renders cleared — they come back as clips play")
+            }
         }
     }
 

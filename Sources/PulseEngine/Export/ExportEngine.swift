@@ -24,7 +24,8 @@ public final class ExportEngine: @unchecked Sendable {
         let exportStart = range.map { max(0, min($0.start, built.duration)) } ?? 0
         let duration = range.map { max(0.1, min($0.end, built.duration) - exportStart) } ?? built.duration
         let fps = settings.frameRate ?? timeline.canvas.frameRate
-        let estimatedBytes = Int64(Double(settings.effectiveVideoBitrate + settings.audioBitrate) * duration / 8 * 1.15)
+        let audioOnly = settings.audioOnly
+        let estimatedBytes = Int64(Double((audioOnly ? 0 : settings.effectiveVideoBitrate) + settings.audioBitrate) * duration / 8 * 1.15)
         try DiskSpace.ensure(estimatedBytes, at: destination.deletingLastPathComponent())
 
         let videoComposition = built.videoComposition.mutableCopy() as! AVMutableVideoComposition
@@ -36,13 +37,17 @@ public final class ExportEngine: @unchecked Sendable {
         let videoTracks = try await built.composition.loadTracks(withMediaType: .video)
         let audioTracks = try await built.composition.loadTracks(withMediaType: .audio)
 
-        let videoOutput = AVAssetReaderVideoCompositionOutput(videoTracks: videoTracks, videoSettings: [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-        ])
-        videoOutput.videoComposition = videoComposition
-        videoOutput.alwaysCopiesSampleData = false
-        guard reader.canAdd(videoOutput) else { throw EngineError.exportFailed("couldn't read the composed video") }
-        reader.add(videoOutput)
+        var videoOutput: AVAssetReaderVideoCompositionOutput?
+        if !audioOnly {
+            let output = AVAssetReaderVideoCompositionOutput(videoTracks: videoTracks, videoSettings: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            ])
+            output.videoComposition = videoComposition
+            output.alwaysCopiesSampleData = false
+            guard reader.canAdd(output) else { throw EngineError.exportFailed("couldn't read the composed video") }
+            reader.add(output)
+            videoOutput = output
+        }
 
         var audioOutput: AVAssetReaderAudioMixOutput?
         if !audioTracks.isEmpty {
@@ -63,9 +68,9 @@ public final class ExportEngine: @unchecked Sendable {
             }
         }
 
-        let temp = destination.deletingLastPathComponent().appendingPathComponent(".pulse-export-\(UUID().uuidString).\(settings.codec.fileExtension)")
+        let temp = destination.deletingLastPathComponent().appendingPathComponent(".pulse-export-\(UUID().uuidString).\(settings.outputExtension)")
         try? FileManager.default.removeItem(at: temp)
-        let writer = try AVAssetWriter(outputURL: temp, fileType: settings.codec == .proRes422 ? .mov : .mp4)
+        let writer = try AVAssetWriter(outputURL: temp, fileType: audioOnly ? .m4a : (settings.codec == .proRes422 ? .mov : .mp4))
         writer.shouldOptimizeForNetworkUse = true
 
         var videoSettings: [String: Any] = [
@@ -96,10 +101,14 @@ public final class ExportEngine: @unchecked Sendable {
                 kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder as String: true,
             ]
         }
-        let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
-        videoInput.expectsMediaDataInRealTime = false
-        guard writer.canAdd(videoInput) else { throw EngineError.exportFailed("the encoder rejected these settings (\(settings.codec.displayName) \(size.width)×\(size.height))") }
-        writer.add(videoInput)
+        var videoInput: AVAssetWriterInput?
+        if !audioOnly {
+            let input = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
+            input.expectsMediaDataInRealTime = false
+            guard writer.canAdd(input) else { throw EngineError.exportFailed("the encoder rejected these settings (\(settings.codec.displayName) \(size.width)×\(size.height))") }
+            writer.add(input)
+            videoInput = input
+        }
 
         var audioInput: AVAssetWriterInput?
         if audioOutput != nil {
@@ -114,6 +123,9 @@ public final class ExportEngine: @unchecked Sendable {
                 writer.add(input)
                 audioInput = input
             }
+        }
+        if audioOnly && audioInput == nil {
+            throw EngineError.exportFailed("this timeline has no audio to export")
         }
 
         guard reader.startReading() else {
@@ -185,11 +197,13 @@ final class ExportPump: @unchecked Sendable {
         lock.unlock()
     }
 
-    func run(videoOutput: AVAssetReaderOutput, videoInput: AVAssetWriterInput, audioOutput: AVAssetReaderOutput?, audioInput: AVAssetWriterInput?) async {
+    func run(videoOutput: AVAssetReaderOutput?, videoInput: AVAssetWriterInput?, audioOutput: AVAssetReaderOutput?, audioInput: AVAssetWriterInput?) async {
         await withTaskGroup(of: Void.self) { group in
-            group.addTask { await self.transfer(from: videoOutput, to: videoInput, reportsProgress: true, label: "video") }
+            if let videoOutput, let videoInput {
+                group.addTask { await self.transfer(from: videoOutput, to: videoInput, reportsProgress: true, label: "video") }
+            }
             if let audioOutput, let audioInput {
-                group.addTask { await self.transfer(from: audioOutput, to: audioInput, reportsProgress: false, label: "audio") }
+                group.addTask { await self.transfer(from: audioOutput, to: audioInput, reportsProgress: videoOutput == nil, label: "audio") }
             }
         }
     }

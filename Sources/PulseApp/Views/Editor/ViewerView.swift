@@ -59,6 +59,7 @@ struct ViewerView: View {
     @ObservedObject var session: ProjectSession
     @ObservedObject var playback: PlaybackController
     @State private var zoom: ViewerZoom = .fit
+    @AppStorage("viewer.grid") private var showGrid = false
     @State private var fullscreen = false
 
     init(session: ProjectSession) {
@@ -82,6 +83,7 @@ struct ViewerView: View {
                         if app.settings.showSafeAreas, canvas.aspect < 1 {
                             SafeAreaOverlay(platform: app.settings.safeAreaPlatform)
                         }
+                        if showGrid { GridOverlay() }
                         CanvasHandlesOverlay(session: session, playback: playback, frameSize: frameSize)
                         if playback.isBuilding {
                             ProgressView().controlSize(.small).padding(8).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
@@ -158,6 +160,7 @@ struct ViewerView: View {
                 .frame(minWidth: 60, maxWidth: 260, alignment: .leading)
                 .layoutPriority(1)
                 if t.hasAIContent { AIBadge(label: "AI edit").fixedSize() }
+                IconButton(symbol: "grid", help: "Grid, center lines and thirds", isActive: showGrid) { showGrid.toggle() }
                 if let review = session.activeReview {
                     Button { session.selectedClipIDs = [] } label: { PerformanceBadge(prediction: review.prediction) }
                         .buttonStyle(.plain).fixedSize()
@@ -418,7 +421,8 @@ struct TransportBar: View {
             .help("Play / Pause (Space)")
             IconButton(symbol: "forward.frame.fill", help: "Next frame (→)") { playback.step(frames: 1) }
             IconButton(symbol: "forward.end.fill", help: "Go to end (End)") { playback.goToEnd() }
-            IconButton(symbol: "repeat", help: "Loop", isActive: playback.loopEnabled) { playback.loopEnabled.toggle() }
+            IconButton(symbol: "repeat", help: "Loop", isActive: playback.loopEnabled && playback.loopRange == nil) { playback.loopRange = nil; playback.loopEnabled.toggle() }
+            IconButton(symbol: "repeat.1", help: "Loop in → out (⌥L)", isActive: playback.loopEnabled && playback.loopRange != nil) { session.toggleLoopInOut() }
             Spacer(minLength: 4)
             // In/out chips drop out first when the viewer is narrow; the duration always shows.
             ViewThatFits(in: .horizontal) {
@@ -464,5 +468,23 @@ struct TransportBar: View {
             .font(.pulseMono)
             .foregroundStyle(Theme.textTertiary)
             .fixedSize()
+    }
+}
+
+/// Thirds, center lines and a center mark over the picture (#190).
+struct GridOverlay: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let line = Color.white.opacity(0.35)
+            for f in [1.0 / 3, 2.0 / 3] {
+                ctx.stroke(Path { p in p.move(to: CGPoint(x: size.width * f, y: 0)); p.addLine(to: CGPoint(x: size.width * f, y: size.height)) }, with: .color(line), lineWidth: 1)
+                ctx.stroke(Path { p in p.move(to: CGPoint(x: 0, y: size.height * f)); p.addLine(to: CGPoint(x: size.width, y: size.height * f)) }, with: .color(line), lineWidth: 1)
+            }
+            let center = Color.white.opacity(0.6)
+            ctx.stroke(Path { p in p.move(to: CGPoint(x: size.width / 2, y: 0)); p.addLine(to: CGPoint(x: size.width / 2, y: size.height)) }, with: .color(center.opacity(0.5)), lineWidth: 0.5)
+            ctx.stroke(Path { p in p.move(to: CGPoint(x: 0, y: size.height / 2)); p.addLine(to: CGPoint(x: size.width, y: size.height / 2)) }, with: .color(center.opacity(0.5)), lineWidth: 0.5)
+            ctx.stroke(Path(ellipseIn: CGRect(x: size.width / 2 - 6, y: size.height / 2 - 6, width: 12, height: 12)), with: .color(center), lineWidth: 1)
+        }
+        .allowsHitTesting(false)
     }
 }

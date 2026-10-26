@@ -93,6 +93,8 @@ public struct ExportSettings: Codable, Hashable, Sendable {
     public var exportSRT: Bool
     /// Exports go into a sub-folder named after the project (#74).
     public var folderPerProject: Bool
+    /// Only the mix, as an .m4a (the podcast version of an edit) (#278).
+    public var audioOnly: Bool
 
     public init(preset: ExportPreset = .tiktok, outputDirectory: String = "", quality: ExportQuality = .high) {
         self.presetID = preset.id
@@ -109,7 +111,11 @@ public struct ExportSettings: Codable, Hashable, Sendable {
         self.burnInCaptions = true
         self.exportSRT = false
         self.folderPerProject = false
+        self.audioOnly = false
     }
+
+    /// The file extension the export gets.
+    public var outputExtension: String { audioOnly ? "m4a" : codec.fileExtension }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -128,6 +134,7 @@ public struct ExportSettings: Codable, Hashable, Sendable {
         burnInCaptions = c.decode(Bool.self, forKey: .burnInCaptions, default: d.burnInCaptions)
         exportSRT = c.decode(Bool.self, forKey: .exportSRT, default: d.exportSRT)
         folderPerProject = c.decode(Bool.self, forKey: .folderPerProject, default: d.folderPerProject)
+        audioOnly = c.decode(Bool.self, forKey: .audioOnly, default: d.audioOnly)
     }
 
     /// Where a job's files go: the export folder, or the project's own sub-folder inside it.
@@ -176,7 +183,7 @@ public struct ExportSettings: Codable, Hashable, Sendable {
             .replacingOccurrences(of: "{index}", with: String(format: "%02d", index))
         name = ExportSettings.sanitize(name)
         if name.isEmpty { name = "PULSE Export \(index)" }
-        return name + "." + codec.fileExtension
+        return name + "." + outputExtension
     }
 
     /// Cleans a title used inside a filename: no quotes, emoji or path characters

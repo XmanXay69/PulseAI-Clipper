@@ -202,6 +202,23 @@ final class ProjectSession: ObservableObject, Identifiable {
         }
     }
 
+    /// The same edit on every selected clip (and the primary one) — one value on ten clips at once (#225).
+    func editSelectedClips(primary: UUID, _ label: String, coalesce: String? = nil, _ body: @escaping (inout TimelineClip) -> Void) {
+        let ids = selectedClipIDs.union([primary])
+        guard ids.count > 1 else { return editClip(primary, label, coalesce: coalesce, body) }
+        editTimeline(label, coalesce: coalesce ?? "clips-\(label)") { t in
+            for id in ids { t.updateClip(id: id, body) }
+        }
+    }
+
+    /// One caption look for the whole project (#259).
+    func applyCaptionStyleToAllShorts() {
+        guard let id = activeTimeline?.id else { return }
+        var count = 0
+        edit("Caption Style to All Shorts") { count = $0.applyCaptionStyle(from: id) }
+        app.toast(count == 0 ? "No other shorts with captions in this project" : "Applied this caption look to \(count) other short\(count == 1 ? "" : "s")")
+    }
+
     func undo() {
         guard let previous = history.undo(current: document) else { return }
         apply(restored: previous)
