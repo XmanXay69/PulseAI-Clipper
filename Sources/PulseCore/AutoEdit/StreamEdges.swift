@@ -97,3 +97,23 @@ extension ColorAdjustments {
         return c
     }
 }
+
+
+// MARK: - Scene cuts
+
+public enum SceneSnap {
+    /// Moves a section's start onto a scene change just before it (≤ `tolerance` s earlier), so sections open
+    /// on a fresh shot instead of a frame after one — unless a word is being spoken across that cut.
+    public static func snapStarts(_ segments: [LongFormSegment], sceneCuts: [Seconds], words: [TranscriptWord], tolerance: Seconds = 1.5) -> [LongFormSegment] {
+        guard !sceneCuts.isEmpty else { return segments }
+        let cuts = sceneCuts.sorted()
+        return segments.map { segment in
+            var s = segment
+            let start = segment.range.start
+            guard let cut = cuts.last(where: { $0 <= start && $0 >= start - tolerance }), cut < start - 0.05,
+                  !words.contains(where: { $0.start < cut - 0.05 && $0.end > cut + 0.05 }) else { return s }
+            s.range = TimeRange(start: cut, end: segment.range.end)
+            return s
+        }
+    }
+}

@@ -408,6 +408,8 @@ struct AudioInspector: View {
             }
             ToggleRow(label: "Voice enhancement", isOn: b.value("Voice Enhance", \.audio.voiceEnhance, fallback: false),
                       help: "80 Hz rumble filter, less mud, more presence and gentle compression")
+            ToggleRow(label: "Hum removal", isOn: b.value("Hum Removal", \.audio.humRemoval, fallback: false),
+                      help: "Notches out 50/60 Hz mains hum and its first harmonics (cheap power supplies, long cables)")
             b.plainSlider("Noise reduction", \.audio.noiseReduction, range: 0...1)
             if clip.audio.noiseReduction > 0.001 {
                 Picker("Method", selection: Binding(get: { clip.audio.noiseMethod },

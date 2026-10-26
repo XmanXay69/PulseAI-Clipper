@@ -53,6 +53,13 @@ public struct Biquad: Sendable {
                       a0: (a + 1) + (a - 1) * cw + sa, a1: -2 * ((a - 1) + (a + 1) * cw), a2: (a + 1) + (a - 1) * cw - sa)
     }
 
+    /// Narrow band-reject (for mains hum and its harmonics).
+    public static func notch(frequency: Double, q: Double = 30, sampleRate: Double) -> Biquad {
+        let w = 2 * Double.pi * min(frequency, sampleRate * 0.45) / sampleRate
+        let cw = cos(w), alpha = sin(w) / (2 * q)
+        return Biquad(b0: 1, b1: -2 * cw, b2: 1, a0: 1 + alpha, a1: -2 * cw, a2: 1 - alpha)
+    }
+
     public static func highShelf(frequency: Double, gainDB: Double, q: Double = 0.7071, sampleRate: Double) -> Biquad {
         let a = pow(10, gainDB / 40)
         let w = 2 * Double.pi * min(frequency, sampleRate * 0.45) / sampleRate
@@ -151,6 +158,19 @@ public enum AudioEnhanceChain {
             for c in channels.indices {
                 var f = Biquad.highPass(frequency: highPass, sampleRate: sampleRate)
                 f.process(&channels[c])
+            }
+        }
+
+        // 1b. Mains hum: narrow notches at 50 and 60 Hz and their first harmonics (a notch where there's
+        //     no hum costs nothing audible).
+        if settings.humRemoval {
+            for c in channels.indices {
+                var notches = [50.0, 60, 100, 120, 150, 180].map { Biquad.notch(frequency: $0, q: 30, sampleRate: sampleRate) }
+                for i in channels[c].indices {
+                    var x = Double(channels[c][i])
+                    for k in notches.indices { x = notches[k].process(x) }
+                    channels[c][i] = Float(x)
+                }
             }
         }
 
@@ -370,13 +390,13 @@ public enum AudioEnhanceChain {
 extension AudioSettings {
     /// True when the clip needs the offline enhance render (the live audio mix handles volume/fades/ducking).
     public var needsEnhanceRender: Bool {
-        !isMuted && (normalize || voiceEnhance || noiseReduction > 0.001 || limiter || eq.isEnabled || compressor.isEnabled || abs(pan) > 0.001)
+        !isMuted && (normalize || voiceEnhance || noiseReduction > 0.001 || limiter || eq.isEnabled || compressor.isEnabled || abs(pan) > 0.001 || humRemoval)
     }
 
     /// Stable key for the cached render of the enhance chain.
     public var enhanceFingerprint: String {
         let parts: [String] = [
-            normalize ? "n" : "", voiceEnhance ? "v" : "", limiter ? "l" : "",
+            normalize ? "n" : "", voiceEnhance ? "v" : "", limiter ? "l" : "", humRemoval ? "h" : "",
             String(format: "nr%.3f", noiseReduction), String(format: "p%.3f", pan),
             noiseReduction > 0.001 && noiseMethod == .voiceIsolation ? "vi" : "",
             eq.isEnabled ? String(format: "eq%.2f,%.2f,%.2f,%.1f", eq.lowGain, eq.midGain, eq.highGain, eq.highPassHz) : "",

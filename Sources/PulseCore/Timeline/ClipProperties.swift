@@ -504,6 +504,8 @@ public struct AudioSettings: Codable, Hashable, Sendable {
     /// When true this clip is lowered while dialogue plays (music / game audio).
     public var duckUnderDialogue: Bool
     public var duckAmountDB: Double
+    /// Notch out mains hum (50/60 Hz and the first harmonics).
+    public var humRemoval: Bool = false
 
     public init(volume: Double = 1) {
         self.volume = AnimatedDouble(volume)
@@ -541,11 +543,12 @@ public struct AudioSettings: Codable, Hashable, Sendable {
         limiter = c.decode(Bool.self, forKey: .limiter, default: false)
         duckUnderDialogue = c.decode(Bool.self, forKey: .duckUnderDialogue, default: false)
         duckAmountDB = c.decode(Double.self, forKey: .duckAmountDB, default: -12)
+        humRemoval = c.decode(Bool.self, forKey: .humRemoval, default: false)
     }
 
     /// True when the processed-audio render path is needed.
     public var needsProcessing: Bool {
-        noiseReduction > 0 || voiceEnhance || eq.isEnabled || compressor.isEnabled || limiter || normalize
+        noiseReduction > 0 || voiceEnhance || eq.isEnabled || compressor.isEnabled || limiter || normalize || humRemoval
     }
 
     /// Effective linear gain at clip-relative time `t` (volume × gain × fades), before ducking.

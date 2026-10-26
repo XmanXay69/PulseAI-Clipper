@@ -264,6 +264,39 @@ final class RoadmapBatchTests: XCTestCase {
         XCTAssertEqual(t.tracks.flatMap(\.clips).filter { $0.role == .music }.count, 2)
     }
 
+    func testSectionsOpenOnASceneChange() {
+        let segs = [LongFormSegment(range: TimeRange(start: 100.8, end: 160), payoff: 130, potential: 70, title: "", tags: []),
+                    LongFormSegment(range: TimeRange(start: 300, end: 360), payoff: 330, potential: 70, title: "", tags: [])]
+        let snapped = SceneSnap.snapStarts(segs, sceneCuts: [100.0, 296, 350], words: [])
+        XCTAssertEqual(snapped[0].range.start, 100.0, accuracy: 0.001, "the cut 0.8 s earlier")
+        XCTAssertEqual(snapped[1].range.start, 300, accuracy: 0.001, "296 is too far back")
+        let spoken = SceneSnap.snapStarts(segs, sceneCuts: [100.0], words: [TranscriptWord(text: "across", start: 99.7, end: 100.4)])
+        XCTAssertEqual(spoken[0].range.start, 100.8, accuracy: 0.001, "never snap into the middle of a word")
+    }
+
+    func testHumRemovalNotchesMainsButKeepsVoice() {
+        let rate = 48_000.0
+        let n = Int(rate * 2)
+        var hum = [Float](repeating: 0, count: n), voice = hum
+        for i in 0..<n {
+            let t = Double(i) / rate
+            hum[i] = Float(0.3 * sin(2 * .pi * 60 * t))
+            voice[i] = Float(0.3 * sin(2 * .pi * 440 * t))
+        }
+        func rms(_ x: ArraySlice<Float>) -> Float { sqrt(x.reduce(0) { $0 + $1 * $1 } / Float(x.count)) }
+        var settings = AudioSettings()
+        settings.humRemoval = true
+        XCTAssertTrue(settings.needsProcessing)
+        XCTAssertTrue(settings.needsEnhanceRender)
+        XCTAssertNotEqual(settings.enhanceFingerprint, AudioSettings().enhanceFingerprint, "a different cache key")
+        var h = [hum], v = [voice]
+        _ = AudioEnhanceChain.process(&h, sampleRate: rate, settings: settings)
+        _ = AudioEnhanceChain.process(&v, sampleRate: rate, settings: settings)
+        let tail = (n / 2)..<n   // after the filters settle
+        XCTAssertLessThan(rms(h[0][tail]), rms(hum[tail]) * 0.1, "60 Hz hum down by 20 dB+")
+        XCTAssertGreaterThan(rms(v[0][tail]), rms(voice[tail]) * 0.9, "440 Hz untouched")
+    }
+
     func testSearchActionKindHasAnIcon() {
         XCTAssertEqual(SearchResultKind.action.symbolName, "command")
         XCTAssertEqual(SearchResultKind.action.displayName, "Action")

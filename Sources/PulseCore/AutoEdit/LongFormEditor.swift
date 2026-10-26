@@ -231,6 +231,10 @@ public enum LongFormEditor {
                              segments chosen: [LongFormSegment]? = nil, hookPayoff: Seconds? = nil) -> LongFormResult {
         var segments = chosen.map { LongFormEditor.merge($0, gap: 8) } ?? selectSegments(analysis: analysis, options: options, taste: taste)
         let words = analysis.transcript?.words ?? []
+        // Sections open on a fresh shot when a scene change sits just before them.
+        if options.polish, let cuts = analysis.visual?.sceneCuts, !cuts.isEmpty {
+            segments = SceneSnap.snapStarts(segments, sceneCuts: cuts, words: words)
+        }
         // Extra: whole sentences only — sections start where a thought starts and end where it ends.
         if options.extras.speakerAware, !words.isEmpty {
             segments = LongFormEditor.merge(SpeakerAware.snapToSentences(segments, words: words, duration: analysis.duration), gap: 0.5)
