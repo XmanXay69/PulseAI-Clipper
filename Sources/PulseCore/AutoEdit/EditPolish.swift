@@ -356,6 +356,16 @@ public enum EditQualityCheck {
         let chapterTimes = timeline.markers.filter { $0.color == .blue }.map(\.time).sorted()
         let tiny = zip(chapterTimes, chapterTimes.dropFirst()).filter { $1 - $0 < 6 }.count
         if tiny > 0 { add(.note, "Very short chapters", "\(tiny) chapter\(tiny == 1 ? " is" : "s are") under 6 s — consider merging") }
+        // 8b. One chapter dwarfing the rest (a viewer feels the lopsidedness).
+        let bounds = chapterTimes + [duration]
+        let lengths = zip(bounds, bounds.dropFirst()).map { $1 - $0 }.filter { $0 > 0 }
+        if lengths.count >= 3 {
+            let sorted = lengths.sorted()
+            let median = sorted[sorted.count / 2]
+            if let longest = sorted.last, longest > median * 3, longest > 120 {
+                add(.note, "Unbalanced chapters", "The longest chapter (\(Timecode.short(longest))) is over 3× the typical one (\(Timecode.short(median))) — consider splitting it")
+            }
+        }
 
         // 9. Length.
         if let target, !target.contains(duration) {

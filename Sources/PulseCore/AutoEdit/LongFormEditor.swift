@@ -525,12 +525,25 @@ public enum LongFormEditor {
             }
         }
 
+        // Repeated whooshes and stings at exactly the same level sound copy-pasted: vary them a touch (deterministic
+        // per edit, so re-running gives the same result).
+        if options.soundEffects {
+            var rng = SeededGenerator(seed: analysis.assetID.uuidString.utf8.reduce(UInt64(1469598103934665603)) { ($0 ^ UInt64($1)) &* 1099511628211 })
+            for ti in timeline.tracks.indices where timeline.tracks[ti].kind == .audio {
+                for ci in timeline.tracks[ti].clips.indices where timeline.tracks[ti].clips[ci].role == .soundEffect && timeline.tracks[ti].clips[ci].aiGenerated {
+                    let v = timeline.tracks[ti].clips[ci].audio.volume.value
+                    timeline.tracks[ti].clips[ci].audio.volume = AnimatedDouble((v * Double.random(in: 0.92...1.0, using: &rng)).clamped(0, 1))
+                }
+            }
+        }
+
         // What an editor checks before exporting; mechanical problems are fixed here.
         let checks = EditQualityCheck.run(&timeline, words: analysis.transcript?.words ?? [],
                                           target: options.polish ? (options.minimumLength * 0.8)...(options.maximumLength * 1.15) : nil)
 
         // YouTube chapters for the description.
-        timeline.notes = chapterList(timeline.markers.filter { $0.color == .blue }, hasHook: hookRange != nil)
+        let outroAt = timeline.tracks[0].clips.first { $0.name == "End Screen" }?.start
+        timeline.notes = chapterList(timeline.markers.filter { $0.color == .blue }, hasHook: hookRange != nil, outroAt: outroAt)
         timeline.copy = ClipCopy(titles: segments.sorted { $0.potential > $1.potential }.prefix(3).map(\.title).filter { !$0.isEmpty },
                                  shortsTitle: "", tiktokCaption: "", instagramCaption: "", hashtags: [])
         timeline.modifiedAt = Date()
@@ -644,13 +657,14 @@ public enum LongFormEditor {
         EditPolish.musicDrops(&timeline, at: drops)
     }
 
-    static func chapterList(_ markers: [Marker], hasHook: Bool) -> String {
+    static func chapterList(_ markers: [Marker], hasHook: Bool, outroAt: Seconds? = nil) -> String {
         var lines = ["Chapters"]
         if hasHook { lines.append("0:00 Intro") }
         for (i, m) in markers.sorted(by: { $0.time < $1.time }).enumerated() {
             let t = i == 0 && !hasHook ? 0 : m.time
             lines.append("\(youtubeTimestamp(t)) \(m.name)")
         }
+        if let outroAt, outroAt > 10 { lines.append("\(youtubeTimestamp(outroAt)) Outro") }
         return lines.joined(separator: "\n")
     }
 

@@ -120,6 +120,22 @@ final class RoadmapBatchTests: XCTestCase {
         XCTAssertTrue(text.contains("#gaming #clips"))
     }
 
+    func testChapterListEndsWithTheOutroAndFlagsUnbalancedChapters() {
+        let markers = [Marker(time: 6, name: "The comeback", color: .blue), Marker(time: 400, name: "Story time", color: .blue)]
+        let list = LongFormEditor.chapterList(markers, hasHook: true, outroAt: 610)
+        XCTAssertEqual(list.components(separatedBy: "\n").last, "10:10 Outro")
+        XCTAssertTrue(list.contains("0:00 Intro") && list.contains("0:06 The comeback"))
+
+        var t = Timeline(name: "t", canvas: .landscape1080, tracks: [Track(kind: .video, name: "V1")])
+        t.tracks[0].clips = [TimelineClip(name: "v", content: .media(assetID: asset), start: 0, sourceDuration: 900)]
+        t.markers = [0, 30, 60, 90].map { Marker(time: $0, name: "c", color: .blue) }   // last chapter: 810 s vs 30 s
+        let report = EditQualityCheck.run(&t)
+        XCTAssertTrue(report.issues.contains { $0.title == "Unbalanced chapters" }, report.text)
+        t.markers = [0, 300, 600].map { Marker(time: $0, name: "c", color: .blue) }
+        let even = EditQualityCheck.run(&t)
+        XCTAssertFalse(even.issues.contains { $0.title == "Unbalanced chapters" }, even.text)
+    }
+
     func testSearchActionKindHasAnIcon() {
         XCTAssertEqual(SearchResultKind.action.symbolName, "command")
         XCTAssertEqual(SearchResultKind.action.displayName, "Action")
