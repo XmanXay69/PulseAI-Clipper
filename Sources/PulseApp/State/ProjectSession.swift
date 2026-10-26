@@ -72,6 +72,13 @@ final class ProjectSession: ObservableObject, Identifiable {
     @Published var pixelsPerSecond: Double = 60
     @Published var inPoint: Seconds?
     @Published var outPoint: Seconds?
+    /// The look/sound lifted off a clip with Copy Attributes (#165).
+    @Published var copiedAttributes: ClipAttributes?
+
+    var inOutRange: TimeRange? {
+        guard let a = inPoint, let b = outPoint, b > a + 0.1 else { return nil }
+        return TimeRange(start: a, end: b)
+    }
     @Published var leftTab: LeftPanelTab = .media
     @Published var candidateSort: CandidateSort = .potential
     @Published var analysisProgress: [UUID: EngineProgress] = [:]
@@ -740,6 +747,7 @@ final class ProjectSession: ObservableObject, Identifiable {
     }
 
     func makeMoreEntertaining(options: EntertainmentOptions = EntertainmentOptions()) {
+        autoSnapshot("Before Make More Entertaining")
         makeMoreEntertainingWithLibrary(options: options)
     }
 
@@ -787,6 +795,89 @@ final class ProjectSession: ObservableObject, Identifiable {
             let ids = selectedClipIDs.isEmpty ? nil : Array(selectedClipIDs)
             try timeline.split(at: t, clipIDs: ids)
         }
+    }
+
+    /// Razor through every unlocked track at the playhead, whatever is selected (#145).
+    func splitAllAtPlayhead() {
+        let t = playhead
+        editTimeline("Split All Tracks") { try $0.split(at: t, clipIDs: nil) }
+    }
+
+    // MARK: Attributes, transitions, loops, snapshots
+
+    func copyAttributes() {
+        guard let clip = selectedClips.first else { app.toast("Select a clip to copy its look from"); return }
+        copiedAttributes = ClipAttributes(from: clip)
+        app.toast("Copied the look and sound of “\(clip.name)”")
+    }
+
+    func pasteAttributes(parts: ClipAttributes.Parts = .all) {
+        guard let attributes = copiedAttributes else { app.toast("Copy attributes from a clip first (⌥⌘C)"); return }
+        let ids = Array(selectedClipIDs)
+        guard !ids.isEmpty else { app.toast("Select the clips to paste onto"); return }
+        var changed = 0
+        editTimeline("Paste Attributes") { changed = $0.paste(attributes, onto: ids, parts: parts) }
+        app.toast("Pasted \(parts.displayName) onto \(changed) clip\(changed == 1 ? "" : "s")")
+    }
+
+    /// ⌘T: the default transition at the selected clips' edges, or at the cut under the playhead (#168).
+    func addDefaultTransition() {
+        let transition = ClipTransition(kind: app.settings.defaultTransitionKind, duration: app.settings.defaultTransitionDuration)
+        var ids = Array(selectedClipIDs)
+        if ids.isEmpty, let edit = activeTimeline?.editPoint(near: playhead) { ids = [edit.incoming] }
+        guard !ids.isEmpty else { app.toast("Select a clip, or put the playhead on a cut"); return }
+        var count = 0
+        editTimeline("Add Transition") { count = $0.addTransition(transition, toEdgesOf: ids) }
+        app.toast(count == 0 ? "No cut to put a transition on (the clip edges don't touch a neighbour)" : "\(transition.kind.displayName) on \(count) cut\(count == 1 ? "" : "s")")
+    }
+
+    /// ⌥L: loop the in → out stretch (or the whole timeline when there is none) (#159).
+    func toggleLoopInOut() {
+        if playback.loopEnabled, playback.loopRange == inOutRange {
+            playback.loopEnabled = false
+            playback.loopRange = nil
+            app.toast("Loop off")
+            return
+        }
+        playback.loopRange = inOutRange
+        playback.loopEnabled = true
+        if let r = inOutRange {
+            if !r.contains(playback.currentTime) { playback.seek(to: r.start) }
+            app.toast("Looping \(Timecode.short(r.start)) → \(Timecode.short(r.end))")
+        } else {
+            app.toast("Looping the whole timeline — set in and out points (I / O) to loop a stretch")
+        }
+    }
+
+    /// ⌥⌘E: export only the in → out stretch with the project's last settings (#158).
+    func exportInOut() {
+        guard let range = inOutRange else { app.toast("Set in and out points first (I / O)"); return }
+        app.quickExport(range: range)
+    }
+
+    func takeSnapshot(name: String? = nil) {
+        guard let timeline = activeTimeline else { return }
+        let count = document.snapshots(for: timeline.id).count + 1
+        let label = name ?? "Snapshot \(count) — \(Date().formatted(date: .omitted, time: .shortened))"
+        edit("Take Snapshot") { $0.snapshot(timelineID: timeline.id, name: label) }
+        app.toast("Saved “\(label)”")
+    }
+
+    /// Before an automatic pass rewrites a timeline, keep what it was.
+    func autoSnapshot(_ name: String) {
+        guard let timeline = activeTimeline else { return }
+        edit("Snapshot", coalesce: "auto-snapshot") { $0.snapshot(timelineID: timeline.id, name: name, automatic: true) }
+    }
+
+    func restoreSnapshot(_ id: UUID) {
+        let name = document.snapshots.first { $0.id == id }?.name ?? "snapshot"
+        edit("Restore Snapshot") { $0.restore(snapshotID: id) }
+        selectedClipIDs = []
+        app.toast("Restored “\(name)” — the version before it is in the list too")
+    }
+
+    func deleteSnapshot(_ id: UUID) {
+        edit("Delete Snapshot") { $0.deleteSnapshot(id: id) }
     }
 
     func deleteSelection(ripple: Bool) {

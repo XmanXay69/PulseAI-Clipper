@@ -455,6 +455,19 @@ struct ExportsView: View {
                             .buttonStyle(.pulseSecondary)
                             .disabled((app.session?.document.timelines.isEmpty ?? true))
                     }
+                    Toggle(isOn: $settings.folderPerProject) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("One folder per project").font(.pulseBody).foregroundStyle(Theme.textPrimary)
+                            Text("Exports land in a sub-folder named after the project, so one stream's shorts stay together.")
+                                .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                        }
+                    }
+                    .toggleStyle(.checkbox)
+                    if let range = app.session?.inOutRange {
+                        Button { app.session?.exportInOut() } label: { Label("Export In → Out (\(Timecode.short(range.start)) – \(Timecode.short(range.end)))", systemImage: "arrow.left.and.right.square") }
+                            .buttonStyle(.pulse(.secondary, compact: true))
+                            .help("Only the stretch between the in and out points, with these settings (⌥⌘E)")
+                    }
                     Toggle(isOn: Binding(get: { app.settings.ai.editExtras.loudnessCheck }, set: { app.settings.ai.editExtras.loudnessCheck = $0 })) {
                         VStack(alignment: .leading, spacing: 1) {
                             Text("Check loudness first").font(.pulseBody).foregroundStyle(Theme.textPrimary)

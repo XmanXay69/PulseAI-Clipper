@@ -49,6 +49,8 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
     public var isTrashed: Bool
     public var notes: String
     public var exportCount: Int
+    /// Named copies of timelines to go back to (#185).
+    public var snapshots: [TimelineSnapshot] = []
 
     public init(id: UUID = UUID(), name: String, createdAt: Date = Date()) {
         self.id = id
@@ -95,6 +97,7 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
         isTrashed = c.decode(Bool.self, forKey: .isTrashed, default: false)
         notes = c.decode(String.self, forKey: .notes, default: "")
         exportCount = c.decode(Int.self, forKey: .exportCount, default: 0)
+        snapshots = c.decode([TimelineSnapshot].self, forKey: .snapshots, default: [])
     }
 
     // MARK: Convenience

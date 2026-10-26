@@ -1,3 +1,4 @@
+import AppKit
 import AVKit
 import PulseCore
 import PulseEngine
@@ -489,7 +490,13 @@ struct CandidateDetailPanel: View {
             CopyRow(label: "YouTube Shorts", text: candidate.copy.shortsTitle)
             CopyRow(label: "TikTok", text: candidate.copy.tiktokCaption)
             CopyRow(label: "Instagram", text: candidate.copy.instagramCaption)
-            Text("PULSE never posts anything. Copy what you like.").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            HStack(spacing: 6) {
+                ForEach(SharePlatform.allCases, id: \.self) { platform in
+                    Button(platform.displayName) { copyShareText(platform) }.buttonStyle(.pulse(.secondary, compact: true))
+                }
+            }
+            .help("Copies the title, caption and hashtags shaped to the platform's limits")
+            Text("PULSE never posts anything. Copy what you like — the buttons give you the whole post for one platform.").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
         }
     }
 
@@ -500,6 +507,13 @@ struct CandidateDetailPanel: View {
         item.forwardPlaybackEndTime = .seconds(candidate.range.end)
         player.replaceCurrentItem(with: item)
         player.seek(to: .seconds(candidate.range.start), toleranceBefore: .zero, toleranceAfter: .zero)
+    }
+
+    func copyShareText(_ platform: SharePlatform) {
+        let text = ShareCopy.text(for: platform, candidate: candidate)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        app.toast("Copied the \(platform.displayName) post (\(text.count) characters)")
     }
 
     func commitTitle() {

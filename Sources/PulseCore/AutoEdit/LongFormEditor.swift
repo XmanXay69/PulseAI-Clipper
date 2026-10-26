@@ -571,6 +571,7 @@ public enum LongFormEditor {
         // YouTube chapters for the description.
         let outroAt = timeline.tracks[0].clips.first { $0.name == "End Screen" }?.start
         timeline.notes = chapterList(timeline.markers.filter { $0.color == .blue }, hasHook: hookRange != nil, outroAt: outroAt)
+        timeline.targetDuration = options.targetLength(forSource: analysis.duration)
         timeline.copy = YouTubeCopy.generate(segments: segments, transcript: analysis.transcript, hookPayoff: hookMoment, chapters: timeline.notes,
                                              seed: Int(analysis.duration))
         timeline.modifiedAt = Date()

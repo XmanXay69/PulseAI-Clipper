@@ -91,6 +91,8 @@ public struct ExportSettings: Codable, Hashable, Sendable {
     public var useHardwareEncoding: Bool
     public var burnInCaptions: Bool
     public var exportSRT: Bool
+    /// Exports go into a sub-folder named after the project (#74).
+    public var folderPerProject: Bool
 
     public init(preset: ExportPreset = .tiktok, outputDirectory: String = "", quality: ExportQuality = .high) {
         self.presetID = preset.id
@@ -106,6 +108,34 @@ public struct ExportSettings: Codable, Hashable, Sendable {
         self.useHardwareEncoding = true
         self.burnInCaptions = true
         self.exportSRT = false
+        self.folderPerProject = false
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = ExportSettings()
+        presetID = c.decode(String.self, forKey: .presetID, default: d.presetID)
+        width = c.decode(Int.self, forKey: .width, default: d.width)
+        height = c.decode(Int.self, forKey: .height, default: d.height)
+        frameRate = c.decode(Double?.self, forKey: .frameRate, default: nil)
+        codec = c.decode(VideoCodec.self, forKey: .codec, default: d.codec)
+        videoBitrate = c.decode(Int.self, forKey: .videoBitrate, default: d.videoBitrate)
+        audioBitrate = c.decode(Int.self, forKey: .audioBitrate, default: d.audioBitrate)
+        quality = c.decode(ExportQuality.self, forKey: .quality, default: d.quality)
+        filenameTemplate = c.decode(String.self, forKey: .filenameTemplate, default: d.filenameTemplate)
+        outputDirectory = c.decode(String.self, forKey: .outputDirectory, default: d.outputDirectory)
+        useHardwareEncoding = c.decode(Bool.self, forKey: .useHardwareEncoding, default: d.useHardwareEncoding)
+        burnInCaptions = c.decode(Bool.self, forKey: .burnInCaptions, default: d.burnInCaptions)
+        exportSRT = c.decode(Bool.self, forKey: .exportSRT, default: d.exportSRT)
+        folderPerProject = c.decode(Bool.self, forKey: .folderPerProject, default: d.folderPerProject)
+    }
+
+    /// Where a job's files go: the export folder, or the project's own sub-folder inside it.
+    public func outputDirectoryURL(projectName: String) -> URL {
+        let base = URL(fileURLWithPath: outputDirectory, isDirectory: true)
+        guard folderPerProject else { return base }
+        let component = ExportSettings.cleanComponent(projectName)
+        return component.isEmpty ? base : base.appendingPathComponent(component, isDirectory: true)
     }
 
     public var effectiveVideoBitrate: Int {
@@ -242,6 +272,8 @@ public struct ExportJob: Codable, Hashable, Identifiable, Sendable {
     public var startedAt: Date?
     public var finishedAt: Date?
     public var outputPath: String?
+    /// Only this stretch of the timeline (in → out), when set (#158).
+    public var range: TimeRange?
 
     public init(id: UUID = UUID(), projectID: UUID, projectName: String, timelineID: UUID, timelineName: String, settings: ExportSettings) {
         self.id = id

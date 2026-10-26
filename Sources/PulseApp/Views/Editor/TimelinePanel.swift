@@ -80,6 +80,13 @@ struct TimelineToolbar: View {
             IconButton(symbol: "rectangle.compress.vertical", help: "Magnetic timeline — deleting closes gaps", isActive: app.settings.magneticTimeline) { app.settings.magneticTimeline.toggle() }
             IconButton(symbol: "waveform.path.ecg", help: "Excitement strip on the ruler — where the energy is", isActive: showEnergy) { showEnergy.toggle() }
             Spacer()
+            if let timeline = session.activeTimeline {
+                let over = timeline.targetDuration.map { timeline.duration > $0 * 1.1 } ?? false
+                Text(Timecode.duration(timeline.duration) + (timeline.targetDuration.map { " / \(Timecode.duration($0)) target" } ?? ""))
+                    .font(.pulseMono).foregroundStyle(over ? Theme.warning : Theme.textSecondary)
+                    .help(timeline.targetDuration.map { "The length this edit was built for: \(Timecode.duration($0))" } ?? "Timeline length")
+                    .padding(.trailing, 6)
+            }
             Button { session.makeMoreEntertaining() } label: { Label("Make More Entertaining", systemImage: "wand.and.stars") }
                 .buttonStyle(.pulse(.ai, compact: true))
                 .help("Adds jump cuts, filler removal, punch-ins and caption emphasis — every change stays editable")

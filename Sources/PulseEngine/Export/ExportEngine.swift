@@ -9,6 +9,7 @@ public final class ExportEngine: @unchecked Sendable {
     public init() {}
 
     public func export(timeline: Timeline, assets: [UUID: MediaAsset], compounds: [UUID: Timeline] = [:], settings: ExportSettings, to destination: URL,
+                       range: TimeRange? = nil,
                        progress: @escaping @Sendable (Double) -> Void, isCancelled: @escaping @Sendable () -> Bool = { false }) async throws {
         let size = settings.outputSize(for: timeline.canvas)
         let renderSize = CGSize(width: size.width, height: size.height)
@@ -19,7 +20,9 @@ public final class ExportEngine: @unchecked Sendable {
             let names = built.missingAssetIDs.compactMap { assets[$0]?.name }.joined(separator: ", ")
             throw EngineError.exportFailed("media is offline (\(names)). Reconnect the files and try again.")
         }
-        let duration = built.duration
+        // In → out: only that stretch (clamped to the composition).
+        let exportStart = range.map { max(0, min($0.start, built.duration)) } ?? 0
+        let duration = range.map { max(0.1, min($0.end, built.duration) - exportStart) } ?? built.duration
         let fps = settings.frameRate ?? timeline.canvas.frameRate
         let estimatedBytes = Int64(Double(settings.effectiveVideoBitrate + settings.audioBitrate) * duration / 8 * 1.15)
         try DiskSpace.ensure(estimatedBytes, at: destination.deletingLastPathComponent())
@@ -29,7 +32,7 @@ public final class ExportEngine: @unchecked Sendable {
         videoComposition.renderSize = renderSize
 
         let reader = try AVAssetReader(asset: built.composition)
-        reader.timeRange = CMTimeRange(start: .zero, duration: .seconds(duration))
+        reader.timeRange = CMTimeRange(start: .seconds(exportStart), duration: .seconds(duration))
         let videoTracks = try await built.composition.loadTracks(withMediaType: .video)
         let audioTracks = try await built.composition.loadTracks(withMediaType: .audio)
 
@@ -120,9 +123,9 @@ public final class ExportEngine: @unchecked Sendable {
             reader.cancelReading()
             throw EngineError.exportFailed(writer.error?.localizedDescription ?? "couldn't start writing")
         }
-        writer.startSession(atSourceTime: .zero)
+        writer.startSession(atSourceTime: .seconds(exportStart))
 
-        let pump = ExportPump(reader: reader, writer: writer, duration: duration, progress: progress, isCancelled: isCancelled)
+        let pump = ExportPump(reader: reader, writer: writer, start: exportStart, duration: duration, progress: progress, isCancelled: isCancelled)
         await pump.run(videoOutput: videoOutput, videoInput: videoInput, audioOutput: audioOutput, audioInput: audioInput)
 
         if pump.cancelled {
@@ -156,6 +159,7 @@ public final class ExportEngine: @unchecked Sendable {
 final class ExportPump: @unchecked Sendable {
     let reader: AVAssetReader
     let writer: AVAssetWriter
+    let start: Seconds
     let duration: Seconds
     let progress: @Sendable (Double) -> Void
     let isCancelled: @Sendable () -> Bool
@@ -166,9 +170,10 @@ final class ExportPump: @unchecked Sendable {
         return _cancelled
     }
 
-    init(reader: AVAssetReader, writer: AVAssetWriter, duration: Seconds, progress: @escaping @Sendable (Double) -> Void, isCancelled: @escaping @Sendable () -> Bool) {
+    init(reader: AVAssetReader, writer: AVAssetWriter, start: Seconds = 0, duration: Seconds, progress: @escaping @Sendable (Double) -> Void, isCancelled: @escaping @Sendable () -> Bool) {
         self.reader = reader
         self.writer = writer
+        self.start = start
         self.duration = duration
         self.progress = progress
         self.isCancelled = isCancelled
@@ -216,7 +221,7 @@ final class ExportPump: @unchecked Sendable {
                     }
                     if reportsProgress {
                         let t = CMSampleBufferGetPresentationTimeStamp(sample).secondsValue
-                        let p = self.duration > 0 ? min(t / self.duration, 0.999) : 0
+                        let p = self.duration > 0 ? min(max(0, t - self.start) / self.duration, 0.999) : 0
                         if p - state.lastReported >= 0.005 {
                             state.lastReported = p
                             self.progress(p)

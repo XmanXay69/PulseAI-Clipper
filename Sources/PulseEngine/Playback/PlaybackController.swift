@@ -38,6 +38,8 @@ public final class PlaybackController: ObservableObject {
     @Published public private(set) var missingAssetIDs: Set<UUID> = []
     @Published public private(set) var lastError: String?
     @Published public var loopEnabled = false
+    /// With `loopEnabled`, loop this stretch instead of the whole timeline (in → out, #159).
+    @Published public var loopRange: TimeRange?
     @Published public var volume: Float = 1 {
         didSet { player.volume = volume }
     }
@@ -62,6 +64,10 @@ public final class PlaybackController: ObservableObject {
                 // While scrubbing the playhead already shows where the mouse is.
                 guard let self, !self.isSeekingForScrub else { return }
                 self.currentTime = time.secondsValue
+                if self.loopEnabled, self.isPlaying, let r = self.loopRange, r.duration > 0.1, self.currentTime >= r.end - 0.03 {
+                    self.seek(to: r.start)
+                    self.player.play()
+                }
             }
         }
         rateObservation = player.observe(\.rate, options: [.new]) { [weak self] player, _ in
@@ -150,7 +156,7 @@ public final class PlaybackController: ObservableObject {
         endObserver = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self, self.loopEnabled else { return }
-                self.seek(to: 0)
+                self.seek(to: self.loopRange?.start ?? 0)
                 self.player.play()
             }
         }

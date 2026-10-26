@@ -359,6 +359,8 @@ public struct Timeline: Codable, Hashable, Identifiable, Sendable {
     public var notes: String
     /// Suggested titles/captions carried over from the candidate.
     public var copy: ClipCopy?
+    /// The length the edit was built for (Edit My VOD), shown next to the duration in the toolbar (#179).
+    public var targetDuration: Seconds?
 
     public init(id: UUID = UUID(), name: String, canvas: CanvasSettings = .vertical1080, tracks: [Track] = [],
                 captions: CaptionTrack? = nil, markers: [Marker] = [], layout: LayoutPreset? = nil,
@@ -398,6 +400,7 @@ public struct Timeline: Codable, Hashable, Identifiable, Sendable {
         modifiedAt = c.decode(Date.self, forKey: .modifiedAt, default: Date())
         notes = c.decode(String.self, forKey: .notes, default: "")
         copy = c.decode(ClipCopy?.self, forKey: .copy, default: nil)
+        targetDuration = c.decode(Seconds?.self, forKey: .targetDuration, default: nil)
     }
 
     /// Standard empty editing timeline: V1, V2, T1, A1, A2.

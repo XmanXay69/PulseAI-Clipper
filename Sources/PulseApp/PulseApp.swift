@@ -154,6 +154,36 @@ struct PulseCommands: Commands {
         }
         CommandMenu("Timeline") {
             Button("Split at Playhead") { app.session?.splitAtPlayhead() }.keyboardShortcut("k")
+            Button("Split All Tracks at Playhead") { app.session?.splitAllAtPlayhead() }.keyboardShortcut("k", modifiers: [.command, .shift])
+            Button("Add Transition") { app.session?.addDefaultTransition() }.keyboardShortcut("t", modifiers: [.command])
+                .disabled(app.session?.activeTimeline == nil)
+            Button("Copy Attributes") { app.session?.copyAttributes() }.keyboardShortcut("c", modifiers: [.command, .option])
+                .disabled(app.session?.selectedClipIDs.isEmpty ?? true)
+            Button("Paste Attributes") { app.session?.pasteAttributes() }.keyboardShortcut("v", modifiers: [.command, .option])
+                .disabled(app.session?.copiedAttributes == nil)
+            Button("Paste Look Only") { app.session?.pasteAttributes(parts: .look) }.keyboardShortcut("v", modifiers: [.command, .option, .shift])
+                .disabled(app.session?.copiedAttributes == nil)
+            Divider()
+            Button("Loop In → Out") { app.session?.toggleLoopInOut() }.keyboardShortcut("l", modifiers: [.option])
+            Button("Export In → Out") { app.session?.exportInOut() }.keyboardShortcut("e", modifiers: [.command, .option])
+                .disabled(app.session?.inOutRange == nil)
+            Menu("Snapshots") {
+                Button("Take Snapshot") { app.session?.takeSnapshot() }.keyboardShortcut("s", modifiers: [.command, .option])
+                    .disabled(app.session?.activeTimeline == nil)
+                if let session = app.session, let timeline = session.activeTimeline {
+                    let list = session.document.snapshots(for: timeline.id)
+                    if !list.isEmpty {
+                        Divider()
+                        ForEach(list) { snapshot in
+                            Menu("\(snapshot.name) · \(snapshot.summary)") {
+                                Button("Restore") { session.restoreSnapshot(snapshot.id) }
+                                Button("Delete", role: .destructive) { session.deleteSnapshot(snapshot.id) }
+                            }
+                        }
+                    }
+                }
+            }
+            Divider()
             Button("Ripple Delete") { app.session?.deleteSelection(ripple: true) }.keyboardShortcut(.delete, modifiers: [.shift])
             Button("Duplicate") { app.session?.duplicateSelection() }.keyboardShortcut("d")
             Button("Detach Audio") { app.session?.detachAudio() }.keyboardShortcut("d", modifiers: [.command, .shift])

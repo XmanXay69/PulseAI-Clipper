@@ -581,7 +581,7 @@ final class AppModel: ObservableObject {
     }
 
     /// ⌘E: the current timeline into the export queue with the project's last export settings, no sheet.
-    func quickExport() {
+    func quickExport(range: TimeRange? = nil) {
         guard let session, let timeline = session.activeTimeline else {
             toast("Open a timeline to export")
             return
@@ -600,7 +600,7 @@ final class AppModel: ObservableObject {
             presentMessage(title: "Can't export yet", message: problem)
             return
         }
-        exports.enqueue(timelines: [timeline], document: session.document, settings: export)
+        exports.enqueue(timelines: [timeline], document: session.document, settings: export, range: range)
         toast("Exporting “\(timeline.name)”")
         section = .exports
     }

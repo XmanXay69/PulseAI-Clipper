@@ -244,6 +244,9 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var showSafeAreas: Bool = true
     public var safeAreaPlatform: SafeAreaPlatform = .tiktok
     public var defaultExportPresetID: String = ExportPreset.tiktok.id
+    /// ⌘T adds this at the selected clips' edges (#168).
+    public var defaultTransitionKind: TransitionKind = .crossDissolve
+    public var defaultTransitionDuration: Seconds = 0.4
     public var recentProjectPaths: [String] = []
     /// The answers from "Set up for my stream" (nil = never run).
     public var streamSetup: StreamSetup?
@@ -295,6 +298,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
         referenceStyles = c.decode([ReferenceStyle].self, forKey: .referenceStyles, default: d.referenceStyles)
         defaultExportPresetID = c.decode(String.self, forKey: .defaultExportPresetID, default: d.defaultExportPresetID)
         recentProjectPaths = c.decode([String].self, forKey: .recentProjectPaths, default: d.recentProjectPaths)
+        defaultTransitionKind = c.decode(TransitionKind.self, forKey: .defaultTransitionKind, default: d.defaultTransitionKind)
+        defaultTransitionDuration = c.decode(Seconds.self, forKey: .defaultTransitionDuration, default: d.defaultTransitionDuration)
         streamSetup = c.decode(StreamSetup?.self, forKey: .streamSetup, default: nil)
     }
 }

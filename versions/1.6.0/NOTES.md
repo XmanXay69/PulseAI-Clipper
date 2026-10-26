@@ -46,6 +46,18 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   music overlaps the next for 3 s instead of fading out, a gap, and fading in.
 
 ### Editing
+- **Snapshots** (#185, #118) — Timeline → Snapshots → Take Snapshot (⌥⌘S) keeps a named copy of the timeline;
+  restore any of them from the same menu (the version you're leaving is kept too). Make More Entertaining
+  takes one by itself before it changes anything. Twenty per timeline; automatic ones go first.
+- **Copy / Paste Attributes** (#165) — ⌥⌘C lifts a clip's transform, style, color, effects and audio; ⌥⌘V
+  pastes them onto the selection (⌥⇧⌘V for the look only). Fades and swear-word censoring stay the target's own.
+- **⌘T adds your default transition** (#168) — on the selected clips' touching edges, or on the cut under the
+  playhead; pick the kind and length in Settings → General.
+- **Split all tracks at the playhead** (⇧⌘K, #145).
+- **Loop in → out** (⌥L, #159) and **export in → out** (⌥⌘E, #158) — the stretch between the in and out points
+  loops in the viewer, or goes out as its own file with the project's settings.
+- **Length next to the target** (#179) — the timeline toolbar shows the duration, and for a YouTube edit the
+  length it was built for, turning amber when the edit runs more than 10 % over.
 - **Hum removal** (#275) — a toggle in the audio inspector notches 50/60 Hz mains hum and its harmonics out of a
   clip, as part of the enhance chain.
 - **J/K/L shuttle** (#157) — L plays 1×, then 2×, 4×, 8× on each press; J the same backwards (or a second back
@@ -79,6 +91,11 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 - **Overlap warning** (#73) — a clip that covers mostly the same stretch as a short you've already edited says so.
 
 ### Delivery
+- **One folder per project** (#74) — a checkbox in the export panel puts every export of a project in its own
+  sub-folder, so one stream's shorts stay together.
+- **Share-ready posts** (#84) — TikTok / Shorts / Reels / X buttons in the clip panel copy the whole post
+  shaped to the platform: Shorts titles under 100 characters ending in #shorts, X under 280 with two hashtags,
+  TikTok with five, Reels with the hashtags on their own line.
 - **Platform specs in the export panel** (#333) — each preset says what the platform does to the upload and
   flags a timeline over its length limit (Shorts and Reels 3 min, TikTok 10 min, X 2:20) or a bitrate below what
   survives the re-encode.

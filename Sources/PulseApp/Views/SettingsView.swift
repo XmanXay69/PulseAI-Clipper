@@ -161,6 +161,17 @@ struct GeneralSettings: View {
             SettingsRow("Snapping", detail: "Clips snap to the playhead, markers and other clip edges. Toggle with S.") {
                 Toggle("", isOn: $app.settings.snapping).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
             }
+            SettingsRow("Default transition", detail: "⌘T puts it on the selected clips' edges, or on the cut under the playhead.") {
+                HStack(spacing: 8) {
+                    Picker("", selection: $app.settings.defaultTransitionKind) {
+                        ForEach(TransitionKind.allCases.filter { $0 != .cut }, id: \.self) { Text($0.displayName).tag($0) }
+                    }
+                    .labelsHidden().frame(width: 150)
+                    Stepper(value: $app.settings.defaultTransitionDuration, in: 0.1...2, step: 0.1) {
+                        Text(String(format: "%.1f s", app.settings.defaultTransitionDuration)).font(.pulseMono)
+                    }
+                }
+            }
             SettingsRow("Show safe areas", detail: "Overlay the platform UI zones in the viewer.") {
                 Toggle("", isOn: $app.settings.showSafeAreas).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
             }
