@@ -11,7 +11,7 @@ works on macOS 15). CI compiles, tests and screenshots the app on a GitHub Actio
 
 ## Versions
 
-`VERSION` holds the current version (1.4.0). Release notes per version live in `versions/<version>/NOTES.md`
+`VERSION` holds the current version (1.5.0). Release notes per version live in `versions/<version>/NOTES.md`
 (the Release workflow prepends them to the GitHub Release); `versions/README.md` explains how to cut a new one.
 
 ## Download (the easy way)
@@ -239,6 +239,10 @@ prompt), cloud AI providers with live keys.
   continuation pieces, `BrollPlacer.place` removing the meme/sting it replaces, `RemovedSection.Reason.crosstalk`.
   Role `.graphic` on a clip of the main recording means "cutaway": captions (`CaptionLayoutEngine.timelineWords`),
   the story time map in `LongFormEditor.build` and `EditPolish.jumpCutZooms` skip it.
+- **1.5.0 UI** — `Theme` gained `accentGradient` / `aiGradient` / `edgeHighlight` / `elevated` / `radiusXL`, and the
+  view modifiers `elevation(_:)` and `raisedSurface(cornerRadius:fill:border:)`; use them instead of ad-hoc
+  shadows/borders. `PulseButtonStyle` fills primary/AI with the gradients. Sidebar groups live in `Sidebar.groups`.
+  `docs/ROADMAP-500.md` is the improvement backlog.
 - **Local core check (no Mac needed)** — PulseCore and its tests compile on Linux with a swift.org toolchain if
   `Audio/SpectralDenoiser.swift` (Accelerate) is stubbed and `AudioDSPTests.swift` left out; everything else in
   the core is portable. Useful when CI is down.

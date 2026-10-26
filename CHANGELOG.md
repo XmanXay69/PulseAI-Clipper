@@ -2,7 +2,9 @@
 
 Release notes live in [`versions/`](versions/README.md), one folder per version:
 
-- [1.4.0](versions/1.4.0/NOTES.md) — instant replays (ask-first), slow push-ins, B-roll replaces memes on a shared beat,
+- [1.5.0](versions/1.5.0/NOTES.md) — studio UI (gradients, elevation, grouped sidebar, breadcrumb, pill page bar, richer
+  timeline); ships with 1.4.0's features; 500-item roadmap.
+- [1.4.0](versions/1.4.0/NOTES.md) (folded into 1.5.0) — instant replays (ask-first), slow push-ins, B-roll replaces memes on a shared beat,
   continuous beat-synced music, approve-the-cut analyzes first.
 - [1.3.0](versions/1.3.0/NOTES.md) — ask-first extras (facecam punch-ins, B-roll, beat sync, speaker-aware cuts, approve
   the cut, title cards, export loudness check), editor-grade Edit My VOD (polish passes + automatic edit check),

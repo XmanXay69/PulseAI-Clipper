@@ -9,16 +9,17 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
 
 ## Download
 
-**[⬇ Download PULSE 1.4.0](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
-(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.4.0/NOTES.md)
+**[⬇ Download PULSE 1.5.0](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
+(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.5.0/NOTES.md)
 
 Already installed? PULSE shows an **Update** button when a new version is out — no need to download again.
 
-**New in 1.4.0:** instant replays on the biggest plays (a new ask-first extra), slow push-ins on static
-stretches, B-roll that takes over a moment instead of stacking on a meme, beat-synced music that never stops
-early, and a few smoother edges. 1.3.0 brought the ask-first extras (facecam punch-ins, B-roll cutaways,
-beat-synced music & zooms, speaker-aware cuts, "approve the cut", retention title cards, export loudness
-check), editor-grade polish with an automatic edit check, and a much smoother timeline.
+**New in 1.5.0:** a studio look — lit surfaces, gradient controls, a grouped sidebar, breadcrumb top bar, pill
+page bar and a richer timeline — plus everything from 1.4.0: instant replays on the biggest plays (a new
+ask-first extra), slow push-ins on static stretches, B-roll that takes over a moment instead of stacking on a
+meme, and beat-synced music that never stops early. The ask-first extras (facecam punch-ins, B-roll cutaways,
+beat-synced music & zooms, speaker-aware cuts, "approve the cut", retention title cards, export loudness check)
+arrived in 1.3.0. There's also a [500-item roadmap](docs/ROADMAP-500.md).
 
 1. Double-click **PULSE.dmg** and drag **PULSE** into **Applications**.
 2. Open PULSE from Launchpad or Applications.
