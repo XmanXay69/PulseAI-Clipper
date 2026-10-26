@@ -23,6 +23,8 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
     public var endScreen = true
     /// Opt-in extras (asked before every edit; nothing here is on unless you said yes).
     public var extras = EditExtras()
+    /// Cut hesitations ("um", "uh") and stumbles out of the story (off by default: word timing isn't perfect).
+    public var tighten = false
 
     /// Seconds between reaction zooms / meme pop-ups / transition whooshes.
     public var zoomSpacing: Seconds { style?.zoomSpacing ?? restraint.zoomSpacing }
@@ -152,6 +154,17 @@ public enum LongFormEditor {
                                               maxCandidates: Int(Double(needed) * 1.6))
         let generator = ClipGenerator(input: input, settings: settings)
         var candidates = generator.generate().applyingTaste(taste)
+        // "Mic check, can you hear me?" and "thanks for watching, raiding now" only make it in if they're
+        // genuinely strong moments.
+        if let words = analysis.transcript?.words, !words.isEmpty {
+            let edges = [StreamEdges.intro(words: words), StreamEdges.outro(words: words, duration: analysis.duration)].compactMap { $0 }
+            for i in candidates.indices {
+                let r = candidates[i].range
+                let covered = edges.reduce(0.0) { $0 + max(0, min($1.end, r.end) - max($1.start, r.start)) }
+                let payoffInside = edges.contains { $0.contains(candidates[i].payoffTime) }
+                if payoffInside || covered > r.duration * 0.5 { candidates[i].potential = max(0, candidates[i].potential - 35) }
+            }
+        }
         // "Focus on the funny bits": favour the moments the answers asked for.
         if let focus = options.style?.focusTags, !focus.isEmpty {
             for i in candidates.indices {
@@ -300,6 +313,21 @@ public enum LongFormEditor {
             if let hookRange { cuts.removeAll { $0.overlaps(hookRange) } }
             if !cuts.isEmpty {
                 removed = timeline.removeSourceRanges(cuts, assetID: asset.id, reason: .silence, aiGenerated: true)
+            }
+        }
+        // Tighten: the ums, uhs and false starts (never inside the hook).
+        var fillers = 0
+        if options.tighten, let transcript = analysis.transcript {
+            var found: [FillerDetection] = []
+            for s in segments {
+                found += FillerWordDetector.detect(in: transcript, range: s.range, minimumConfidence: 0.75)
+                    .filter { $0.kind == .hesitation || $0.kind == .repetition }
+            }
+            var ranges = FillerWordDetector.cutRanges(for: found, in: transcript)
+            if let hookRange { ranges.removeAll { $0.overlaps(hookRange) } }
+            if !ranges.isEmpty {
+                fillers = ranges.count
+                _ = timeline.removeSourceRanges(ranges, assetID: asset.id, reason: .fillerWord, texts: found.map(\.text), aiGenerated: true)
             }
         }
         // Extra: people talking over each other (needs speaker labels), away from each section's payoff.
@@ -521,6 +549,7 @@ public enum LongFormEditor {
         if jumpZooms > 0 { parts.append("\(jumpZooms) jump-cut zooms") }
         if slivers > 0 { parts.append("\(slivers) slivers removed") }
         if crosstalk > 0.5 { parts.append("\(Int(crosstalk.rounded())) s of crosstalk trimmed") }
+        if fillers > 0 { parts.append("\(fillers) ums and stumbles cut") }
         if facecamZooms > 0 { parts.append("\(facecamZooms) facecam punch-ins") }
         if cards > 0 { parts.append("\(cards) title cards") }
         if replays > 0 { parts.append("\(replays) instant replay\(replays == 1 ? "" : "s")") }

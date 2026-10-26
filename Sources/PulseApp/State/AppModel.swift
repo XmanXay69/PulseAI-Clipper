@@ -515,6 +515,31 @@ final class AppModel: ObservableObject {
         alert = AppAlert(title: title, message: message)
     }
 
+    /// ⌘E: the current timeline into the export queue with the project's last export settings, no sheet.
+    func quickExport() {
+        guard let session, let timeline = session.activeTimeline else {
+            toast("Open a timeline to export")
+            return
+        }
+        var export = session.document.exportSettings
+        if ExportPreset.preset(id: export.presetID) == nil {
+            export = ExportSettings(preset: ExportPreset.preset(id: settings.defaultExportPresetID) ?? .tiktok)
+        }
+        if export.outputDirectory.isEmpty { export.outputDirectory = exportFolder.path }
+        if EditFormat.of(timeline) == .longForm, ["tiktok", "shorts", "reels"].contains(export.presetID) {
+            let folder = export.outputDirectory
+            export = ExportSettings(preset: .youtube)
+            export.outputDirectory = folder
+        }
+        if let problem = export.validationError(for: timeline.canvas) {
+            presentMessage(title: "Can't export yet", message: problem)
+            return
+        }
+        exports.enqueue(timelines: [timeline], document: session.document, settings: export)
+        toast("Exporting “\(timeline.name)”")
+        section = .exports
+    }
+
     func presentMessage(title: String, message: String) {
         PulseLog.warning("\(title): \(message)")
         alert = AppAlert(title: title, message: message)

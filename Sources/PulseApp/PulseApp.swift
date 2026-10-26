@@ -100,6 +100,9 @@ struct PulseCommands: Commands {
             Button("Make Thumbnail…") { app.thumbnailRequest = ThumbnailRequest(timelineID: app.session?.selectedTimelineID) }
                 .keyboardShortcut("t", modifiers: [.command, .shift])
                 .disabled(app.session?.document.primaryAsset == nil)
+            Button("Quick Export") { app.quickExport() }
+                .keyboardShortcut("e")
+                .disabled(app.session?.activeTimeline == nil)
             Divider()
             Button("Import Media…") { app.showImportPanel() }.keyboardShortcut("i")
             Button(app.recording.isCapturing ? "Stop Recording" : "New Recording…") {
@@ -142,6 +145,7 @@ struct PulseCommands: Commands {
             Button("Duplicate") { app.session?.duplicateSelection() }.keyboardShortcut("d")
             Button("Detach Audio") { app.session?.detachAudio() }.keyboardShortcut("d", modifiers: [.command, .shift])
             Button("Ripple Delete In → Out") { app.session?.rippleDeleteInOut() }.keyboardShortcut(.delete, modifiers: [.command, .option])
+            Button("Close All Gaps") { app.session?.closeAllGaps() }.disabled(app.session?.activeTimeline == nil)
             Divider()
             Button("Add Text") { app.session?.addText() }.keyboardShortcut("t", modifiers: [.command, .option])
             Divider()

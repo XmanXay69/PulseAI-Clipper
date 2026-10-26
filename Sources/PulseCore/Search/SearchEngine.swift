@@ -2,9 +2,12 @@ import Foundation
 
 public enum SearchResultKind: String, Sendable, CaseIterable {
     case project, clip, media, transcript, caption, marker, timeline
+    /// Something PULSE can do right now ("Edit My VOD", "Export", "Open Settings…").
+    case action
 
     public var displayName: String {
         switch self {
+        case .action: return "Action"
         case .project: return "Projects"
         case .clip: return "AI Clips"
         case .media: return "Media"
@@ -17,6 +20,7 @@ public enum SearchResultKind: String, Sendable, CaseIterable {
 
     public var symbolName: String {
         switch self {
+        case .action: return "command"
         case .project: return "folder"
         case .clip: return "sparkles"
         case .media: return "film"

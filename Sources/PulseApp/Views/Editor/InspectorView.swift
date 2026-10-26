@@ -464,6 +464,14 @@ struct ColorInspector: View {
             Button { session.editClip(clip.id, "Reset Color") { $0.color = .neutral } } label: { Image(systemName: "arrow.counterclockwise") }
                 .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help("Reset color")
         )) {
+            // One-click looks: a gentle starting point you can then tune below.
+            HStack(spacing: 5) {
+                ForEach(ColorAdjustments.Look.allCases, id: \.self) { look in
+                    Button(look.displayName) { session.editClip(clip.id, "Look: \(look.displayName)") { $0.color = ColorAdjustments.look(look) } }
+                        .buttonStyle(.pulse(clip.color == ColorAdjustments.look(look) ? .primary : .secondary, compact: true))
+                        .help(look.detail)
+                }
+            }
             b.plainSlider("Exposure", \.color.exposure, range: -2...2, unit: " EV")
             b.plainSlider("Contrast", \.color.contrast, range: -1...1)
             b.plainSlider("Highlights", \.color.highlights, range: -1...0)

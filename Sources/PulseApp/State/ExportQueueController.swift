@@ -106,6 +106,17 @@ final class ExportQueueController: ObservableObject {
                         self?.update(jobID) { $0.status = .rendering(progress: p) }
                     }
                 }, isCancelled: { flag.isSet })
+                // The description, ready to paste: title ideas, chapters, credits, hashtags.
+                let sidecar = ExportSidecar.text(for: payload.timeline, projectName: job.projectName)
+                if !sidecar.isEmpty {
+                    try? sidecar.write(to: url.deletingPathExtension().appendingPathExtension("txt"), atomically: true, encoding: .utf8)
+                }
+                // Make sure the file really plays and is the right length before calling it done.
+                let probed = try await MediaProbe.probe(url)
+                let expected = max(payload.timeline.duration, 0.1)
+                if probed.duration < expected - 1.5 {
+                    throw EngineError.exportFailed("the file came out \(Int((expected - probed.duration).rounded())) s short — check the log and try again")
+                }
                 update(job.id) {
                     $0.status = .completed(path: url.path)
                     $0.outputPath = url.path

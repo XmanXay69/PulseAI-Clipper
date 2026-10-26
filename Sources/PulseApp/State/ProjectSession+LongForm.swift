@@ -208,6 +208,16 @@ extension ProjectSession {
         return (assets, used)
     }
 
+    /// Timeline → Close All Gaps: ripple every black gap on the main track closed.
+    func closeAllGaps() {
+        guard let timeline = activeTimeline else { return }
+        var closed = timeline
+        let n = EditQualityCheck.closeGaps(&closed)
+        guard n > 0 else { app.toast("No gaps on the main track"); return }
+        edit("Close Gaps") { doc in doc.editTimeline(id: timeline.id) { $0 = closed } }
+        app.toast("Closed \(n) gap\(n == 1 ? "" : "s")")
+    }
+
     /// Edit → Check Edit: the same checks Edit My VOD runs (slivers, clicks at cuts, gaps, loud music,
     /// overlapping text, busy zooms, pacing, chapter length), fixing what's mechanical.
     func checkEdit() {

@@ -140,9 +140,71 @@ struct GlobalSearchView: View {
         var otherProject: ProjectSummary?
     }
 
+    /// Things PULSE can do from the search field — a command palette.
+    struct Action {
+        var id: String
+        var title: String
+        var subtitle: String
+        var run: () -> Void
+    }
+
+    var actions: [Action] {
+        let hasProject = app.session != nil
+        let hasTimeline = app.session?.activeTimeline != nil
+        var list: [Action] = [
+            Action(id: "act.new", title: "New Project…", subtitle: "⌘N") { app.showNewProjectSheet = true },
+            Action(id: "act.import", title: "Import Media…", subtitle: "⌘I") { app.showImportPanel() },
+            Action(id: "act.record", title: "New Recording…", subtitle: "⇧⌘R") { app.showRecordSheet = true },
+            Action(id: "act.batch", title: "Overnight Batch…", subtitle: "⌥⌘B") { app.showBatchSheet = true },
+            Action(id: "act.settings", title: "Open Settings", subtitle: "⌘,") { app.section = .settings },
+            Action(id: "act.updates", title: "Check for Updates…", subtitle: "") { app.updater.showSheet = true },
+            Action(id: "act.problem", title: "Report a Problem…", subtitle: "") { app.showReportProblem = true },
+        ]
+        if hasProject {
+            list += [
+                Action(id: "act.vod", title: "Edit My VOD…", subtitle: "A 10–20 minute YouTube video from the whole stream") { app.showLongFormSheet = true },
+                Action(id: "act.reference", title: "Edit Like a Reference…", subtitle: "Copy the style of a video you love") { app.showReferenceSheet = true },
+                Action(id: "act.clips", title: "Generate AI Clips", subtitle: "Find the best moments for shorts") {
+                    if let session = app.session, let asset = session.document.primaryAsset { session.generateCandidates(assetID: asset.id) }
+                },
+                Action(id: "act.thumb", title: "Make Thumbnail…", subtitle: "⇧⌘T") { app.thumbnailRequest = ThumbnailRequest(timelineID: app.session?.selectedTimelineID) },
+                Action(id: "act.exports", title: "Go to Exports", subtitle: "The export queue") { app.section = .exports },
+            ]
+        }
+        if hasTimeline {
+            list += [
+                Action(id: "act.quick", title: "Quick Export", subtitle: "⌘E · the current timeline with the last settings") { app.quickExport() },
+                Action(id: "act.check", title: "Check Edit", subtitle: "⇧⌘K · slivers, clicks, gaps, overlaps, cuts inside words") { app.session?.checkEdit() },
+                Action(id: "act.gaps", title: "Close All Gaps", subtitle: "Ripple every black gap on the main track closed") { app.session?.closeAllGaps() },
+                Action(id: "act.editor", title: "Open the Editor", subtitle: "") { app.section = .editor },
+                Action(id: "act.captions", title: "Open Captions", subtitle: "") { app.section = .captions },
+            ]
+        }
+        return list
+    }
+
+    func actionMatches(_ action: Action, _ q: String) -> Bool {
+        let title = action.title.lowercased()
+        if title.contains(q) { return true }
+        // Every query character in order ("qexp" → Quick Export).
+        var i = title.startIndex
+        for ch in q {
+            guard let found = title[i...].firstIndex(of: ch) else { return false }
+            i = title.index(after: found)
+        }
+        return q.count >= 3
+    }
+
     var rows: [Row] {
         let session = app.session
-        var rows = SearchEngine.search(query, projects: app.projects, document: session?.document, analyses: session?.analyses ?? [:])
+        let q = query.lowercased().trimmingCharacters(in: .whitespaces)
+        var rows: [Row] = []
+        if q.count >= 2 {
+            rows += actions.filter { actionMatches($0, q) }.prefix(6).map { a in
+                Row(id: a.id, result: SearchResult(id: a.id, kind: .action, title: a.title, subtitle: a.subtitle, score: 1), otherProject: nil)
+            }
+        }
+        rows += SearchEngine.search(query, projects: app.projects, document: session?.document, analyses: session?.analyses ?? [:])
             .map { Row(id: $0.id, result: $0, otherProject: nil) }
         // Transcripts of other (closed) projects come from the library's full-text index.
         if query.count >= 3, let library = app.library {
@@ -163,7 +225,7 @@ struct GlobalSearchView: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").foregroundStyle(Theme.textTertiary)
-                TextField("Search clips, transcripts, media… try “funny”, “hype” or 42:17", text: $query)
+                TextField("Search clips, transcripts, media or type an action… “funny”, “42:17”, “export”", text: $query)
                     .textFieldStyle(.plain)
                     .font(.system(size: 16))
                     .focused($focused)
@@ -180,7 +242,7 @@ struct GlobalSearchView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     SectionLabel(text: "Try")
                     HStack(spacing: 6) {
-                        ForEach(["funny", "hype", "fail", "story", "42:17"], id: \.self) { s in
+                        ForEach(["funny", "hype", "fail", "story", "42:17", "export", "edit my vod"], id: \.self) { s in
                             Button { query = s } label: { TagChip(text: s, color: Theme.ai, symbol: "sparkles") }.buttonStyle(.plain)
                         }
                     }
@@ -227,7 +289,7 @@ struct GlobalSearchView: View {
         return HStack(spacing: 10) {
             Image(systemName: r.kind.symbolName)
                 .frame(width: 22)
-                .foregroundStyle(r.kind == .clip ? Theme.ai : Theme.textSecondary)
+                .foregroundStyle(r.kind == .clip ? Theme.ai : (r.kind == .action ? Theme.accent : Theme.textSecondary))
             VStack(alignment: .leading, spacing: 2) {
                 Text(r.title).font(.pulseBody).foregroundStyle(Theme.textPrimary).lineLimit(1)
                 Text(r.subtitle).font(.pulseCaption).foregroundStyle(Theme.textTertiary).lineLimit(1)
@@ -244,6 +306,12 @@ struct GlobalSearchView: View {
     func open(_ row: Row) {
         let r = row.result
         dismiss()
+        if r.kind == .action {
+            if let action = actions.first(where: { $0.id == r.id }) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { action.run() }
+            }
+            return
+        }
         if let other = row.otherProject {
             app.openProject(other)
         } else if r.kind == .project, let id = r.projectID, app.session?.document.id != id,
@@ -253,7 +321,7 @@ struct GlobalSearchView: View {
         }
         guard let session = app.session else { return }
         switch r.kind {
-        case .project:
+        case .project, .action:
             break
         case .clip:
             if let id = r.candidateID {

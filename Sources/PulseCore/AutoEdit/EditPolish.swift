@@ -292,11 +292,26 @@ public enum EditQualityCheck {
         let gaps = blackGaps(in: timeline.tracks[v].clips)
         if !gaps.isEmpty {
             if autofix {
-                for gap in gaps.sorted(by: { $0.start > $1.start }) { timeline.rippleDelete(range: gap) }
+                closeGaps(&timeline)
                 add(.fixed, "Gaps closed", "\(gaps.count) black gap\(gaps.count == 1 ? "" : "s") on the main track")
             } else {
                 add(.warning, "Black gaps", "\(gaps.count) on the main track")
             }
+        }
+
+        // 3b. Cuts inside a word (a syllable chopped off): the small ones are repaired by extending the piece
+        //     to the word's edge and rippling what follows; the rest are reported.
+        if !words.isEmpty {
+            let chopped = choppedWords(in: timeline, trackIndex: v, words: words)
+            var repaired = 0
+            if autofix {
+                for fix in chopped.fixable.sorted(by: { $0.clipEnd > $1.clipEnd }).prefix(40) {
+                    if rippleExtend(&timeline, clipID: fix.clipID, head: fix.head, tail: fix.tail) { repaired += 1 }
+                }
+            }
+            let left = chopped.count - repaired
+            if repaired > 0 { add(.fixed, "Cuts moved off words", "\(repaired) cut\(repaired == 1 ? "" : "s") extended to the end of the word") }
+            if left > 0 { add(.warning, "Cuts inside words", "\(left) cut\(left == 1 ? "" : "s") land mid-word — nudge them in the timeline") }
         }
 
         // 4. Music level.
@@ -350,6 +365,84 @@ public enum EditQualityCheck {
     }
 
     /// Stretches of the main track with nothing on it, between the first and last clip.
+    struct ChoppedWords {
+        struct Fix { var clipID: UUID; var clipEnd: Seconds; var head: Seconds; var tail: Seconds }
+        var count = 0
+        var fixable: [Fix] = []
+    }
+
+    /// Main-track pieces whose in or out point lands inside a spoken word. Crosstalk trims cut through words on
+    /// purpose and are skipped. A fix is offered when the word's edge is within 0.4 s.
+    static func choppedWords(in timeline: Timeline, trackIndex v: Int, words: [TranscriptWord]) -> ChoppedWords {
+        var result = ChoppedWords()
+        let crosstalk = timeline.removedSections.filter { $0.reason == .crosstalk }.map(\.sourceRange)
+        func insideWord(_ t: Seconds) -> TranscriptWord? {
+            words.first { $0.start + 0.06 < t && t < $0.end - 0.06 }
+        }
+        func isCrosstalkEdge(_ t: Seconds) -> Bool { crosstalk.contains { abs($0.start - t) < 0.05 || abs($0.end - t) < 0.05 } }
+        for clip in timeline.tracks[v].clips where clip.content.assetID != nil && clip.role != .graphic && clip.isEnabled {
+            var head: Seconds = 0, tail: Seconds = 0
+            if let w = insideWord(clip.sourceOut), !isCrosstalkEdge(clip.sourceOut) {
+                result.count += 1
+                let delta = w.end + 0.04 - clip.sourceOut
+                if delta <= 0.4 { tail = delta }
+            }
+            if let w = insideWord(clip.sourceIn), !isCrosstalkEdge(clip.sourceIn) {
+                result.count += 1
+                let delta = clip.sourceIn - (w.start - 0.04)
+                if delta <= 0.4, clip.sourceIn - delta >= 0 { head = delta }
+            }
+            if head > 0 || tail > 0 { result.fixable.append(.init(clipID: clip.id, clipEnd: clip.end, head: head, tail: tail)) }
+        }
+        return result
+    }
+
+    /// Lengthens a piece (and the pieces linked to it) at its head and/or tail by reading more of the source,
+    /// and moves everything on every track that starts at or after its old end along to make room. Returns
+    /// false when the extra source isn't free (the next piece already uses it).
+    @discardableResult
+    static func rippleExtend(_ timeline: inout Timeline, clipID: UUID, head: Seconds, tail: Seconds) -> Bool {
+        guard head > 0 || tail > 0 else { return false }
+        var location: (track: Int, clip: Int)?
+        for t in timeline.tracks.indices {
+            if let c = timeline.tracks[t].clips.firstIndex(where: { $0.id == clipID }) { location = (t, c); break }
+        }
+        guard let location else { return false }
+        let ti = location.track, ci = location.clip
+        let clip = timeline.tracks[ti].clips[ci]
+        let oldEnd = clip.end
+        // The source we'd add must not be in the neighbouring pieces on this track.
+        let neighbours = timeline.tracks[ti].clips.filter { $0.id != clipID && $0.content.assetID == clip.content.assetID && $0.role != .graphic }
+        let wanted = TimeRange(start: clip.sourceIn - head, end: clip.sourceOut + tail)
+        if neighbours.contains(where: { $0.sourceRange.overlaps(wanted) && !$0.sourceRange.overlaps(clip.sourceRange) }) { return false }
+        let delta = (head + tail) / max(clip.speed, 0.01)
+        let group = clip.linkGroup
+        for t in timeline.tracks.indices {
+            for c in timeline.tracks[t].clips.indices {
+                let other = timeline.tracks[t].clips[c]
+                if other.id == clipID || (group != nil && other.linkGroup == group && other.content.assetID == clip.content.assetID
+                                          && abs(other.sourceIn - clip.sourceIn) < 0.02 && abs(other.sourceDuration - clip.sourceDuration) < 0.02) {
+                    timeline.tracks[t].clips[c].sourceIn -= head
+                    timeline.tracks[t].clips[c].sourceDuration += head + tail
+                    if head > 0 { timeline.tracks[t].clips[c].transform.zoom.shiftKeyframes(by: head / max(clip.speed, 0.01)) }
+                } else if other.start >= oldEnd - TimeRange.epsilon {
+                    timeline.tracks[t].clips[c].start += delta
+                }
+            }
+            timeline.tracks[t].sortClips()
+        }
+        return true
+    }
+
+    /// Closes every black gap on the main track by rippling later clips back. Returns gaps closed.
+    @discardableResult
+    public static func closeGaps(_ timeline: inout Timeline) -> Int {
+        guard let v = timeline.tracks.firstIndex(where: { $0.kind == .video }) else { return 0 }
+        let gaps = blackGaps(in: timeline.tracks[v].clips)
+        for gap in gaps.sorted(by: { $0.start > $1.start }) { timeline.rippleDelete(range: gap) }
+        return gaps.count
+    }
+
     static func blackGaps(in clips: [TimelineClip]) -> [TimeRange] {
         let sorted = clips.filter(\.isEnabled).sorted { $0.start < $1.start }
         var gaps: [TimeRange] = []
