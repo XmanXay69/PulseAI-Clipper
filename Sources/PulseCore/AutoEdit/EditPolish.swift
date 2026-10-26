@@ -212,8 +212,19 @@ public enum EditPolish {
                                 start: at + 1.2, sourceDuration: length - 1.4, aiGenerated: true)
         more.transform.positionX = AnimatedDouble(0.27)
         more.transform.positionY = AnimatedDouble(0.56)
-        timeline.tracks[t].clips.append(contentsOf: [thanks, more])
+        timeline.tracks[t].clips.append(thanks)
         timeline.tracks[t].sortClips()
+        // Two lines on screen at once need two text tracks (clips on one track never overlap).
+        let second: Int
+        if let other = timeline.tracks.indices.first(where: { timeline.tracks[$0].kind == .text && $0 != t
+            && !timeline.tracks[$0].clips.contains { $0.timelineRange.overlaps(more.timelineRange) } }) {
+            second = other
+        } else {
+            timeline.tracks.append(Track(kind: .text, name: "T\(timeline.tracks.filter { $0.kind == .text }.count + 1) Titles"))
+            second = timeline.tracks.count - 1
+        }
+        timeline.tracks[second].clips.append(more)
+        timeline.tracks[second].sortClips()
     }
 }
 
@@ -433,6 +444,8 @@ public enum EditQualityCheck {
         guard let location else { return false }
         let ti = location.track, ci = location.clip
         let clip = timeline.tracks[ti].clips[ci]
+        let head = min(head, clip.sourceIn)   // never read before the start of the file
+        guard head > 0 || tail > 0 else { return false }
         let oldEnd = clip.end
         // The source we'd add must not be in the neighbouring pieces on this track.
         let neighbours = timeline.tracks[ti].clips.filter { $0.id != clipID && $0.content.assetID == clip.content.assetID && $0.role != .graphic }

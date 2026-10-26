@@ -507,7 +507,9 @@ public enum InstantReplay {
             let cutSource = min(payoff + 2, holder.sourceOut - 0.5)
             guard cutSource > holder.sourceIn + 0.5 else { continue }
             let at = holder.timelineTime(atSource: cutSource)
-            // Make room on every track.
+            // Make room on every track. Right halves get a fresh link group (shared across tracks), so a link
+            // group still means exactly one piece per track.
+            var freshGroups: [UUID: UUID] = [:]
             for ti in timeline.tracks.indices {
                 timeline.tracks[ti].clips = timeline.tracks[ti].clips.flatMap { clip -> [TimelineClip] in
                     if clip.start >= at - TimeRange.epsilon {
@@ -516,7 +518,11 @@ public enum InstantReplay {
                         return [moved]
                     }
                     guard clip.end > at + TimeRange.epsilon, clip.content.assetID != nil else { return [clip] }
-                    let (left, right) = Timeline.splitClip(clip, at: at, rightLinkGroup: clip.linkGroup)
+                    var rightGroup: UUID?
+                    if let g = clip.linkGroup {
+                        if let fresh = freshGroups[g] { rightGroup = fresh } else { let fresh = UUID(); freshGroups[g] = fresh; rightGroup = fresh }
+                    }
+                    let (left, right) = Timeline.splitClip(clip, at: at, rightLinkGroup: rightGroup)
                     var movedRight = right
                     movedRight.start += length
                     return [left, movedRight]
