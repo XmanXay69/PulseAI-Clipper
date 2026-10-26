@@ -61,7 +61,7 @@ extension ProjectSession {
                 var beds: [MediaAsset] = []
                 // Real Creative Commons tracks from YouTube when allowed; the built-in calm beds otherwise.
                 if self.app.settings.ai.onlineMusic {
-                    let found = await self.onlineMusicBeds(tags: tags, count: min(result.musicChapters.count, 4), job: job)
+                    let found = await self.onlineMusicBeds(tags: tags, chapterTags: result.chapterTags, count: min(result.musicChapters.count, 4), job: job)
                     beds = found.assets
                     newAssets += found.assets.filter { a in !self.document.media.contains { $0.id == a.id } }
                     if !found.tracks.isEmpty {
@@ -177,16 +177,33 @@ extension ProjectSession {
     }
 
     /// Creative Commons tracks for the edit, imported as project media.
-    func onlineMusicBeds(tags: [ClipTag], count: Int, job: BackgroundJob) async -> (assets: [MediaAsset], tracks: [OnlineTrack]) {
+    func onlineMusicBeds(tags: [ClipTag], chapterTags: [[ClipTag]] = [], count: Int, job: BackgroundJob) async -> (assets: [MediaAsset], tracks: [OnlineTrack]) {
         job.detail = "Finding Creative Commons music"
-        let tracks: [OnlineTrack]
-        do {
-            tracks = try await OnlineMusicLibrary.shared.tracks(for: tags, count: max(1, count)) { status in
-                Task { @MainActor in job.detail = status }
+        var tracks: [OnlineTrack] = []
+        // One bed per chapter, chosen for that chapter's mood (a fight gets driving music, a story gets ambient),
+        // never the same track twice; the whole-stream mood fills in for chapters with no clear one.
+        let perChapter = chapterTags.prefix(count).map { $0.isEmpty ? tags : $0 }
+        if perChapter.count >= 2 {
+            var used = Set<String>()
+            for (i, chapterTag) in perChapter.enumerated() {
+                job.detail = "Finding music for chapter \(i + 1) of \(perChapter.count)"
+                if let track = try? await OnlineMusicLibrary.shared.tracks(for: chapterTag, count: 1, avoiding: used, progress: { status in
+                    Task { @MainActor in job.detail = status }
+                }).first {
+                    tracks.append(track)
+                    used.insert(track.videoID)
+                }
             }
-        } catch {
-            PulseLog.warning("Online music unavailable, using built-in beds: \(error.localizedDescription)")
-            return ([], [])
+        }
+        if tracks.isEmpty {
+            do {
+                tracks = try await OnlineMusicLibrary.shared.tracks(for: tags, count: max(1, count)) { status in
+                    Task { @MainActor in job.detail = status }
+                }
+            } catch {
+                PulseLog.warning("Online music unavailable, using built-in beds: \(error.localizedDescription)")
+                return ([], [])
+            }
         }
         var assets: [MediaAsset] = []
         var used: [OnlineTrack] = []

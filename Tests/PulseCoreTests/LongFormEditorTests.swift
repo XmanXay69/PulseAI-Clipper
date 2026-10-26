@@ -73,6 +73,8 @@ final class LongFormEditorTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(Double(onSentence.count), Double(extra.segments.count) * 0.8,
                                     "\(onSentence.count) of \(extra.segments.count) sections start a sentence")
         XCTAssertGreaterThanOrEqual(extra.timeline.duration, 8 * 60, extra.report)
+        XCTAssertEqual(extra.chapterTags.count, extra.musicChapters.count, "one mood per music chapter")
+        XCTAssertTrue(extra.chapterTags.contains { !$0.isEmpty })
     }
 
     func testBuildsATenToTwentyMinuteEditWithAHookAndRestrainedEffects() throws {

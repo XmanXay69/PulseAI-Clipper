@@ -25,12 +25,14 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
     public var extras = EditExtras()
     /// Cut hesitations ("um", "uh") and stumbles out of the story (off by default: word timing isn't perfect).
     public var tighten = false
+    /// How eagerly pauses are cut (a reference style overrides it).
+    public var deadAir: SilencePreset = .balanced
 
     /// Seconds between reaction zooms / meme pop-ups / transition whooshes.
     public var zoomSpacing: Seconds { style?.zoomSpacing ?? restraint.zoomSpacing }
     public var memeSpacing: Seconds { style?.memeSpacing ?? restraint.memeSpacing }
     public var whooshSpacing: Seconds { style?.whooshSpacing ?? restraint.whooshSpacing }
-    public var silencePreset: SilencePreset { style?.silence ?? .balanced }
+    public var silencePreset: SilencePreset { style?.silence ?? deadAir }
 
     public enum Restraint: String, Codable, CaseIterable, Sendable {
         case subtle, balanced, energetic
@@ -132,6 +134,8 @@ public struct LongFormResult: Sendable {
     public var checks = EditCheckReport()
     /// Where B-roll cutaways would go (only when the B-roll extra is on; the app downloads and places them).
     public var brollMoments: [BrollPlacer.Moment] = []
+    /// The mood of each music chapter (tags of the moments inside it), so each chapter's bed can match it.
+    public var chapterTags: [[ClipTag]] = []
 }
 
 /// Builds a YouTube-style edit from a long recording: cuts the dead time, keeps the funniest and most
@@ -552,6 +556,10 @@ public enum LongFormEditor {
         timeline.modifiedAt = Date()
 
         let chapters = options.music ? musicChapters(for: timeline, hookEnd: hookEnd) : []
+        let chapterTags: [[ClipTag]] = chapters.map { chapter in
+            segments.filter { s in starts[segments.firstIndex(of: s) ?? 0].map { chapter.contains($0) || chapter.contains(timelineTime(ofSource: s.payoff) ?? -1) } ?? false }
+                .flatMap(\.tags)
+        }
         let broll = options.extras.brollClips
             ? BrollPlacer.moments(segments: segments, timelineTime: timelineTime(ofSource:), hookEnd: hookEnd, duration: timeline.duration) : []
         var parts = ["\(segments.count) moments", "\(Timecode.short(timeline.duration)) long"]
@@ -574,7 +582,7 @@ public enum LongFormEditor {
         if let style = options.style { parts.append("styled like “\(style.name)”") }
         parts.append(checks.summary.lowercased())
         return LongFormResult(timeline: timeline, segments: segments, report: parts.joined(separator: " · "), musicChapters: chapters,
-                              musicDrops: drops, checks: checks, brollMoments: broll)
+                              musicDrops: drops, checks: checks, brollMoments: broll, chapterTags: chapterTags)
     }
 
     /// 4–7 s around the payoff: a beat of setup, the moment, the first reaction.

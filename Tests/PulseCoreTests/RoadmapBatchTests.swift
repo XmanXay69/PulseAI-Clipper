@@ -206,6 +206,16 @@ final class RoadmapBatchTests: XCTestCase {
         XCTAssertEqual(RetentionCards.text(for: seg, after: prev, index: 0), "THEN THIS HAPPENED…", "no transcript → the stock line")
     }
 
+    func testDeadAirSettingAndChapterMoods() {
+        var options = LongFormOptions()
+        XCTAssertEqual(options.silencePreset, .balanced)
+        options.deadAir = .aggressive
+        XCTAssertEqual(options.silencePreset, .aggressive)
+        options.style = StyleTuning(name: "ref")
+        options.style?.silence = .conservative
+        XCTAssertEqual(options.silencePreset, .conservative, "a reference style wins")
+    }
+
     func testSearchActionKindHasAnIcon() {
         XCTAssertEqual(SearchResultKind.action.symbolName, "command")
         XCTAssertEqual(SearchResultKind.action.displayName, "Action")

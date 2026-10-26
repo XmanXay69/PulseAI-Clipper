@@ -111,6 +111,11 @@ final class ExportQueueController: ObservableObject {
                 if !sidecar.isEmpty {
                     try? sidecar.write(to: url.deletingPathExtension().appendingPathExtension("txt"), atomically: true, encoding: .utf8)
                 }
+                // Captions not burned in → an .srt beside the file for the platform's own subtitles.
+                if !job.settings.burnInCaptions, let captions = payload.timeline.captions, captions.isEnabled {
+                    let srt = CaptionLayoutEngine.srt(track: captions, timeline: payload.timeline)
+                    if !srt.isEmpty { try? srt.write(to: url.deletingPathExtension().appendingPathExtension("srt"), atomically: true, encoding: .utf8) }
+                }
                 // Make sure the file really plays and is the right length before calling it done.
                 let probed = try await MediaProbe.probe(url)
                 let expected = max(payload.timeline.duration, 0.1)

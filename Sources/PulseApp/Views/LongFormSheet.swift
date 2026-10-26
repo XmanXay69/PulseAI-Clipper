@@ -17,6 +17,7 @@ struct LongFormSheet: View {
     @AppStorage("longForm.music") private var music = true
     @AppStorage("longForm.restraint") private var restraint = LongFormOptions.Restraint.balanced.rawValue
     @AppStorage("longForm.tighten") private var tighten = false
+    @AppStorage("longForm.deadAir") private var deadAir = SilencePreset.balanced.rawValue
     @State private var choosing = false
     /// The extras question is showing (asked before anything is built).
     @State private var askingExtras = false
@@ -32,6 +33,7 @@ struct LongFormSheet: View {
                                       restraint: LongFormOptions.Restraint(rawValue: restraint) ?? .balanced)
         options.extras = extras ?? EditExtras()
         options.tighten = tighten
+        options.deadAir = SilencePreset(rawValue: deadAir) ?? .balanced
         return options
     }
 
@@ -91,6 +93,7 @@ struct LongFormSheet: View {
                     lengthSection
                     touchesSection
                     styleSection
+                    deadAirSection
                     whatHappens
                 }
                 .padding(20)
@@ -179,6 +182,28 @@ struct LongFormSheet: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             Text(restraintNote).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+        }
+    }
+
+    var deadAirSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel(text: "Dead air")
+            Picker("", selection: $deadAir) {
+                Text("Light").tag(SilencePreset.conservative.rawValue)
+                Text("Normal").tag(SilencePreset.balanced.rawValue)
+                Text("Tight").tag(SilencePreset.aggressive.rawValue)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            Text(deadAirNote).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+        }
+    }
+
+    var deadAirNote: String {
+        switch SilencePreset(rawValue: deadAir) ?? .balanced {
+        case .conservative: return "Only pauses over 1.2 s go — the most natural rhythm."
+        case .balanced: return "Recommended. Pauses over 0.7 s are cut; breaths stay."
+        case .aggressive: return "Pauses over 0.4 s are cut — fast, YouTube-essay pacing."
         }
     }
 

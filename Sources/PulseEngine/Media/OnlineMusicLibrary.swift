@@ -35,7 +35,7 @@ public actor OnlineMusicLibrary {
 
     /// `count` tracks for the mood: new downloads first (variety), topped up from the library. Throws only
     /// when nothing at all could be found or downloaded.
-    public func tracks(for tags: [ClipTag], count: Int, progress: (@Sendable (String) -> Void)? = nil) async throws -> [OnlineTrack] {
+    public func tracks(for tags: [ClipTag], count: Int, avoiding: Set<String> = [], progress: (@Sendable (String) -> Void)? = nil) async throws -> [OnlineTrack] {
         let (mood, queries) = MusicPicker.queries(for: tags)
         var chosen: [OnlineTrack] = []
         var candidates: [VideoSearchResult] = []
@@ -50,7 +50,7 @@ public actor OnlineMusicLibrary {
             }
         }
         let known = Set(downloaded.map(\.videoID))
-        for result in MusicPicker.rank(candidates, count: count * 4 + 2) where chosen.count < count {
+        for result in MusicPicker.rank(candidates, count: count * 4 + 2) where chosen.count < count && !avoiding.contains(result.videoID) {
             if known.contains(result.videoID), let existing = downloaded.first(where: { $0.videoID == result.videoID }) {
                 chosen.append(existing)
                 continue
@@ -64,7 +64,7 @@ public actor OnlineMusicLibrary {
         }
         // Offline, or YouTube refused: reuse what's already in the library (same mood first).
         if chosen.count < count {
-            let spare = downloaded.filter { t in !chosen.contains { $0.videoID == t.videoID } }
+            let spare = downloaded.filter { t in !chosen.contains { $0.videoID == t.videoID } && !avoiding.contains(t.videoID) }
                 .sorted { ($0.mood == mood ? 0 : 1, $0.addedAt) < ($1.mood == mood ? 0 : 1, $1.addedAt) }
             chosen += spare.prefix(count - chosen.count)
         }
