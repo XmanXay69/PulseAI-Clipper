@@ -95,11 +95,7 @@ struct TimelineToolbar: View {
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
     }
 
-    func zoomToFit() {
-        guard let t = session.activeTimeline, t.duration > 0 else { return }
-        let width = (NSApp.keyWindow?.frame.width ?? 1400) - TimelineMetrics.headerWidth - 360
-        session.pixelsPerSecond = max(2, min(600, Double(width) / t.duration))
-    }
+    func zoomToFit() { session.zoomTimelineToFit() }
 }
 
 /// Every marker on the timeline: click to jump, rename inline, delete.

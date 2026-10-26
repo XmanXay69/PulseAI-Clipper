@@ -163,6 +163,10 @@ struct PulseCommands: Commands {
             Button("Nudge Left 10 Frames") { app.session?.nudgeSelection(frames: -10) }.keyboardShortcut(",", modifiers: [.option, .shift])
             Button("Nudge Right 10 Frames") { app.session?.nudgeSelection(frames: 10) }.keyboardShortcut(".", modifiers: [.option, .shift])
             Divider()
+            Button("Zoom In") { app.session?.zoomTimeline(by: 1.5) }.keyboardShortcut("=", modifiers: [.command])
+            Button("Zoom Out") { app.session?.zoomTimeline(by: 1 / 1.5) }.keyboardShortcut("-", modifiers: [.command])
+            Button("Zoom to Fit") { app.session?.zoomTimelineToFit() }.keyboardShortcut("z", modifiers: [.shift])
+            Divider()
             Button("Add Text") { app.session?.addText() }.keyboardShortcut("t", modifiers: [.command, .option])
             Divider()
             Button("New Compound Clip") { app.session?.createCompoundClip() }

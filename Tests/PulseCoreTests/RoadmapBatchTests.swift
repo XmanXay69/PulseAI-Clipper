@@ -244,6 +244,26 @@ final class RoadmapBatchTests: XCTestCase {
         XCTAssertFalse(candidate.title.isEmpty)
     }
 
+    func testChapterMusicCrossfadesOnTwoTracks() {
+        var t = Timeline(name: "t", canvas: .landscape1080, tracks: [Track(kind: .video, name: "V1"), Track(kind: .audio, name: "A1"), Track(kind: .audio, name: "A2 Music"), Track(kind: .audio, name: "A3 SFX")])
+        t.tracks[0].clips = [TimelineClip(name: "v", content: .media(assetID: asset), start: 0, sourceDuration: 600)]
+        let bed = MediaAsset(name: "bed", path: "/tmp/bed.m4a", kind: .audio, role: .music, metadata: MediaMetadata(duration: 400, hasAudio: true))
+        LongFormEditor.addMusic([bed], chapters: [TimeRange(start: 5, end: 200), TimeRange(start: 200, end: 400), TimeRange(start: 400, end: 600)], to: &t)
+        let a2 = t.tracks.first { $0.name == "A2 Music" }!.clips, a2b = t.tracks.first { $0.name == "A2b Music" }!.clips
+        XCTAssertEqual(a2.count, 2, "chapters 1 and 3")
+        XCTAssertEqual(a2b.count, 1, "chapter 2 on the second music track")
+        XCTAssertEqual(a2[0].end, 201.5, accuracy: 0.001, "runs 1.5 s into the next chapter")
+        XCTAssertEqual(a2b[0].start, 198.5, accuracy: 0.001, "starts 1.5 s early — a 3 s crossfade")
+        XCTAssertEqual(a2b[0].audio.fadeIn, LongFormEditor.musicCrossfade)
+        XCTAssertEqual(a2[0].audio.fadeOut, LongFormEditor.musicCrossfade)
+        XCTAssertEqual(a2[1].audio.fadeOut, 3, "the last chapter fades out on its own")
+        XCTAssertEqual(t.tracks.first { $0.name == "A3 SFX" }!.name, "A3 SFX", "the effects track is still there")
+        // Running it again replaces instead of stacking.
+        LongFormEditor.addMusic([bed], chapters: [TimeRange(start: 5, end: 300), TimeRange(start: 300, end: 600)], to: &t)
+        XCTAssertEqual(t.tracks.filter { $0.name.hasPrefix("A2") }.count, 2)
+        XCTAssertEqual(t.tracks.flatMap(\.clips).filter { $0.role == .music }.count, 2)
+    }
+
     func testSearchActionKindHasAnIcon() {
         XCTAssertEqual(SearchResultKind.action.symbolName, "command")
         XCTAssertEqual(SearchResultKind.action.displayName, "Action")

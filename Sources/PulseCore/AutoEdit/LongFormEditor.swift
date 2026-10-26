@@ -653,16 +653,37 @@ public enum LongFormEditor {
     /// Music sits about 22 dB under the (−14 LUFS) dialogue before ducking.
     public static let musicLevel = 0.08
 
+    /// How long one chapter's music overlaps the next (a crossfade instead of a fade out, a gap, a fade in).
+    public static let musicCrossfade: Seconds = 3
+
     public static func addMusic(_ beds: [MediaAsset], chapters: [TimeRange], to timeline: inout Timeline, drops: [Seconds] = []) {
         guard let ti = timeline.tracks.firstIndex(where: { $0.name.hasPrefix("A2") }), !beds.isEmpty else { return }
         timeline.tracks[ti].clips.removeAll { $0.role == .music && $0.aiGenerated }
+        // Chapters alternate between two music tracks so neighbouring chapters can overlap and crossfade.
+        var second: Int?
+        if chapters.count > 1 {
+            if let existing = timeline.tracks.firstIndex(where: { $0.kind == .audio && $0.name.hasPrefix("A2b") }) {
+                second = existing
+                timeline.tracks[existing].clips.removeAll { $0.role == .music && $0.aiGenerated }
+            } else {
+                timeline.tracks.insert(Track(kind: .audio, name: "A2b Music"), at: ti + 1)
+                second = ti + 1
+            }
+        }
+        let overlap = musicCrossfade
         for (index, range) in chapters.enumerated() {
+            let track = index % 2 == 1 ? (second ?? ti) : ti
             // Fewer tracks than chapters: cycle; a track shorter than its chapter repeats.
             let bed = beds[index % beds.count]
             let length = bed.metadata.duration > 3 ? bed.metadata.duration : range.duration
-            var t = range.start
-            while range.end - t > 1 {
-                let piece = min(length, range.end - t)
+            // Start early / run late by half the crossfade so the two beds meet in the middle.
+            let start = index == 0 ? range.start : max(0, range.start - overlap / 2)
+            var end = index == chapters.count - 1 ? range.end : min(timeline.duration, range.end + overlap / 2)
+            // A bed that covers the chapter in one piece never gets a sliver tacked on for the overlap.
+            if length >= range.duration { end = min(end, start + length) }
+            var t = start
+            while end - t > 1 {
+                let piece = min(length, end - t)
                 var clip = TimelineClip(name: bed.name, content: .media(assetID: bed.id), start: t, sourceDuration: piece, role: .music, aiGenerated: true)
                 // A bed, not a feature: leveled first (so loud and quiet tracks sit the same), then well under
                 // the voice and ducked further while anyone talks.
@@ -670,13 +691,14 @@ public enum LongFormEditor {
                 clip.audio.volume = AnimatedDouble(musicLevel)
                 clip.audio.duckUnderDialogue = true
                 clip.audio.duckAmountDB = -14
-                clip.audio.fadeIn = t == range.start ? 2.5 : 1
-                clip.audio.fadeOut = t + piece >= range.end - 1 ? 3 : 1
-                timeline.tracks[ti].clips.append(clip)
+                clip.audio.fadeIn = t == start ? (index == 0 ? 2.5 : overlap) : 1
+                clip.audio.fadeOut = t + piece >= end - 1 ? (index == chapters.count - 1 ? 3 : overlap) : 1
+                timeline.tracks[track].clips.append(clip)
                 t += piece
             }
         }
         timeline.tracks[ti].sortClips()
+        if let second { timeline.tracks[second].sortClips() }
         EditPolish.musicDrops(&timeline, at: drops)
     }
 

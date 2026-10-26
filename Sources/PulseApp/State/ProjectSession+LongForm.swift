@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import PulseCore
 import PulseEngine
@@ -74,7 +75,8 @@ extension ProjectSession {
                     if job.state != .running { return }
                     let sound = SoundLibrary.backgroundMusic(seed: i)
                     job.detail = "Composing music \(i + 1) of \(result.musicChapters.count) (\(sound.name))"
-                    let prepared = try await self.prepareLibrarySound(sound, duration: max(3, chapter.duration))
+                    // Composed a little longer than the chapter so neighbouring chapters can crossfade.
+                    let prepared = try await self.prepareLibrarySound(sound, duration: max(3, chapter.duration + LongFormEditor.musicCrossfade))
                     beds.append(prepared.asset)
                     if prepared.isNew { newAssets.append(prepared.asset) }
                     job.progress = 0.3 + 0.65 * Double(i + 1) / Double(result.musicChapters.count)
@@ -262,6 +264,17 @@ extension ProjectSession {
         let candidate = ClipGenerator.candidate(for: range, analysis: analysis, settings: settings)
         edit("Short from Selection") { $0.candidates.insert(candidate, at: 0) }
         _ = createShort(from: candidate.id)
+    }
+
+    /// Timeline → Zoom In / Out / to Fit.
+    func zoomTimeline(by factor: Double) {
+        pixelsPerSecond = min(600, max(2, pixelsPerSecond * factor))
+    }
+
+    func zoomTimelineToFit() {
+        guard let t = activeTimeline, t.duration > 0 else { return }
+        let width = (NSApp.keyWindow?.frame.width ?? 1400) - TimelineMetrics.headerWidth - 360
+        pixelsPerSecond = max(2, min(600, Double(width) / t.duration))
     }
 
     /// Timeline → Nudge (, and .): move the selected clips by whole frames (⇧ for ten).
