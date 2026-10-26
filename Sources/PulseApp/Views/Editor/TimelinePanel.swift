@@ -860,6 +860,16 @@ struct TrackLane: View {
     /// Only clips overlapping this stretch (seconds) are built.
     let window: ClosedRange<Double>
 
+    /// This lane's top edge in content coordinates (ruler + the lanes above it).
+    var laneTop: CGFloat {
+        var y = TimelineMetrics.rulerHeight
+        for t in session.activeTimeline?.tracks ?? [] {
+            if t.id == track.id { break }
+            y += TimelineMetrics.laneHeight(t.kind)
+        }
+        return y
+    }
+
     var body: some View {
         ZStack(alignment: .topLeading) {
             Rectangle()
@@ -874,11 +884,13 @@ struct TrackLane: View {
                     session.placeAsset(id, at: max(0, Double(location.x / pps)), trackID: track.id)
                     return true
                 }
-                // Rubber-band selection across tracks (#147).
-                .gesture(DragGesture(minimumDistance: 6, coordinateSpace: .named("timelineScroll"))
+                // Rubber-band selection across tracks (#147). The lane's own coordinates run the full content
+                // width, so x is already a content x; y is offset by the lane's top.
+                .gesture(DragGesture(minimumDistance: 6, coordinateSpace: .local)
                     .onChanged { value in
                         guard session.tool == .select else { return }
-                        session.marqueeRect = CGRect(x: min(value.startLocation.x, value.location.x), y: min(value.startLocation.y, value.location.y),
+                        let top = laneTop
+                        session.marqueeRect = CGRect(x: min(value.startLocation.x, value.location.x), y: top + min(value.startLocation.y, value.location.y),
                                                      width: abs(value.translation.width), height: abs(value.translation.height))
                     }
                     .onEnded { value in

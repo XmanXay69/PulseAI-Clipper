@@ -5,7 +5,7 @@ import Foundation
 /// A red dot and the elapsed time in the menu bar while PULSE records (#321), with Stop and Pause in its
 /// menu — so a recording stays visible with PULSE behind the game.
 @MainActor
-final class RecordingStatusItem {
+final class RecordingStatusItem: NSObject {
     private let recording: RecordingController
     private weak var app: AppModel?
     private var item: NSStatusItem?
@@ -16,6 +16,7 @@ final class RecordingStatusItem {
     init(recording: RecordingController, app: AppModel) {
         self.recording = recording
         self.app = app
+        super.init()
         let stop = NSMenuItem(title: "Stop Recording", action: #selector(RecordingStatusItem.stop), keyEquivalent: "")
         stop.target = self
         pauseItem.target = self
