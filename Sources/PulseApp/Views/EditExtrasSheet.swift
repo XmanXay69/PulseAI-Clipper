@@ -45,6 +45,7 @@ struct EditExtrasSheet: View {
                     row("Speaker-aware cuts", "person.2.wave.2", speakerDetail, \.speakerAware)
                     row("Retention title cards", "text.badge.star", "Short “THEN THIS HAPPENED…” or “20 MINUTES LATER…” cards where the video jumps ahead.",
                         \.titleCards)
+                    row("Instant replays", "arrow.counterclockwise.circle", replayDetail, \.instantReplays)
                     if offerApproveCut {
                         SectionLabel(text: "Before building").padding(.top, 10)
                         row("Approve the cut", "checklist", "Review every section first: preview it, keep or drop it, move its start and end. Nothing is built until you approve.",
@@ -89,6 +90,13 @@ struct EditExtrasSheet: View {
             ? base : base + " No facecam was found in this video, so it won't change anything here."
     }
 
+    var replayDetail: String {
+        let base = "The biggest plays again in slow motion right after they land, with a “REPLAY” tag and a whoosh."
+        guard let analysis else { return base + " Gameplay videos only." }
+        return analysis.profile == .gameplay || analysis.profile == .gameplayWithFacecam
+            ? base : base + " This video isn't gameplay, so it won't change anything here."
+    }
+
     var speakerDetail: String {
         let base = "Sections start and end on whole sentences — nobody gets cut off mid-thought."
         let labelled = analysis?.transcript?.words.contains { $0.speaker != nil } ?? false
@@ -116,7 +124,8 @@ struct EditExtrasSheet: View {
 
     func describe(_ e: EditExtras) -> String {
         let on = [("facecam", e.facecamPunchIns), ("b-roll", e.brollClips), ("beat sync", e.beatSync), ("speaker-aware", e.speakerAware),
-                  ("approve cut", e.approveCut), ("title cards", e.titleCards), ("loudness check", e.loudnessCheck)].filter { $0.1 }.map { $0.0 }
+                  ("approve cut", e.approveCut), ("title cards", e.titleCards), ("loudness check", e.loudnessCheck),
+                  ("instant replays", e.instantReplays)].filter { $0.1 }.map { $0.0 }
         return on.isEmpty ? "none" : on.joined(separator: ", ")
     }
 }

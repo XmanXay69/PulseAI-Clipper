@@ -193,6 +193,129 @@ final class EditExtrasTests: XCTestCase {
         XCTAssertTrue(BrollPlacer.creditBlock([OnlineTrack(videoID: "x", title: "Bruh", channel: "Memes", duration: 6, mood: "b")]).contains("youtube.com/watch?v=x"))
     }
 
+    // MARK: Instant replay
+
+    func testReplayPlaysTheMomentAgainInSlowMotionAndKeepsTheStoryInSync() {
+        var t = Timeline(name: "t", canvas: .landscape1080, tracks: [Track(kind: .video, name: "V1"), Track(kind: .text, name: "T1"), Track(kind: .audio, name: "A1")])
+        let group = UUID()
+        t.tracks[0].clips = [TimelineClip(name: "p", content: .media(assetID: asset), start: 5, sourceIn: 100, sourceDuration: 60, linkGroup: group, role: .gameplay),
+                             TimelineClip(name: "q", content: .media(assetID: asset), start: 65, sourceIn: 300, sourceDuration: 30, role: .gameplay)]
+        t.tracks[2].clips = [TimelineClip(name: "p", content: .media(assetID: asset), start: 5, sourceIn: 100, sourceDuration: 60, linkGroup: group, role: .microphone),
+                             TimelineClip(name: "q", content: .media(assetID: asset), start: 65, sourceIn: 300, sourceDuration: 30, role: .microphone)]
+        let whoosh = MediaAsset(name: "Whoosh", path: "/tmp/w.m4a", kind: .audio, role: .soundEffect, metadata: MediaMetadata(duration: 1, hasAudio: true))
+        // The play is at source 130 (timeline 35); the replay goes in 2 s later.
+        XCTAssertEqual(InstantReplay.apply(&t, at: [130], assetID: asset, whoosh: whoosh, hookEnd: 5), 1)
+        let video = t.tracks[0].clips
+        XCTAssertEqual(video.count, 4)
+        XCTAssertEqual(video[0].sourceRange, TimeRange(start: 100, end: 132))
+        let replay = video[1]
+        XCTAssertEqual(replay.name, "Replay")
+        XCTAssertEqual(replay.start, 37, accuracy: 0.001)
+        XCTAssertEqual(replay.speed, 0.5)
+        XCTAssertEqual(replay.sourceRange, TimeRange(start: 130 - InstantReplay.before, end: 131))
+        XCTAssertEqual(replay.duration, InstantReplay.length, accuracy: 0.001)
+        // The story resumes exactly where it left off, on both tracks, and the next piece moved along.
+        XCTAssertEqual(video[2].sourceIn, 132, accuracy: 0.001)
+        XCTAssertEqual(video[2].start, 37 + InstantReplay.length, accuracy: 0.001)
+        XCTAssertEqual(video[3].start, 65 + InstantReplay.length, accuracy: 0.001)
+        let audio = t.tracks[2].clips.filter { $0.role == .microphone }
+        XCTAssertEqual(audio.count, 3, "dialogue split at the same point, no dialogue under the replay")
+        XCTAssertEqual(audio[1].start, 37 + InstantReplay.length, accuracy: 0.001)
+        XCTAssertEqual(audio[1].sourceIn, 132, accuracy: 0.001)
+        XCTAssertTrue(t.tracks[1].clips.contains { $0.name == "Replay Tag" && abs($0.start - 37.15) < 0.01 })
+        XCTAssertTrue(t.allClips.contains { $0.role == .soundEffect && abs($0.start - 36.95) < 0.01 }, "whoosh into the replay")
+        // Captions don't repeat during the replay.
+        var captions = CaptionTrack(sourceAssetID: asset, words: [CaptionWord(text: "go", start: 129, end: 129.5)], style: .youtube)
+        captions.words += [CaptionWord(text: "later", start: 133, end: 133.5)]
+        let shown = CaptionLayoutEngine.timelineWords(captions, in: t)
+        XCTAssertEqual(shown.count, 2)
+        XCTAssertEqual(shown.map(\.text), ["go", "later"])
+    }
+
+    func testReplaysOnlyForGameplayAndSpacedOut() {
+        var segments: [LongFormSegment] = []
+        for i in 0..<6 {
+            let start = Double(i) * 200
+            segments.append(LongFormSegment(range: TimeRange(start: start, end: start + 60), payoff: start + 30, potential: 80 + i, title: "", tags: [.gaming, .hype]))
+        }
+        XCTAssertTrue(InstantReplay.plan(segments: segments, profile: .talkingHead, hookPayoff: nil, duration: 1200).isEmpty)
+        let plays = InstantReplay.plan(segments: segments, profile: .gameplay, hookPayoff: 1030, duration: 1200)
+        XCTAssertEqual(plays.count, 3)
+        XCTAssertFalse(plays.contains(1030), "the hook's moment isn't replayed again")
+        XCTAssertTrue(zip(plays.dropFirst(), plays).allSatisfy { $0 - $1 >= 180 })
+        XCTAssertEqual(InstantReplay.plan(segments: segments, profile: .gameplay, hookPayoff: nil, duration: 300).count, 1)
+    }
+
+    // MARK: Push-ins, music continuity, B-roll vs memes
+
+    func testLongStaticPiecesGetASlowPushIn() {
+        var t = Timeline(name: "t", canvas: .landscape1080, tracks: [Track(kind: .video, name: "V1")])
+        var zoomed = TimelineClip(name: "z", content: .media(assetID: asset), start: 30, sourceDuration: 40)
+        zoomed.transform.zoom.setKeyframe(at: 5, value: 1.16, aiGenerated: true)
+        t.tracks[0].clips = [TimelineClip(name: "long", content: .media(assetID: asset), start: 0, sourceDuration: 30),
+                             zoomed,
+                             TimelineClip(name: "short", content: .media(assetID: asset), start: 70, sourceDuration: 8)]
+        XCTAssertEqual(EditPolish.breathingZooms(&t, from: 0), 1, "only the long piece without a zoom of its own")
+        let z = t.tracks[0].clips[0].transform.zoom
+        XCTAssertEqual(z.value(at: 0), 1, accuracy: 1e-9)
+        XCTAssertEqual(z.value(at: 15), 1.02, accuracy: 1e-6)
+        XCTAssertEqual(z.value(at: 30), 1.04, accuracy: 1e-6)
+        XCTAssertEqual(EditPolish.breathingZooms(&t, from: 0), 0, "not twice")
+    }
+
+    func testAlignedMusicKeepsPlayingToTheEndOfItsChapter() {
+        let music = UUID()
+        var t = Timeline(name: "t", canvas: .landscape1080, tracks: [Track(kind: .audio, name: "A2 Music")])
+        var piece = TimelineClip(name: "m", content: .media(assetID: music), start: 10, sourceDuration: 120, role: .music)
+        piece.audio.volume = AnimatedDouble(0.08)
+        piece.audio.fadeIn = 2.5
+        piece.audio.fadeOut = 3
+        t.tracks[0].clips = [piece]
+        let grid = stride(from: 1.3, to: 120, by: 0.5).map { $0 }
+        XCTAssertEqual(BeatSync.alignMusic(&t, beats: [music: grid], durations: [music: 120]), 1)
+        let clips = t.tracks[0].clips
+        XCTAssertEqual(clips.count, 2, "the part that no longer fits continues from the top of the track")
+        XCTAssertEqual(clips[0].sourceIn, 1.3, accuracy: 0.001)
+        XCTAssertEqual(clips[0].sourceDuration, 118.7, accuracy: 0.001)
+        XCTAssertEqual(clips[1].start, clips[0].end, accuracy: 0.001)
+        XCTAssertEqual(clips[1].sourceIn, 0)
+        XCTAssertEqual(clips[1].sourceDuration, 1.3, accuracy: 0.001)
+        XCTAssertEqual(clips[1].end, 130, accuracy: 0.001, "music still ends where the chapter ends")
+        XCTAssertEqual(clips[1].audio.volume.value, 0.08)
+        XCTAssertEqual(clips[1].audio.fadeOut, 3)
+    }
+
+    func testBrollEndsBeforeAReplayOfTheSameMoment() {
+        var t = Timeline(name: "t", canvas: .landscape1080, tracks: [Track(kind: .video, name: "V1 Stream"), Track(kind: .text, name: "T1"), Track(kind: .audio, name: "A3 SFX")])
+        t.tracks[0].clips = [TimelineClip(name: "v", content: .media(assetID: asset), start: 0, sourceDuration: 32),
+                             TimelineClip(name: "Replay", content: .media(assetID: asset), start: 32, sourceIn: 27.8, sourceDuration: 3.2, speed: 0.5, role: .graphic),
+                             TimelineClip(name: "v", content: .media(assetID: asset), start: 38.4, sourceIn: 32, sourceDuration: 60)]
+        let clip = MediaAsset(name: "bruh", path: "/tmp/bruh.mp4", kind: .video, metadata: MediaMetadata(duration: 6, width: 1280, height: 720, hasVideo: true, hasAudio: true))
+        XCTAssertEqual(BrollPlacer.place(&t, clips: [(clip, 30.4), (clip, 31.6)]), 1)
+        let placed = t.tracks[1].clips[0]
+        XCTAssertEqual(placed.end, 31.9, accuracy: 0.001, "cut away, then straight into the replay")
+    }
+
+    func testBrollTakesTheMomentFromAMemePopUp() {
+        var t = Timeline(name: "t", canvas: .landscape1080, tracks: [
+            Track(kind: .video, name: "V1 Stream"), Track(kind: .text, name: "T1"), Track(kind: .audio, name: "A1"), Track(kind: .audio, name: "A3 SFX"),
+        ])
+        t.tracks[0].clips = [TimelineClip(name: "v", content: .media(assetID: asset), start: 0, sourceDuration: 120)]
+        t.tracks[1].clips = [TimelineClip(name: "Meme: BRUH", content: .text(TextElement(text: "BRUH")), start: 30.1, sourceDuration: 1.3, aiGenerated: true),
+                             TimelineClip(name: "Meme: LOL", content: .text(TextElement(text: "LOL")), start: 80.1, sourceDuration: 1.3, aiGenerated: true),
+                             TimelineClip(name: "Hook Title", content: .text(TextElement(text: "hi")), start: 30.2, sourceDuration: 1, aiGenerated: true)]
+        t.tracks[3].clips = [TimelineClip(name: "Rimshot", content: .media(assetID: UUID()), start: 30.0, sourceDuration: 1, role: .soundEffect, aiGenerated: true)]
+        let clip = MediaAsset(name: "bruh", path: "/tmp/bruh.mp4", kind: .video, metadata: MediaMetadata(duration: 6, width: 1280, height: 720, hasVideo: true, hasAudio: true))
+        XCTAssertEqual(BrollPlacer.place(&t, clips: [(clip, 30.4)]), 1)
+        let texts = t.tracks[2].clips.map(\.name)   // T1 moved to index 2 after the B-roll track went in
+        XCTAssertEqual(t.tracks[2].kind, .text)
+        XCTAssertFalse(texts.contains("Meme: BRUH"), "the cutaway replaces the pop-up on that beat")
+        XCTAssertTrue(texts.contains("Meme: LOL") && texts.contains("Hook Title"), "other text stays")
+        let sfx = t.tracks.first { $0.name == "A3 SFX" }!.clips
+        XCTAssertFalse(sfx.contains { $0.name == "Rimshot" }, "and its sting")
+        XCTAssertTrue(sfx.contains { $0.name.hasPrefix("B-roll") })
+    }
+
     // MARK: Loudness
 
     func testStreamingLoudnessMatchesTheMeter() {

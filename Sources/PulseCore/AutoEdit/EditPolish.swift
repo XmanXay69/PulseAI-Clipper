@@ -65,6 +65,8 @@ public enum EditPolish {
         var previous: TimelineClip?
         for ci in order {
             let clip = timeline.tracks[v].clips[ci]
+            // Replays and cutaways sit between two halves of one piece; the story's framing carries across them.
+            if clip.role == .graphic { continue }
             let newSegment = segmentStarts.contains { abs($0 - clip.start) < 0.05 }
             if newSegment || previous == nil {
                 stepped = false
@@ -80,6 +82,26 @@ public enum EditPolish {
             previous = clip
         }
         return zoomed
+    }
+
+    /// A slow push-in across long stretches with no cut and no zoom of their own (20 s+ of one framing feels
+    /// static): 1.0 → `scale` over the piece, so the frame is always gently moving. Returns pieces pushed.
+    @discardableResult
+    public static func breathingZooms(_ timeline: inout Timeline, from start: Seconds, minimumLength: Seconds = 20, scale: Double = 1.04) -> Int {
+        guard scale > 1.001, let v = timeline.tracks.firstIndex(where: { $0.kind == .video }) else { return 0 }
+        var pushed = 0
+        for ci in timeline.tracks[v].clips.indices {
+            let clip = timeline.tracks[v].clips[ci]
+            guard clip.start >= start - 0.01, clip.duration >= minimumLength, clip.content.assetID != nil, clip.role != .graphic,
+                  !clip.transform.zoom.isAnimated, !clip.transform.panX.isAnimated, !clip.transform.panY.isAnimated else { continue }
+            var zoom = clip.transform.zoom
+            let base = zoom.value
+            zoom.setKeyframe(at: 0, value: base, interpolation: .linear, aiGenerated: true)
+            zoom.setKeyframe(at: clip.duration, value: base * scale, interpolation: .linear, aiGenerated: true)
+            timeline.tracks[v].clips[ci].transform.zoom = zoom
+            pushed += 1
+        }
+        return pushed
     }
 
     // MARK: Boring stretches
@@ -301,7 +323,10 @@ public enum EditQualityCheck {
         if overlaps > 0 { add(.warning, "Overlapping text", "\(overlaps) pop-up\(overlaps == 1 ? "" : "s") overlap another — move or shorten one") }
 
         // 6. Zooms stacked on top of each other.
-        let zoomTimes = timeline.tracks[v].clips.flatMap { c in c.transform.zoom.keyframes.filter(\.aiGenerated).map { c.start + $0.time } }.sorted()
+        // Keyframes at a piece's very edges are slow push-ins / replays settling, not zoom hits.
+        let zoomTimes = timeline.tracks[v].clips.flatMap { c in
+            c.transform.zoom.keyframes.filter { $0.aiGenerated && $0.time > 0.05 && $0.time < c.duration - 0.05 }.map { c.start + $0.time }
+        }.sorted()
         let starts = stride(from: 0, to: zoomTimes.count, by: 1).filter { i in i == 0 || zoomTimes[i] - zoomTimes[i - 1] > 0.6 }.map { zoomTimes[$0] }
         let crowded = zip(starts, starts.dropFirst()).filter { $1 - $0 < 2.5 }.count
         if crowded > 2 { add(.note, "Busy zooms", "\(crowded) zooms land within 2.5 s of the previous one") }

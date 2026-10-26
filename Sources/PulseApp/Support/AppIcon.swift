@@ -332,7 +332,7 @@ enum UISnapshotter {
                 let before = Set(session.document.timelines.map(\.id))
                 var options = LongFormOptions()
                 options.minimumLength = 20
-                options.extras = EditExtras(facecamPunchIns: true, brollClips: true, beatSync: true, speakerAware: true, titleCards: true)
+                options.extras = EditExtras(facecamPunchIns: true, brollClips: true, beatSync: true, speakerAware: true, titleCards: true, instantReplays: true)
                 let started = Date()
                 session.editMyVOD(options: options)
                 while !session.document.timelines.contains(where: { !before.contains($0.id) }) && Date().timeIntervalSince(started) < 180 {
@@ -342,8 +342,9 @@ enum UISnapshotter {
                     let broll = edit.tracks.first { $0.name == "V2 B-roll" }?.clips.count ?? 0
                     let cards = edit.allClips.filter { $0.name == "Title Card" }.count
                     let facecam = edit.tracks.first { $0.kind == .video }?.clips.reduce(0) { $0 + $1.transform.panX.keyframes.filter(\.aiGenerated).count / 4 } ?? 0
-                    FileHandle.standardError.write(Data(String(format: "UI-EXTRAS edit %@ in %.0fs · %ld B-roll · %ld title cards · %ld facecam punch-ins · %@\n",
-                                                               Timecode.short(edit.duration), Date().timeIntervalSince(started), broll, cards, facecam,
+                    let replays = edit.allClips.filter { $0.name == "Replay" }.count
+                    FileHandle.standardError.write(Data(String(format: "UI-EXTRAS edit %@ in %.0fs · %ld B-roll · %ld title cards · %ld facecam punch-ins · %ld replays · %@\n",
+                                                               Timecode.short(edit.duration), Date().timeIntervalSince(started), broll, cards, facecam, replays,
                                                                session.lastAIReport ?? "").utf8))
                     for line in PulseLog.tail(400) where ["Beat", "B-roll", "Edit extras"].contains(where: { line.contains($0) }) {
                         FileHandle.standardError.write(Data("UI-EXTRASLOG \(line)\n".utf8))

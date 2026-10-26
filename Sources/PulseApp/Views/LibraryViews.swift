@@ -465,7 +465,8 @@ struct ExportsView: View {
                     .toggleStyle(.checkbox)
                     if let measuring {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Checking loudness… \(Int(measuring * 100))%").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                            Text(measuring > 0 ? "Checking loudness… \(Int(measuring * 100))%" : "Checking loudness — leveling the audio first…")
+                                .font(.pulseCaption).foregroundStyle(Theme.textSecondary)
                             ThinProgressBar(progress: measuring)
                         }
                     }

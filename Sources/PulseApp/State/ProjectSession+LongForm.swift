@@ -14,7 +14,10 @@ extension ProjectSession {
         // Composing music dominates: one bed per ~4 minutes, roughly 6 s + 8 % of its length each.
         let chapters = max(1, (target / 240).rounded(.up))
         let music = options.music ? chapters * (6 + min(target / chapters, 300) * 0.08) : 0
-        return 6 + music + (options.soundEffects || options.memes ? 6 : 0)
+        var extras: Seconds = 0
+        if options.extras.beatSync, options.music { extras += 4 + chapters * 2 }
+        if options.extras.brollClips { extras += 25 }   // searching + downloading a few short clips
+        return 6 + music + (options.soundEffects || options.memes ? 6 : 0) + extras
     }
 
     func editMyVOD(options: LongFormOptions, segments: [LongFormSegment]? = nil, hookPayoff: Seconds? = nil) {
@@ -82,7 +85,7 @@ extension ProjectSession {
                 if job.state != .running { return }
                 job.detail = "Finding the beat"
                 let known = Dictionary((self.document.media + newAssets).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-                let report = await self.syncToBeats(&result.timeline, assets: known)
+                let report = await self.syncToBeats(&result.timeline, assets: known, drops: result.musicDrops)
                 if !report.isEmpty { result.report += " · " + report }
             }
             if options.extras.brollClips, !result.brollMoments.isEmpty {
@@ -98,8 +101,10 @@ extension ProjectSession {
                 }
             }
             let timeline = result.timeline
+            var seen = Set<UUID>()
+            let fresh = newAssets.filter { seen.insert($0.id).inserted }
             self.edit("Edit My VOD") { doc in
-                doc.media.append(contentsOf: newAssets.filter { a in !doc.media.contains { $0.id == a.id } })
+                doc.media.append(contentsOf: fresh.filter { a in !doc.media.contains { $0.id == a.id } })
                 doc.timelines.append(timeline)
                 doc.activeTimelineID = timeline.id
             }
@@ -113,7 +118,7 @@ extension ProjectSession {
     }
 
     /// "Beat-synced music & zooms": music pieces start on a beat, AI zooms land on beats.
-    func syncToBeats(_ timeline: inout Timeline, assets: [UUID: MediaAsset]) async -> String {
+    func syncToBeats(_ timeline: inout Timeline, assets: [UUID: MediaAsset], drops: [Seconds] = []) async -> String {
         let musicIDs = Set(timeline.tracks.filter { $0.kind == .audio }.flatMap(\.clips).filter { $0.role == .music }.compactMap(\.content.assetID))
         var beats: [UUID: [Seconds]] = [:]
         var durations: [UUID: Seconds] = [:]
@@ -134,6 +139,8 @@ extension ProjectSession {
             return musicIDs.isEmpty ? "" : "no clear beat in the music"
         }
         let aligned = BeatSync.alignMusic(&timeline, beats: beats, durations: durations)
+        // Pieces that now continue from the top of their track need the music drops too.
+        if aligned > 0, !drops.isEmpty { EditPolish.musicDrops(&timeline, at: drops) }
         let snapped = BeatSync.snapZooms(&timeline, beats: BeatSync.timelineBeats(timeline, beats: beats))
         PulseLog.info("Beat sync: \(aligned) music pieces on the beat, \(snapped) zooms moved onto beats")
         return "\(snapped) zooms on the beat"

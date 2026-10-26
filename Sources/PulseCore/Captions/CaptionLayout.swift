@@ -23,7 +23,8 @@ public struct CaptionPage: Hashable, Sendable {
 public enum CaptionLayoutEngine {
     /// Caption words in timeline time, following every clip that shows the captioned asset.
     public static func timelineWords(_ track: CaptionTrack, in timeline: Timeline) -> [TimedCaptionWord] {
-        let clips = timeline.tracks.flatMap(\.clips).filter { $0.assetID == track.sourceAssetID && $0.isEnabled }
+        // Cutaways and replays of the same recording (role .graphic) don't repeat the captions.
+        let clips = timeline.tracks.flatMap(\.clips).filter { $0.assetID == track.sourceAssetID && $0.isEnabled && $0.role != .graphic }
         guard !clips.isEmpty else { return [] }
         var seen = Set<String>()
         var result: [TimedCaptionWord] = []

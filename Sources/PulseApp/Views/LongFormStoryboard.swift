@@ -21,6 +21,7 @@ struct LongFormStoryboard: View {
     /// Edges you moved, by moment.
     @State private var trims: [UUID: TimeRange] = [:]
     @State private var previewing: UUID?
+    @State private var analyzing = false
 
     var asset: MediaAsset? { session.document.primaryAsset }
 
@@ -38,7 +39,11 @@ struct LongFormStoryboard: View {
             } else {
                 VStack(spacing: 10) {
                     ProgressView().controlSize(.large)
-                    Text("Finding the moments…").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    if analyzing, let asset, let p = session.analysisProgress[asset.id] {
+                        Text("Analyzing the recording first — \(p.stage) \(Int(p.fraction * 100))%").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    } else {
+                        Text(analyzing ? "Analyzing the recording first…" : "Finding the moments…").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -49,7 +54,15 @@ struct LongFormStoryboard: View {
     }
 
     func loadPlan() async {
-        guard let asset, let analysis = session.analyses[asset.id] else { return }
+        guard let asset else { return }
+        guard let analysis = session.analyses[asset.id], analysis.audio != nil || analysis.transcript != nil else {
+            // Not analyzed yet (Approve the cut straight from Edit My VOD): analyze first, then come back here.
+            if !analyzing {
+                analyzing = true
+                session.analyze(assetID: asset.id, generateClips: false) { analyzing = false; Task { await loadPlan() } }
+            }
+            return
+        }
         let options = options
         let taste = app.settings.ai.taste
         let result = await Task.detached(priority: .userInitiated) {

@@ -134,7 +134,7 @@ struct BatchSheet: View {
             if batch.options.makeYouTubeEdit {
                 let e = app.settings.ai.editExtras
                 let on = [("facecam punch-ins", e.facecamPunchIns), ("B-roll", e.brollClips), ("beat sync", e.beatSync),
-                          ("speaker-aware cuts", e.speakerAware), ("title cards", e.titleCards)].filter { $0.1 }.map { $0.0 }
+                          ("speaker-aware cuts", e.speakerAware), ("title cards", e.titleCards), ("instant replays", e.instantReplays)].filter { $0.1 }.map { $0.0 }
                 Text("Extras: \(on.isEmpty ? "none" : on.joined(separator: ", ")) — your last answers in Edit My VOD (nobody's there to ask overnight).")
                     .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
             }

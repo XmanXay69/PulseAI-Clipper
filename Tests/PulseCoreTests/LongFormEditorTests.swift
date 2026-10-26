@@ -52,8 +52,14 @@ final class LongFormEditorTests: XCTestCase {
         XCTAssertFalse(plain.timeline.tracks[0].clips.contains { $0.transform.panX.isAnimated }, "no facecam punch-ins unless asked")
 
         var options = LongFormOptions()
-        options.extras = EditExtras(facecamPunchIns: true, brollClips: true, speakerAware: true, titleCards: true)
+        options.extras = EditExtras(facecamPunchIns: true, brollClips: true, speakerAware: true, titleCards: true, instantReplays: true)
         let extra = LongFormEditor.build(asset: asset, analysis: analysis, options: options, sounds: sounds())
+        let replays = extra.timeline.tracks[0].clips.filter { $0.name == "Replay" }
+        XCTAssertFalse(replays.isEmpty, extra.report)
+        XCTAssertTrue(replays.allSatisfy { $0.speed == 0.5 && $0.role == .graphic })
+        XCTAssertTrue(EditQualityCheck.blackGaps(in: extra.timeline.tracks[0].clips).isEmpty, "replays leave no gaps")
+        XCTAssertTrue(extra.timeline.tracks[0].clips.contains { $0.transform.zoom.isAnimated && $0.duration >= 20 }, "slow push-ins on long pieces")
+        XCTAssertTrue(plain.timeline.tracks[0].clips.allSatisfy { $0.name != "Replay" })
         XCTAssertTrue(extra.timeline.allClips.contains { $0.name == "Title Card" }, extra.report)
         XCTAssertFalse(extra.brollMoments.isEmpty, extra.report)
         XCTAssertTrue(extra.timeline.tracks[0].clips.contains { $0.transform.panX.isAnimated }, extra.report)

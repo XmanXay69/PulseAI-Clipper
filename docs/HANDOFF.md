@@ -11,7 +11,7 @@ works on macOS 15). CI compiles, tests and screenshots the app on a GitHub Actio
 
 ## Versions
 
-`VERSION` holds the current version (1.3.0). Release notes per version live in `versions/<version>/NOTES.md`
+`VERSION` holds the current version (1.4.0). Release notes per version live in `versions/<version>/NOTES.md`
 (the Release workflow prepends them to the GitHub Release); `versions/README.md` explains how to cut a new one.
 
 ## Download (the easy way)
@@ -234,6 +234,11 @@ prompt), cloud AI providers with live keys.
   verified by PULSE; facecam punch-ins need the facecam detected at analysis; crosstalk trimming needs speaker
   labels; the loudness fix can lower or level but can't boost an already-leveled quiet mix (AVAudioMix caps at
   1.0); beat detection is a lightweight tempo tracker (steady-beat music; ambient beds may have no clear beat).
+- **1.4.0** — `InstantReplay` (plan + apply: splits V1/A1 at payoff+2 s, shifts every later clip, inserts a 0.5× replay
+  clip with role `.graphic`, a "▶ REPLAY" tag and a whoosh), `EditPolish.breathingZooms`, `BeatSync.alignMusic`
+  continuation pieces, `BrollPlacer.place` removing the meme/sting it replaces, `RemovedSection.Reason.crosstalk`.
+  Role `.graphic` on a clip of the main recording means "cutaway": captions (`CaptionLayoutEngine.timelineWords`),
+  the story time map in `LongFormEditor.build` and `EditPolish.jumpCutZooms` skip it.
 - **Local core check (no Mac needed)** — PulseCore and its tests compile on Linux with a swift.org toolchain if
   `Audio/SpectralDenoiser.swift` (Accelerate) is stubbed and `AudioDSPTests.swift` left out; everything else in
   the core is portable. Useful when CI is down.

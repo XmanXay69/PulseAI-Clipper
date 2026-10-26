@@ -308,7 +308,7 @@ public enum LongFormEditor {
             var cuts = segments.flatMap { SpeakerAware.crosstalk(in: $0.range, words: words, protect: $0.payoff) }.merged()
             if let hookRange { cuts.removeAll { $0.overlaps(hookRange) } }
             if !cuts.isEmpty {
-                crosstalk = timeline.removeSourceRanges(cuts, assetID: asset.id, reason: .silence, aiGenerated: true)
+                crosstalk = timeline.removeSourceRanges(cuts, assetID: asset.id, reason: .crosstalk, aiGenerated: true)
             }
         }
         // Flash frames and half-breaths left between cuts.
@@ -317,8 +317,16 @@ public enum LongFormEditor {
             slivers = EditPolish.removeMicroFragments(&timeline, words: analysis.transcript?.words ?? [], after: hookEnd)
         }
 
-        // Where each segment begins now (after the cuts) — chapters, transitions, music.
-        let storyClips = timeline.tracks[0].clips.isEmpty ? timeline.tracks[2].clips : timeline.tracks[0].clips
+        // Extra: the biggest plays again in slow motion, right after they land.
+        var replays = 0
+        if options.extras.instantReplays, timeline.tracks[0].clips.count > 0 {
+            let plays = InstantReplay.plan(segments: segments, profile: profile, hookPayoff: hookMoment, duration: timeline.duration)
+            replays = InstantReplay.apply(&timeline, at: plays, assetID: asset.id, whoosh: sounds.effect(["whoosh", "swoosh"]), hookEnd: hookEnd)
+        }
+
+        // Where each segment begins now (after the cuts) — chapters, transitions, music. Replays and other
+        // cutaways (role .graphic) aren't part of the story's time map.
+        let storyClips = (timeline.tracks[0].clips.isEmpty ? timeline.tracks[2].clips : timeline.tracks[0].clips).filter { $0.role != .graphic }
         func timelineStart(of range: TimeRange) -> Seconds? {
             storyClips.filter { $0.start >= hookEnd - 0.01 && $0.sourceRange.overlaps(range) }.map(\.start).min()
         }
@@ -394,6 +402,12 @@ public enum LongFormEditor {
                 times.append(t)
             }
             facecamZooms = FacecamPunchIn.apply(&timeline, at: times, region: webcam.region)
+        }
+
+        // Long static stretches breathe: a slow push-in where nothing else moves the frame.
+        var pushIns = 0
+        if options.polish, options.zooms, options.restraint != .subtle, timeline.tracks[0].clips.count > 0 {
+            pushIns = EditPolish.breathingZooms(&timeline, from: hookEnd)
         }
 
         // Meme pop-ups + matching sound on the strongest reactions.
@@ -509,6 +523,8 @@ public enum LongFormEditor {
         if crosstalk > 0.5 { parts.append("\(Int(crosstalk.rounded())) s of crosstalk trimmed") }
         if facecamZooms > 0 { parts.append("\(facecamZooms) facecam punch-ins") }
         if cards > 0 { parts.append("\(cards) title cards") }
+        if replays > 0 { parts.append("\(replays) instant replay\(replays == 1 ? "" : "s")") }
+        if pushIns > 0 { parts.append("\(pushIns) slow push-ins") }
         if let style = options.style { parts.append("styled like “\(style.name)”") }
         parts.append(checks.summary.lowercased())
         return LongFormResult(timeline: timeline, segments: segments, report: parts.joined(separator: " · "), musicChapters: chapters,

@@ -17,9 +17,11 @@ public struct EditExtras: Codable, Hashable, Sendable {
     public var titleCards = false
     /// Measure the final mix at export (YouTube plays at −14 LUFS) and offer to fix it.
     public var loudnessCheck = false
+    /// The biggest plays get a slow-motion instant replay right after they happen (gameplay only).
+    public var instantReplays = false
 
     public init(facecamPunchIns: Bool = false, brollClips: Bool = false, beatSync: Bool = false, speakerAware: Bool = false,
-                approveCut: Bool = false, titleCards: Bool = false, loudnessCheck: Bool = false) {
+                approveCut: Bool = false, titleCards: Bool = false, loudnessCheck: Bool = false, instantReplays: Bool = false) {
         self.facecamPunchIns = facecamPunchIns
         self.brollClips = brollClips
         self.beatSync = beatSync
@@ -27,6 +29,7 @@ public struct EditExtras: Codable, Hashable, Sendable {
         self.approveCut = approveCut
         self.titleCards = titleCards
         self.loudnessCheck = loudnessCheck
+        self.instantReplays = instantReplays
     }
 
     public init(from decoder: Decoder) throws {
@@ -38,9 +41,10 @@ public struct EditExtras: Codable, Hashable, Sendable {
         approveCut = c.decode(Bool.self, forKey: .approveCut, default: false)
         titleCards = c.decode(Bool.self, forKey: .titleCards, default: false)
         loudnessCheck = c.decode(Bool.self, forKey: .loudnessCheck, default: false)
+        instantReplays = c.decode(Bool.self, forKey: .instantReplays, default: false)
     }
 
-    public var anyEditTime: Bool { facecamPunchIns || brollClips || beatSync || speakerAware || titleCards }
+    public var anyEditTime: Bool { facecamPunchIns || brollClips || beatSync || speakerAware || titleCards || instantReplays }
 }
 
 // MARK: - Speaker-aware
@@ -179,23 +183,42 @@ public enum FacecamPunchIn {
 
 public enum BeatSync {
     /// Starts each music piece on its first beat (skipping a silent or sloppy intro), so chapter changes —
-    /// where the music pieces start — land on a beat. A piece that already uses the whole track gets that
-    /// much shorter (it ends ≤ 4 s early, where it fades anyway). `beats` are source times per music asset;
-    /// `durations` the assets' lengths. Returns pieces moved.
+    /// where the music pieces start — land on a beat. A piece that already used the whole track keeps playing:
+    /// the part that no longer fits continues from the top of the track as a second piece, so the music never
+    /// stops early. `beats` are source times per music asset; `durations` the assets' lengths. Returns pieces moved.
     @discardableResult
     public static func alignMusic(_ timeline: inout Timeline, beats: [UUID: [Seconds]], durations: [UUID: Seconds]) -> Int {
         var moved = 0
         for ti in timeline.tracks.indices where timeline.tracks[ti].kind == .audio {
+            var continuations: [TimelineClip] = []
             for ci in timeline.tracks[ti].clips.indices where timeline.tracks[ti].clips[ci].role == .music {
                 let clip = timeline.tracks[ti].clips[ci]
                 guard let id = clip.content.assetID, let grid = beats[id], let length = durations[id],
                       let first = grid.first(where: { $0 >= clip.sourceIn + 0.02 && $0 <= clip.sourceIn + 4 }) else { continue }
-                let room = length - (first + clip.sourceDuration)
-                let shortened = room < 0 ? clip.sourceDuration + room : clip.sourceDuration
-                guard shortened >= 2 else { continue }
+                // Never read past the end of the file (the composition would treat the track as missing).
+                let overrun = first + clip.sourceDuration - length
+                if overrun > 0 {
+                    let kept = clip.sourceDuration - overrun
+                    guard kept >= 2 else { continue }
+                    timeline.tracks[ti].clips[ci].sourceDuration = kept
+                    if overrun >= 1 {
+                        timeline.tracks[ti].clips[ci].audio.fadeOut = min(clip.audio.fadeOut, 1)
+                        var rest = clip
+                        rest.id = UUID()
+                        rest.start = clip.start + kept / max(clip.speed, 0.01)
+                        rest.sourceIn = 0
+                        rest.sourceDuration = overrun
+                        rest.audio.fadeIn = min(clip.audio.fadeIn, 1)
+                        rest.audio.volume = AnimatedDouble(clip.audio.volume.value)
+                        continuations.append(rest)
+                    }
+                }
                 timeline.tracks[ti].clips[ci].sourceIn = first
-                timeline.tracks[ti].clips[ci].sourceDuration = shortened
                 moved += 1
+            }
+            if !continuations.isEmpty {
+                timeline.tracks[ti].clips += continuations
+                timeline.tracks[ti].sortClips()
             }
         }
         return moved
@@ -364,9 +387,21 @@ public enum BrollPlacer {
             ?? timeline.tracks.lastIndex { $0.kind == .audio }
         var placed = 0
         for item in clips {
-            let length = min(maxLength, item.asset.metadata.duration > 0 ? item.asset.metadata.duration : maxLength)
-            guard length > 0.5, item.at + length < timeline.duration,
+            var length = min(maxLength, item.asset.metadata.duration > 0 ? item.asset.metadata.duration : maxLength)
+            // An instant replay of the same moment starts ~2 s after it: the cutaway ends before the replay.
+            if let replay = timeline.tracks[v].clips.first(where: { $0.role == .graphic && $0.start > item.at && $0.start < item.at + length }) {
+                length = replay.start - 0.1 - item.at
+            }
+            guard length >= 1, item.at + length < timeline.duration,
                   !timeline.tracks[track].clips.contains(where: { $0.timelineRange.overlaps(TimeRange(start: item.at, end: item.at + length)) }) else { continue }
+            // A meme clip and a meme pop-up on the same beat fight each other: the cutaway takes the moment.
+            let window = TimeRange(start: item.at - 0.6, end: item.at + length)
+            for ti in timeline.tracks.indices where timeline.tracks[ti].kind == .text {
+                timeline.tracks[ti].clips.removeAll { $0.aiGenerated && $0.name.hasPrefix("Meme:") && $0.timelineRange.overlaps(window) }
+            }
+            for ti in timeline.tracks.indices where timeline.tracks[ti].kind == .audio {
+                timeline.tracks[ti].clips.removeAll { $0.aiGenerated && $0.role == .soundEffect && window.contains($0.start) }
+            }
             let group = UUID()
             var clip = TimelineClip(name: "B-roll: \(item.asset.name)", content: .media(assetID: item.asset.id), start: item.at, sourceDuration: length,
                                     linkGroup: group, role: .graphic, aiGenerated: true)
@@ -387,6 +422,90 @@ public enum BrollPlacer {
         }
         timeline.tracks[track].sortClips()
         return placed
+    }
+}
+
+// MARK: - Instant replay
+
+public enum InstantReplay {
+    public static let before: Seconds = 2.2
+    public static let after: Seconds = 1.0
+    public static let speed = 0.5
+    /// Timeline seconds one replay adds.
+    public static var length: Seconds { (before + after) / speed }
+
+    /// The plays worth seeing twice: the strongest gameplay moments (not the hook's), at least 3 minutes apart,
+    /// one per ~6 minutes of video (2–3 in a normal edit). Source payoff times.
+    public static func plan(segments: [LongFormSegment], profile: ContentProfile, hookPayoff: Seconds?, duration: Seconds) -> [Seconds] {
+        guard profile == .gameplay || profile == .gameplayWithFacecam else { return [] }
+        let budget = max(1, min(3, Int(duration / 360)))
+        var picked: [Seconds] = []
+        for s in segments.sorted(by: { $0.potential > $1.potential }) where s.potential >= 70 && picked.count < budget {
+            guard !Set(s.tags).isDisjoint(with: [.gaming, .hype, .highEnergy, .fail, .reaction]),
+                  s.payoff - s.range.start >= before, s.range.end - s.payoff >= after + 0.5,
+                  hookPayoff.map({ abs($0 - s.payoff) > 1 }) ?? true,
+                  !picked.contains(where: { abs($0 - s.payoff) < 180 }) else { continue }
+            picked.append(s.payoff)
+        }
+        return picked.sorted()
+    }
+
+    /// Cuts the moment again in slow motion right after it lands (after the first reaction), with a "REPLAY"
+    /// tag, a slow push-in and a whoosh; the story resumes where it left off. Only V1/A1/T1 exist at this stage
+    /// of the build, so later clips on every track are shifted. Returns replays added.
+    @discardableResult
+    public static func apply(_ timeline: inout Timeline, at payoffs: [Seconds], assetID: UUID, whoosh: MediaAsset?, hookEnd: Seconds) -> Int {
+        guard let v = timeline.tracks.firstIndex(where: { $0.kind == .video }) else { return 0 }
+        var added = 0
+        for payoff in payoffs.sorted(by: >) {   // later first, so earlier insertions don't move later ones
+            // The piece of the story holding the play (not the hook, not an earlier replay).
+            guard let ci = timeline.tracks[v].clips.firstIndex(where: {
+                $0.start >= hookEnd - 0.01 && $0.role != .graphic && $0.content.assetID == assetID && $0.sourceRange.contains(payoff)
+            }) else { continue }
+            let holder = timeline.tracks[v].clips[ci]
+            // Replay once the first reaction has landed (~2 s after the play), inside this piece.
+            let cutSource = min(payoff + 2, holder.sourceOut - 0.5)
+            guard cutSource > holder.sourceIn + 0.5 else { continue }
+            let at = holder.timelineTime(atSource: cutSource)
+            // Make room on every track.
+            for ti in timeline.tracks.indices {
+                timeline.tracks[ti].clips = timeline.tracks[ti].clips.flatMap { clip -> [TimelineClip] in
+                    if clip.start >= at - TimeRange.epsilon {
+                        var moved = clip
+                        moved.start += length
+                        return [moved]
+                    }
+                    guard clip.end > at + TimeRange.epsilon, clip.content.assetID != nil else { return [clip] }
+                    let (left, right) = Timeline.splitClip(clip, at: at, rightLinkGroup: clip.linkGroup)
+                    var movedRight = right
+                    movedRight.start += length
+                    return [left, movedRight]
+                }
+            }
+            var replay = TimelineClip(name: "Replay", content: .media(assetID: assetID), start: at, sourceIn: max(0, payoff - before),
+                                      sourceDuration: before + after, speed: speed, role: .graphic, aiGenerated: true)
+            replay.transform.zoom.setKeyframe(at: 0, value: 1.0, interpolation: .linear, aiGenerated: true)
+            replay.transform.zoom.setKeyframe(at: replay.duration, value: 1.12, interpolation: .linear, aiGenerated: true)
+            replay.transitionIn = ClipTransition(kind: .zoomIn, duration: 0.3, aiGenerated: true)
+            replay.color.saturation = 0.1
+            timeline.tracks[v].clips.append(replay)
+            timeline.tracks[v].sortClips()
+            if let t1 = timeline.tracks.firstIndex(where: { $0.kind == .text }) {
+                let style = TextStyle(fontName: TextStyle.tiktokSans, fontSize: 44, weight: .black, textCase: .uppercase, color: .white,
+                                      strokeColor: .black, strokeWidth: 6, shadowOpacity: 0.5, shadowRadius: 6, shadowOffsetY: 3)
+                var tag = TimelineClip(name: "Replay Tag", content: .text(TextElement(text: "▶ REPLAY", style: style, animationIn: .slideUp,
+                                                                                      animationOut: .fadeIn, animationDuration: 0.2, maxWidth: 0.3)),
+                                       start: at + 0.15, sourceDuration: min(1.6, replay.duration - 0.3), aiGenerated: true)
+                tag.transform.positionX = AnimatedDouble(0.13)
+                tag.transform.positionY = AnimatedDouble(0.1)
+                timeline.tracks[t1].clips.append(tag)
+                timeline.tracks[t1].sortClips()
+            }
+            if let whoosh { ShortBuilder.addPayoffHit(whoosh, at: at, to: &timeline) }
+            added += 1
+        }
+        for ti in timeline.tracks.indices { timeline.tracks[ti].sortClips() }
+        return added
     }
 }
 

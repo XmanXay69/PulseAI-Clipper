@@ -274,12 +274,15 @@ public struct RemovedSection: Codable, Hashable, Identifiable, Sendable {
         case fillerWord
         case transcriptEdit
         case manual
+        /// People talking over each other (the speaker-aware extra).
+        case crosstalk
 
         public var displayName: String {
             switch self {
             case .silence: return "Silence"
             case .fillerWord: return "Filler word"
             case .transcriptEdit: return "Transcript edit"
+            case .crosstalk: return "Crosstalk"
             case .manual: return "Manual"
             }
         }
