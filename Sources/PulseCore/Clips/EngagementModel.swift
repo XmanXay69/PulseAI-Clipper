@@ -23,6 +23,11 @@ public enum EngagementLexicon {
 
     public static let laughter: Set<String> = ["haha", "hahaha", "hahahaha", "ha", "lol", "lmao", "lmfao", "hehe", "laughs", "laughing", "laughter", "rofl", "(laughs)", "[laughter]", "[laughs]"]
     public static let profanity: Set<String> = ["fuck", "fucking", "fucked", "shit", "shitty", "damn", "bitch", "ass", "asshole", "crap", "hell", "wtf"]
+    /// Words you added in Settings (lower-cased, no punctuation). Set by the app; read everywhere profanity is checked.
+    nonisolated(unsafe) public static var customProfanity: Set<String> = []
+    public static func isProfane(_ normalizedWord: String) -> Bool {
+        profanity.contains(normalizedWord) || customProfanity.contains(normalizedWord)
+    }
     public static let storyMarkers: [String] = ["one time", "so basically", "remember when", "story", "true story", "back when", "this one time", "long story short", "so i was"]
     public static let hypeWords: Set<String> = ["clutch", "lets", "let's", "go", "yes", "won", "win", "insane", "goated", "cracked", "sheesh", "gg"]
     public static let failWords: Set<String> = ["died", "dead", "noo", "nooo", "lost", "rip", "oof", "worst", "fail", "failed"]
@@ -148,7 +153,7 @@ public enum EngagementModel {
                 let word = norm[wi]
                 if let weight = EngagementLexicon.words[word] { keywords[i] += weight }
                 if EngagementLexicon.isLaughter(word) || w.text.lowercased().contains("laugh") { laughter[i] += 1 }
-                if EngagementLexicon.profanity.contains(word) { profanity[i] += 1 }
+                if EngagementLexicon.isProfane(word) { profanity[i] += 1 }
                 if w.isQuestion { questions[i] += 1 }
                 if w.isExclamation { keywords[i] += 0.6 }
                 if w.text.count > 2, w.text == w.text.uppercased(), w.text.rangeOfCharacter(from: .letters) != nil { keywords[i] += 0.4 }

@@ -27,6 +27,8 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
     public var tighten = false
     /// How eagerly pauses are cut (a reference style overrides it).
     public var deadAir: SilencePreset = .balanced
+    /// Your own meme pop-up text per mood (Settings → AI Features); empty = PULSE's default.
+    public var memeTexts: [ClipTag: String] = [:]
 
     /// Seconds between reaction zooms / meme pop-ups / transition whooshes.
     public var zoomSpacing: Seconds { style?.zoomSpacing ?? restraint.zoomSpacing }
@@ -449,7 +451,7 @@ public enum LongFormEditor {
             for s in segments.sorted(by: { $0.potential > $1.potential }) where s.potential >= 55 {
                 guard let t = timelineTime(ofSource: s.payoff), t - lastMeme >= options.memeSpacing || lastMeme == -.infinity else { continue }
                 if timeline.tracks[1].clips.contains(where: { abs($0.start - t) < options.memeSpacing }) { continue }
-                let meme = memeFor(tags: s.tags)
+                let meme = memeFor(tags: s.tags, custom: options.memeTexts)
                 if options.memes {
                     let style = TextStyle(fontName: TextStyle.tiktokSans, fontSize: 120, weight: .black, textCase: .uppercase, color: meme.color,
                                           strokeColor: .black, strokeWidth: 12, shadowOpacity: 0.6, shadowRadius: 0, shadowOffsetY: 8)
@@ -603,17 +605,26 @@ public enum LongFormEditor {
         var tilt: Double
     }
 
-    static func memeFor(tags: [ClipTag]) -> Meme {
+    /// The moods that have their own pop-up (Settings lets you change each one's text).
+    public static let memeMoods: [ClipTag] = [.funny, .fail, .hype, .rage, .reaction, .story, .gaming]
+
+    public static func defaultMemeText(for mood: ClipTag) -> String { memeFor(tags: [mood]).text }
+
+    static func memeFor(tags: [ClipTag], custom: [ClipTag: String] = [:]) -> Meme {
         let yellow = RGBAColor(hex: "#FFD60A")!, pink = RGBAColor(hex: "#FF3D6E")!
+        var meme: Meme
+        let mood: ClipTag
         switch tags.first {
-        case .funny: return Meme(text: "💀💀💀", sounds: ["rimshot", "boom"], color: .white, tilt: -4)
-        case .fail: return Meme(text: "BRUH", sounds: ["sad trombone", "trombone", "boom"], color: yellow, tilt: 3)
-        case .hype: return Meme(text: "LET'S GO", sounds: ["impact", "boom"], color: yellow, tilt: -3)
-        case .rage: return Meme(text: "😤", sounds: ["record scratch", "scratch", "boom"], color: .white, tilt: 0)
-        case .reaction: return Meme(text: "NO WAY", sounds: ["boom", "impact"], color: pink, tilt: -3)
-        case .story, .conversation, .question: return Meme(text: "👀", sounds: ["ding", "pop"], color: .white, tilt: 0)
-        default: return Meme(text: "W", sounds: ["boom", "impact"], color: yellow, tilt: -4)
+        case .funny: mood = .funny; meme = Meme(text: "💀💀💀", sounds: ["rimshot", "boom"], color: .white, tilt: -4)
+        case .fail: mood = .fail; meme = Meme(text: "BRUH", sounds: ["sad trombone", "trombone", "boom"], color: yellow, tilt: 3)
+        case .hype: mood = .hype; meme = Meme(text: "LET'S GO", sounds: ["impact", "boom"], color: yellow, tilt: -3)
+        case .rage: mood = .rage; meme = Meme(text: "😤", sounds: ["record scratch", "scratch", "boom"], color: .white, tilt: 0)
+        case .reaction: mood = .reaction; meme = Meme(text: "NO WAY", sounds: ["boom", "impact"], color: pink, tilt: -3)
+        case .story, .conversation, .question: mood = .story; meme = Meme(text: "👀", sounds: ["ding", "pop"], color: .white, tilt: 0)
+        default: mood = .gaming; meme = Meme(text: "W", sounds: ["boom", "impact"], color: yellow, tilt: -4)
         }
+        if let own = custom[mood]?.trimmingCharacters(in: .whitespacesAndNewlines), !own.isEmpty { meme.text = own }
+        return meme
     }
 
     /// Music sections (~3–4 min each) following the edit's chapters, after the cold open.

@@ -88,7 +88,10 @@ struct Toast: Identifiable, Equatable {
 @MainActor
 final class AppModel: ObservableObject {
     @Published var settings: AppSettings {
-        didSet { persistSettings() }
+        didSet {
+            persistSettings()
+            EngagementLexicon.customProfanity = settings.ai.normalizedExtraProfanity
+        }
     }
     @Published var section: SidebarSection = .home
     @Published private(set) var session: ProjectSession?
@@ -166,6 +169,7 @@ final class AppModel: ObservableObject {
             }
         }
         batch.app = self
+        EngagementLexicon.customProfanity = settings.ai.normalizedExtraProfanity
         noteVersionChange()
         reference.app = self
         updaterObserver = updater.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }

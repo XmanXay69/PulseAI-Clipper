@@ -386,6 +386,12 @@ struct AIFeatureSettings: View {
             SettingsRow("Filler word removal", detail: "“um”, “uh”, “like”… Off by default — review in the transcript first.") {
                 Toggle("", isOn: $app.settings.ai.fillerRemoval).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
             }
+            SettingsRow("Words to censor", detail: "On top of the built-in list — comma-separated. Masked, bleeped or hidden per the caption style.") {
+                TextField("e.g. heck, dang", text: Binding(
+                    get: { app.settings.ai.extraProfanity.joined(separator: ", ") },
+                    set: { app.settings.ai.extraProfanity = $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }))
+                    .textFieldStyle(.roundedBorder).frame(width: 260)
+            }
             SettingsRow("AI sound effects", detail: "Uses sound effects you import into the project.") {
                 Toggle("", isOn: $app.settings.ai.aiSoundEffects).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
             }
@@ -407,6 +413,16 @@ struct TranscriptionSettings: View {
     ]
 
     var body: some View {
+        SettingsGroup("Meme pop-ups", footnote: "Edit My VOD pops one of these on the biggest moments of each kind. Leave a field empty for PULSE's default.") {
+            ForEach(LongFormEditor.memeMoods, id: \.self) { mood in
+                SettingsRow(mood.displayName, detail: "Default: \(LongFormEditor.defaultMemeText(for: mood))") {
+                    TextField(LongFormEditor.defaultMemeText(for: mood), text: Binding(
+                        get: { app.settings.ai.memeTexts[mood.rawValue] ?? "" },
+                        set: { app.settings.ai.memeTexts[mood.rawValue] = $0.isEmpty ? nil : $0 }))
+                        .textFieldStyle(.roundedBorder).frame(width: 180)
+                }
+            }
+        }
         SettingsGroup("Engine", footnote: TranscriptionEngineFactory.availabilitySummary(settings: app.settings.ai)) {
             SettingsRow("Transcription engine") {
                 Picker("", selection: $app.settings.ai.transcriptionEngine) {

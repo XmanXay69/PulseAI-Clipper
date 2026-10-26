@@ -21,7 +21,15 @@ The first batch from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for im
 - **Outro in the chapter list** (#93), an **unbalanced-chapters note** (#113) and a **fast-captions note** (#251)
   in the edit check; repeated sound effects vary a touch in level so they don't sound copy-pasted (#284).
 
+- **Your own meme pop-ups** (#103) — Settings → AI Features lets you set the text for each mood (fail, hype,
+  funny…); leave one empty for PULSE's default.
+- **Words to censor** (#44) — add your own to the caption filter.
+
 ### Editing
+- **Nudge** (#155) — ⌥, / ⌥. move the selected clips a frame; add ⇧ for ten.
+- **Type a time** (#200) — click the timecode in the transport bar, type 12:34 (or 1:02:03, or 12:34:15 for
+  frames) and press return.
+- **Markers list** (#160) — a toolbar button lists every marker and chapter: click to jump, rename, delete.
 - **Timeline → Freeze Frame ⇧F** (#171) — hold the frame under the playhead for two seconds; the sound pauses with
   it and everything after moves along.
 - **Timeline → Close All Gaps** (#162) ripples every black gap on the main track closed.
@@ -47,6 +55,10 @@ The first batch from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for im
   says roughly how long it adds (#129).
 
 ### Everywhere
+- **Disk check before analysis** (#387) — PULSE refuses to start an analysis the cache disk can't hold, and says
+  how much to free.
+- **What's new after an update** (#448) — a note on first launch after updating, and Help → What's New opens
+  the release notes.
 - **Actions in search** (#422) — ⌘F now also runs things: type "export", "edit my vod", "check", "gaps",
   "settings"… (fuzzy, so "qexp" finds Quick Export).
 

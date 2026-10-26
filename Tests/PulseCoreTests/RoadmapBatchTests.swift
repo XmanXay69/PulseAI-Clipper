@@ -216,6 +216,23 @@ final class RoadmapBatchTests: XCTestCase {
         XCTAssertEqual(options.silencePreset, .conservative, "a reference style wins")
     }
 
+    func testYourOwnMemesAndCensorWords() {
+        XCTAssertEqual(LongFormEditor.memeFor(tags: [.fail]).text, "BRUH")
+        XCTAssertEqual(LongFormEditor.memeFor(tags: [.fail], custom: [.fail: "OOF"]).text, "OOF")
+        XCTAssertEqual(LongFormEditor.memeFor(tags: [.fail], custom: [.fail: "  "]).text, "BRUH", "blank means default")
+        XCTAssertEqual(LongFormEditor.memeFor(tags: [.conversation], custom: [.story: "👂"]).text, "👂", "story-like moods share one pop-up")
+        var ai = AISettings()
+        ai.memeTexts = ["hype": "SHEESH", "nonsense": "x"]
+        XCTAssertEqual(ai.memeTextsByTag, [.hype: "SHEESH"])
+        ai.extraProfanity = ["Heck!", "dang", ""]
+        XCTAssertEqual(ai.normalizedExtraProfanity, ["heck", "dang"])
+        EngagementLexicon.customProfanity = ai.normalizedExtraProfanity
+        XCTAssertTrue(EngagementLexicon.isProfane("dang"))
+        XCTAssertTrue(EngagementLexicon.isProfane("shit"))
+        EngagementLexicon.customProfanity = []
+        XCTAssertFalse(EngagementLexicon.isProfane("dang"))
+    }
+
     func testSearchActionKindHasAnIcon() {
         XCTAssertEqual(SearchResultKind.action.symbolName, "command")
         XCTAssertEqual(SearchResultKind.action.displayName, "Action")

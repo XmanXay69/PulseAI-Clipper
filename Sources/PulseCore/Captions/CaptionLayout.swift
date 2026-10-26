@@ -59,7 +59,7 @@ public enum CaptionLayoutEngine {
 
     static func displayText(_ text: String, style: CaptionStyle, profanity: ProfanityMode) -> String {
         var t = text
-        if profanity != .off, EngagementLexicon.profanity.contains(TranscriptWord.normalize(text)) {
+        if profanity != .off, EngagementLexicon.isProfane(TranscriptWord.normalize(text)) {
             switch profanity {
             case .off: break
             case .mask:

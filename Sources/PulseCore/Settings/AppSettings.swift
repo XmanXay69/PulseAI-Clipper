@@ -49,6 +49,10 @@ public struct AISettings: Codable, Hashable, Sendable {
     /// Your last answers to Edit My VOD's "Extras" question (the starting ticks next time; the overnight
     /// batch uses them as they are).
     public var editExtras: EditExtras = EditExtras()
+    /// Your own meme pop-up text per mood (tag raw value → text); empty = default.
+    public var memeTexts: [String: String] = [:]
+    /// Extra words to censor in captions, on top of the built-in list.
+    public var extraProfanity: [String] = []
     public var aiFraming: Bool = true
     /// Label who is talking after transcription (local diarization).
     public var detectSpeakers: Bool = true
@@ -71,6 +75,18 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var coachCalibration: CoachCalibration?
 
     public init() {}
+
+    /// `memeTexts` keyed by tag.
+    public var memeTextsByTag: [ClipTag: String] {
+        var out: [ClipTag: String] = [:]
+        for (key, text) in memeTexts { if let tag = ClipTag(rawValue: key) { out[tag] = text } }
+        return out
+    }
+
+    /// `extraProfanity` the way captions compare words (lower-cased, no punctuation).
+    public var normalizedExtraProfanity: Set<String> {
+        Set(extraProfanity.map { TranscriptWord.normalize($0) }.filter { !$0.isEmpty })
+    }
 
     public var targetClipDuration: Seconds {
         defaultClipLength.seconds ?? customClipLength.clamped(10, 90)
@@ -97,6 +113,8 @@ public struct AISettings: Codable, Hashable, Sendable {
         aiMusic = c.decode(Bool.self, forKey: .aiMusic, default: d.aiMusic)
         onlineMusic = c.decode(Bool.self, forKey: .onlineMusic, default: d.onlineMusic)
         editExtras = c.decode(EditExtras.self, forKey: .editExtras, default: d.editExtras)
+        memeTexts = c.decode([String: String].self, forKey: .memeTexts, default: d.memeTexts)
+        extraProfanity = c.decode([String].self, forKey: .extraProfanity, default: d.extraProfanity)
         aiFraming = c.decode(Bool.self, forKey: .aiFraming, default: d.aiFraming)
         detectSpeakers = c.decode(Bool.self, forKey: .detectSpeakers, default: d.detectSpeakers)
         speakerCount = c.decode(Int.self, forKey: .speakerCount, default: d.speakerCount)

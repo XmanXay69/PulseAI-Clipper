@@ -34,6 +34,7 @@ struct LongFormSheet: View {
         options.extras = extras ?? EditExtras()
         options.tighten = tighten
         options.deadAir = SilencePreset(rawValue: deadAir) ?? .balanced
+        options.memeTexts = app.settings.ai.memeTextsByTag
         return options
     }
 

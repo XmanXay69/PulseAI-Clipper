@@ -243,6 +243,16 @@ prompt), cloud AI providers with live keys.
   view modifiers `elevation(_:)` and `raisedSurface(cornerRadius:fill:border:)`; use them instead of ad-hoc
   shadows/borders. `PulseButtonStyle` fills primary/AI with the gradients. Sidebar groups live in `Sidebar.groups`.
   `docs/ROADMAP-500.md` is the improvement backlog.
+- **1.6.0 roadmap batches** — `docs/ROADMAP-500.md` numbers are cited in commit messages and release notes.
+  Core: `StreamEdges` (intro/outro cues), `LongFormOptions.tighten/deadAir/memeTexts`, `EditQualityCheck`
+  gained word-safe cuts (`choppedWords` + `rippleExtend`), `closeGaps`, chapter balance and fast-caption notes;
+  `Timeline.freezeFrame`, `[ClipCandidate].overlappingPairs`, `ColorAdjustments.look`, `ExportSidecar`,
+  `RetentionCards.phrase` / `hideCaptionsUnderCards`, `SearchResultKind.action`, `EngagementLexicon.customProfanity`.
+  App: actions in `GlobalSearchView`, `AppModel.quickExport` / `notifyIfInBackground` / `noteVersionChange`,
+  `ProjectSession.closeAllGaps` / `freezeFrame` / `nudgeSelection`, `MarkersListView`, the transport bar's
+  editable timecode, per-chapter music in `onlineMusicBeds`, sidecar `.txt`/`.srt` + verification in
+  `ExportQueueController`. `Tests/PulseCoreTests/TimelineFuzzTests.swift` is the invariant check for every
+  timeline edit (run it after touching `TimelineEditor`, `EditPolish` or `EditExtras`).
 - **Local core check (no Mac needed)** — PulseCore and its tests compile on Linux with a swift.org toolchain if
   `Audio/SpectralDenoiser.swift` (Accelerate) is stubbed and `AudioDSPTests.swift` left out; everything else in
   the core is portable. Useful when CI is down.
