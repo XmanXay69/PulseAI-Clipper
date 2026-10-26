@@ -16,12 +16,13 @@ concurrency:
 jobs:
   build-and-test:
     name: Build & Test (${{ matrix.os }})
-    # Hosted macOS runners are scarce at times; queue the same job on several images and take whichever starts.
-    # Each image compiles the whole package, so one green job is a full verification.
+    # Hosted macOS runners are scarce at times; queue the same job on several images (Apple silicon and Intel
+    # pools are separate) and take whichever starts. Each image compiles the whole package, so one green job is
+    # a full verification.
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, macos-15, macos-26]
+        os: [macos-14, macos-15, macos-26, macos-15-intel]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     steps:
