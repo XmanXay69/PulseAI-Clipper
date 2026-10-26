@@ -49,6 +49,8 @@ final class ProjectSession: ObservableObject, Identifiable {
     @Published private(set) var lastSaved: Date?
     @Published var selectedTimelineID: UUID?
     @Published var selectedClipIDs: Set<UUID> = []
+    /// The last Edit My VOD settings, so "Edit Again" (and ±10 %) can re-run them.
+    var lastLongFormOptions: LongFormOptions?
     @Published var selectedCandidateIDs: Set<UUID> = []
     @Published var focusedCaptionWordID: UUID?
     @Published var tool: EditTool = .select

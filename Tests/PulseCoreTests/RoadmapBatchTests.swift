@@ -233,6 +233,17 @@ final class RoadmapBatchTests: XCTestCase {
         XCTAssertFalse(EngagementLexicon.isProfane("dang"))
     }
 
+    func testAShortFromAPickedStretchIsScoredLikeAnyOther() {
+        let duration: Seconds = 600
+        let analysis = MediaAnalysis(assetID: Fixtures.assetID, duration: duration, audio: Fixtures.audio(duration: duration, spikes: [300]),
+                                     transcript: Fixtures.transcript(duration: duration, special: [(300.5, "hahaha"), (301, "hahaha")]), profile: .gameplay)
+        let candidate = ClipGenerator.candidate(for: TimeRange(start: 280, end: 320), analysis: analysis, settings: ClipGenerationSettings(targetDuration: 30))
+        XCTAssertEqual(candidate.range, TimeRange(start: 280, end: 320))
+        XCTAssertEqual(candidate.payoffTime, 300, accuracy: 3, "the payoff sits on the spike")
+        XCTAssertGreaterThan(candidate.potential, 0)
+        XCTAssertFalse(candidate.title.isEmpty)
+    }
+
     func testSearchActionKindHasAnIcon() {
         XCTAssertEqual(SearchResultKind.action.symbolName, "command")
         XCTAssertEqual(SearchResultKind.action.displayName, "Action")

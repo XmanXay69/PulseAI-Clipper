@@ -100,6 +100,15 @@ struct PulseCommands: Commands {
             Button("Make Thumbnail…") { app.thumbnailRequest = ThumbnailRequest(timelineID: app.session?.selectedTimelineID) }
                 .keyboardShortcut("t", modifiers: [.command, .shift])
                 .disabled(app.session?.document.primaryAsset == nil)
+            Menu("Edit My VOD Again") {
+                Button("Same Settings") { app.session?.editAgain() }
+                Button("10 % Shorter") { app.session?.editAgain(lengthScale: 0.9) }
+                Button("10 % Longer") { app.session?.editAgain(lengthScale: 1.1) }
+            }
+            .disabled(app.session?.lastLongFormOptions == nil)
+            Button("Make a Short from Selection") { app.session?.makeShortFromSelection() }
+                .keyboardShortcut("s", modifiers: [.command, .option, .shift])
+                .disabled(app.session?.activeTimeline == nil)
             Button("Quick Export") { app.quickExport() }
                 .keyboardShortcut("e")
                 .disabled(app.session?.activeTimeline == nil)

@@ -30,6 +30,7 @@ extension ProjectSession {
             analyze(assetID: asset.id, generateClips: false) { [weak self] in self?.editMyVOD(options: options, segments: segments, hookPayoff: hookPayoff) }
             return
         }
+        lastLongFormOptions = options
         let job = app.jobs.start("Editing your VOD", kind: .autoEdit) { [weak self] job in
             guard let self else { return }
             // 1. Sound effects from the built-in library.
@@ -223,6 +224,44 @@ extension ProjectSession {
             used.append(track)
         }
         return (assets, used)
+    }
+
+    /// Edit → Edit My VOD Again: the same answers (optionally a little shorter or longer) as a new timeline;
+    /// the previous edit stays.
+    func editAgain(lengthScale: Double = 1) {
+        guard var options = lastLongFormOptions else {
+            app.toast("Run Edit My VOD first — Edit Again repeats its settings")
+            return
+        }
+        options.minimumLength *= lengthScale
+        options.maximumLength *= lengthScale
+        options.extras.approveCut = false
+        editMyVOD(options: options)
+    }
+
+    /// Timeline → Make a Short from Selection: the selected piece of the main recording (or the in → out
+    /// range) becomes an AI clip and opens as a short.
+    func makeShortFromSelection() {
+        guard let timeline = activeTimeline, let asset = document.primaryAsset, let analysis = analyses[asset.id] else {
+            app.toast("Analyze the recording first")
+            return
+        }
+        var range: TimeRange?
+        if let clip = selectedClips.first(where: { $0.content.assetID == asset.id && $0.role != .graphic }) {
+            range = clip.sourceRange
+        } else if let a = inPoint, let b = outPoint, b > a,
+                  let clip = timeline.tracks.first(where: { $0.kind == .video })?.clips.first(where: { $0.content.assetID == asset.id && $0.timelineRange.contains(a) }) {
+            let start = clip.sourceIn + (a - clip.start) * clip.speed
+            range = TimeRange(start: start, end: min(clip.sourceOut, start + (b - a) * clip.speed))
+        }
+        guard let range, range.duration >= 3 else {
+            app.toast("Select a piece of the recording (or set in and out points) first")
+            return
+        }
+        let settings = app.settings.ai.generationSettings
+        let candidate = ClipGenerator.candidate(for: range, analysis: analysis, settings: settings)
+        edit("Short from Selection") { $0.candidates.insert(candidate, at: 0) }
+        _ = createShort(from: candidate.id)
     }
 
     /// Timeline → Nudge (, and .): move the selected clips by whole frames (⇧ for ten).

@@ -283,6 +283,25 @@ public struct ClipGenerator: Sendable {
         return end - lastActivity > 0.6 ? lastActivity + 0.35 : end
     }
 
+    /// A candidate for a stretch you picked yourself (a selected piece, an in → out range): scored, tagged and
+    /// titled like any AI pick, with the payoff at the most exciting moment inside it.
+    public static func candidate(for range: TimeRange, analysis: MediaAnalysis, settings: ClipGenerationSettings) -> ClipCandidate {
+        let generator = ClipGenerator(input: ClipGenerationInput(analysis: analysis), settings: settings)
+        let step = max(generator.signals.step, 0.05)
+        var payoff = range.start + range.duration * 0.6
+        var best: Float = -.infinity
+        var t = range.start
+        while t < range.end {
+            let i = Int(t / step)
+            if i < generator.signals.excitement.count, generator.signals.excitement[i] > best {
+                best = generator.signals.excitement[i]
+                payoff = t
+            }
+            t += step
+        }
+        return generator.makeCandidate(range: range, payoff: payoff)
+    }
+
     // MARK: Scoring
 
     func makeCandidate(range: TimeRange, payoff: Seconds) -> ClipCandidate {
