@@ -203,6 +203,7 @@ struct ClipInspector: View {
                     KeyValueRow(key: "Source", value: "\(Timecode.short(clip.sourceIn)) → \(Timecode.short(clip.sourceOut))")
                 }
                 if let role = clip.role { KeyValueRow(key: "Role", value: role.displayName) }
+                ClipLabelRow(session: session, current: clip.labelColor)
                 if let why = clip.aiPassDescription {
                     Text(why).font(.pulseMicro).foregroundStyle(Theme.ai).fixedSize(horizontal: false, vertical: true)
                 }
@@ -951,5 +952,32 @@ struct MusicTrackRow: View {
         if !app.settings.ai.blockedTrackIDs.contains(track.videoID) { app.settings.ai.blockedTrackIDs.append(track.videoID) }
         app.settings.ai.favoriteTrackIDs.removeAll { $0 == track.videoID }
         app.toast("“\(track.title)” won't be picked again")
+    }
+}
+
+/// Colour label dots for the selected clips (#177).
+struct ClipLabelRow: View {
+    @ObservedObject var session: ProjectSession
+    let current: MarkerColor?
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text("Label").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+            Spacer()
+            Button { session.setLabel(nil) } label: {
+                Image(systemName: "slash.circle").font(.system(size: 11)).foregroundStyle(current == nil ? Theme.textPrimary : Theme.textTertiary)
+            }
+            .buttonStyle(.plain).help("No label").accessibilityLabel("No label")
+            ForEach(MarkerColor.allCases, id: \.self) { color in
+                Button { session.setLabel(color) } label: {
+                    Circle().fill(Color(color.rgba)).frame(width: 12, height: 12)
+                        .overlay(Circle().strokeBorder(.white, lineWidth: current == color ? 2 : 0))
+                }
+                .buttonStyle(.plain)
+                .help(color.displayName)
+                .accessibilityLabel("\(color.displayName) label")
+                .accessibilityAddTraits(current == color ? [.isSelected] : [])
+            }
+        }
     }
 }

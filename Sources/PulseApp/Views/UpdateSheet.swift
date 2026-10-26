@@ -87,8 +87,10 @@ struct UpdateSheet: View {
         }
     }
 
+    /// Everything since the version you're on, when more than one release went by (#454).
     func notes(_ release: ReleaseInfo) -> AttributedString {
-        let text = release.whatsNew.isEmpty ? release.name : release.whatsNew
+        let missed = updater.missedNotes
+        let text = !missed.isEmpty ? missed : (release.whatsNew.isEmpty ? release.name : release.whatsNew)
         return (try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(text)
     }
 }

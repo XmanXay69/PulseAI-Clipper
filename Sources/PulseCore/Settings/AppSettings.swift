@@ -328,6 +328,10 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var watchFolderAnalyzes: Bool = true
     /// Hour (0–23) at which the batch runs on what the watch folder gathered that day; nil = never (#461).
     public var nightlyBatchHour: Int?
+    /// Stable releases only, or betas too (#454).
+    public var updateChannel: UpdateChannel = .stable
+    /// The accent colour (#425).
+    public var accent: AccentChoice = .pulse
 
     public init() {}
 
@@ -376,6 +380,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
         compactTimeline = c.decode(Bool.self, forKey: .compactTimeline, default: d.compactTimeline)
         timelineFollowsPlayhead = c.decode(Bool.self, forKey: .timelineFollowsPlayhead, default: d.timelineFollowsPlayhead)
         batchPausesOnLowBattery = c.decode(Bool.self, forKey: .batchPausesOnLowBattery, default: d.batchPausesOnLowBattery)
+        updateChannel = c.decode(UpdateChannel.self, forKey: .updateChannel, default: d.updateChannel)
+        accent = c.decode(AccentChoice.self, forKey: .accent, default: d.accent)
         watchFolderAnalyzes = c.decode(Bool.self, forKey: .watchFolderAnalyzes, default: d.watchFolderAnalyzes)
         nightlyBatchHour = c.decode(Int?.self, forKey: .nightlyBatchHour, default: nil)
         defaultExportPresetID = c.decode(String.self, forKey: .defaultExportPresetID, default: d.defaultExportPresetID)

@@ -29,6 +29,9 @@ public struct BrandKit: Codable, Hashable, Sendable {
     public var highlightColor: RGBAColor?
     public var logoOnShorts: Bool
     public var logoOnLongForm: Bool
+    /// A name for the generated 3-second intro card on YouTube edits when there's no intro clip (#373); "" = none.
+    public var bumperName: String
+    public var bumperShowsHandle: Bool
 
     public init() {
         enabled = false
@@ -42,10 +45,12 @@ public struct BrandKit: Codable, Hashable, Sendable {
         highlightColor = nil
         logoOnShorts = true
         logoOnLongForm = true
+        bumperName = ""
+        bumperShowsHandle = true
     }
 
     public var hasAnything: Bool {
-        !logoPath.isEmpty || !introPath.isEmpty || !outroPath.isEmpty || !captionPresetName.isEmpty || highlightColor != nil
+        !logoPath.isEmpty || !introPath.isEmpty || !outroPath.isEmpty || !captionPresetName.isEmpty || highlightColor != nil || !bumperName.isEmpty
     }
 
     public init(from decoder: Decoder) throws {
@@ -62,6 +67,8 @@ public struct BrandKit: Codable, Hashable, Sendable {
         highlightColor = c.decode(RGBAColor?.self, forKey: .highlightColor, default: nil)
         logoOnShorts = c.decode(Bool.self, forKey: .logoOnShorts, default: d.logoOnShorts)
         logoOnLongForm = c.decode(Bool.self, forKey: .logoOnLongForm, default: d.logoOnLongForm)
+        bumperName = c.decode(String.self, forKey: .bumperName, default: d.bumperName)
+        bumperShowsHandle = c.decode(Bool.self, forKey: .bumperShowsHandle, default: d.bumperShowsHandle)
     }
 }
 
@@ -83,7 +90,7 @@ public enum BrandKitApplier {
     static let margin = 0.035
 
     /// Applies the kit to a timeline. Re-applying replaces the previous logo / intro / outro instead of stacking.
-    public static func apply(_ kit: BrandKit, assets: BrandKitAssets, to timeline: inout Timeline, longForm: Bool) {
+    public static func apply(_ kit: BrandKit, assets: BrandKitAssets, to timeline: inout Timeline, longForm: Bool, handle: String? = nil) {
         removeBrand(from: &timeline)
 
         // Captions.
@@ -99,6 +106,9 @@ public enum BrandKitApplier {
         // Intro / outro on YouTube edits.
         if longForm, let intro = assets.intro, intro.metadata.duration > 0.2 {
             insertBumper(intro, at: 0, name: "Intro", into: &timeline)
+        } else if longForm, !kit.bumperName.trimmingCharacters(in: .whitespaces).isEmpty {
+            // No intro video: a generated name card (#373).
+            IntroBumper.add(&timeline, name: kit.bumperName, handle: kit.bumperShowsHandle ? handle : nil)
         }
         if longForm, let outro = assets.outro, outro.metadata.duration > 0.2 {
             insertBumper(outro, at: timeline.duration, name: "Outro", into: &timeline)
@@ -134,7 +144,7 @@ public enum BrandKitApplier {
     /// Takes a previous kit back out (logo track, intro and outro bumpers).
     public static func removeBrand(from timeline: inout Timeline) {
         timeline.tracks.removeAll { $0.name == brandTrackName }
-        for name in ["Intro", "Outro"] {
+        for name in ["Intro", "Outro", IntroBumper.clipName] {
             let bumpers = timeline.allClips.filter { $0.name == name && $0.role == .graphic }
             guard let first = bumpers.first else { continue }
             let range = first.timelineRange

@@ -186,6 +186,22 @@ extension Int {
 }
 
 /// How the viewer shows time (#180).
+extension Timecode {
+    /// The start of the frame that contains `seconds` (#178).
+    public static func frameAligned(_ seconds: Seconds, fps: Double) -> Seconds {
+        guard fps > 0 else { return seconds }
+        return (seconds * fps + 1e-6).rounded(.down) / fps
+    }
+
+    /// `frames` whole frames on from the frame containing `seconds`, landing exactly on a frame start, so
+    /// stepping at 29.97 never drifts off the picture (#178).
+    public static func stepped(_ seconds: Seconds, frames: Int, fps: Double) -> Seconds {
+        guard fps > 0 else { return seconds }
+        let frame = (seconds * fps + 1e-6).rounded(.down)
+        return max(0, (frame + Double(frames)) / fps)
+    }
+}
+
 public enum TimecodeStyle: String, Codable, CaseIterable, Sendable {
     case timecode, seconds, frames
 

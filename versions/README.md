@@ -5,7 +5,8 @@ GitHub Release description — and the installer is attached to that release on 
 
 | Version | Notes | Download |
 |---|---|---|
-| **1.6.0** | [versions/1.6.0](1.6.0/NOTES.md) | [PULSE-1.6.0.dmg](https://github.com/XmanXay69/PulseAI-Clipper/releases/download/v1.6.0/PULSE-1.6.0.dmg) |
+| **1.6.1** | [versions/1.6.1](1.6.1/NOTES.md) | [PULSE-1.6.1.dmg](https://github.com/XmanXay69/PulseAI-Clipper/releases/download/v1.6.1/PULSE-1.6.1.dmg) |
+| 1.6.0 | [versions/1.6.0](1.6.0/NOTES.md) | [PULSE-1.6.0.dmg](https://github.com/XmanXay69/PulseAI-Clipper/releases/download/v1.6.0/PULSE-1.6.0.dmg) |
 | 1.5.0 (folded into 1.6.0) | [versions/1.5.0](1.5.0/NOTES.md) | — |
 | 1.4.0 (folded into 1.5.0) | [versions/1.4.0](1.4.0/NOTES.md) | — |
 | 1.3.0 | [versions/1.3.0](1.3.0/NOTES.md) | [PULSE-1.3.0.dmg](https://github.com/XmanXay69/PulseAI-Clipper/releases/download/v1.3.0/PULSE-1.3.0.dmg) |

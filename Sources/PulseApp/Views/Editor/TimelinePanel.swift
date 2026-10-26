@@ -80,6 +80,7 @@ struct TimelineToolbar: View {
             IconButton(symbol: "bookmark", help: "Add marker (M)") { session.addMarker() }
             IconButton(symbol: "list.bullet.rectangle", help: "Markers list", isActive: showMarkers) { showMarkers.toggle() }
                 .popover(isPresented: $showMarkers, arrowEdge: .bottom) { MarkersListView(session: session, playback: playback).frame(width: 360) }
+            LabelFilterMenu(session: session)
             IconButton(symbol: "magnifyingglass", help: "Find on the timeline — a clip, a marker or a word spoken", isActive: showSearch) { showSearch.toggle() }
                 .popover(isPresented: $showSearch, arrowEdge: .bottom) { TimelineSearchView(session: session, playback: playback).frame(width: 380) }
             IconButton(symbol: "waveform.badge.minus", help: "Tighten pauses — speed up the gaps between sentences", isActive: showPauses) { showPauses.toggle() }
@@ -827,6 +828,7 @@ struct TrackLane: View {
                                  asset: clip.assetID.flatMap { session.document.asset(id: $0) },
                                  color: Theme.clipColor(for: clip, track: track))
                     .equatable()
+                    .opacity(session.labelFilter == nil || clip.labelColor == session.labelFilter ? 1 : 0.22)
             }
         }
         .frame(width: width, height: TimelineMetrics.laneHeight(track.kind), alignment: .topLeading)
@@ -885,6 +887,10 @@ struct TimelineClipView: View, Equatable {
             .padding(3)
             if isSelected { keyframeMarks(width: w) }
             transitionMarks(width: w)
+            if let labelColor = clip.labelColor {
+                UnevenRoundedRectangle(topLeadingRadius: 5, bottomLeadingRadius: 5, bottomTrailingRadius: 0, topTrailingRadius: 0)
+                    .fill(Color(labelColor.rgba)).frame(width: 4)
+            }
             RoundedRectangle(cornerRadius: 5)
                 .strokeBorder(LinearGradient(colors: [.white.opacity(0.2), .clear], startPoint: .top, endPoint: .bottom), lineWidth: 1)
             RoundedRectangle(cornerRadius: 5)
@@ -1169,5 +1175,45 @@ struct FilmstripStrip: View {
         }
         .frame(width: width, height: height, alignment: .leading)
         .clipped()
+    }
+}
+
+/// Show only one colour label (#177): the others dim; a second click clears it.
+struct LabelFilterMenu: View {
+    @ObservedObject var session: ProjectSession
+
+    var body: some View {
+        let used = session.activeTimeline?.labelsInUse ?? []
+        Menu {
+            Button("Show all") { session.labelFilter = nil }.disabled(session.labelFilter == nil)
+            if used.isEmpty {
+                Text("No labelled clips yet — set a label in the Inspector")
+            }
+            ForEach(used, id: \.self) { color in
+                Button {
+                    session.labelFilter = session.labelFilter == color ? nil : color
+                } label: {
+                    Label("\(color.displayName) (\(session.activeTimeline?.clips(label: color).count ?? 0))", systemImage: session.labelFilter == color ? "checkmark.circle.fill" : "circle.fill")
+                }
+                .tint(Color(color.rgba))
+            }
+            if !used.isEmpty {
+                Divider()
+                ForEach(used, id: \.self) { color in
+                    Button("Select all \(color.displayName.lowercased())") { session.selectClips(label: color) }
+                }
+            }
+        } label: {
+            Image(systemName: session.labelFilter == nil ? "tag" : "tag.fill")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(session.labelFilter.map { Color($0.rgba) } ?? Theme.textSecondary)
+                .frame(width: 26, height: 26)
+                .background(RoundedRectangle(cornerRadius: Theme.radiusSmall).fill(session.labelFilter == nil ? Color.clear : Theme.control))
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .frame(width: 26, height: 26)
+        .help("Filter by colour label — show only clips with one label")
+        .accessibilityLabel("Filter by colour label")
     }
 }

@@ -8,6 +8,8 @@ public struct TimedCaptionWord: Hashable, Sendable {
     public var end: Seconds
     public var isEmphasized: Bool
     public var speaker: Int?
+    /// A page break the editor asked for after this word (#256).
+    public var breakAfter: Bool = false
 }
 
 /// A group of words shown together.
@@ -51,7 +53,7 @@ public enum CaptionLayoutEngine {
                 let display = displayText(w.text, style: track.style, profanity: track.profanity)
                 guard !display.isEmpty else { continue }
                 result.append(TimedCaptionWord(id: w.id, text: display, start: start, end: max(end, start + 0.05),
-                                               isEmphasized: w.isEmphasized, speaker: w.speaker))
+                                               isEmphasized: w.isEmphasized, speaker: w.speaker, breakAfter: w.pageBreakAfter))
             }
         }
         return result.sorted { $0.start < $1.start }
@@ -87,7 +89,7 @@ public enum CaptionLayoutEngine {
                 let gap = w.start - last.end
                 let sentenceBreak = last.text.hasSuffix(".") || last.text.hasSuffix("!") || last.text.hasSuffix("?")
                 let tooLong = charCount(current + [w]) > maxChars * maxLines
-                if current.count >= maxWords || gap > 0.8 || sentenceBreak || tooLong || w.speaker != last.speaker {
+                if current.count >= maxWords || gap > 0.8 || sentenceBreak || tooLong || w.speaker != last.speaker || last.breakAfter {
                     groups.append(current)
                     current = []
                 }

@@ -256,9 +256,10 @@ public final class PlaybackController: ObservableObject {
         }
     }
 
+    /// Lands exactly on frame starts (#178), so a hundred steps at 29.97 are still a hundred frames.
     public func step(frames: Int) {
         pause()
-        seek(to: currentTime + Double(frames) / max(frameRate, 1))
+        seek(to: Timecode.stepped(currentTime, frames: frames, fps: max(frameRate, 1)))
     }
 
     /// J/K/L-style shuttle.

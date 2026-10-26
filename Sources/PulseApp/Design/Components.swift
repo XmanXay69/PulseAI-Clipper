@@ -113,6 +113,14 @@ struct IconButton: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .help(help)
+        .accessibilityLabel(accessibilityName)
+        .accessibilityAddTraits(isActive ? [.isSelected] : [])
+    }
+
+    /// The help text up to its first separator or bracket — "Split at playhead", not the shortcut (#458).
+    var accessibilityName: String {
+        let cut = help.firstIndex { $0 == "(" || $0 == "—" || $0 == "·" } ?? help.endIndex
+        return help[..<cut].trimmingCharacters(in: .whitespaces)
     }
 }
 

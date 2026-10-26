@@ -156,6 +156,42 @@ extension CaptionTrack {
         return before - words.count
     }
 
+    // MARK: Keyboard editing (#256)
+
+    /// The visible word `step` places after (or before, negative) the word `id`.
+    public func neighborWord(of id: UUID, step: Int) -> CaptionWord? {
+        let visible = words.filter { !$0.isHidden }
+        guard let i = visible.firstIndex(where: { $0.id == id }) else { return nil }
+        let j = i + step
+        return visible.indices.contains(j) ? visible[j] : nil
+    }
+
+    /// Return: a new caption page starts after this word; again to undo. Returns the new state.
+    @discardableResult
+    public mutating func toggleBreak(afterID id: UUID) -> Bool? {
+        guard let i = words.firstIndex(where: { $0.id == id }) else { return nil }
+        words[i].pageBreakAfter.toggle()
+        return words[i].pageBreakAfter
+    }
+
+    /// ⌫: joins the word into the visible one before it — one chip, timed across both — for names and
+    /// phrases the transcriber split. Returns the merged word's id, or nil when there's nothing before it.
+    @discardableResult
+    public mutating func mergeIntoPrevious(id: UUID) -> UUID? {
+        guard let i = words.firstIndex(where: { $0.id == id }), i > 0 else { return nil }
+        var j = i - 1
+        while j > 0, words[j].isHidden { j -= 1 }
+        guard !words[j].isHidden else { return nil }
+        let text = words[i].text.trimmingCharacters(in: .whitespaces)
+        if !text.isEmpty { words[j].text = (words[j].text + " " + text).trimmingCharacters(in: .whitespaces) }
+        words[j].end = max(words[j].end, words[i].end)
+        words[j].isEmphasized = words[j].isEmphasized || words[i].isEmphasized
+        words[j].emphasisIsAI = words[j].isEmphasized && words[j].emphasisIsAI && (words[i].emphasisIsAI || !words[i].isEmphasized)
+        words[j].pageBreakAfter = words[i].pageBreakAfter
+        words.remove(at: i)
+        return words[j].id
+    }
+
     /// Moves only the words from `after` on (#241) — fixes a transcript that drifts late after a re-cut.
     @discardableResult
     public mutating func shiftTiming(by delta: Seconds, after: Seconds) -> Int {

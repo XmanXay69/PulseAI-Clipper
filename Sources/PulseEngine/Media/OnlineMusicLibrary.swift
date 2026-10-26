@@ -41,9 +41,9 @@ public actor OnlineMusicLibrary {
 
     /// `count` tracks for the mood: new downloads first (variety), topped up from the library. Throws only
     /// when nothing at all could be found or downloaded.
-    public func tracks(for tags: [ClipTag], count: Int, avoiding: Set<String> = [], favorites: Set<String> = [], blocked: Set<String> = [],
+    public func tracks(for tags: [ClipTag], count: Int, pace: MusicPace = .medium, avoiding: Set<String> = [], favorites: Set<String> = [], blocked: Set<String> = [],
                        progress: (@Sendable (String) -> Void)? = nil) async throws -> [OnlineTrack] {
-        let (mood, queries) = MusicPicker.queries(for: tags)
+        let (mood, queries) = MusicPicker.queries(for: tags, pace: pace)
         var chosen: [OnlineTrack] = []
         // Favourites you already have in this mood come first (#292); "never again" tracks never come back.
         for track in downloaded where favorites.contains(track.videoID) && track.mood == mood && !avoiding.contains(track.videoID) && chosen.count < count {

@@ -74,6 +74,8 @@ final class ProjectSession: ObservableObject, Identifiable {
     @Published var lastEditCheck: EditCheckReport?
     @Published var showEditCheck = false
     @Published var focusedCaptionWordID: UUID?
+    /// Show only clips with this label; others dim (#177).
+    @Published var labelFilter: MarkerColor?
     @Published var tool: EditTool = .select
     @Published var pixelsPerSecond: Double = 60
     @Published var inPoint: Seconds?
@@ -233,6 +235,19 @@ final class ProjectSession: ObservableObject, Identifiable {
         editTimeline(label, coalesce: coalesce ?? "clips-\(label)") { t in
             for id in ids { t.updateClip(id: id, body) }
         }
+    }
+
+    /// Colour label on the selected clips (#177); nil clears it.
+    func setLabel(_ label: MarkerColor?) {
+        let ids = selectedClipIDs
+        guard !ids.isEmpty else { return }
+        editTimeline(label.map { "Label \($0.displayName)" } ?? "Clear Label") { $0.setLabel(label, clipIDs: ids) }
+    }
+
+    /// Selects every clip carrying the label (#177).
+    func selectClips(label: MarkerColor) {
+        guard let timeline = activeTimeline else { return }
+        selectedClipIDs = Set(timeline.clips(label: label).map(\.id))
     }
 
     /// One caption look for the whole project (#259).

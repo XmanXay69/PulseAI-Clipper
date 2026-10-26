@@ -119,20 +119,52 @@ public enum YouTubeSearchParser {
     }
 }
 
+/// How fast an edit cuts (#102): the music bed's tempo follows it.
+public enum MusicPace: String, Codable, CaseIterable, Sendable {
+    case slow, medium, fast
+
+    /// Under 4 cuts a minute is slow (a story, a chat); 12 and over is fast (a montage, a fight).
+    public init(cutsPerMinute: Double) {
+        self = cutsPerMinute >= 12 ? .fast : (cutsPerMinute < 4 ? .slow : .medium)
+    }
+
+    public var displayName: String {
+        switch self {
+        case .slow: return "slow"
+        case .medium: return "medium"
+        case .fast: return "upbeat"
+        }
+    }
+}
+
 /// Chooses calm, unobtrusive background music: a bed under the talking, never the main event.
 public enum MusicPicker {
-    /// Search phrases per mood, all aimed at low-key instrumentals.
-    public static func queries(for tags: [ClipTag]) -> (mood: String, queries: [String]) {
+    /// Search phrases per mood, all aimed at low-key instrumentals; a fast-cut edit asks for upbeat ones and
+    /// a slow one for slower (#102). The mood names the library shelf the track goes on.
+    public static func queries(for tags: [ClipTag], pace: MusicPace = .medium) -> (mood: String, queries: [String]) {
         let set = Set(tags)
+        var mood: String
+        var queries: [String]
         if set.contains(.gaming) || !set.isDisjoint(with: [.hype, .highEnergy]) {
-            return ("chill gaming", ["chill lofi gaming background music no copyright", "calm chillhop instrumental creative commons",
-                                     "soft electronic background music no copyright"])
+            (mood, queries) = ("chill gaming", ["chill lofi gaming background music no copyright", "calm chillhop instrumental creative commons",
+                                                "soft electronic background music no copyright"])
+        } else if !set.isDisjoint(with: [.story, .emotional, .conversation]) {
+            (mood, queries) = ("ambient", ["calm ambient background music no copyright", "soft piano background music creative commons"])
+        } else {
+            (mood, queries) = ("lofi", ["lofi background music no copyright", "chill lofi instrumental creative commons",
+                                        "light acoustic background music no copyright"])
         }
-        if !set.isDisjoint(with: [.story, .emotional, .conversation]) {
-            return ("ambient", ["calm ambient background music no copyright", "soft piano background music creative commons"])
+        switch pace {
+        case .fast:
+            mood += " upbeat"
+            queries = queries.map { "upbeat " + $0 } + ["energetic chillhop instrumental no copyright", "upbeat lofi beats creative commons"]
+        case .slow:
+            mood += " slow"
+            queries = queries.map { "slow " + $0 } + ["slow ambient piano background music no copyright"]
+        case .medium:
+            break
         }
-        return ("lofi", ["lofi background music no copyright", "chill lofi instrumental creative commons",
-                         "light acoustic background music no copyright"])
+        return (mood, queries)
     }
 
     static let goodWords = ["no copyright", "copyright free", "royalty free", "free to use", "creative commons", "background",

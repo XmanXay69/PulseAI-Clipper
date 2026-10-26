@@ -22,6 +22,12 @@ final class AppUpdater: NSObject, ObservableObject {
     @Published private(set) var state: State = .idle
     @Published var showSheet = false
     static let latestURL = URL(string: "https://api.github.com/repos/XmanXay69/PulseAI-Clipper/releases/latest")!
+    /// The last ten releases, betas included (#454).
+    static let releasesURL = URL(string: "https://api.github.com/repos/XmanXay69/PulseAI-Clipper/releases?per_page=10")!
+    /// Stable only, or betas too. Set from Settings; read on every check.
+    var channel: UpdateChannel = .stable
+    /// The notes of every release newer than this one (#454) — what you've missed, not just the latest.
+    @Published private(set) var missedNotes = ""
     static let releasesPage = URL(string: "https://github.com/XmanXay69/PulseAI-Clipper/releases/latest")!
     private var downloadTask: URLSessionDownloadTask?
     private var progressObservation: NSKeyValueObservation?
@@ -75,15 +81,17 @@ final class AppUpdater: NSObject, ObservableObject {
         let previous: State? = available.map { .available($0) }
         if userInitiated || previous == nil { state = .checking }
         UserDefaults.standard.set(Date(), forKey: "updates.lastCheck")
-        var request = URLRequest(url: Self.latestURL, timeoutInterval: 20)
+        var request = URLRequest(url: Self.releasesURL, timeoutInterval: 20)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("PULSE/\(current)", forHTTPHeaderField: "User-Agent")
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200, let release = ReleaseInfo.parse(data) else {
+            let releases = (response as? HTTPURLResponse)?.statusCode == 200 ? ReleaseInfo.parseAll(data, includePrereleases: channel == .beta) : []
+            guard let release = releases.first else {
                 state = userInitiated ? .failed("Couldn't read the latest release from GitHub.") : (previous ?? .idle)
                 return
             }
+            missedNotes = ReleaseInfo.missedNotes(releases, since: current)
             if current < release.version {
                 state = .available(release)
                 if announced != release.tag {

@@ -12,9 +12,11 @@ public struct CaptionWord: Codable, Hashable, Identifiable, Sendable {
     public var emphasisIsAI: Bool
     public var speaker: Int?
     public var isHidden: Bool
+    /// A new caption page starts after this word (return in the caption editor, #256).
+    public var pageBreakAfter: Bool
 
     public init(id: UUID = UUID(), text: String, start: Seconds, end: Seconds, isEmphasized: Bool = false,
-                emphasisIsAI: Bool = false, speaker: Int? = nil, isHidden: Bool = false) {
+                emphasisIsAI: Bool = false, speaker: Int? = nil, isHidden: Bool = false, pageBreakAfter: Bool = false) {
         self.id = id
         self.text = text
         self.start = start
@@ -23,6 +25,22 @@ public struct CaptionWord: Codable, Hashable, Identifiable, Sendable {
         self.emphasisIsAI = emphasisIsAI
         self.speaker = speaker
         self.isHidden = isHidden
+        self.pageBreakAfter = pageBreakAfter
+    }
+
+    enum CodingKeys: String, CodingKey { case id, text, start, end, isEmphasized, emphasisIsAI, speaker, isHidden, pageBreakAfter }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = c.decode(UUID.self, forKey: .id, default: UUID())
+        text = try c.decode(String.self, forKey: .text)
+        start = try c.decode(Seconds.self, forKey: .start)
+        end = try c.decode(Seconds.self, forKey: .end)
+        isEmphasized = c.decode(Bool.self, forKey: .isEmphasized, default: false)
+        emphasisIsAI = c.decode(Bool.self, forKey: .emphasisIsAI, default: false)
+        speaker = c.decode(Int?.self, forKey: .speaker, default: nil)
+        isHidden = c.decode(Bool.self, forKey: .isHidden, default: false)
+        pageBreakAfter = c.decode(Bool.self, forKey: .pageBreakAfter, default: false)
     }
 }
 

@@ -22,9 +22,10 @@ enum Theme {
     static let textSecondary = Color.white.opacity(0.62)
     static let textTertiary = Color.white.opacity(0.38)
 
-    // Accents.
-    static let accent = Color(hex: 0xFF3D6E)          // Pulse pink-red
-    static let accentSoft = Color(hex: 0xFF3D6E).opacity(0.16)
+    // Accents. The accent follows Settings → General → Appearance (#425); the AI violet never changes.
+    nonisolated(unsafe) static var accentChoice: AccentChoice = .pulse
+    static var accent: Color { Color(hex: accentChoice.hex) }
+    static var accentSoft: Color { Color(hex: accentChoice.hex).opacity(0.16) }
     static let ai = Color(hex: 0x8C6CFF)              // AI violet
     static let aiSoft = Color(hex: 0x8C6CFF).opacity(0.16)
     static let success = Color(hex: 0x3DDC97)
@@ -56,7 +57,9 @@ enum Theme {
     static let elevated = Color(hex: 0x27272C)
 
     // Gradients: the accent and the AI violet get a little warmth/cool so filled controls read as lit.
-    static let accentGradient = LinearGradient(colors: [Color(hex: 0xFF3D6E), Color(hex: 0xFF6A4D)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    static var accentGradient: LinearGradient {
+        LinearGradient(colors: [Color(hex: accentChoice.hex), Color(hex: accentChoice.gradientEndHex)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
     static let aiGradient = LinearGradient(colors: [Color(hex: 0x8C6CFF), Color(hex: 0x5E9BFF)], startPoint: .topLeading, endPoint: .bottomTrailing)
     /// The 1 px light catch along the top edge of raised surfaces.
     static let edgeHighlight = LinearGradient(colors: [Color.white.opacity(0.09), Color.white.opacity(0)], startPoint: .top, endPoint: .center)

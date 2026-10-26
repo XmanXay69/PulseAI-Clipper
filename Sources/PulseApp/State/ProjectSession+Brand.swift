@@ -41,7 +41,8 @@ extension ProjectSession {
             guard let timeline = self.document.timeline(id: timelineID) else { return }
             let longForm = EditFormat.of(timeline) == .longForm
             self.edit("Apply Brand Kit") { doc in
-                doc.editTimeline(id: timelineID) { BrandKitApplier.apply(kit, assets: assets, to: &$0, longForm: longForm) }
+                let handle = self.app.settings.ai.socialHandle
+                doc.editTimeline(id: timelineID) { BrandKitApplier.apply(kit, assets: assets, to: &$0, longForm: longForm, handle: handle.isEmpty ? nil : handle) }
             }
             if announce { self.app.toast("Brand kit applied") }
         }

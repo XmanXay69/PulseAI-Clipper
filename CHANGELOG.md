@@ -2,6 +2,9 @@
 
 Release notes live in [`versions/`](versions/README.md), one folder per version:
 
+- [1.6.1](versions/1.6.1/NOTES.md) — roadmap batch 16: clip colour labels + filter, keyboard caption editing, intro card from the
+  Brand Kit, music beds by cut rate, humanized effect levels, frame-locked stepping, accent colours, beta update channel with
+  everything-since notes, monitoring note, VoiceOver labels.
 - [1.6.0](versions/1.6.0/NOTES.md) — studio UI + instant replays + fifteen roadmap batches from `docs/ROADMAP-500.md`:
   Edit My VOD gets a chapter outline, cold opens, speed ramps, chapter lower-thirds, end CTA cards, speaker
   levelling, game-only audio, an edit report and a shareable review page; AI Clips get more titles, hashtags,

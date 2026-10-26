@@ -13,7 +13,7 @@ Intel and `macos-15` jobs are the ones that usually finish, and one green job is
 
 ## Versions
 
-`VERSION` holds the current version (1.6.0). Release notes per version live in `versions/<version>/NOTES.md`
+`VERSION` holds the current version (1.6.1). Release notes per version live in `versions/<version>/NOTES.md`
 (the Release workflow prepends them to the GitHub Release); `versions/README.md` explains how to cut a new one.
 
 ## Download (the easy way)

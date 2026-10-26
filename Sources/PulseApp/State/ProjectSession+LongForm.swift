@@ -63,7 +63,8 @@ extension ProjectSession {
                 var beds: [MediaAsset] = []
                 // Real Creative Commons tracks from YouTube when allowed; the built-in calm beds otherwise.
                 if self.app.settings.ai.onlineMusic {
-                    let found = await self.onlineMusicBeds(tags: tags, chapterTags: result.chapterTags, count: min(result.musicChapters.count, 4), job: job)
+                    let found = await self.onlineMusicBeds(tags: tags, chapterTags: result.chapterTags, count: min(result.musicChapters.count, 4),
+                                                           pace: MusicPace(cutsPerMinute: result.timeline.cutsPerMinute), job: job)
                     beds = found.assets
                     newAssets += found.assets.filter { a in !self.document.media.contains { $0.id == a.id } }
                     if !found.tracks.isEmpty {
@@ -233,7 +234,7 @@ extension ProjectSession {
     }
 
     /// Creative Commons tracks for the edit, imported as project media — after your own music folder.
-    func onlineMusicBeds(tags: [ClipTag], chapterTags: [[ClipTag]] = [], count: Int, job: BackgroundJob) async -> (assets: [MediaAsset], tracks: [OnlineTrack]) {
+    func onlineMusicBeds(tags: [ClipTag], chapterTags: [[ClipTag]] = [], count: Int, pace: MusicPace = .medium, job: BackgroundJob) async -> (assets: [MediaAsset], tracks: [OnlineTrack]) {
         // Your own licensed tracks first (no credits needed); a different pick each run.
         let own = ownMusicTracks()
         if !own.isEmpty {
@@ -259,7 +260,7 @@ extension ProjectSession {
             var used = Set<String>()
             for (i, chapterTag) in perChapter.enumerated() {
                 job.detail = "Finding music for chapter \(i + 1) of \(perChapter.count)"
-                if let track = try? await OnlineMusicLibrary.shared.tracks(for: chapterTag, count: 1, avoiding: used, favorites: favorites, blocked: blocked, progress: { status in
+                if let track = try? await OnlineMusicLibrary.shared.tracks(for: chapterTag, count: 1, pace: pace, avoiding: used, favorites: favorites, blocked: blocked, progress: { status in
                     Task { @MainActor in job.detail = status }
                 }).first {
                     tracks.append(track)
@@ -269,7 +270,7 @@ extension ProjectSession {
         }
         if tracks.isEmpty {
             do {
-                tracks = try await OnlineMusicLibrary.shared.tracks(for: tags, count: max(1, count), favorites: favorites, blocked: blocked) { status in
+                tracks = try await OnlineMusicLibrary.shared.tracks(for: tags, count: max(1, count), pace: pace, favorites: favorites, blocked: blocked) { status in
                     Task { @MainActor in job.detail = status }
                 }
             } catch {

@@ -403,7 +403,7 @@ struct CaptionWordEditor: View {
 
     @ViewBuilder var clockedBody: some View {
         VStack(spacing: 0) {
-            PanelHeader("Caption Text", subtitle: "Double-click a word to edit · ★ emphasise · eye hides") {
+            PanelHeader("Caption Text", subtitle: "Double-click edits · tab next word · return breaks the page · ⌫ merges · ★ emphasise") {
                 if let word = selectedWord {
                     HStack(spacing: 4) {
                         Button { session.learnEmphasis(word); session.editTimeline("Toggle Emphasis") { $0.captions?.toggleEmphasis(id: word.id) } } label: {
@@ -448,9 +448,43 @@ struct CaptionWordEditor: View {
                     }
                     .padding(10)
                 }
+                .focusable()
+                .onKeyPress(phases: .down, action: handleKey)
             }
         }
         .background(Theme.panel)
+    }
+
+    /// Keyboard editing (#256): tab / ⇧tab move between words, return starts a new caption page after the
+    /// word (again to undo), ⌫ merges the word into the one before it, space seeks to it.
+    func handleKey(_ press: KeyPress) -> KeyPress.Result {
+        guard editingID == nil, let captions = session.activeTimeline?.captions else { return .ignored }
+        guard let id = session.focusedCaptionWordID else {
+            if press.key == .tab, let first = captions.words.first(where: { !$0.isHidden }) { session.focusedCaptionWordID = first.id; return .handled }
+            return .ignored
+        }
+        switch press.key {
+        case .tab:
+            let step = press.modifiers.contains(.shift) ? -1 : 1
+            if let next = captions.neighborWord(of: id, step: step) {
+                session.focusedCaptionWordID = next.id
+                playback.seek(to: CaptionLayoutEngine.timelineWords(captions, in: session.activeTimeline!).first { $0.id == next.id }?.start ?? playback.currentTime)
+            }
+            return .handled
+        case .return:
+            session.editTimeline("Caption Page Break") { $0.captions?.toggleBreak(afterID: id) }
+            return .handled
+        case .delete:
+            var merged: UUID?
+            session.editTimeline("Merge Caption Words") { merged = $0.captions?.mergeIntoPrevious(id: id) }
+            if let merged { session.focusedCaptionWordID = merged }
+            return .handled
+        case .space:
+            if let word = CaptionLayoutEngine.timelineWords(captions, in: session.activeTimeline!).first(where: { $0.id == id }) { playback.seek(to: word.start) }
+            return .handled
+        default:
+            return .ignored
+        }
     }
 
     var selectedWord: CaptionWord? {
@@ -479,6 +513,9 @@ struct CaptionWordEditor: View {
                 .background(RoundedRectangle(cornerRadius: 4).fill(session.focusedCaptionWordID == w.id ? Theme.info.opacity(0.35) : Theme.control))
                 .overlay(alignment: .topTrailing) {
                     if source?.emphasisIsAI == true { Circle().fill(Theme.ai).frame(width: 4, height: 4).offset(x: 1, y: -1) }
+                }
+                .overlay(alignment: .trailing) {
+                    if source?.pageBreakAfter == true { Image(systemName: "return").font(.system(size: 7, weight: .bold)).foregroundStyle(Theme.info).offset(x: 9) }
                 }
                 .onTapGesture(count: 2) {
                     editingText = source?.text ?? w.text

@@ -29,10 +29,10 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     /// Words people search for that land on this tab (#443).
     var keywords: String {
         switch self {
-        case .general: return "theme timecode transition snapping autosave backups sidebar onboarding"
+        case .general: return "theme accent colour appearance timecode transition snapping autosave backups sidebar onboarding update channel beta speakers headphones monitoring"
         case .aiProcessing: return "cloud local privacy provider api key model claude openai"
         case .aiFeatures: return "clips length aggressiveness captions zoom crop silence filler music sound effects extras censor swear banners taste cold open speed ramp hashtags end card follow handle"
-        case .brandKit: return "logo watermark intro outro font colors handle"
+        case .brandKit: return "logo watermark intro outro bumper name card font colors handle"
         case .performance: return "threads memory cache proxies speed analysis"
         case .transcription: return "whisper speech language vocabulary speakers words"
         case .files: return "folders media projects cache export location storage disk"
@@ -181,6 +181,7 @@ struct SettingsRow<Control: View>: View {
             }
             Spacer(minLength: 12)
             control()
+                .accessibilityLabel(label)
         }
     }
 }
@@ -195,6 +196,23 @@ struct GeneralSettings: View {
             SettingsRow("Set up for my stream", detail: app.settings.streamSetup.map { "\($0.platform.displayName) · \($0.content.displayName) · \($0.facecam ? "facecam" : "no facecam") · shorts for \($0.shortsTarget.displayName)" }
                         ?? "Answer six questions and PULSE sets clip length, captions, extras, safe areas and the export preset to match.") {
                 Button(app.settings.streamSetup == nil ? "Set Up…" : "Change…") { app.showSetupWizard = true }.buttonStyle(.pulse(.secondary, compact: true))
+            }
+        }
+        SettingsGroup("Appearance") {
+            SettingsRow("Accent colour", detail: "Buttons, selection and the playhead. AI features keep their violet.") {
+                HStack(spacing: 8) {
+                    ForEach(AccentChoice.allCases, id: \.self) { choice in
+                        Button { app.settings.accent = choice } label: {
+                            Circle().fill(Color(hex: choice.hex)).frame(width: 18, height: 18)
+                                .overlay(Circle().strokeBorder(.white, lineWidth: app.settings.accent == choice ? 2 : 0))
+                                .overlay(Circle().strokeBorder(Theme.borderStrong, lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .help(choice.displayName)
+                        .accessibilityLabel(choice.displayName)
+                        .accessibilityAddTraits(app.settings.accent == choice ? [.isSelected] : [])
+                    }
+                }
             }
         }
         SettingsGroup("Settings file", footnote: "Move your settings to another Mac. Folders and the recent-projects list stay this Mac's own.") {
@@ -235,6 +253,7 @@ struct GeneralSettings: View {
             SettingsRow("Pause batches on low battery", detail: "The overnight batch waits while the Mac is on battery below 20 %.") {
                 Toggle("", isOn: $app.settings.batchPausesOnLowBattery).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
             }
+            MonitoringNoteRow()
             SettingsRow("Magnetic timeline", detail: "Deleting a clip closes the gap automatically.") {
                 Toggle("", isOn: $app.settings.magneticTimeline).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
             }
@@ -295,6 +314,13 @@ struct GeneralSettings: View {
             SettingsRow("Software update", detail: "You have PULSE \(AppModel.versionString). Updates install from inside the app and keep your projects, settings and caption models.") {
                 Button(app.updater.available.map { "Update to \($0.version.description)…" } ?? "Check for Updates…") { app.updater.showSheet = true }
                     .buttonStyle(.pulse(.secondary, compact: true))
+            }
+            SettingsRow("Update channel", detail: app.settings.updateChannel.detail + " The update sheet lists everything since the version you have.") {
+                Picker("", selection: $app.settings.updateChannel) {
+                    ForEach(UpdateChannel.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .labelsHidden().pickerStyle(.segmented).frame(width: 160)
+                .onChange(of: app.settings.updateChannel) { _, _ in Task { await app.updater.check(userInitiated: false) } }
             }
             SettingsRow("Something not working?", detail: "Bundles the app log and system info (never your media) and opens a GitHub issue.") {
                 Button("Report a Problem…") { app.showReportProblem = true }.buttonStyle(.pulse(.secondary, compact: true))
@@ -967,6 +993,14 @@ struct BrandKitSettings: View {
         SettingsGroup("Intro & outro", footnote: "Added to YouTube edits (Edit My VOD) only — an intro on a 30-second short costs viewers.") {
             SettingsRow("Intro clip") { pickButton(kit.introPath, types: ["mov", "mp4", "m4v"]) }
             SettingsRow("Outro clip") { pickButton(kit.outroPath, types: ["mov", "mp4", "m4v"]) }
+            SettingsRow("Intro card", detail: "No intro clip? A 3-second name card instead: a dark slate, your name sliding up, a fade into the first shot.") {
+                TextField("Your name", text: kit.bumperName).textFieldStyle(.roundedBorder).frame(width: 160)
+            }
+            if !app.settings.brandKit.bumperName.isEmpty {
+                SettingsRow("Show my handle on it", detail: app.settings.ai.socialHandle.isEmpty ? "Set your handle under AI Features → One-click shorts." : "@\(app.settings.ai.socialHandle.trimmingCharacters(in: CharacterSet(charactersIn: "@ ")))") {
+                    Toggle("", isOn: kit.bumperShowsHandle).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
+                }
+            }
         }
         SettingsGroup("Caption look") {
             SettingsRow("Caption style") {
@@ -1136,5 +1170,25 @@ struct PrivacyPane: View {
             }
         }
         .padding(.vertical, 4)
+    }
+}
+
+/// What the Mac plays sound through, with a warning when it's a poor place to judge a mix (#283).
+struct MonitoringNoteRow: View {
+    @State private var reading: AudioOutput.Reading?
+
+    var body: some View {
+        SettingsRow("Monitoring", detail: detail) {
+            Button { reading = AudioOutput.current() } label: { Image(systemName: "arrow.clockwise") }
+                .buttonStyle(.pulse(.ghost, compact: true))
+                .help("Check again")
+                .accessibilityLabel("Check the output device again")
+        }
+        .onAppear { reading = AudioOutput.current() }
+    }
+
+    var detail: String {
+        guard let reading else { return "Couldn't read the output device." }
+        return MixingAdvice.line(outputName: reading.name, kind: reading.kind) ?? "Listening through \(reading.name) — fine for judging a mix."
     }
 }

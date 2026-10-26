@@ -638,6 +638,9 @@ public enum LongFormEditor {
             }
         }
 
+        // Repeated whooshes and stings get their own level each (#284).
+        EditPolish.humanizeEffects(&timeline, seed: Int(analysis.duration))
+
         // What an editor checks before exporting; mechanical problems are fixed here.
         let checks = EditQualityCheck.run(&timeline, words: analysis.transcript?.words ?? [],
                                           target: options.polish ? (options.minimumLength * 0.8)...(options.maximumLength * 1.15) : nil)
