@@ -113,6 +113,45 @@ The sixteenth batch from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of
   is talking (#98); ProRes 422 is an export preset (#345); the reference style card shows the measured stats
   (#365); striking words in the Transcript panel cuts them from the edit (#499).
 
+### Batch 19
+
+#### Editing
+- **Slip, slide and roll** (#143) — Timeline → Trim Modes: slip moves what plays inside the selected clip
+  (⌃, ⌃.), slide moves the clip between its neighbours while they give or take the room (⌃⌥, ⌃⌥.), roll moves
+  the cut after it (⌃⇧, ⌃⇧.); ten-frame versions in the menu. Linked sound follows, and nothing else moves.
+- **Levels drawn on the clip** (#151, #269, #270) — audio clips with a volume curve (ducking, music drops)
+  show it as a line over the waveform, keyframes as dots.
+- **Chapter band** (#418) — the ruler shows a band from each chapter marker to the next, with its name when
+  there's room.
+
+#### Captions
+- **Hear the word** (#257) — double-click a word to retype it and PULSE plays that word.
+
+#### Delivery
+- **Preview 10 s** (#360) — encodes ten seconds from the in point with the real settings into a temporary file
+  and opens it, so bitrate artifacts show before the full export.
+
+#### Viewer
+- **Platform buttons and caption** (#67) — the safe-area menu can draw the feed's own chrome: tabs, the
+  like/comment/share column, the username and caption lines, the sound ticker and the bottom bar.
+
+#### Recording
+- **Setups and size** (#319) — Game + cam, Podcast and Screencast presets, a codec choice, and "about 2.8 GB
+  an hour" for the chosen screen, frame rate and codec.
+
+#### Everywhere
+- **Transcription time per model** (#38) — each whisper model in Settings says roughly how many minutes it
+  needs per hour of video on this Mac, from what PULSE has measured.
+- **Delete a model** (#442) — downloaded models can be removed again from Settings → Transcription.
+- **Offline** (#300) — the Sounds panel says when there's no connection; everything built in keeps working.
+- **After a crash** (#383) — when PULSE didn't quit cleanly, the next launch offers Report a Problem with
+  that session's log already bundled.
+- **Caption look on each clip card** (#61, #249) — the AI Clips cards name the caption look a short will get.
+
+#### Already there, now on the list
+- Music downloads retry each piece three times (#302); the playhead has its glow (#417); the clip cards'
+  potential ring (#437).
+
 ### Under the hood
 - `CaptionWord.pageBreakAfter` and `TimelineClip.labelColor` are decoded tolerantly, so 1.6.0 projects open
   unchanged; `Batch16Tests` covers the release-list parser, caption keyboard edits, the bumper's ripple, the
@@ -120,4 +159,6 @@ The sixteenth batch from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of
 - `Batch17Tests` covers mid-sentence detection (and the splits and pause removals it must ignore), drop
   markers, the progress bar's keyframes, the hook sting, fuzzy ranking, cloud-folder detection and the spelling
   candidates. `Batch18Tests` covers relink matching, import sidecars, clip replacement, the cold-open card,
-  preferred sounds and the board's stages; 337 core tests in all.
+  preferred sounds and the board's stages. `Batch19Tests` covers slip, slide and roll (linked sound,
+  clamping, nothing else moving), the recording size model and the per-model transcription time; 342 core
+  tests in all.

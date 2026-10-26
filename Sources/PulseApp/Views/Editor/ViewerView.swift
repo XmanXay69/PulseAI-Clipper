@@ -81,7 +81,7 @@ struct ViewerView: View {
                     ZStack {
                         PlayerView(player: playback.player)
                         if app.settings.showSafeAreas, canvas.aspect < 1 {
-                            SafeAreaOverlay(platform: app.settings.safeAreaPlatform)
+                            SafeAreaOverlay(platform: app.settings.safeAreaPlatform, chrome: app.settings.showPlatformChrome)
                         }
                         if showGrid { GridOverlay() }
                         CanvasHandlesOverlay(session: session, playback: playback, frameSize: frameSize)
@@ -181,6 +181,7 @@ struct ViewerView: View {
             .frame(width: 80)
             Menu {
                 Toggle("Show Safe Areas", isOn: $app.settings.showSafeAreas)
+                Toggle("Show Platform Buttons & Caption", isOn: $app.settings.showPlatformChrome)
                 Picker("Platform", selection: $app.settings.safeAreaPlatform) {
                     ForEach(SafeAreaPlatform.allCases, id: \.self) { Text($0.displayName).tag($0) }
                 }
@@ -204,6 +205,8 @@ struct ViewerView: View {
 /// Shaded platform UI zones (captions, buttons) for vertical formats.
 struct SafeAreaOverlay: View {
     let platform: SafeAreaPlatform
+    /// Draw the platform's own buttons, username and caption block too (#67).
+    var chrome = false
 
     var body: some View {
         GeometryReader { geo in
@@ -211,6 +214,7 @@ struct SafeAreaOverlay: View {
             let w = geo.size.width
             let h = geo.size.height
             ZStack(alignment: .topLeading) {
+                if chrome { PlatformChrome(platform: platform, width: w, height: h) }
                 Rectangle().fill(Color.black.opacity(0.28)).frame(width: w, height: h * i.top)
                 Rectangle().fill(Color.black.opacity(0.28)).frame(width: w, height: h * i.bottom).offset(y: h * (1 - i.bottom))
                 Rectangle().fill(Color.black.opacity(0.18)).frame(width: w * i.right, height: h * (1 - i.top - i.bottom)).offset(x: w * (1 - i.right), y: h * i.top)
@@ -485,6 +489,67 @@ struct GridOverlay: View {
             ctx.stroke(Path { p in p.move(to: CGPoint(x: size.width / 2, y: 0)); p.addLine(to: CGPoint(x: size.width / 2, y: size.height)) }, with: .color(center.opacity(0.5)), lineWidth: 0.5)
             ctx.stroke(Path { p in p.move(to: CGPoint(x: 0, y: size.height / 2)); p.addLine(to: CGPoint(x: size.width, y: size.height / 2)) }, with: .color(center.opacity(0.5)), lineWidth: 0.5)
             ctx.stroke(Path(ellipseIn: CGRect(x: size.width / 2 - 6, y: size.height / 2 - 6, width: 12, height: 12)), with: .color(center), lineWidth: 1)
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// A mock of the platform's UI (#67): the right-hand button column, the username and caption lines at the
+/// bottom-left, the top tabs and the bottom bar — so you see what your short looks like in the feed.
+struct PlatformChrome: View {
+    let platform: SafeAreaPlatform
+    let width: CGFloat
+    let height: CGFloat
+
+    var body: some View {
+        let w = width, h = height
+        let i = platform.insets
+        ZStack(alignment: .topLeading) {
+            // Top tabs.
+            HStack(spacing: w * 0.06) {
+                Text(platform == .youtube ? "Shorts" : "Following").font(.system(size: max(9, w * 0.035), weight: .semibold)).foregroundStyle(.white.opacity(0.55))
+                Text(platform == .youtube ? "" : "For You").font(.system(size: max(9, w * 0.035), weight: .bold)).foregroundStyle(.white.opacity(0.9))
+            }
+            .frame(width: w)
+            .offset(y: h * max(0.03, i.top * 0.45))
+            // Right-hand column: avatar, like, comment, share, sound.
+            VStack(spacing: h * 0.028) {
+                Circle().fill(.white.opacity(0.35)).frame(width: w * 0.11, height: w * 0.11)
+                ForEach(["heart.fill", "ellipsis.bubble.fill", "bookmark.fill", "arrowshape.turn.up.right.fill"], id: \.self) { s in
+                    VStack(spacing: 2) {
+                        Image(systemName: s).font(.system(size: max(10, w * 0.07))).foregroundStyle(.white.opacity(0.85))
+                        Text("12K").font(.system(size: max(7, w * 0.025), weight: .semibold)).foregroundStyle(.white.opacity(0.8))
+                    }
+                }
+                RoundedRectangle(cornerRadius: 4).fill(.white.opacity(0.35)).frame(width: w * 0.09, height: w * 0.09)
+            }
+            .frame(width: w * i.right)
+            .offset(x: w * (1 - i.right), y: h * (1 - i.bottom) - h * 0.42)
+            // Username + caption + sound ticker.
+            VStack(alignment: .leading, spacing: 5) {
+                Text("@yourhandle").font(.system(size: max(9, w * 0.038), weight: .bold)).foregroundStyle(.white.opacity(0.95))
+                RoundedRectangle(cornerRadius: 3).fill(.white.opacity(0.55)).frame(width: w * 0.55, height: max(6, w * 0.028))
+                RoundedRectangle(cornerRadius: 3).fill(.white.opacity(0.4)).frame(width: w * 0.38, height: max(6, w * 0.028))
+                HStack(spacing: 4) {
+                    Image(systemName: "music.note").font(.system(size: max(8, w * 0.03))).foregroundStyle(.white.opacity(0.8))
+                    RoundedRectangle(cornerRadius: 3).fill(.white.opacity(0.4)).frame(width: w * 0.3, height: max(5, w * 0.024))
+                }
+            }
+            .offset(x: w * max(0.03, i.left + 0.02), y: h * (1 - i.bottom) - h * 0.17)
+            // Bottom bar.
+            HStack {
+                ForEach(0..<5, id: \.self) { k in
+                    if k == 2 {
+                        RoundedRectangle(cornerRadius: 5).fill(.white.opacity(0.9)).frame(width: w * 0.12, height: max(14, h * 0.028))
+                    } else {
+                        RoundedRectangle(cornerRadius: 3).fill(.white.opacity(0.5)).frame(width: w * 0.07, height: max(8, h * 0.014))
+                    }
+                    if k < 4 { Spacer() }
+                }
+            }
+            .padding(.horizontal, w * 0.07)
+            .frame(width: w)
+            .offset(y: h * (1 - i.bottom * 0.45))
         }
         .allowsHitTesting(false)
     }

@@ -657,6 +657,38 @@ final class ProjectSession: ObservableObject, Identifiable {
         }
     }
 
+    // MARK: Slip / slide / roll (#143)
+
+    var primarySelectedClip: TimelineClip? {
+        guard let timeline = activeTimeline else { return nil }
+        return selectedClipIDs.compactMap { timeline.clip(id: $0) }.min { $0.start < $1.start }
+    }
+
+    func frameSeconds(_ frames: Int) -> Seconds { Double(frames) / max(playback.frameRate, 1) }
+
+    /// Moves what plays inside the selected clip, not the clip.
+    func slipSelection(frames: Int) {
+        guard let clip = primarySelectedClip else { return app.toast("Select a clip to slip") }
+        let media = clip.assetID.flatMap { document.asset(id: $0) }?.metadata.duration
+        let delta = frameSeconds(frames)
+        editTimeline("Slip", coalesce: "slip-\(clip.id)") { try $0.slip(clipID: clip.id, by: delta, mediaDuration: media) }
+    }
+
+    /// Moves the selected clip between its neighbours; they give or take the room.
+    func slideSelection(frames: Int) {
+        guard let clip = primarySelectedClip else { return app.toast("Select a clip to slide") }
+        let delta = frameSeconds(frames)
+        editTimeline("Slide", coalesce: "slide-\(clip.id)") { try $0.slide(clipID: clip.id, by: delta) }
+    }
+
+    /// Moves the cut after the selected clip.
+    func rollSelection(frames: Int) {
+        guard let clip = primarySelectedClip else { return app.toast("Select the clip before the cut to roll") }
+        let media = clip.assetID.flatMap { document.asset(id: $0) }?.metadata.duration
+        let delta = frameSeconds(frames)
+        editTimeline("Roll", coalesce: "roll-\(clip.id)") { try $0.roll(edgeAfter: clip.id, by: delta, mediaDuration: media) }
+    }
+
     /// Drop a media item onto a clip (#164): the clip keeps its place and length, the file behind it changes.
     func replaceClip(_ clipID: UUID, with assetID: UUID) {
         guard let asset = document.asset(id: assetID), asset.kind != .image else { return }

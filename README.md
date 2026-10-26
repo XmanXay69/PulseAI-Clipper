@@ -22,7 +22,10 @@ command palette with loose matching, export into iCloud/Dropbox/Google Drive, a 
 update channel with everything-since release notes, a monitoring note for laptop speakers and Bluetooth, safe
 mode, VoiceOver labels on every control, moved files that relink themselves plus a relink-all button, transcript
 and chat sidecars picked up on import, replace-a-clip-by-drop, an insert/overwrite toggle, a blade preview, a
-cold-open card, your choice of impact and whoosh, and a project status board ([notes](versions/1.6.1/NOTES.md)).
+cold-open card, your choice of impact and whoosh, a project status board, slip/slide/roll trims, levels drawn on
+audio clips, a chapter band on the ruler, a 10-second export preview, platform chrome in the viewer, recording
+setups with a size estimate, per-model transcription times, and a report prompt after a crash
+([notes](versions/1.6.1/NOTES.md)).
 
 **New in 1.6.0:** a studio look (lit surfaces, gradient controls, grouped sidebar, breadcrumb, pill page bar,
 richer timeline), instant replays on the biggest plays, and more than 250 items from the

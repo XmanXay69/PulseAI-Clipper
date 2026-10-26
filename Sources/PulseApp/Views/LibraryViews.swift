@@ -564,6 +564,10 @@ struct ExportsView: View {
                     Text("Export").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                     ExportSettingsForm(settings: $settings)
                     HStack(spacing: 10) {
+                        Button { previewCurrent() } label: { Label("Preview 10 s", systemImage: "eye") }
+                            .buttonStyle(.pulse(.secondary, compact: true))
+                            .help("Encodes ten seconds from the in point with these settings and opens it, so you can judge the bitrate before the full export (#360)")
+                            .disabled(app.session?.activeTimeline == nil)
                         Button { exportCurrent() } label: { Label("Export Current Timeline", systemImage: "square.and.arrow.up") }
                             .buttonStyle(.pulsePrimary)
                             .disabled(app.session?.activeTimeline == nil || measuring != nil)
@@ -683,6 +687,13 @@ struct ExportsView: View {
         } message: { ask in
             Text(ask.verdict.summary)
         }
+    }
+
+    func previewCurrent() {
+        guard let session = app.session, let timeline = session.activeTimeline else { return }
+        guard timeline.duration > 1 else { return app.toast("Nothing to preview yet") }
+        queue.enqueuePreview(timeline: timeline, document: session.document, settings: settings, from: session.inPoint ?? session.playback.currentTime)
+        app.toast("Encoding a 10-second preview — it opens when it's done")
     }
 
     func exportCurrent() {

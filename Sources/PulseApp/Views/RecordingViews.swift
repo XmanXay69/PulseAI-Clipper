@@ -108,6 +108,17 @@ struct RecordView: View {
     var optionsPanel: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                SectionLabel(text: "Setup")
+                HStack(spacing: 6) {
+                    ForEach(RecordingPreset.allCases, id: \.self) { preset in
+                        Button(preset.displayName) { recorder.apply(preset) }
+                            .buttonStyle(.pulse(.secondary, compact: true))
+                            .help(preset.detail)
+                    }
+                }
+                if let estimate = recorder.diskEstimate {
+                    Text("About \(estimate) at these settings (#319).").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                }
                 SectionLabel(text: "Audio & camera")
                 ToggleRow(label: "System audio (game, browser…)", isOn: $recorder.captureSystemAudio)
                 Picker("Microphone", selection: $recorder.microphoneID) {
@@ -127,6 +138,11 @@ struct RecordView: View {
                 Picker("Frame rate", selection: $recorder.frameRate) {
                     Text("30 fps").tag(30)
                     Text("60 fps").tag(60)
+                }
+                .pickerStyle(.segmented)
+                Picker("Codec", selection: $recorder.codec) {
+                    Text("HEVC (smaller)").tag(VideoCodec.hevc)
+                    Text("H.264 (shares anywhere)").tag(VideoCodec.h264)
                 }
                 .pickerStyle(.segmented)
                 ToggleRow(label: "Show cursor", isOn: $recorder.showsCursor)

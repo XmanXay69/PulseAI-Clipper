@@ -308,6 +308,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var snapping: Bool = true
     public var showSafeAreas: Bool = true
     public var safeAreaPlatform: SafeAreaPlatform = .tiktok
+    /// Draw the platform's own buttons and caption block over the viewer, not just the safe-area frame (#67).
+    public var showPlatformChrome: Bool = false
     public var defaultExportPresetID: String = ExportPreset.tiktok.id
     /// How the viewer shows time (#180).
     public var timecodeStyle: TimecodeStyle = .timecode
@@ -391,6 +393,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
         batchPausesOnLowBattery = c.decode(Bool.self, forKey: .batchPausesOnLowBattery, default: d.batchPausesOnLowBattery)
         updateChannel = c.decode(UpdateChannel.self, forKey: .updateChannel, default: d.updateChannel)
         accent = c.decode(AccentChoice.self, forKey: .accent, default: d.accent)
+        showPlatformChrome = c.decode(Bool.self, forKey: .showPlatformChrome, default: d.showPlatformChrome)
         watchFolderAnalyzes = c.decode(Bool.self, forKey: .watchFolderAnalyzes, default: d.watchFolderAnalyzes)
         nightlyBatchHour = c.decode(Int?.self, forKey: .nightlyBatchHour, default: nil)
         defaultExportPresetID = c.decode(String.self, forKey: .defaultExportPresetID, default: d.defaultExportPresetID)

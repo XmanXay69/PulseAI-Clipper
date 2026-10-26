@@ -28,6 +28,7 @@ final class RecordingController: ObservableObject {
     @Published var cameraID: String?
     @Published var microphoneID: String?
     @Published var frameRate = 60
+    @Published var codec: VideoCodec = .hevc
     @Published var showsCursor = true
     @Published var hidePulse = true
     @Published var countdown = true
@@ -75,10 +76,25 @@ final class RecordingController: ObservableObject {
         return base
     }
 
+    /// One-click setups (#319).
+    func apply(_ preset: RecordingPreset) {
+        frameRate = preset.frameRate
+        captureSystemAudio = preset.captureSystemAudio
+        showsCursor = preset.showsCursor
+        codec = preset.codec
+    }
+
+    /// "2.8 GB an hour" for the chosen source, frame rate and codec (#319).
+    var diskEstimate: String? {
+        guard let source = sources.first(where: { $0.id == selectedSourceID }) else { return nil }
+        let tracks = 1 + (captureSystemAudio ? 1 : 0)
+        return RecordingEstimate.perHourText(width: source.width, height: source.height, fps: frameRate, codec: codec, audioTracks: tracks)
+    }
+
     func start(app: AppModel) {
         guard phase == .idle, let source = sources.first(where: { $0.id == selectedSourceID }) else { return }
         let options = RecordingOptions(source: source, captureSystemAudio: captureSystemAudio, cameraID: cameraID, microphoneID: microphoneID,
-                                       frameRate: frameRate, showsCursor: showsCursor, excludeSelf: hidePulse,
+                                       frameRate: frameRate, showsCursor: showsCursor, excludeSelf: hidePulse, codec: codec,
                                        outputDirectory: outputDirectory(app: app))
         countdownTask = Task {
             if countdown {

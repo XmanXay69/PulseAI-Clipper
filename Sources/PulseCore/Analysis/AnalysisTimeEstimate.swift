@@ -28,6 +28,12 @@ public struct AnalysisSpeedProfile: Codable, Hashable, Sendable {
         self.samples = samples
     }
 
+    /// Minutes of transcription per hour of video on this Mac for a model `factor` times slower than the one
+    /// the profile learned from (#38): the base model is 1, tiny about 0.5, small about 3, large turbo about 6.
+    public func transcriptionMinutesPerHour(modelFactor factor: Double = 1, learnedFactor: Double = 1) -> Double {
+        max(0.2, transcription * factor / max(learnedFactor, 0.05))
+    }
+
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = AnalysisSpeedProfile()

@@ -525,6 +525,14 @@ struct CaptionWordEditor: View {
                 .onTapGesture(count: 2) {
                     editingText = source?.text ?? w.text
                     editingID = w.id
+                    // Hear the word you're retyping (#257).
+                    playback.seek(to: w.start)
+                    playback.play()
+                    let length = max(0.3, w.end - w.start + 0.15)
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(length))
+                        if playback.isPlaying { playback.pause() }
+                    }
                 }
                 .onTapGesture {
                     session.focusedCaptionWordID = w.id

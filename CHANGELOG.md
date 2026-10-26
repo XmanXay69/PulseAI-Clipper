@@ -2,8 +2,9 @@
 
 Release notes live in [`versions/`](versions/README.md), one folder per version:
 
-- [1.6.1](versions/1.6.1/NOTES.md) — roadmap batches 16–18: clip colour labels + filter, keyboard caption editing, caption spelling,
+- [1.6.1](versions/1.6.1/NOTES.md) — roadmap batches 16–19: clip colour labels + filter, keyboard caption editing, caption spelling,
   auto + bulk relink, import sidecars, replace-by-drop, insert mode, blade preview, cold-open card, preferred sounds, status board,
+  slip/slide/roll, level curves on clips, chapter band, 10 s export preview, platform chrome, recording presets + size estimate,
   intro card from the Brand Kit, sentence-safe cuts, music drop markers, progress bar, hook whoosh, music beds by cut rate, humanized
   effect levels, frame-locked stepping, accent colours, reduce motion, fuzzy command palette, cloud export folders, queue time,
   beta update channel with everything-since notes, monitoring note, safe mode, VoiceOver labels.

@@ -52,6 +52,23 @@ final class ExportQueueController: ObservableObject {
         startIfNeeded()
     }
 
+    /// Jobs that open in the default player when done (#360).
+    private var previewJobIDs: Set<UUID> = []
+
+    /// Ten seconds from the in point (or the top) with the real encoder settings, into a temporary folder,
+    /// opened when it's done — bitrate artifacts show up before the full export (#360).
+    func enqueuePreview(timeline: Timeline, document: ProjectDocument, settings: ExportSettings, from start: Seconds) {
+        var settings = settings
+        settings.outputDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("PULSE Previews", isDirectory: true).path
+        settings.folderPerProject = false
+        settings.exportSRT = false
+        let begin = min(max(0, start), max(0, timeline.duration - 1))
+        let range = TimeRange(start: begin, end: min(timeline.duration, begin + 10))
+        let before = Set(jobs.map(\.id))
+        enqueue(timelines: [timeline], document: document, settings: settings, range: range)
+        for job in jobs where !before.contains(job.id) { previewJobIDs.insert(job.id) }
+    }
+
     func cancel(_ id: UUID) {
         guard let index = jobs.firstIndex(where: { $0.id == id }) else { return }
         if jobs[index].status.isActive {
@@ -157,6 +174,7 @@ final class ExportQueueController: ObservableObject {
                     $0.outputPath = url.path
                     $0.finishedAt = Date()
                 }
+                if previewJobIDs.remove(job.id) != nil { NSWorkspace.shared.open(url) }
             } catch EngineError.cancelled {
                 update(job.id) {
                     $0.status = .cancelled

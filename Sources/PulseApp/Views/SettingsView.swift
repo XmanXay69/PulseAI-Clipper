@@ -712,7 +712,7 @@ struct WhisperModelRow: View {
                     Text(model.name).font(.pulseBody).foregroundStyle(Theme.textPrimary)
                     if app.settings.ai.whisperModelPath == model.localURL.path { TagChip(text: "In use", color: Theme.success) }
                 }
-                Text("\(model.sizeMB >= 1000 ? String(format: "%.1f GB", Double(model.sizeMB) / 1000) : "\(model.sizeMB) MB") · \(model.note)")
+                Text("\(model.sizeMB >= 1000 ? String(format: "%.1f GB", Double(model.sizeMB) / 1000) : "\(model.sizeMB) MB") · \(model.note) · \(estimate)")
                     .font(.pulseCaption).foregroundStyle(Theme.textTertiary)
             }
             Spacer()
@@ -726,6 +726,12 @@ struct WhisperModelRow: View {
                 }
                 Button { NSWorkspace.shared.activateFileViewerSelecting([model.localURL]) } label: { Image(systemName: "folder") }
                     .buttonStyle(.pulse(.ghost, compact: true))
+                if model.bundledURL == nil {
+                    Button { deleteModel() } label: { Image(systemName: "trash") }
+                        .buttonStyle(.pulse(.ghost, compact: true))
+                        .help("Delete the downloaded model file (#442)")
+                        .accessibilityLabel("Delete model")
+                }
             } else if model.bundledURL != nil {
                 TagChip(text: "Built in", color: Theme.success)
                     .help("Ships inside PULSE — nothing to download")
@@ -734,6 +740,21 @@ struct WhisperModelRow: View {
             }
         }
         .onAppear { installed = model.isInstalled }
+    }
+
+    /// "≈ 4 min per hour of video" on this Mac (#38), from the learned speed profile and the model's factor
+    /// relative to the one in use.
+    var estimate: String {
+        let inUse = WhisperModelInfo.catalog.first { app.settings.ai.whisperModelPath == $0.localURL.path }
+        let minutes = app.settings.analysisSpeed.transcriptionMinutesPerHour(modelFactor: model.speedFactor, learnedFactor: inUse?.speedFactor ?? 1)
+        return minutes < 1 ? "under a minute per hour of video" : "≈ \(Int(minutes.rounded())) min per hour of video"
+    }
+
+    func deleteModel() {
+        guard app.settings.ai.whisperModelPath != model.localURL.path else { return app.toast("This model is in use — pick another first") }
+        try? FileManager.default.removeItem(at: model.localURL)
+        installed = model.isInstalled
+        app.toast("\(model.name) deleted")
     }
 
     func download() {

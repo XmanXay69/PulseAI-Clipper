@@ -300,6 +300,10 @@ struct ClipCandidateCard: View {
                 }
                 HStack(spacing: 4) {
                     ForEach(candidate.tags.prefix(2), id: \.self) { tag in TagChip(text: tag.displayName, color: Theme.ai) }
+                    if candidate.timelineID == nil {
+                        TagChip(text: app.settings.ai.captionPresetName.isEmpty ? "TikTok captions" : "\(app.settings.ai.captionPresetName) captions", color: Theme.textTertiary, symbol: "captions.bubble")
+                            .help("The caption look this short gets (Settings → AI Features); change it per short in Captions (#61)")
+                    }
                     Spacer(minLength: 2)
                     Text(PerformanceTier(score: candidate.potential).emoji).font(.system(size: 10))
                         .help(PerformanceTier(score: candidate.potential).displayName)

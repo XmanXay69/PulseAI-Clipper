@@ -171,8 +171,22 @@ final class AppModel: ObservableObject {
         Theme.accentChoice = settings.accent
         updater.channel = settings.updateChannel
         store.backupsToKeep = settings.backupsToKeep
-        recovery.beginSession()
+        let crashedLastTime = recovery.beginSession()
         pendingRecoveries = recovery.pendingRecoveries()
+        if crashedLastTime {
+            PulseLog.warning("The previous session didn't quit cleanly")
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(3))
+                guard let self else { return }
+                self.toastMessage = Toast(message: "PULSE didn't quit cleanly last time. The log from that session is ready to send.",
+                                          action: ("Report…", { [weak self] in self?.showReportProblem = true }))
+                self.toastTask?.cancel()
+                self.toastTask = Task { [weak self] in
+                    try? await Task.sleep(nanoseconds: 12_000_000_000)
+                    if !Task.isCancelled { self?.toastMessage = nil }
+                }
+            }
+        }
         showOnboarding = !settings.hasCompletedOnboarding
         globalTemplates = AppModel.loadTemplates()
         jobs.onFinished = { [weak self] job in

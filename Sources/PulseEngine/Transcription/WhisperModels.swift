@@ -9,6 +9,8 @@ public struct WhisperModelInfo: Hashable, Identifiable, Sendable {
     public var fileName: String
     public var sizeMB: Int
     public var note: String
+    /// How much slower than the Base model (#38).
+    public var speedFactor: Double = 1
 
     public var url: URL { URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(fileName)")! }
     public var localURL: URL { WhisperModelInfo.directory.appendingPathComponent(fileName) }
@@ -23,11 +25,11 @@ public struct WhisperModelInfo: Hashable, Identifiable, Sendable {
     public static var directory: URL { PulseDirectories.ensure(PulseDirectories.applicationSupport.appendingPathComponent("Models", isDirectory: true)) }
 
     public static let catalog: [WhisperModelInfo] = [
-        WhisperModelInfo(name: "Tiny (English)", fileName: "ggml-tiny.en.bin", sizeMB: 75, note: "Fastest, rough on noisy streams"),
+        WhisperModelInfo(name: "Tiny (English)", fileName: "ggml-tiny.en.bin", sizeMB: 75, note: "Fastest, rough on noisy streams", speedFactor: 0.5),
         WhisperModelInfo(name: "Base (English)", fileName: "ggml-base.en.bin", sizeMB: 142, note: "Good default for English"),
-        WhisperModelInfo(name: "Small (English)", fileName: "ggml-small.en.bin", sizeMB: 466, note: "More accurate, ~3× slower"),
+        WhisperModelInfo(name: "Small (English)", fileName: "ggml-small.en.bin", sizeMB: 466, note: "More accurate, ~3× slower", speedFactor: 3),
         WhisperModelInfo(name: "Base (multilingual)", fileName: "ggml-base.bin", sizeMB: 142, note: "Other languages"),
-        WhisperModelInfo(name: "Large v3 Turbo", fileName: "ggml-large-v3-turbo.bin", sizeMB: 1620, note: "Best accuracy, needs 16 GB+ RAM"),
+        WhisperModelInfo(name: "Large v3 Turbo", fileName: "ggml-large-v3-turbo.bin", sizeMB: 1620, note: "Best accuracy, needs 16 GB+ RAM", speedFactor: 6),
     ]
 }
 

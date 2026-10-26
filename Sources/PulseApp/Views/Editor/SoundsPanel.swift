@@ -10,6 +10,7 @@ struct SoundsPanel: View {
     @State private var kind: LibrarySound.Kind = .music
     @State private var category: String?
     @State private var query = ""
+    @ObservedObject private var connectivity = Connectivity.shared
 
     var results: [LibrarySound] { SoundLibrary.search(query, kind: kind, category: category) }
     var categories: [String] { kind == .music ? SoundLibrary.musicCategories : SoundLibrary.effectCategories }
@@ -26,6 +27,10 @@ struct SoundsPanel: View {
                 .onChange(of: kind) { _, _ in category = nil }
                 TextField(kind == .music ? "Search moods: hype, chill, funny…" : "Search: whoosh, boom, ding…", text: $query)
                     .textFieldStyle(.roundedBorder).controlSize(.small)
+                if !connectivity.isOnline {
+                    TagChip(text: "Offline — PULSE's own library only", color: Theme.warning, symbol: "wifi.slash")
+                        .help("Creative Commons search and downloads wait for a connection; everything here is built in (#300)")
+                }
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 4) {
                         chip("All", selected: category == nil) { category = nil }

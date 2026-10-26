@@ -738,6 +738,17 @@ struct TimelineRuler: View {
                 }
                 t += minor
             }
+            // Chapter band (#418): the stretch between blue markers, named when there's room.
+            let chapters = timeline.markers.filter { $0.color == .blue }.sorted { $0.time < $1.time }
+            for (i, chapter) in chapters.enumerated() {
+                let x0 = CGFloat(chapter.time) * pps
+                let x1 = CGFloat(i + 1 < chapters.count ? chapters[i + 1].time : max(timeline.duration, chapter.time + 1)) * pps
+                guard x1 > 0, x0 < size.width else { continue }
+                ctx.fill(Path(CGRect(x: x0, y: 0, width: max(1, x1 - x0), height: 4)), with: .color(Theme.info.opacity(i % 2 == 0 ? 0.55 : 0.3)))
+                if x1 - x0 > 70, !chapter.name.isEmpty {
+                    ctx.draw(Text(chapter.name).font(.system(size: 8, weight: .semibold)).foregroundColor(Theme.info.opacity(0.9)), at: CGPoint(x: x0 + 8, y: 2), anchor: .topLeading)
+                }
+            }
             for marker in timeline.markers {
                 let x = CGFloat(marker.time) * pps
                 var p = Path()
@@ -962,6 +973,11 @@ struct TimelineClipView: View, Equatable {
                 if trackKind == .audio {
                     WaveformStrip(url: session.url(for: asset), sourceRange: clip.sourceRange, color: color)
                         .padding(.top, 14)
+                        .overlay(alignment: .topLeading) {
+                            if !clip.audio.volume.keyframes.isEmpty {
+                                VolumeEnvelope(volume: clip.audio.volume, duration: clip.duration, pps: pps).padding(.top, 14)
+                            }
+                        }
                 } else if asset.kind == .video || asset.kind == .image {
                     FilmstripStrip(url: session.url(for: asset), sourceRange: clip.sourceRange, width: width, height: height)
                         .opacity(0.8)
@@ -1236,5 +1252,36 @@ struct LabelFilterMenu: View {
         .frame(width: 26, height: 26)
         .help("Filter by colour label — show only clips with one label")
         .accessibilityLabel("Filter by colour label")
+    }
+}
+
+/// The clip's level over time (#151, #269, #270): the ducking curve and music drops, drawn on the clip.
+struct VolumeEnvelope: View {
+    let volume: AnimatedDouble
+    let duration: Seconds
+    let pps: CGFloat
+
+    var body: some View {
+        GeometryReader { geo in
+            let h = geo.size.height
+            let w = max(geo.size.width, 1)
+            Path { path in
+                let step = max(2.0, Double(w) / 400)
+                var x = 0.0
+                var first = true
+                while x <= Double(w) {
+                    let t = x / Double(pps)
+                    let y = h * (1 - CGFloat(volume.value(at: t).clamped(0, 1)))
+                    if first { path.move(to: CGPoint(x: x, y: y)); first = false } else { path.addLine(to: CGPoint(x: x, y: y)) }
+                    x += step
+                }
+            }
+            .stroke(Theme.warning.opacity(0.9), lineWidth: 1.2)
+            ForEach(volume.keyframes) { kf in
+                Circle().fill(kf.aiGenerated ? Theme.ai : Theme.warning).frame(width: 4, height: 4)
+                    .position(x: CGFloat(kf.time) * pps, y: h * (1 - CGFloat(kf.value.clamped(0, 1))))
+            }
+        }
+        .allowsHitTesting(false)
     }
 }

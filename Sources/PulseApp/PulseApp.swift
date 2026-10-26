@@ -217,6 +217,21 @@ struct PulseCommands: Commands {
             Button("Nudge Right a Frame") { app.session?.nudgeSelection(frames: 1) }.keyboardShortcut(".", modifiers: [.option])
             Button("Nudge Left 10 Frames") { app.session?.nudgeSelection(frames: -10) }.keyboardShortcut(",", modifiers: [.option, .shift])
             Button("Nudge Right 10 Frames") { app.session?.nudgeSelection(frames: 10) }.keyboardShortcut(".", modifiers: [.option, .shift])
+            Menu("Trim Modes") {
+                Button("Slip Left a Frame") { app.session?.slipSelection(frames: -1) }.keyboardShortcut(",", modifiers: [.control])
+                Button("Slip Right a Frame") { app.session?.slipSelection(frames: 1) }.keyboardShortcut(".", modifiers: [.control])
+                Button("Slide Left a Frame") { app.session?.slideSelection(frames: -1) }.keyboardShortcut(",", modifiers: [.control, .option])
+                Button("Slide Right a Frame") { app.session?.slideSelection(frames: 1) }.keyboardShortcut(".", modifiers: [.control, .option])
+                Button("Roll Cut Left a Frame") { app.session?.rollSelection(frames: -1) }.keyboardShortcut(",", modifiers: [.control, .shift])
+                Button("Roll Cut Right a Frame") { app.session?.rollSelection(frames: 1) }.keyboardShortcut(".", modifiers: [.control, .shift])
+                Divider()
+                Button("Slip Left 10 Frames") { app.session?.slipSelection(frames: -10) }
+                Button("Slip Right 10 Frames") { app.session?.slipSelection(frames: 10) }
+                Button("Slide Left 10 Frames") { app.session?.slideSelection(frames: -10) }
+                Button("Slide Right 10 Frames") { app.session?.slideSelection(frames: 10) }
+                Button("Roll Cut Left 10 Frames") { app.session?.rollSelection(frames: -10) }
+                Button("Roll Cut Right 10 Frames") { app.session?.rollSelection(frames: 10) }
+            }
             Divider()
             Button("Zoom In") { app.session?.zoomTimeline(by: 1.5) }.keyboardShortcut("=", modifiers: [.command])
             Button("Zoom Out") { app.session?.zoomTimeline(by: 1 / 1.5) }.keyboardShortcut("-", modifiers: [.command])
