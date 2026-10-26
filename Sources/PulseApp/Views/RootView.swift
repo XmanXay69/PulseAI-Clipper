@@ -114,6 +114,13 @@ final class URLCollector: @unchecked Sendable {
 
 struct Sidebar: View {
     @EnvironmentObject var app: AppModel
+    /// The sidebar in the order you work: get footage in, create, manage, deliver.
+    static let groups: [(title: String?, sections: [SidebarSection])] = [
+        (nil, [.home, .projects, .importMedia]),
+        ("Create", [.aiClips, .editor, .captions]),
+        ("Library", [.media, .templates]),
+        ("Deliver", [.exports]),
+    ]
     /// On the working pages the sidebar starts as an icon rail; this remembers if you opened it there.
     @AppStorage("sidebarExpandedOnWorkspacePages") private var expandedOnWorkspace = false
 
@@ -124,7 +131,7 @@ struct Sidebar: View {
             HStack(spacing: 8) {
                 Image(nsImage: AppIcon.render(size: 64)).resizable().frame(width: 26, height: 26)
                 if !collapsed {
-                    Text("PULSE").font(.system(size: 15, weight: .heavy)).tracking(2).foregroundStyle(Theme.textPrimary)
+                    Text("PULSE").font(.system(size: 15, weight: .heavy)).tracking(2).foregroundStyle(Theme.accentGradient)
                     Text(AppModel.shortVersion).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
                         .help("PULSE \(AppModel.versionString)")
                     Spacer()
@@ -134,8 +141,15 @@ struct Sidebar: View {
             .padding(.top, 34)
             .padding(.bottom, 14)
 
-            ForEach(SidebarSection.allCases.filter { $0 != .settings }) { section in
-                SidebarItem(section: section, collapsed: collapsed)
+            ForEach(Array(Self.groups.enumerated()), id: \.offset) { index, group in
+                if let title = group.title, !collapsed {
+                    SectionLabel(text: title).padding(.horizontal, 16).padding(.top, index == 0 ? 0 : 12).padding(.bottom, 4)
+                } else if index > 0 {
+                    Rectangle().fill(Theme.divider).frame(height: 1).padding(.horizontal, collapsed ? 14 : 16).padding(.vertical, 6)
+                }
+                ForEach(group.sections) { section in
+                    SidebarItem(section: section, collapsed: collapsed)
+                }
             }
             if !collapsed, !app.projects.filter(\.isFavorite).isEmpty {
                 SectionLabel(text: "Favorites").padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 4)
@@ -219,6 +233,9 @@ struct SidebarItem: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
             .background(RoundedRectangle(cornerRadius: Theme.radius).fill(isSelected ? Theme.control : (hovering ? Theme.control.opacity(0.5) : .clear)))
+            .overlay(alignment: .leading) {
+                if isSelected { Capsule().fill(Theme.accentGradient).frame(width: 3, height: 16).offset(x: -3) }
+            }
             .padding(.horizontal, 6)
             .contentShape(Rectangle())
         }
@@ -252,18 +269,20 @@ struct PageBar: View {
             .buttonStyle(.plain)
             .help("Home")
             Spacer(minLength: 8)
-            HStack(spacing: 4) {
+            HStack(spacing: 2) {
                 ForEach(Self.pages, id: \.0) { page in
                     PageBarItem(section: page.0, title: page.1, symbol: page.2)
                 }
             }
+            .padding(3)
+            .background(Capsule().fill(Theme.well))
+            .overlay(Capsule().strokeBorder(Theme.border))
             Spacer(minLength: 8)
             Button { app.showLongFormSheet = true } label: {
-                Label("Edit My VOD", systemImage: "film.stack").font(.system(size: 11, weight: .medium))
+                Label("Edit My VOD", systemImage: "film.stack")
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(Theme.ai)
-            .padding(.trailing, 14)
+            .buttonStyle(.pulse(.ai, compact: true))
+            .padding(.trailing, 12)
             .help("Turn the whole stream into a 10–20 minute YouTube video")
         }
         .frame(height: 46)
@@ -283,16 +302,15 @@ struct PageBarItem: View {
 
     var body: some View {
         Button { app.section = section } label: {
-            VStack(spacing: 3) {
-                Image(systemName: symbol).font(.system(size: 14, weight: selected ? .semibold : .regular))
-                Text(title).font(.system(size: 10, weight: selected ? .semibold : .medium))
+            HStack(spacing: 6) {
+                Image(systemName: symbol).font(.system(size: 12, weight: .semibold))
+                Text(title).font(.system(size: 11, weight: .semibold))
             }
             .foregroundStyle(selected ? Theme.accent : (hovering ? Theme.textPrimary : Theme.textSecondary))
-            .frame(width: 74, height: 40)
-            .background(alignment: .bottom) {
-                if selected { Capsule().fill(Theme.accent).frame(width: 22, height: 2).offset(y: 1) }
-            }
-            .contentShape(Rectangle())
+            .padding(.horizontal, 12)
+            .frame(height: 28)
+            .background(Capsule().fill(selected ? Theme.accentSoft : (hovering ? Theme.control : .clear)))
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
@@ -307,13 +325,14 @@ struct TopBar: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(app.section.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+            HStack(spacing: 7) {
                 if let session = app.session {
-                    HStack(spacing: 6) {
-                        Text(session.document.name).font(.pulseCaption).foregroundStyle(Theme.textTertiary)
-                        SaveStateBadge(session: session)
-                    }
+                    Text(session.document.name).font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                    Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.textTertiary)
+                }
+                Text(app.section.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                if let session = app.session {
+                    SaveStateBadge(session: session).padding(.leading, 4)
                 }
             }
             Spacer()
@@ -328,7 +347,8 @@ struct TopBar: View {
                 .foregroundStyle(Theme.textTertiary)
                 .padding(.horizontal, 10)
                 .frame(width: 280, height: 26)
-                .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.control))
+                .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.well))
+                .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.border))
             }
             .buttonStyle(.plain)
             JobsIndicator(jobs: app.jobs)
@@ -374,10 +394,16 @@ struct SaveStateBadge: View {
     @ObservedObject var session: ProjectSession
     var body: some View {
         if session.isDirty {
-            Text("Edited").font(.pulseMicro).foregroundStyle(Theme.warning)
+            HStack(spacing: 4) {
+                Circle().fill(Theme.warning).frame(width: 6, height: 6)
+                Text("Edited").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            }
+            .help("Unsaved changes — PULSE autosaves")
         } else if let saved = session.lastSaved {
-            Text("Saved \(saved.formatted(date: .omitted, time: .shortened))").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
-        }
+            HStack(spacing: 4) {
+                Circle().fill(Theme.success).frame(width: 6, height: 6)
+                Text("Saved \(saved.formatted(date: .omitted, time: .shortened))").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            }
     }
 }
 
@@ -487,8 +513,10 @@ struct ToastView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
-            .background(Capsule().fill(Theme.panelRaised).shadow(color: .black.opacity(0.4), radius: 16, y: 6))
+            .background(Capsule().fill(Theme.elevated))
             .overlay(Capsule().strokeBorder(Theme.borderStrong))
+            .overlay(Capsule().strokeBorder(Theme.edgeHighlight, lineWidth: 1))
+            .elevation(2)
             .padding(.bottom, app.session != nil ? 62 : 24) // clear of the page bar
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .id(toast.id)

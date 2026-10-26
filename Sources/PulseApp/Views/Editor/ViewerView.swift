@@ -371,7 +371,11 @@ struct TransportBar: View {
                     .font(.pulseTimecode)
                     .foregroundStyle(Theme.accent)
                     .fixedSize()
-                    .frame(minWidth: 120, maxWidth: 130, alignment: .leading)
+                    .padding(.horizontal, 8)
+                    .frame(minWidth: 120, maxWidth: 136, alignment: .leading)
+                    .frame(height: 26)
+                    .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.well))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.border))
             }
             Spacer(minLength: 4)
             IconButton(symbol: "backward.end.fill", help: "Go to start (Home)") { playback.goToStart() }
@@ -379,9 +383,14 @@ struct TransportBar: View {
             Button { playback.togglePlayPause() } label: {
                 Image(systemName: playback.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 38, height: 30)
-                    .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.control))
-                    .foregroundStyle(Theme.textPrimary)
+                    .frame(width: 44, height: 30)
+                    .background(
+                        RoundedRectangle(cornerRadius: Theme.radius)
+                            .fill(playback.isPlaying ? AnyShapeStyle(Theme.accentGradient) : AnyShapeStyle(Theme.control))
+                    )
+                    .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.edgeHighlight, lineWidth: 1))
+                    .shadow(color: playback.isPlaying ? Theme.accent.opacity(0.35) : .clear, radius: 8, y: 2)
+                    .foregroundStyle(playback.isPlaying ? Color.white : Theme.textPrimary)
             }
             .buttonStyle(.plain)
             .help("Play / Pause (Space)")

@@ -8,8 +8,7 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                hero
-                startHere
+                heroBanner
                 quickActions
                 HStack(alignment: .top, spacing: 18) {
                     recentProjects.frame(maxWidth: .infinity)
@@ -29,11 +28,33 @@ struct HomeView: View {
         }
     }
 
+    /// The welcome: headline, the two things people come here to do, on a softly lit surface.
+    var heroBanner: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            hero
+            startHere
+        }
+        .padding(22)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: Theme.radiusXL).fill(Theme.panelRaised)
+                RoundedRectangle(cornerRadius: Theme.radiusXL)
+                    .fill(RadialGradient(colors: [Theme.accent.opacity(0.2), .clear], center: .topLeading, startRadius: 0, endRadius: 560))
+                RoundedRectangle(cornerRadius: Theme.radiusXL)
+                    .fill(RadialGradient(colors: [Theme.ai.opacity(0.2), .clear], center: .bottomTrailing, startRadius: 0, endRadius: 620))
+            }
+        )
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusXL).strokeBorder(Theme.border))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusXL).strokeBorder(Theme.edgeHighlight, lineWidth: 1))
+        .elevation(3)
+    }
+
     var hero: some View {
         HStack(alignment: .center, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Turn long streams into shorts and YouTube videos.")
-                    .font(.system(size: 26, weight: .bold))
+                    .font(.pulseDisplay)
+                    .tracking(-0.3)
                     .foregroundStyle(Theme.textPrimary)
                 Text("Drop in a VOD, podcast or gameplay recording. PULSE finds the moments and builds the edit — vertical shorts or a full YouTube video — and you stay in full control.")
                     .font(.system(size: 13))
@@ -209,14 +230,18 @@ struct StartCard: View {
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 14).fill(LinearGradient(colors: [color.opacity(hovering ? 0.16 : 0.1), Theme.panelRaised],
+            .background(RoundedRectangle(cornerRadius: 14).fill(LinearGradient(colors: [color.opacity(hovering ? 0.2 : 0.12), Theme.panel.opacity(0.85)],
                                                                                 startPoint: .topLeading, endPoint: .bottomTrailing)))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(hovering ? color.opacity(0.6) : color.opacity(0.25)))
+            .overlay(RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(LinearGradient(colors: [color.opacity(hovering ? 0.9 : 0.55), color.opacity(0.1)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                              lineWidth: 1))
+            .shadow(color: color.opacity(hovering ? 0.28 : 0.12), radius: hovering ? 18 : 10, y: 6)
+            .offset(y: hovering ? -2 : 0)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.12), value: hovering)
+        .animation(.easeOut(duration: 0.14), value: hovering)
     }
 }
 
@@ -234,8 +259,10 @@ struct QuickActionTile: View {
                 Image(systemName: symbol)
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(color)
-                    .frame(width: 34, height: 34)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(color.opacity(0.14)))
+                    .frame(width: 36, height: 36)
+                    .background(RoundedRectangle(cornerRadius: 9).fill(LinearGradient(colors: [color.opacity(0.3), color.opacity(0.08)],
+                                                                                        startPoint: .topLeading, endPoint: .bottomTrailing)))
+                    .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(color.opacity(0.25)))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
                     Text(subtitle).font(.pulseCaption).foregroundStyle(Theme.textTertiary).lineLimit(1)
@@ -243,13 +270,14 @@ struct QuickActionTile: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(hovering ? Theme.control : Theme.panelRaised))
-            .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(hovering ? color.opacity(0.5) : Theme.border))
+            .raisedSurface(fill: hovering ? Theme.elevated : Theme.panelRaised, border: hovering ? color.opacity(0.5) : Theme.border)
+            .elevation(hovering ? 2 : 1)
+            .offset(y: hovering ? -2 : 0)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.12), value: hovering)
+        .animation(.easeOut(duration: 0.14), value: hovering)
     }
 }
 
@@ -295,6 +323,8 @@ struct ProjectCard: View {
         .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(Theme.panelRaised))
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLarge))
         .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(hovering ? Theme.borderStrong : Theme.border))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(Theme.edgeHighlight, lineWidth: 1))
+        .elevation(hovering ? 2 : 1)
         .scaleEffect(hovering ? 1.01 : 1)
         .animation(.easeOut(duration: 0.12), value: hovering)
         .onHover { hovering = $0 }

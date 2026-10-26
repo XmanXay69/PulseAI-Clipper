@@ -132,6 +132,9 @@ struct TrackHeader: View {
         .padding(.horizontal, 10)
         .frame(height: TimelineMetrics.laneHeight(track.kind))
         .background(Theme.panelRaised)
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 1.5).fill(kindColor.opacity(track.isHidden || track.isMuted ? 0.3 : 0.9)).frame(width: 3).padding(.vertical, 6)
+        }
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
         .contextMenu {
             Button("Add Video Track") { session.editTimeline("Add Track") { $0.addTrack(kind: .video) } }
@@ -143,6 +146,14 @@ struct TrackHeader: View {
                 session.editTimeline("Delete Track") { $0.removeTrack(id: id) }
             }
             .disabled(!track.clips.isEmpty)
+        }
+    }
+
+    var kindColor: Color {
+        switch track.kind {
+        case .video: return Theme.videoClip
+        case .audio: return Theme.audioClip
+        case .text: return Theme.textClip
         }
     }
 
@@ -244,6 +255,7 @@ struct PlayheadLine: View {
         Rectangle()
             .fill(Theme.accent)
             .frame(width: 1.5)
+            .shadow(color: Theme.accent.opacity(0.7), radius: 3)
             .offset(x: CGFloat(clock.time) * pps)
             .allowsHitTesting(false)
     }
@@ -262,8 +274,9 @@ struct PlayheadHead: View {
             head.addLine(to: CGPoint(x: -6, y: 12))
             head.closeSubpath()
         }
-        .fill(Theme.accent)
+        .fill(Theme.accentGradient)
         .frame(width: 12, height: 20)
+        .shadow(color: Theme.accent.opacity(0.6), radius: 4, y: 1)
         .offset(x: CGFloat(clock.time) * pps - 6)
         .allowsHitTesting(false)
     }
@@ -408,22 +421,26 @@ struct TimelineClipView: View, Equatable {
         let x = CGFloat(clip.start) * pps + moveOffset.width + trimLeading
         let w = max(CGFloat(clip.duration) * pps - trimLeading + trimTrailing, 3)
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 4).fill(color.opacity(clip.isEnabled ? 0.28 : 0.1))
+            RoundedRectangle(cornerRadius: 5)
+                .fill(LinearGradient(colors: [color.opacity(clip.isEnabled ? 0.44 : 0.14), color.opacity(clip.isEnabled ? 0.22 : 0.08)],
+                                     startPoint: .top, endPoint: .bottom))
             clipContent(width: w)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .clipShape(RoundedRectangle(cornerRadius: 5))
             HStack(spacing: 4) {
                 if clip.aiGenerated { Image(systemName: "sparkles").font(.system(size: 8, weight: .bold)).foregroundStyle(Theme.ai) }
-                Text(label).font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.92)).lineLimit(1)
+                Text(label).font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.94)).lineLimit(1)
                 if clip.speed != 1 { Text(String(format: "%.2g×", clip.speed)).font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.warning) }
             }
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .background(RoundedRectangle(cornerRadius: 3).fill(.black.opacity(0.35)))
+            .background(Capsule().fill(.black.opacity(0.42)))
             .padding(3)
             if isSelected { keyframeMarks(width: w) }
             transitionMarks(width: w)
-            RoundedRectangle(cornerRadius: 4)
-                .strokeBorder(isSelected ? Color.white : color.opacity(0.9), lineWidth: isSelected ? 2 : 1)
+            RoundedRectangle(cornerRadius: 5)
+                .strokeBorder(LinearGradient(colors: [.white.opacity(0.2), .clear], startPoint: .top, endPoint: .bottom), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 5)
+                .strokeBorder(isSelected ? Color.white : (hovering ? color : color.opacity(0.75)), lineWidth: isSelected ? 1.5 : 1)
             // Trim handles.
             if !trackLocked {
                 trimHandle(leading: true).frame(width: 7, height: height).offset(x: 0)
@@ -431,6 +448,7 @@ struct TimelineClipView: View, Equatable {
             }
         }
         .frame(width: w, height: height)
+        .shadow(color: clipShadow, radius: 6, y: moveOffset == .zero ? 0 : 4)
         .offset(x: x, y: 3 + moveOffset.height)
         .zIndex(moveOffset == .zero ? 0 : 10)
         .onHover { hovering = $0 }
@@ -441,6 +459,12 @@ struct TimelineClipView: View, Equatable {
         })
         .contextMenu { contextMenu }
         .help(helpText)
+    }
+
+    /// A soft white glow when selected; a drop shadow while being dragged.
+    var clipShadow: Color {
+        if isSelected { return Color.white.opacity(0.22) }
+        return moveOffset == .zero ? Color.clear : Color.black.opacity(0.5)
     }
 
     var label: String {

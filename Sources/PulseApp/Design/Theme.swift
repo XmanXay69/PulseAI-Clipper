@@ -50,6 +50,16 @@ enum Theme {
     static let radiusSmall: CGFloat = 4
     static let radius: CGFloat = 6
     static let radiusLarge: CGFloat = 10
+    static let radiusXL: CGFloat = 16
+
+    /// A lifted surface (popovers, hovered cards).
+    static let elevated = Color(hex: 0x27272C)
+
+    // Gradients: the accent and the AI violet get a little warmth/cool so filled controls read as lit.
+    static let accentGradient = LinearGradient(colors: [Color(hex: 0xFF3D6E), Color(hex: 0xFF6A4D)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    static let aiGradient = LinearGradient(colors: [Color(hex: 0x8C6CFF), Color(hex: 0x5E9BFF)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    /// The 1 px light catch along the top edge of raised surfaces.
+    static let edgeHighlight = LinearGradient(colors: [Color.white.opacity(0.09), Color.white.opacity(0)], startPoint: .top, endPoint: .center)
 
     static func potentialColor(_ potential: Int) -> Color {
         switch PotentialBand(potential) {
@@ -91,7 +101,24 @@ extension Color {
     }
 }
 
+extension View {
+    /// Elevation shadows: 1 = cards, 2 = popovers/hovered cards, 3 = sheets and the hero.
+    func elevation(_ level: Int) -> some View {
+        let radius: CGFloat = level <= 1 ? 8 : (level == 2 ? 16 : 28)
+        let y: CGFloat = level <= 1 ? 3 : (level == 2 ? 6 : 12)
+        return shadow(color: .black.opacity(level <= 1 ? 0.22 : (level == 2 ? 0.32 : 0.45)), radius: radius, y: y)
+    }
+
+    /// A raised, bordered surface with the top-edge light catch (cards, tiles, popovers).
+    func raisedSurface(cornerRadius: CGFloat = Theme.radiusLarge, fill: Color = Theme.panelRaised, border: Color = Theme.border) -> some View {
+        background(RoundedRectangle(cornerRadius: cornerRadius).fill(fill))
+            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(border))
+            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Theme.edgeHighlight, lineWidth: 1))
+    }
+}
+
 extension Font {
+    static let pulseDisplay = Font.system(size: 28, weight: .bold)
     static let pulseTitle = Font.system(size: 22, weight: .semibold)
     static let pulseHeadline = Font.system(size: 13, weight: .semibold)
     static let pulseBody = Font.system(size: 12)
