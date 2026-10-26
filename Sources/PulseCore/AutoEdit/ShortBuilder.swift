@@ -27,6 +27,8 @@ public struct ShortBuildOptions: Codable, Hashable, Sendable {
     public var musicAssetID: UUID?
     /// 0.9× into the payoff and 1.1× out of it, as a style (#80).
     public var speedRamp: Bool = false
+    /// Open on 1.6 s of the payoff, then tell the story (#59).
+    public var coldOpen: Bool = false
     public var profanity: ProfanityMode
 
     public init(mode: Mode = .oneClick, canvasPresetID: String = CanvasPreset.tiktok.id, frameRate: Double? = nil, layout: LayoutPreset? = nil,
@@ -76,6 +78,7 @@ public struct ShortBuildOptions: Codable, Hashable, Sendable {
         removeFillers = settings.fillerRemoval
         soundEffects = settings.aiSoundEffects
         speedRamp = settings.speedRamp
+        coldOpen = settings.coldOpenShorts
         if mode == .autoEdit {
             silence = settings.silenceRemoval ? .balanced : nil
             removeFillers = true
@@ -256,6 +259,9 @@ public enum ShortBuilder {
         let payoffTimeline = timeline.timelineRanges(forSource: TimeRange(start: candidate.payoffTime, duration: 0.05), assetID: asset.id).first?.start
         if options.speedRamp {
             EditPolish.speedRamp(&timeline, assetID: asset.id, payoffAtSource: candidate.payoffTime)
+        }
+        if options.coldOpen {
+            EditPolish.coldOpen(&timeline, assetID: asset.id, payoffAtSource: candidate.payoffTime)
         }
         if options.punchIns {
             var moments: [PunchInGenerator.Moment] = []

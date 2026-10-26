@@ -443,6 +443,16 @@ struct SpeakerCaptionSection: View {
     @ObservedObject var session: ProjectSession
     let captions: CaptionTrack
 
+    func suggestNames() {
+        let words = session.analyses[captions.sourceAssetID]?.transcript?.words ?? []
+        let names = SpeakerNameSuggester.suggest(words: words)
+        guard !names.isEmpty else { session.app.toast("No introductions found (“this is Mark”, “joined by Sarah”…)"); return }
+        session.editTimeline("Suggest Speaker Names") { t in
+            for (id, name) in names where (t.captions?.speakerNames[id] ?? "").isEmpty { t.captions?.speakerNames[id] = name }
+        }
+        session.app.toast("Named " + names.sorted { $0.key < $1.key }.map { $0.value }.joined(separator: ", "))
+    }
+
     func override(_ id: Int, _ label: String, _ change: @escaping (inout SpeakerCaptionStyle) -> Void) {
         session.editTimeline(label, coalesce: "speaker-\(id)-\(label)") { t in
             var s = t.captions?.speakerStyles[id] ?? SpeakerCaptionStyle()
@@ -461,6 +471,9 @@ struct SpeakerCaptionSection: View {
             ToggleRow(label: "Show speaker names", isOn: Binding(get: { captions.showSpeakerLabels }, set: { on in
                 session.editTimeline("Speaker Names") { $0.captions?.showSpeakerLabels = on }
             }), help: "A small name tag above each caption (rename speakers in the transcript)")
+            Button { suggestNames() } label: { Label("Suggest names from the conversation", systemImage: "person.text.rectangle") }
+                .buttonStyle(.pulse(.secondary, compact: true))
+                .help("“This is Mark”, “joined by Sarah” — the next voice gets the name; a suggestion you can change")
             ForEach(captions.captionSpeakers, id: \.self) { id in
                 let style = captions.style(forSpeaker: id)
                 VStack(alignment: .leading, spacing: 4) {

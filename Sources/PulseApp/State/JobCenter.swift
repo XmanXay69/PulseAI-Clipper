@@ -86,7 +86,10 @@ final class JobCenter: ObservableObject {
         jobs.insert(job, at: 0)
         if jobs.count > 40 { jobs.removeLast(jobs.count - 40) }
         PulseLog.info("Job started: \(title)")
+        // Analysis, builds and exports keep the Mac awake until they finish (#54).
+        let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled], reason: "PULSE: \(title)")
         job.task = Task { @MainActor [weak self] in
+            defer { ProcessInfo.processInfo.endActivity(activity) }
             do {
                 try await operation(job)
                 if job.state == .running {

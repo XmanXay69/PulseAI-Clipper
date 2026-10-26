@@ -70,6 +70,8 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var analysisThreads: Int = 0
     /// Shorts get a 0.9× → 1.1× speed ramp on the payoff (#80).
     public var speedRamp: Bool = false
+    /// Shorts open on a flash of the payoff before the story (#59).
+    public var coldOpenShorts: Bool = false
     public var aiFraming: Bool = true
     /// Label who is talking after transcription (local diarization).
     public var detectSpeakers: Bool = true
@@ -141,6 +143,7 @@ public struct AISettings: Codable, Hashable, Sendable {
         musicFolder = c.decode(String.self, forKey: .musicFolder, default: d.musicFolder)
         analysisThreads = c.decode(Int.self, forKey: .analysisThreads, default: d.analysisThreads)
         speedRamp = c.decode(Bool.self, forKey: .speedRamp, default: d.speedRamp)
+        coldOpenShorts = c.decode(Bool.self, forKey: .coldOpenShorts, default: d.coldOpenShorts)
         aiFraming = c.decode(Bool.self, forKey: .aiFraming, default: d.aiFraming)
         detectSpeakers = c.decode(Bool.self, forKey: .detectSpeakers, default: d.detectSpeakers)
         speakerCount = c.decode(Int.self, forKey: .speakerCount, default: d.speakerCount)

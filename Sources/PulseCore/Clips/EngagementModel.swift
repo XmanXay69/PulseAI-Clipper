@@ -100,6 +100,19 @@ public struct EngagementSignals: Sendable {
 }
 
 public enum EngagementModel {
+    /// The speaker label with the most words (nil without labels).
+    public static func dominantSpeaker(_ words: [TranscriptWord]) -> Int? {
+        var counts: [Int: Int] = [:]
+        for w in words { if let s = w.speaker { counts[s, default: 0] += 1 } }
+        return counts.max { $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key }?.key
+    }
+
+    /// 1.3 for the streamer's own laugh, 0.8 for someone else's, 1 when nobody is labelled.
+    public static func laughWeight(speaker: Int?, dominant: Int?) -> Float {
+        guard let speaker, let dominant else { return 1 }
+        return speaker == dominant ? 1.3 : 0.8
+    }
+
     /// All the signals of an analysis (including an imported chat replay).
     public static func compute(analysis: MediaAnalysis, step: Seconds = 0.5) -> EngagementSignals {
         compute(duration: analysis.duration, audio: analysis.audio, transcript: analysis.transcript, visual: analysis.visual, chat: analysis.chat,
@@ -109,6 +122,8 @@ public enum EngagementModel {
     public static func compute(duration: Seconds, audio: AudioFeatureSeries?, transcript: Transcript?, visual: VisualFeatureSeries?,
                                chat: ChatLog? = nil, hud: [HUDEvent] = [], step: Seconds = 0.5, gameplay: Bool = false) -> EngagementSignals {
         let n = max(1, Int((duration / step).rounded(.up)))
+        // The streamer's own laugh counts for more than a guest's (#28): the voice with the most words.
+        let dominantSpeaker = transcript.flatMap { EngagementModel.dominantSpeaker($0.words) }
         var loudnessDB = [Float](repeating: -60, count: n)
         var flux = [Float](repeating: 0, count: n)
         if let audio, audio.count > 0 {
@@ -154,7 +169,9 @@ public enum EngagementModel {
                 }
                 let word = norm[wi]
                 if let weight = EngagementLexicon.words[word] { keywords[i] += weight }
-                if EngagementLexicon.isLaughter(word) || w.text.lowercased().contains("laugh") { laughter[i] += 1 }
+                if EngagementLexicon.isLaughter(word) || w.text.lowercased().contains("laugh") {
+                    laughter[i] += EngagementModel.laughWeight(speaker: w.speaker, dominant: dominantSpeaker)
+                }
                 if EngagementLexicon.isProfane(word) { profanity[i] += 1 }
                 if w.isQuestion { questions[i] += 1 }
                 if w.isExclamation { keywords[i] += 0.6 }

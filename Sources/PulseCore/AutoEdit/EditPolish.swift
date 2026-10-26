@@ -293,6 +293,14 @@ public enum EditQualityCheck {
             add(.warning, "To-do markers", "\(todos.count) left: \(names)\(todos.count > 4 ? ", …" : "")")
         }
 
+        // 1c. Captions sitting where TikTok / Shorts / Reels draw their own UI (#68).
+        if let captions = timeline.captions, captions.isEnabled, timeline.canvas.aspect < 1 {
+            let lowest = SafeAreaPlatform.allCases.map { 1 - $0.insets.bottom }.min() ?? 0.8
+            if captions.style.positionY > lowest + 0.02 {
+                add(.note, "Captions under platform UI", "Caption centre at \(Int((captions.style.positionY * 100).rounded())) % is inside the bottom zone TikTok / Shorts / Reels cover; keep it above \(Int((lowest * 100).rounded())) %")
+            }
+        }
+
         // 2. Clicks at cuts.
         let unfaded = timeline.tracks.filter { $0.kind == .audio }.flatMap(\.clips)
             .filter { $0.role != .music && $0.role != .soundEffect && $0.content.assetID != nil && $0.duration > EditPolish.cutFade * 3

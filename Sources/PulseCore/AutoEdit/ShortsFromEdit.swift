@@ -42,6 +42,54 @@ extension LongFormEditor {
 }
 
 extension EditPolish {
+    /// A cold open (#59): a short flash of the payoff at the very start, cut hard, then the story from its
+    /// beginning. The teaser is a cutaway (role .graphic) so captions and the story map skip it; everything
+    /// else moves right by `length`. Returns false when the payoff is too close to the start to be worth it.
+    @discardableResult
+    public static func coldOpen(_ timeline: inout Timeline, assetID: UUID, payoffAtSource payoff: Seconds, length: Seconds = 1.6, lead: Seconds = 0.3) -> Bool {
+        guard length > 0.5, let vi = timeline.tracks.firstIndex(where: { $0.kind == .video }),
+              let clip = timeline.tracks[vi].clips.first(where: { $0.content.assetID == assetID && $0.role != .graphic && $0.sourceRange.contains(payoff) }),
+              payoff - lead - clip.sourceIn >= 4, payoff - lead + length <= clip.sourceOut else { return false }
+        if timeline.tracks[vi].clips.contains(where: { $0.name == "Cold Open" }) { return false }
+        for t in timeline.tracks.indices {
+            for c in timeline.tracks[t].clips.indices { timeline.tracks[t].clips[c].start += length }
+        }
+        for i in timeline.markers.indices { timeline.markers[i].time += length }
+        let group = UUID()
+        var teaser = clip
+        teaser.id = UUID()
+        teaser.name = "Cold Open"
+        teaser.start = 0
+        teaser.sourceIn = payoff - lead
+        teaser.sourceDuration = length
+        teaser.speed = 1
+        teaser.role = .graphic
+        teaser.linkGroup = group
+        teaser.aiGenerated = true
+        teaser.transitionIn = nil
+        teaser.transitionOut = ClipTransition(kind: .fadeToBlack, duration: 0.12, aiGenerated: true)
+        teaser.transform = VisualTransform(crop: clip.transform.crop, fit: clip.transform.fit)
+        timeline.tracks[vi].clips.insert(teaser, at: 0)
+        // Its sound, from the linked audio piece when there is one.
+        if let audioClip = timeline.tracks.filter({ $0.kind == .audio }).flatMap(\.clips).first(where: { $0.linkGroup == clip.linkGroup && $0.id != clip.id }),
+           let ai = timeline.tracks.firstIndex(where: { track in track.clips.contains { $0.id == audioClip.id } }) {
+            var sound = audioClip
+            sound.id = UUID()
+            sound.name = "Cold Open"
+            sound.start = 0
+            sound.sourceIn = payoff - lead
+            sound.sourceDuration = length
+            sound.speed = 1
+            sound.linkGroup = group
+            sound.aiGenerated = true
+            sound.audio.fadeOut = 0.12
+            timeline.tracks[ai].clips.insert(sound, at: 0)
+        }
+        timeline.markers.insert(Marker(time: 0, name: "Cold Open", color: .orange, aiGenerated: true), at: 0)
+        timeline.touch()
+        return true
+    }
+
     /// A speed ramp on the payoff (#80): the piece before it at `slow` and the piece after at `fast`, linked
     /// audio following. Returns false when the payoff isn't inside a main-asset clip with room on both sides.
     @discardableResult

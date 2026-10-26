@@ -104,6 +104,14 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   gentle starting point you can tune.
 
 ### AI Clips
+- **Cold open on shorts** (#59) — Settings → AI Features: a 1.6 s flash of the payoff, a hard cut, then the
+  story; captions and the story map skip the teaser.
+- **A/B** (#83) — one click makes two versions of a clip: the one-click cut, and an auto-edit with the other
+  caption look, a cold open and a speed ramp, named (A) and (B) in the timeline menu.
+- **Your own laugh counts for more** (#28) — with speaker labels, the voice with the most words is you; your
+  laughs weigh 1.3×, a guest's 0.8×.
+- **Your taste, in words** (#51) — Settings → AI Features shows what PULSE learned from your 👍 / 👎 ("leans
+  toward: emotion, funny · cares less about: story") with a Reset.
 - **Speed ramp on the payoff** (#80) — Settings → AI Features: shorts play 0.9× into the payoff and 1.1× out of
   it, linked audio following.
 - **Maybe later** (#85) — clips you set aside stay in a tray with a Restore button instead of disappearing.
@@ -155,6 +163,10 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   "valerant" → "Valorant", "x q c" → "xQc", "sea of theives" → "Sea of Thieves", timings untouched.
 
 ### Captions
+- **Speaker names from the conversation** (#40) — "this is Mark", "joined by Sarah": a button in the Speakers
+  section names the next voice; a suggestion you can change.
+- **Captions under platform UI** (#68) — the edit check notes a caption block sitting where TikTok / Shorts /
+  Reels draw their own controls.
 - **Timing, find & replace, shadow presets, laugh emoji** (#240, #250, #254, #237) — nudge every caption by
   50 ms, replace a misheard name across the track, pick none / soft / hard shadows, and put 😂 on the laughs.
 - **One caption look for the whole project** (#259) — "Style to all shorts" copies this timeline's caption
@@ -193,6 +205,7 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 - **Set up for my stream** (#441) — six questions (platform, content, facecam, mic, where shorts go, pace) set
   clip length, captions, extras, safe areas and the export preset in one go, with a list of exactly what changes.
   From the welcome screen, Home, Settings → General and the Help menu.
+- **The Mac stays awake** (#54) — analysis, builds and exports hold a system activity until they finish.
 - **Disk check before analysis** (#387) — PULSE refuses to start an analysis the cache disk can't hold, and says
   how much to free.
 - **What's new after an update** (#448) — a note on first launch after updating, and Help → What's New opens

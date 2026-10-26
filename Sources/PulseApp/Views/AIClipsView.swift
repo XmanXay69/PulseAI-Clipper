@@ -387,6 +387,9 @@ struct CandidateDetailPanel: View {
                 HStack(spacing: 8) {
                     Button { session.createShort(from: candidate.id) } label: { Label("Create Short", systemImage: "wand.and.stars").frame(maxWidth: .infinity) }
                         .buttonStyle(.pulseAI)
+                    Button { session.createABShorts(from: candidate.id) } label: { Label("A/B", systemImage: "square.split.2x1") }
+                        .buttonStyle(.pulseSecondary)
+                        .help("Two versions: the one-click cut, and an auto-edit with the other caption look, a cold open and a speed ramp")
                     Button { session.createShort(from: candidate.id, mode: .autoEdit) } label: { Label("Auto Edit", systemImage: "bolt.fill").frame(maxWidth: .infinity) }
                         .buttonStyle(.pulseSecondary)
                         .help("More aggressive: jump cuts, filler removal, punch-ins, SFX from your library")

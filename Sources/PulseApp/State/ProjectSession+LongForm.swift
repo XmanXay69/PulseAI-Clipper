@@ -305,6 +305,29 @@ extension ProjectSession {
 
     /// Timeline → Make a Short from Selection: the selected piece of the main recording (or the in → out
     /// range) becomes an AI clip and opens as a short.
+    /// Two versions of a short side by side (#83): the one-click cut, and an auto-edit with the other caption
+    /// look, a cold open and a speed ramp — pick the one that feels right.
+    func createABShorts(from candidateID: UUID) {
+        guard let a = createShort(from: candidateID, open: false) else { return }
+        let altStyle: CaptionStyle = app.settings.ai.captionPresetName == "Bold" ? .tiktok : .bold
+        let b = createShort(from: candidateID, mode: .autoEdit, open: false)
+        edit("A/B Shorts") { doc in
+            if let i = doc.timelines.firstIndex(where: { $0.id == a }) { doc.timelines[i].name += " (A)" }
+            if let b, let i = doc.timelines.firstIndex(where: { $0.id == b }) {
+                doc.timelines[i].name += " (B)"
+                doc.timelines[i].captions?.style = altStyle
+                if let assetID = doc.timelines[i].tracks.first?.clips.first?.content.assetID,
+                   let payoff = doc.candidates.first(where: { $0.id == candidateID })?.payoffTime {
+                    EditPolish.coldOpen(&doc.timelines[i], assetID: assetID, payoffAtSource: payoff)
+                    EditPolish.speedRamp(&doc.timelines[i], assetID: assetID, payoffAtSource: payoff)
+                }
+            }
+            doc.activeTimelineID = b ?? a
+        }
+        open(timelineID: b ?? a)
+        app.toast("A and B are in the timeline menu — compare, keep the one you like")
+    }
+
     /// Back from the "Maybe later" tray (#85).
     func restoreCandidate(_ id: UUID) {
         edit("Restore Clip") { doc in

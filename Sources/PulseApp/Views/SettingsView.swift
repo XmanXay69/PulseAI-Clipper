@@ -455,6 +455,15 @@ struct AIFeatureSettings: View {
                 }
                 .pickerStyle(.segmented).labelsHidden().frame(width: 220)
             }
+            SettingsRow("Cold open on shorts", detail: "Shorts open on 1.6 s of the payoff, cut hard, then tell the story.") {
+                Toggle("", isOn: $app.settings.ai.coldOpenShorts).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
+            }
+            SettingsRow("Your taste", detail: app.settings.ai.taste.summaryLines.isEmpty
+                        ? "Rate clips 👍 / 👎 in AI Clips and PULSE learns what you like. Nothing learned yet."
+                        : app.settings.ai.taste.summaryLines.joined(separator: "\n")) {
+                Button("Reset") { app.settings.ai.taste = TasteProfile() }.buttonStyle(.pulse(.ghost, compact: true))
+                    .disabled(app.settings.ai.taste.isEmpty)
+            }
             SettingsRow("Speed ramp on the payoff", detail: "Shorts play 0.9× into the payoff and 1.1× out of it — a small push you feel more than see.") {
                 Toggle("", isOn: $app.settings.ai.speedRamp).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
             }
