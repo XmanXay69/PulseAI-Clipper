@@ -118,9 +118,16 @@ public enum RetentionCards {
         let around = words.filter { $0.start >= segment.payoff - 12 && $0.end <= segment.payoff + 6 }
         guard around.count >= 3, let quote = TitleGenerator.bestQuote(words: around, payoff: segment.payoff) else { return nil }
         let bare = quote.trimmingCharacters(in: CharacterSet(charactersIn: "“”\""))
-        let tokens = bare.split(separator: " ")
-        guard (2...4).contains(tokens.count), !bare.hasSuffix("…"), bare.count <= 24 else { return nil }
-        return bare
+        guard !bare.hasSuffix("…") else { return nil }
+        // "THAT WAS THE CRAZIEST CLUTCH EVER!" → "CRAZIEST CLUTCH EVER!": drop the run-up, keep the punch.
+        let lead: Set<String> = ["THAT", "WAS", "THE", "THIS", "IS", "IT", "A", "AN", "AND", "SO", "I", "WE", "YOU", "HE", "SHE", "THEY",
+                                 "JUST", "LIKE", "OH", "MY", "OUR", "YOUR", "IT'S", "THAT'S", "WHAT", "BRO", "DUDE", "OKAY", "OK", "YEAH"]
+        var tokens = bare.split(separator: " ").map(String.init)
+        while tokens.count > 2, let first = tokens.first, lead.contains(first.trimmingCharacters(in: .punctuationCharacters)) { tokens.removeFirst() }
+        if tokens.count > 4 { tokens = Array(tokens.suffix(4)) }
+        let phrase = tokens.joined(separator: " ")
+        guard (2...4).contains(tokens.count), phrase.count <= 26 else { return nil }
+        return phrase
     }
 
     /// One short card at the start of sections that follow a real jump in the stream (≥ 2 minutes),
