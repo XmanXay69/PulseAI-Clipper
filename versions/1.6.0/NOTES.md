@@ -14,6 +14,16 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   ones are repaired by extending the piece to the end of the word (and rippling everything after it), the rest are
   listed for you. Crosstalk trims are left alone on purpose.
 
+- **Loading screens, menus and BRB cards are cut** (#32, #33) — a stretch where nothing moves and nobody talks
+  goes out like dead air; a BE RIGHT BACK / STARTING SOON / LOADING card read off the screen makes even a short
+  one go. Each shows up in Removed Sections as "Idle screen", restorable.
+- **Shorten pauses** (#96) — a new toggle plays 1–4 s pauses at 1.6× instead of jump-cutting them: the breath
+  stays, the wait goes.
+- **Three YouTube titles and a description** (#94) — every edit now carries three title options (a quote, the
+  stream's mood, a count line) and a description with the chapters and hashtags; they go into the export
+  sidecar and the sharing text.
+- **Top 3 shorts from this edit** (#69) — Edit My VOD menu: the best three shorts hiding in the open YouTube
+  edit, one per story piece, straight into AI Clips.
 - **Dead air: Light / Normal / Tight** (#122) — a picker in Edit My VOD for how eagerly pauses are cut.
 - **Music per chapter** (#100) — with Creative Commons music on, each chapter's bed is picked for that chapter's
   mood (a fight gets driving music, a story gets ambient), never the same track twice.
@@ -57,6 +67,10 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
   gentle starting point you can tune.
 
 ### AI Clips
+- **Why this moment** (#49, #50) — every card says it in plain words ("big laugh + chat spike", "a win banner +
+  a shout"), and the detail panel lists the signals behind the score with their strength.
+- **20 % shorter** (#64) — a button in the detail panel trims setup and tail by what's in them: the weaker end
+  gives up more, the payoff stays in with room to land, and both edges sit on word boundaries.
 - **Game banners count as moments** (#27) — on gameplay, analysis reads the game's own VICTORY, ELIMINATED,
   DOUBLE KILL, YOU DIED and the like off the screen (on-device text recognition, about a minute per hour). Wins,
   multi-kills and deaths score higher, the clip is tagged Hype or Fail, and the card shows the banner. Settings →
@@ -81,6 +95,11 @@ first batches from the 500-item roadmap (`docs/ROADMAP-500.md`), picked for impa
 ### Extras
 - Extras that can't apply to this video (no facecam, not gameplay) are greyed out with the reason (#130), and each
   says roughly how long it adds (#129).
+
+### Transcription
+- **Custom vocabulary** (#43) — Settings → Transcription: game names, usernames and catchphrases are favoured
+  while transcribing (Apple Speech contextual strings, whisper.cpp prompt) and corrected afterwards:
+  "valerant" → "Valorant", "x q c" → "xQc", "sea of theives" → "Sea of Thieves", timings untouched.
 
 ### Captions
 - **Six highlight looks** (#232) — Classic, Boxed, Pop, Neon, Fill and Subtle, one click each in the captions

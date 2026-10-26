@@ -462,6 +462,12 @@ struct TranscriptionSettings: View {
                 }
                 .labelsHidden().frame(width: 240)
             }
+            SettingsRow("Custom vocabulary", detail: "Game names, usernames and catchphrases speech-to-text should get right — comma-separated. Favoured while transcribing and corrected afterwards (“valerant” → “Valorant”).") {
+                TextField("e.g. Valorant, xQc, Sea of Thieves", text: Binding(
+                    get: { app.settings.ai.customVocabulary.joined(separator: ", ") },
+                    set: { app.settings.ai.customVocabulary = $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }))
+                    .textFieldStyle(.roundedBorder).frame(width: 260)
+            }
             SettingsRow("Language") {
                 Picker("", selection: $app.settings.ai.transcriptionLanguage) {
                     ForEach(Self.languages, id: \.0) { Text($0.1).tag($0.0) }

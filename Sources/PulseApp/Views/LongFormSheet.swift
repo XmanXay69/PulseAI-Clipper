@@ -17,6 +17,7 @@ struct LongFormSheet: View {
     @AppStorage("longForm.music") private var music = true
     @AppStorage("longForm.restraint") private var restraint = LongFormOptions.Restraint.balanced.rawValue
     @AppStorage("longForm.tighten") private var tighten = false
+    @AppStorage("longForm.shortenPauses") private var shortenPauses = false
     @AppStorage("longForm.deadAir") private var deadAir = SilencePreset.balanced.rawValue
     @State private var choosing = false
     /// The extras question is showing (asked before anything is built).
@@ -33,6 +34,7 @@ struct LongFormSheet: View {
                                       restraint: LongFormOptions.Restraint(rawValue: restraint) ?? .balanced)
         options.extras = extras ?? EditExtras()
         options.tighten = tighten
+        options.shortenPauses = shortenPauses
         options.deadAir = SilencePreset(rawValue: deadAir) ?? .balanced
         options.memeTexts = app.settings.ai.memeTextsByTag
         return options
@@ -153,6 +155,7 @@ struct LongFormSheet: View {
             touch("Sound effects", "speaker.wave.2.fill", "Whooshes, booms and comedy stings", $soundEffects)
             touch("Music", "music.note", "A quiet, calm bed under each chapter, ducked under talking", $music)
             touch("Tighten", "scissors", "Cut the ums, uhs and false starts (word timing isn't perfect — check the result)", $tighten)
+            touch("Shorten pauses", "forward.frame", "Play 1–4 s pauses at 1.6× instead of cutting them — the breath stays, the wait goes", $shortenPauses)
             if music {
                 touch("Find music on YouTube", "globe", "Creative Commons tracks via the built-in downloader (credits go in the description)",
                       Binding(get: { app.settings.ai.onlineMusic }, set: { app.settings.ai.onlineMusic = $0 }))

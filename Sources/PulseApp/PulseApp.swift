@@ -107,6 +107,7 @@ struct PulseCommands: Commands {
             }
             .disabled(app.session?.lastLongFormOptions == nil)
             Button("Make a Short from Selection") { app.session?.makeShortFromSelection() }
+            Button("Top 3 Shorts from This Edit") { app.session?.makeShortsFromEdit() }.disabled(app.session?.activeTimeline == nil)
                 .keyboardShortcut("s", modifiers: [.command, .option, .shift])
                 .disabled(app.session?.activeTimeline == nil)
             Button("Quick Export") { app.quickExport() }

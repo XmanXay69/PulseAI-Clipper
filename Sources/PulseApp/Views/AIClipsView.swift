@@ -221,6 +221,10 @@ struct ClipCandidateCard: View {
                 if !candidate.transcriptSnippet.isEmpty {
                     Text(candidate.transcriptSnippet).font(.pulseCaption).foregroundStyle(Theme.textSecondary).lineLimit(2)
                 }
+                if let why = whyLine {
+                    Text(why).font(.pulseMicro).foregroundStyle(Theme.ai).lineLimit(1)
+                        .help("Why PULSE picked this moment")
+                }
                 if let banner = gameBanner {
                     TagChip(text: banner.text.capitalized, color: Theme.success, symbol: banner.kind.symbolName)
                         .help("The game showed this on screen during the clip")
@@ -299,6 +303,13 @@ struct ClipCandidateCard: View {
         }
     }
 
+    /// "big laugh + chat spike": the signals behind the pick, in plain words (#50).
+    var whyLine: String? {
+        guard let signals = session.energySignal(for: candidate.assetID) else { return nil }
+        let banners = session.analyses[candidate.assetID]?.hudEvents ?? []
+        return MomentExplanation.explain(candidate: candidate, signals: signals, banners: banners).summary
+    }
+
     /// The biggest game banner (win, multi-kill, death…) read off the screen inside this clip.
     var gameBanner: HUDEvent? {
         session.analyses[candidate.assetID]?.hudEvents?.filter { candidate.range.contains($0.time) }.max { $0.kind.weight < $1.kind.weight }
@@ -340,6 +351,10 @@ struct CandidateDetailPanel: View {
                 HStack {
                     Button { player.rate == 0 ? player.play() : player.pause() } label: { Label("Preview", systemImage: "play.fill") }
                         .buttonStyle(.pulse(.secondary, compact: true))
+                    Button { shorten(by: 0.2) } label: { Label("20% shorter", systemImage: "scissors") }
+                        .buttonStyle(.pulse(.ghost, compact: true))
+                        .disabled(candidate.duration < 12)
+                        .help("Trims setup and tail by what's in them — the payoff stays, edges land on words")
                     Spacer()
                     Text("\(Timecode.short(candidate.range.start)) → \(Timecode.short(candidate.range.end)) · \(Int(candidate.duration.rounded()))s")
                         .font(.pulseMono).foregroundStyle(Theme.textSecondary)
@@ -362,6 +377,7 @@ struct CandidateDetailPanel: View {
                         .help("More aggressive: jump cuts, filler removal, punch-ins, SFX from your library")
                 }
                 scoreBreakdown
+                whyCard
                 if let hook = candidate.hook { hookCard(hook) }
                 platformCopy
             }
@@ -396,6 +412,40 @@ struct CandidateDetailPanel: View {
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+    }
+
+    /// "Why this moment?": the signals that scored it (#49).
+    @ViewBuilder
+    var whyCard: some View {
+        if let analysis = session.analyses[candidate.assetID], let signals = session.energySignal(for: candidate.assetID) {
+            let why = MomentExplanation.explain(candidate: candidate, signals: signals, banners: analysis.hudEvents ?? [])
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    SectionLabel(text: "Why this moment")
+                    AIBadge()
+                    Spacer()
+                }
+                Text(why.summary).font(.pulseCaption).foregroundStyle(Theme.textPrimary)
+                ForEach(why.signals.prefix(6)) { signal in
+                    HStack(spacing: 8) {
+                        Text(signal.name).font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 92, alignment: .leading)
+                        ThinProgressBar(progress: signal.value, color: Theme.accent.opacity(0.8))
+                        Text(signal.detail).font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(1).frame(width: 150, alignment: .leading)
+                    }
+                }
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+        }
+    }
+
+    func shorten(by fraction: Double) {
+        guard let analysis = session.analyses[candidate.assetID] else { return }
+        let shorter = ClipGenerator.shorten(candidate, by: fraction, analysis: analysis, settings: app.settings.ai.generationSettings)
+        session.edit("Shorten Clip") { doc in
+            if let i = doc.candidates.firstIndex(where: { $0.id == candidate.id }) { doc.candidates[i] = shorter }
+        }
+        app.toast("Now \(Int(shorter.duration.rounded())) s — the payoff stays in")
     }
 
     func hookCard(_ hook: HookAdvice) -> some View {

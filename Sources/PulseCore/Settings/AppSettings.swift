@@ -59,6 +59,8 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var hudCues: Bool = true
     /// What AI-built edits do to the audio under swear words (the caption filter masks the text).
     public var censorAudio: CensorAudio = .off
+    /// Game names, usernames and catchphrases speech-to-text should get right (#43).
+    public var customVocabulary: [String] = []
     public var aiFraming: Bool = true
     /// Label who is talking after transcription (local diarization).
     public var detectSpeakers: Bool = true
@@ -124,6 +126,7 @@ public struct AISettings: Codable, Hashable, Sendable {
         brollFolder = c.decode(String.self, forKey: .brollFolder, default: d.brollFolder)
         hudCues = c.decode(Bool.self, forKey: .hudCues, default: d.hudCues)
         censorAudio = c.decode(CensorAudio.self, forKey: .censorAudio, default: d.censorAudio)
+        customVocabulary = c.decode([String].self, forKey: .customVocabulary, default: d.customVocabulary)
         aiFraming = c.decode(Bool.self, forKey: .aiFraming, default: d.aiFraming)
         detectSpeakers = c.decode(Bool.self, forKey: .detectSpeakers, default: d.detectSpeakers)
         speakerCount = c.decode(Int.self, forKey: .speakerCount, default: d.speakerCount)

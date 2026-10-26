@@ -257,6 +257,15 @@ public struct AnalysisPipeline: Sendable {
             completed += videoWeight
         }
 
+        // Your vocabulary (game names, usernames) fixes what speech-to-text still got wrong.
+        if let t = transcript, !options.ai.customVocabulary.isEmpty {
+            let fixed = TranscriptCorrector.correct(t, vocabulary: options.ai.customVocabulary)
+            if fixed.changes > 0 {
+                transcript = fixed.transcript
+                PulseLog.info("Custom vocabulary corrected \(fixed.changes) word\(fixed.changes == 1 ? "" : "s")")
+            }
+        }
+
         let webcam = visual.flatMap { WebcamEstimator.estimate(faces: $0.faces, frameSize: meta.size) }
         let profile = MediaAnalysis.inferProfile(webcam: webcam, visual: visual, transcript: transcript, hasVideo: meta.hasVideo)
 

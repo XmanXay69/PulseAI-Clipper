@@ -276,6 +276,8 @@ public struct RemovedSection: Codable, Hashable, Identifiable, Sendable {
         case manual
         /// People talking over each other (the speaker-aware extra).
         case crosstalk
+        /// A loading screen, menu, BRB or starting-soon card.
+        case idleScreen
 
         public var displayName: String {
             switch self {
@@ -283,6 +285,7 @@ public struct RemovedSection: Codable, Hashable, Identifiable, Sendable {
             case .fillerWord: return "Filler word"
             case .transcriptEdit: return "Transcript edit"
             case .crosstalk: return "Crosstalk"
+            case .idleScreen: return "Idle screen"
             case .manual: return "Manual"
             }
         }

@@ -277,6 +277,22 @@ extension ProjectSession {
 
     /// Timeline → Make a Short from Selection: the selected piece of the main recording (or the in → out
     /// range) becomes an AI clip and opens as a short.
+    /// The best three shorts hiding in the open YouTube edit (#69), added to AI Clips.
+    func makeShortsFromEdit(count: Int = 3) {
+        guard let timeline = activeTimeline, let asset = document.primaryAsset, let analysis = analyses[asset.id] else {
+            app.toast("Analyze the recording first")
+            return
+        }
+        let picks = LongFormEditor.shorts(from: timeline, analysis: analysis, settings: app.settings.ai.generationSettings, count: count)
+        guard !picks.isEmpty else {
+            app.toast("No story pieces long enough for a short in this edit")
+            return
+        }
+        edit("Shorts from Edit") { $0.candidates.insert(contentsOf: picks, at: 0) }
+        app.section = .aiClips
+        app.toast("\(picks.count) short\(picks.count == 1 ? "" : "s") from the edit added to AI Clips")
+    }
+
     func makeShortFromSelection() {
         guard let timeline = activeTimeline, let asset = document.primaryAsset, let analysis = analyses[asset.id] else {
             app.toast("Analyze the recording first")

@@ -6,10 +6,13 @@ public struct HUDEvent: Codable, Hashable, Sendable, Identifiable {
         case win, loss, kill, multiKill, death, objective, levelUp, achievement, clutch
         /// Not a banner: you pressed "clip it" while recording.
         case marked
+        /// A loading / BRB / starting-soon card: dead time, not a moment (weight 0).
+        case idleScreen
 
         public var displayName: String {
             switch self {
             case .marked: return "Marked"
+            case .idleScreen: return "Idle screen"
             case .win: return "Win"
             case .loss: return "Loss"
             case .kill: return "Kill"
@@ -25,6 +28,7 @@ public struct HUDEvent: Codable, Hashable, Sendable, Identifiable {
         public var symbolName: String {
             switch self {
             case .marked: return "flag.fill"
+            case .idleScreen: return "pause.rectangle"
             case .win: return "trophy"
             case .loss: return "xmark.octagon"
             case .kill: return "scope"
@@ -41,6 +45,7 @@ public struct HUDEvent: Codable, Hashable, Sendable, Identifiable {
         public var weight: Double {
             switch self {
             case .win, .marked: return 1
+            case .idleScreen: return 0
             case .multiKill, .clutch: return 0.9
             case .achievement: return 0.7
             case .loss: return 0.6
@@ -56,7 +61,7 @@ public struct HUDEvent: Codable, Hashable, Sendable, Identifiable {
             switch self {
             case .win, .multiKill, .clutch, .achievement, .levelUp, .objective, .marked: return .hype
             case .loss, .death: return .fail
-            case .kill: return .gaming
+            case .kill, .idleScreen: return .gaming
             }
         }
     }
@@ -112,6 +117,11 @@ public enum HUDCues {
         ("ACHIEVEMENT UNLOCKED", .achievement), ("TROPHY UNLOCKED", .achievement), ("NEW RECORD", .achievement), ("NEW HIGH SCORE", .achievement),
         ("NEW PERSONAL BEST", .achievement), ("PERSONAL BEST", .achievement), ("PLAY OF THE GAME", .achievement), ("MVP", .achievement),
         ("WORLD RECORD", .achievement), ("HIGH SCORE", .achievement),
+        // Screens that aren't play at all (cut as dead time by Edit My VOD)
+        ("BE RIGHT BACK", .idleScreen), ("BRB", .idleScreen), ("STARTING SOON", .idleScreen), ("STREAM STARTING SOON", .idleScreen),
+        ("STARTING SHORTLY", .idleScreen), ("INTERMISSION", .idleScreen), ("NOW LOADING", .idleScreen), ("LOADING", .idleScreen),
+        ("MATCHMAKING", .idleScreen), ("SEARCHING FOR MATCH", .idleScreen), ("FINDING MATCH", .idleScreen), ("CONNECTING", .idleScreen),
+        ("STREAM ENDING", .idleScreen), ("STREAM ENDED", .idleScreen), ("THANKS FOR WATCHING", .idleScreen), ("TECHNICAL DIFFICULTIES", .idleScreen),
         // Clutch
         ("CLUTCH", .clutch), ("1V3", .clutch), ("1V4", .clutch), ("1V5", .clutch), ("1 VS 3", .clutch), ("1 VS 4", .clutch), ("1 VS 5", .clutch),
     ]
@@ -167,7 +177,7 @@ public enum HUDCues {
         var out = [Float](repeating: 0, count: n)
         guard !events.isEmpty else { return out }
         let before: Seconds = 2.5, after: Seconds = 4.5
-        for e in events {
+        for e in events where e.kind.weight > 0 {
             let weight = Float(e.kind.weight * e.confidence.clamped(0.3, 1))
             let lo = max(0, Int((e.time - before) / step)), hi = min(n - 1, Int((e.time + after) / step))
             guard hi >= lo else { continue }

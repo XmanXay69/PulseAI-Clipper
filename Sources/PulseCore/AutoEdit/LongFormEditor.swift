@@ -27,6 +27,8 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
     public var tighten = false
     /// How eagerly pauses are cut (a reference style overrides it).
     public var deadAir: SilencePreset = .balanced
+    /// Speed up 1.2–4 s pauses to 1.6× instead of jump-cutting them (keeps the breath, loses the wait) (#96).
+    public var shortenPauses = false
     /// Your own meme pop-up text per mood (Settings → AI Features); empty = PULSE's default.
     public var memeTexts: [ClipTag: String] = [:]
 
@@ -324,6 +326,18 @@ public enum LongFormEditor {
             if !cuts.isEmpty {
                 removed = timeline.removeSourceRanges(cuts, assetID: asset.id, reason: .silence, aiGenerated: true)
             }
+            // Loading screens, menus, BRB and starting-soon cards inside the kept stretches.
+            let idle = IdleScreens.ranges(visual: analysis.visual, words: words, cues: analysis.hudEvents ?? [], duration: analysis.duration)
+                .flatMap { range in segments.compactMap { s in range.intersection(s.range) } }
+                .filter { r in r.duration >= 4 && !(hookRange.map { r.overlaps($0) } ?? false) }
+            if !idle.isEmpty {
+                removed += timeline.removeSourceRanges(idle.merged(), assetID: asset.id, reason: .idleScreen, aiGenerated: true)
+            }
+        }
+        // Pauses that are too short to cut but long enough to feel: play them at 1.6×.
+        var pausesShortened = 0
+        if options.shortenPauses {
+            pausesShortened = EditPolish.shortenPauses(&timeline, words: words, after: hookEnd)
         }
         // Tighten: the ums, uhs and false starts (never inside the hook).
         var fillers = 0
@@ -557,8 +571,8 @@ public enum LongFormEditor {
         // YouTube chapters for the description.
         let outroAt = timeline.tracks[0].clips.first { $0.name == "End Screen" }?.start
         timeline.notes = chapterList(timeline.markers.filter { $0.color == .blue }, hasHook: hookRange != nil, outroAt: outroAt)
-        timeline.copy = ClipCopy(titles: segments.sorted { $0.potential > $1.potential }.prefix(3).map(\.title).filter { !$0.isEmpty },
-                                 shortsTitle: "", tiktokCaption: "", instagramCaption: "", hashtags: [])
+        timeline.copy = YouTubeCopy.generate(segments: segments, transcript: analysis.transcript, hookPayoff: hookMoment, chapters: timeline.notes,
+                                             seed: Int(analysis.duration))
         timeline.modifiedAt = Date()
 
         let chapters = options.music ? musicChapters(for: timeline, hookEnd: hookEnd) : []
@@ -570,6 +584,7 @@ public enum LongFormEditor {
             ? BrollPlacer.moments(segments: segments, timelineTime: timelineTime(ofSource:), hookEnd: hookEnd, duration: timeline.duration) : []
         var parts = ["\(segments.count) moments", "\(Timecode.short(timeline.duration)) long"]
         if removed > 1 { parts.append("\(Int(removed)) s of dead air cut") }
+        if pausesShortened > 0 { parts.append("\(pausesShortened) pauses sped up") }
         if hookRange != nil { parts.append("hook") }
         if zooms > 0 { parts.append("\(zooms) zooms") }
         if memes > 0 { parts.append("\(memes) memes") }

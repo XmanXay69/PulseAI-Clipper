@@ -6,6 +6,9 @@ import Speech
 /// Apple's on-device speech recognizer. Runs fully locally (requiresOnDeviceRecognition) and
 /// transcribes long recordings in ~50 s chunks split at quiet moments.
 public final class AppleSpeechTranscriber: TranscriptionProvider, @unchecked Sendable {
+    /// Names and terms to favour (Settings → Transcription → Custom vocabulary).
+    public var vocabulary: [String] = []
+
     public let id = "apple.speech"
     public let displayName = "Apple On-Device Speech"
     public let location = ProcessingLocation.local
@@ -76,6 +79,7 @@ public final class AppleSpeechTranscriber: TranscriptionProvider, @unchecked Sen
         request.shouldReportPartialResults = false
         request.addsPunctuation = true
         request.taskHint = .dictation
+        if !vocabulary.isEmpty { request.contextualStrings = Array(vocabulary.prefix(100)) }
         return try await withCheckedThrowingContinuation { continuation in
             let lock = NSLock()
             var finished = false
@@ -159,6 +163,8 @@ public struct WhisperCppTranscriber: TranscriptionProvider {
     public var executable: URL
     public var model: URL
     public var threads: Int
+    /// Names and terms to favour, passed as the decoder's initial prompt.
+    public var vocabulary: [String] = []
 
     public init(executable: URL, model: URL, threads: Int = max(2, ProcessInfo.processInfo.activeProcessorCount - 2)) {
         self.executable = executable
@@ -198,8 +204,9 @@ public struct WhisperCppTranscriber: TranscriptionProvider {
     public func transcribe(audioURL: URL, language: String?, progress: @escaping @Sendable (Double) -> Void) async throws -> Transcript {
         let outBase = FileManager.default.temporaryDirectory.appendingPathComponent("pulse-whisper-\(UUID().uuidString)")
         let lang = (language ?? "en").split(separator: "-").first.map(String.init) ?? "auto"
-        let args = ["-m", model.path, "-f", audioURL.path, "-oj", "-of", outBase.path, "-ml", "1", "-sow", "-l", lang,
+        var args = ["-m", model.path, "-f", audioURL.path, "-oj", "-of", outBase.path, "-ml", "1", "-sow", "-l", lang,
                     "-t", String(threads), "-pp"]
+        if !vocabulary.isEmpty { args += ["--prompt", vocabulary.prefix(60).joined(separator: ", ") + "."] }
         let status: Int32 = try await withCheckedThrowingContinuation { continuation in
             let process = Process()
             process.executableURL = executable
@@ -242,19 +249,27 @@ public enum TranscriptionEngineFactory {
     /// Engines to try in order. Automatic prefers whisper.cpp when its model covers the language (no
     /// permission prompt, and release builds ship it), otherwise Apple Speech, and falls back to the other.
     public static func candidates(settings: AISettings) -> [TranscriptionProvider] {
+        let vocabulary = settings.customVocabulary.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         let whisper: WhisperCppTranscriber? = {
             guard let exe = WhisperCppTranscriber.locateExecutable(preferred: settings.whisperExecutablePath),
                   let model = WhisperCppTranscriber.locateModel(preferred: settings.whisperModelPath) else { return nil }
-            return WhisperCppTranscriber(executable: exe, model: model)
+            var w = WhisperCppTranscriber(executable: exe, model: model)
+            w.vocabulary = vocabulary
+            return w
         }()
+        func apple() -> AppleSpeechTranscriber {
+            let a = AppleSpeechTranscriber()
+            a.vocabulary = vocabulary
+            return a
+        }
         switch settings.transcriptionEngine {
         case .whisperCpp:
             return whisper.map { [$0] } ?? []
         case .appleOnDevice:
-            return [AppleSpeechTranscriber()]
+            return [apple()]
         case .automatic:
             var list: [TranscriptionProvider] = []
-            if AppleSpeechTranscriber.hasUsageDescription { list.append(AppleSpeechTranscriber()) }
+            if AppleSpeechTranscriber.hasUsageDescription { list.append(apple()) }
             if let whisper {
                 if whisperCovers(language: settings.transcriptionLanguage, model: whisper.model) { list.insert(whisper, at: 0) } else { list.append(whisper) }
             }

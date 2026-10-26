@@ -305,6 +305,54 @@ public struct ClipGenerator: Sendable {
         return generator.makeCandidate(range: range, payoff: payoff)
     }
 
+    /// "Make it shorter": trims setup and tail by what's in them, not by fixed seconds (#64). The weaker end
+    /// gives up more; the payoff stays in with room to land; the new edges sit on word boundaries. The clip
+    /// keeps its identity (id, title, rating) and is re-scored.
+    public static func shorten(_ candidate: ClipCandidate, by fraction: Double, analysis: MediaAnalysis, settings: ClipGenerationSettings) -> ClipCandidate {
+        let generator = ClipGenerator(input: ClipGenerationInput(analysis: analysis), settings: settings)
+        let target = max(8, candidate.duration * (1 - fraction.clamped(0.05, 0.6)))
+        let range = generator.trimmedRange(candidate.range, payoff: candidate.payoffTime, to: target)
+        var fresh = generator.makeCandidate(range: range, payoff: candidate.payoffTime)
+        fresh.id = candidate.id
+        fresh.title = candidate.title
+        fresh.copy = candidate.copy
+        fresh.status = candidate.status
+        fresh.timelineID = candidate.timelineID
+        fresh.isFavorite = candidate.isFavorite
+        fresh.createdAt = candidate.createdAt
+        fresh.feedback = candidate.feedback
+        fresh.userAdjusted = true
+        return fresh
+    }
+
+    func trimmedRange(_ range: TimeRange, payoff: Seconds, to target: Seconds) -> TimeRange {
+        guard range.duration > target + 0.5 else { return range }
+        let s = signals
+        let head = TimeRange(start: range.start, end: min(payoff - 1, range.start + range.duration * 0.3))
+        let tail = TimeRange(start: max(payoff + 1.5, range.end - range.duration * 0.3), end: range.end)
+        let headEnergy = head.duration > 0 ? Double(s.mean(s.excitement, in: head)) : 1
+        let tailEnergy = tail.duration > 0 ? Double(s.mean(s.excitement, in: tail)) : 1
+        let toCut = range.duration - target
+        // The weaker end gives up more, but neither end gives up everything.
+        var headShare = tailEnergy / max(headEnergy + tailEnergy, 1e-6)
+        headShare = headShare.clamped(0.25, 0.75)
+        let headCut = min(toCut * headShare, max(0, payoff - 2.5 - range.start))
+        let tailCut = min(toCut - headCut, max(0, range.end - (payoff + 1.5)))
+        var start = range.start + headCut
+        var end = range.end - tailCut
+        // Edges on word boundaries: start where a word starts (after a pause if there is one nearby), end where one ends.
+        if let words = input.transcript?.words, !words.isEmpty {
+            if let w = words.first(where: { $0.start >= start - 0.3 && $0.start < payoff - 1 }) {
+                let previous = words.last { $0.end <= w.start }
+                start = (previous.map { w.start - $0.end >= 0.25 } ?? true) ? w.start - 0.08 : w.start - 0.05
+            }
+            if let w = words.last(where: { $0.end <= end + 0.4 && $0.end > payoff + 1 }) { end = w.end + 0.25 }
+        }
+        start = max(range.start, start)
+        end = min(range.end, max(end, start + 8))
+        return TimeRange(start: start, end: end)
+    }
+
     // MARK: Scoring
 
     func makeCandidate(range: TimeRange, payoff: Seconds) -> ClipCandidate {
@@ -397,7 +445,7 @@ public struct ClipGenerator: Sendable {
         if words.filter({ EngagementLexicon.failWords.contains($0) }).count >= 1 && scores.emotion > 0.5 { tags.append((.fail, 0.45)) }
         if input.profile == .podcast || input.profile == .talkingHead { tags.append((.conversation, 0.3)) }
         // The game's own banner in the clip ("VICTORY", "YOU DIED") names the moment better than anything else.
-        if let banner = input.hud.filter({ range.contains($0.time) }).max(by: { $0.kind.weight < $1.kind.weight }) {
+        if let banner = input.hud.filter({ $0.kind.weight > 0 && range.contains($0.time) }).max(by: { $0.kind.weight < $1.kind.weight }) {
             tags.append((banner.kind.tag, 0.45 + banner.kind.weight * 0.4))
         }
         if tags.isEmpty { tags.append((scores.audio > 0.4 ? .highEnergy : .conversation, 0.2)) }
