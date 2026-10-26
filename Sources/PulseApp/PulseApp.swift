@@ -259,9 +259,9 @@ final class KeyboardShortcutMonitor {
         case "a": session.tool = .select; return true
         case "m": session.addMarker(); return true
         case "s" where modifiers.isEmpty: app.settings.snapping.toggle(); app.toast(app.settings.snapping ? "Snapping on" : "Snapping off"); return true
-        case "j": playback.shuttle(rate: -2); return true
-        case "k": playback.pause(); return true
-        case "l": playback.shuttle(rate: playback.isPlaying ? 2 : 1); return true
+        case "j": playback.shuttle(-1); return true    // backwards, faster on each press
+        case "k": playback.shuttle(0); return true     // stop
+        case "l": playback.shuttle(1); return true     // forwards: 1×, 2×, 4×, 8×
         case "=", "+": session.pixelsPerSecond = min(session.pixelsPerSecond * 1.3, 600); return true
         case "-": session.pixelsPerSecond = max(session.pixelsPerSecond / 1.3, 2); return true
         default: return false

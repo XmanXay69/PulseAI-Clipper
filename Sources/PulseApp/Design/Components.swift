@@ -279,14 +279,15 @@ struct KeyValueRow: View {
 struct InspectorSection<Content: View>: View {
     let title: String
     var isAI = false
-    @State var expanded = true
+    /// Remembered per section title, so a section you collapsed stays collapsed across clips and launches.
+    @AppStorage var expanded: Bool
     var trailing: AnyView?
     @ViewBuilder var content: () -> Content
 
     init(_ title: String, isAI: Bool = false, expanded: Bool = true, trailing: AnyView? = nil, @ViewBuilder content: @escaping () -> Content) {
         self.title = title
         self.isAI = isAI
-        self._expanded = State(initialValue: expanded)
+        self._expanded = AppStorage(wrappedValue: expanded, "inspector.expanded." + title)
         self.trailing = trailing
         self.content = content
     }

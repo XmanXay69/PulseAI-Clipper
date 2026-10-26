@@ -192,7 +192,26 @@ public final class PlaybackController: ObservableObject {
         }
     }
 
-    public func pause() { player.pause() }
+    public func pause() { player.pause(); shuttleRate = 0 }
+
+    /// J/K/L shuttle: L plays forward (1×, then 2×, 4×, 8× on each press), J the same backwards when the
+    /// composition can play in reverse (otherwise it jumps back a second per press), K stops.
+    public private(set) var shuttleRate: Float = 0
+
+    public func shuttle(_ direction: Int) {
+        guard direction != 0 else { pause(); return }
+        let forward = direction > 0
+        let sameWay = forward ? shuttleRate > 0 : shuttleRate < 0
+        let magnitude: Float = sameWay ? min(abs(shuttleRate) * 2, 8) : 1
+        if !forward, !(player.currentItem?.canPlayReverse ?? false) {
+            seek(to: max(0, currentTime - 1))
+            shuttleRate = 0
+            return
+        }
+        if forward, currentTime >= duration - 0.05 { seek(to: 0) }
+        shuttleRate = forward ? magnitude : -magnitude
+        player.playImmediately(atRate: shuttleRate)
+    }
 
     public func togglePlayPause() {
         isPlaying ? pause() : play()
