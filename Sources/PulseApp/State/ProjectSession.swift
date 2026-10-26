@@ -80,6 +80,8 @@ final class ProjectSession: ObservableObject, Identifiable {
     @Published var marqueeRect: CGRect?
     /// The ruler is being scrubbed (#417).
     @Published var isScrubbing = false
+    /// Where a dragged clip is snapping to right now (#144), in timeline seconds.
+    @Published var snapLineTime: Seconds?
 
     /// Insert mode (#163): media added to the timeline pushes what follows instead of covering it.
     @Published var insertMode: Bool = UserDefaults.standard.bool(forKey: "timeline.insertMode") {

@@ -182,6 +182,22 @@ The sixteenth batch from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of
 #### Already there, now on the list
 - A Test button checks the cloud provider from Settings (#453); the viewer's full-screen button (#195).
 
+### Batch 21
+
+- **Snap lines** (#144) — while a clip is dragged, the edge it locks onto shows as a line across the timeline.
+- **B-roll tray** (#132) — a toolbar menu lists every cutaway a build placed: go there, remove it, or swap in
+  another clip from the project.
+- **Facecam confidence** (#45) — the Layout section says how often the analysis found the facecam and how much
+  of the picture it covers; the canvas handles override it.
+
+#### Already there, now on the list
+- Gameplay that can't be cropped gets a blurred fill or bars (#78, Canvas → Background blur); filmstrips on
+  video clips (#141); the breadcrumb inside a compound (#184); viewer zoom 50 / 100 / 200 % (#188, #202); effects
+  can be bypassed one by one (#212) and include blur, sharpen, glow, vignette and grain (#213); a clip can be
+  AI-reframed from its inspector (#222); paste attributes by section (#223); `.cube` LUTs with an amount (#309);
+  the export queue keeps rendering after the project closes (#355); the studio look's elevation system, grouped
+  sidebar, breadcrumb, hero, hover states, empty states and track stripes (#402, #404–#407, #410, #416).
+
 ### Under the hood
 - `CaptionWord.pageBreakAfter` and `TimelineClip.labelColor` are decoded tolerantly, so 1.6.0 projects open
   unchanged; `Batch16Tests` covers the release-list parser, caption keyboard edits, the bumper's ripple, the

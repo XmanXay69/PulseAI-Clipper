@@ -85,6 +85,7 @@ struct TimelineToolbar: View {
             IconButton(symbol: "list.bullet.rectangle", help: "Markers list", isActive: showMarkers) { showMarkers.toggle() }
                 .popover(isPresented: $showMarkers, arrowEdge: .bottom) { MarkersListView(session: session, playback: playback).frame(width: 360) }
             LabelFilterMenu(session: session)
+            BrollTrayMenu(session: session)
             IconButton(symbol: "magnifyingglass", help: "Find on the timeline — a clip, a marker or a word spoken", isActive: showSearch) { showSearch.toggle() }
                 .popover(isPresented: $showSearch, arrowEdge: .bottom) { TimelineSearchView(session: session, playback: playback).frame(width: 380) }
             IconButton(symbol: "waveform.badge.minus", help: "Tighten pauses — speed up the gaps between sentences", isActive: showPauses) { showPauses.toggle() }
@@ -576,6 +577,9 @@ struct TimelineCanvas: View {
                 PlayheadLine(clock: playback.clock, pps: pps)
                 if session.tool == .blade, let bladeX {
                     Rectangle().fill(Theme.accent.opacity(0.9)).frame(width: 1).offset(x: bladeX).allowsHitTesting(false)
+                }
+                if let t = session.snapLineTime {
+                    Rectangle().fill(Theme.info.opacity(0.9)).frame(width: 1).offset(x: CGFloat(t) * pps).allowsHitTesting(false)
                 }
                 if let r = session.marqueeRect {
                     Rectangle().fill(Theme.accent.opacity(0.12))
@@ -1150,11 +1154,14 @@ struct TimelineClipView: View, Equatable {
                     let snappedEnd = Timeline.snap(proposed + clip.duration, to: points, tolerance: Double(8 / pps)) - clip.duration
                     let s = abs(snappedStart - proposed) <= abs(snappedEnd - proposed) ? snappedStart : snappedEnd
                     dx = CGFloat(s - clip.start) * pps
+                    // The snap line (#144): the edge that locked on, or nothing when the clip is free.
+                    let locked = abs(s - proposed) > 1e-6
+                    session.snapLineTime = locked ? (s == snappedStart ? s : s + clip.duration) : nil
                 }
                 moveOffset = CGSize(width: dx, height: value.translation.height)
             }
             .onEnded { value in
-                defer { moveOffset = .zero }
+                defer { moveOffset = .zero; session.snapLineTime = nil }
                 guard session.tool != .blade else { return }
                 let newStart = max(0, clip.start + Double(moveOffset.width / pps))
                 // Vertical drag → move to a neighbouring compatible track.
@@ -1346,5 +1353,42 @@ struct VolumeEnvelope: View {
             }
         }
         .allowsHitTesting(false)
+    }
+}
+
+/// The cutaways a build placed (#132): remove one, or swap in another clip from the project, right from the
+/// toolbar.
+struct BrollTrayMenu: View {
+    @ObservedObject var session: ProjectSession
+
+    var cutaways: [TimelineClip] {
+        session.activeTimeline?.tracks.first { $0.name == "V2 B-roll" }?.clips ?? []
+    }
+
+    var body: some View {
+        let clips = cutaways
+        if !clips.isEmpty {
+            Menu {
+                ForEach(clips) { clip in
+                    Menu("\(clip.name) · \(Timecode.short(clip.start))") {
+                        Button("Go There") { session.playback.seek(to: clip.start); session.selectedClipIDs = [clip.id] }
+                        Button("Remove") { session.selectedClipIDs = [clip.id]; session.deleteSelection(ripple: false) }
+                        let others = session.document.visibleMedia.filter { $0.kind == .video && $0.id != clip.assetID && $0.id != session.document.primaryAsset?.id }
+                        if !others.isEmpty {
+                            Menu("Replace With") {
+                                ForEach(others) { asset in Button(asset.name) { session.replaceClip(clip.id, with: asset.id) } }
+                            }
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: "film.stack").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textSecondary).frame(width: 26, height: 26)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .frame(width: 26, height: 26)
+            .help("B-roll tray — the cutaways in this edit: go to, remove or swap each one (#132)")
+            .accessibilityLabel("B-roll tray")
+        }
     }
 }
