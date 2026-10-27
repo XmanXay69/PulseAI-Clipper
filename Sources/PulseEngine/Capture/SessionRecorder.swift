@@ -599,6 +599,15 @@ final class CameraCapture: NSObject, AVCaptureFileOutputRecordingDelegate, @unch
             } else if let audio = output as? AVCaptureAudioFileOutput {
                 audio.startRecording(to: url, outputFileType: .m4a, recordingDelegate: self)
             }
+            // A device that never reports "started" (unplugged, claimed by another app) must not hang the countdown.
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 10) { [weak self] in
+                guard let self else { return }
+                self.lock.lock()
+                let waiting = self.startContinuation
+                self.startContinuation = nil
+                self.lock.unlock()
+                waiting?.resume(throwing: CaptureError.writerFailed("the \(self.hasVideo ? "camera" : "microphone") didn't start recording within 10 seconds"))
+            }
         }
     }
 
@@ -617,6 +626,16 @@ final class CameraCapture: NSObject, AVCaptureFileOutputRecordingDelegate, @unch
             stopContinuation = continuation
             lock.unlock()
             output.stopRecording()
+            // The file is finalized in the "finished" callback; if it never comes, the screen recording is still
+            // saved and this file is reported as the problem it is.
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 20) { [weak self] in
+                guard let self else { return }
+                self.lock.lock()
+                let waiting = self.stopContinuation
+                self.stopContinuation = nil
+                self.lock.unlock()
+                waiting?.resume(throwing: CaptureError.writerFailed("the \(self.hasVideo ? "camera" : "microphone") recording didn't finish writing within 20 seconds"))
+            }
         }
         session.stopRunning()
         let start = lock.withLock { hostStart ?? hostSeconds() }

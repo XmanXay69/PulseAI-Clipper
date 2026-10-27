@@ -155,7 +155,8 @@ final class RecordingController: ObservableObject {
             var announced = false
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
-                guard let self, self.phase == .recording || self.phase == .paused else { continue }
+                guard let self else { return }
+                guard self.phase == .recording || self.phase == .paused else { continue }
                 let fresh = await client.poll(elapsed: self.recorder.elapsed)
                 if !fresh.isEmpty {
                     self.gameEvents.append(contentsOf: fresh)

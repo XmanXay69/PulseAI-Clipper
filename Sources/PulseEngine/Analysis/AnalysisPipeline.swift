@@ -205,7 +205,7 @@ public struct AnalysisPipeline: Sendable {
                         }
                         var live: TranscriptionProvider = engine
                         if var apple = engine as? AppleSpeechTranscriber { apple.onPartial = partial; live = apple }
-                        if var whisper = engine as? WhisperCppTranscriber { whisper.onPartial = partial; live = whisper }
+                        if var whisper = engine as? WhisperCppTranscriber { whisper.onPartial = partial; whisper.isCancelled = isCancelled; live = whisper }
                         let heard = try await live.transcribe(audioURL: wavURL, language: language) { p in
                             report(label, p, base, speechWeight)
                         }

@@ -235,18 +235,27 @@ public enum FFmpeg {
     }
 
     static func run(_ executable: URL, _ arguments: [String]) async throws -> Int32 {
-        try await withCheckedThrowingContinuation { continuation in
-            let process = Process()
-            process.executableURL = executable
-            process.arguments = arguments
-            process.standardOutput = FileHandle.nullDevice
-            process.standardError = FileHandle.nullDevice
-            process.terminationHandler = { p in continuation.resume(returning: p.terminationStatus) }
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(throwing: error)
+        let child = ChildProcess()
+        let status: Int32 = try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let process = Process()
+                child.set(process)
+                process.executableURL = executable
+                process.arguments = arguments
+                process.standardOutput = FileHandle.nullDevice
+                process.standardError = FileHandle.nullDevice
+                process.terminationHandler = { p in continuation.resume(returning: p.terminationStatus) }
+                do {
+                    try process.run()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
             }
+        } onCancel: {
+            // A cancelled import stops FFmpeg rather than leaving it converting the whole file.
+            child.terminate()
         }
+        if child.wasTerminated { throw EngineError.cancelled }
+        return status
     }
 }

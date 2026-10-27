@@ -664,22 +664,31 @@ final class AppModel: ObservableObject {
         panel.message = "Choose a PULSE archive (.pulsearchive.zip)"
         panel.prompt = "Restore"
         guard panel.runModal() == .OK, let zip = panel.url else { return }
-        let target = projectsFolder.appendingPathComponent("Restored " + zip.deletingPathExtension().deletingPathExtension().lastPathComponent, isDirectory: true)
-        do {
+        let name = zip.deletingPathExtension().deletingPathExtension().lastPathComponent
+        let target = projectsFolder.appendingPathComponent("Restored " + name, isDirectory: true)
+        // Unpacking a multi-gigabyte archive is a job, not something the window freezes for.
+        jobs.start("Restoring \(name)", kind: .importMedia) { [weak self] job in
+            guard let self else { return }
+          do {
+            job.detail = "Unpacking"
             try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
-            let ditto = Process()
-            ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-            ditto.arguments = ["-x", "-k", zip.path, target.path]
-            try ditto.run()
-            ditto.waitUntilExit()
-            guard ditto.terminationStatus == 0 else { throw CocoaError(.fileReadCorruptFile) }
+            let status: Int32 = await Task.detached(priority: .userInitiated) {
+                let ditto = Process()
+                ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+                ditto.arguments = ["-x", "-k", zip.path, target.path]
+                do { try ditto.run() } catch { return -1 }
+                ditto.waitUntilExit()
+                return ditto.terminationStatus
+            }.value
+            guard status == 0 else { throw CocoaError(.fileReadCorruptFile) }
+            job.detail = "Relinking media"
             guard let enumerator = FileManager.default.enumerator(at: target, includingPropertiesForKeys: nil),
                   let projectURL = enumerator.compactMap({ $0 as? URL }).first(where: { $0.pathExtension == ProjectPackage.fileExtension }) else {
                 throw CocoaError(.fileReadNoSuchFile)
             }
             let mediaDir = projectURL.deletingLastPathComponent().appendingPathComponent("Media", isDirectory: true)
             let package = ProjectPackage(url: projectURL)
-            var doc = try store.load(package).document
+            var doc = try self.store.load(package).document
             var relinked = 0
             for i in doc.media.indices where !FileManager.default.fileExists(atPath: doc.media[i].path) {
                 let candidate = mediaDir.appendingPathComponent(URL(fileURLWithPath: doc.media[i].path).lastPathComponent)
@@ -690,13 +699,14 @@ final class AppModel: ObservableObject {
                     relinked += 1
                 }
             }
-            try store.save(doc, to: package)
-            library?.index(doc, path: package.url.path, thumbnailPath: nil)
-            refreshProjects()
-            openProject(at: projectURL)
-            toast("Restored “\(doc.name)”\(relinked > 0 ? " — \(relinked) media file\(relinked == 1 ? "" : "s") relinked" : "")")
-        } catch {
-            present(error, title: "Couldn't restore the archive")
+            try self.store.save(doc, to: package)
+            self.library?.index(doc, path: package.url.path, thumbnailPath: nil)
+            self.refreshProjects()
+            self.openProject(at: projectURL)
+            self.toast("Restored “\(doc.name)”\(relinked > 0 ? " — \(relinked) media file\(relinked == 1 ? "" : "s") relinked" : "")")
+          } catch {
+            self.present(error, title: "Couldn't restore the archive")
+          }
         }
     }
 

@@ -37,8 +37,13 @@ public enum ProxyGenerator {
                 try? await Task.sleep(nanoseconds: 250_000_000)
             }
         }
-        await session.export()
+        // A cancelled job stops the transcode instead of letting it run to the end.
+        await withTaskCancellationHandler { await session.export() } onCancel: { session.cancelExport() }
         timer.cancel()
+        if session.status == .cancelled {
+            try? FileManager.default.removeItem(at: output)
+            throw EngineError.cancelled
+        }
         guard session.status == .completed else {
             try? FileManager.default.removeItem(at: output)
             throw EngineError.exportFailed(session.error?.localizedDescription ?? "proxy generation failed")

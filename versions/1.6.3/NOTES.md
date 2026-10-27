@@ -25,6 +25,16 @@ any of it meets a real recording.
   encoder's reason, rather than a silently shorter video.
 - **Split recordings** (#322): when both the screen and the camera were split, their parts were sorted into
   one sequence; each file now joins with its own parts on its own timeline (the screen's first).
+- **Cancelling an analysis stops whisper.cpp.** Before, Stop on an analysis job left whisper working through the
+  whole file at full CPU until it finished on its own; the job's cancel flag is now polled once a second while
+  whisper runs and the process is stopped, and the task's own cancellation does the same. An FFmpeg conversion
+  (for formats AVFoundation can't open) stops the same way when its import is cancelled.
+- **Recording can't hang on the camera.** A camera or microphone that never reports "started" (unplugged
+  mid-countdown, claimed by another app) made the countdown wait forever; it now fails after 10 seconds with
+  the device named, and the screen recording starts without it is not lost: a stop the device never finishes
+  writing gives up after 20 seconds, keeping the screen file and reporting the camera file as the problem.
+- **Restoring an archive is a job** with "Unpacking" and "Relinking media" steps, instead of freezing the window
+  while a multi-gigabyte zip unpacks.
 
 ### Under the hood
 - `ExportPump.transferMultiPass` keeps the last pass description it started, so a description announced twice
@@ -33,3 +43,6 @@ any of it meets a real recording.
   the `Range` parse; `recoveries` caps the retries at five, `resends` the refused pieces at three.
 - `DubSynthesizer.speak(_:with:)` is the one-shot continuation around `AVSpeechSynthesizer.write`.
 - `PluginRegistry.DrainedPipe` reads a pipe to its end on a background thread.
+- `ChildProcess` (engine) wraps a `Process` with `terminate()` for a task's cancellation handler and `watch(_:)`
+  for a job's cancel flag; `WhisperCppTranscriber.isCancelled` is set by the analysis pipeline, and `FFmpeg.run`
+  uses the task handler.

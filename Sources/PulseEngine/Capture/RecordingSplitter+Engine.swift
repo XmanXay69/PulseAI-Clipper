@@ -21,7 +21,7 @@ extension RecordingSplitter {
             session.outputFileType = url.pathExtension.lowercased() == "mp4" ? .mp4 : .mov
             session.timeRange = CMTimeRange(start: .seconds(range.start), duration: .seconds(range.duration))
             session.shouldOptimizeForNetworkUse = true
-            await session.export()
+            await withTaskCancellationHandler { await session.export() } onCancel: { session.cancelExport() }
             guard session.status == .completed else {
                 for made in parts { try? FileManager.default.removeItem(at: made) }
                 throw EngineError.exportFailed(session.error?.localizedDescription ?? "splitting part \(i + 1) failed")

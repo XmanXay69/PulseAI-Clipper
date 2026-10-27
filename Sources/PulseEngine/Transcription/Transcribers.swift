@@ -208,6 +208,9 @@ public struct WhisperCppTranscriber: TranscriptionProvider {
 
     /// Words so far (#39): whisper prints each segment as it finishes, so its text is spread over the segment's span.
     public var onPartial: (@Sendable ([TranscriptWord]) -> Void)?
+    /// The job's cancel flag: polled once a second while whisper runs, and the process is stopped when it is set,
+    /// so a cancelled analysis doesn't leave whisper working through the whole file at full CPU.
+    public var isCancelled: (@Sendable () -> Bool)?
 
     /// "[00:01:02.000 --> 00:01:05.500]   the text" → words spread over that span.
     static func partialWords(fromSegmentLine line: String) -> [TranscriptWord]? {
@@ -235,8 +238,12 @@ public struct WhisperCppTranscriber: TranscriptionProvider {
         var args = ["-m", model.path, "-f", audioURL.path, "-oj", "-of", outBase.path, "-ml", "1", "-sow", "-l", lang,
                     "-t", String(threads), "-pp"]
         if !vocabulary.isEmpty { args += ["--prompt", vocabulary.prefix(60).joined(separator: ", ") + "."] }
-        let status: Int32 = try await withCheckedThrowingContinuation { continuation in
+        let child = ChildProcess()
+        let cancelFlag = isCancelled
+        let status: Int32 = try await withTaskCancellationHandler {
+          try await withCheckedThrowingContinuation { continuation in
             let process = Process()
+            child.set(process)
             process.executableURL = executable
             process.arguments = args
             let errPipe = Pipe()
@@ -269,10 +276,19 @@ public struct WhisperCppTranscriber: TranscriptionProvider {
                 outPipe.fileHandleForReading.readabilityHandler = nil
                 continuation.resume(returning: p.terminationStatus)
             }
-            do { try process.run() } catch { continuation.resume(throwing: error) }
+            do {
+                try process.run()
+                if let cancelFlag { child.watch(cancelFlag) }
+            } catch {
+                continuation.resume(throwing: error)
+            }
+          }
+        } onCancel: {
+            child.terminate()
         }
         let jsonURL = outBase.appendingPathExtension("json")
         defer { try? FileManager.default.removeItem(at: jsonURL) }
+        if child.wasTerminated || Task.isCancelled { throw EngineError.cancelled }
         guard status == 0, let data = try? Data(contentsOf: jsonURL) else {
             throw EngineError.transcriptionFailed("whisper.cpp exited with status \(status). Check the model file in Settings → AI.")
         }

@@ -16,8 +16,8 @@ Already installed? PULSE shows an **Update** button when a new version is out â€
 
 **New in 1.6.3:** a hardening pass over the last batches â€” two-pass export drives the encoder's passes the way
 AVFoundation expects, YouTube uploads resume after a dropped connection or a server error, dubbing can't hang on
-a silent voice, signal plugins can't stall on a full log pipe, and split recordings join file by file
-([notes](versions/1.6.3/NOTES.md)).
+a silent voice, signal plugins can't stall on a full log pipe, split recordings join file by file, cancelling an
+analysis actually stops whisper.cpp, and a camera that never answers can't hang a recording ([notes](versions/1.6.3/NOTES.md)).
 
 **New in 1.6.2:** chapter art (a picture per chapter marker for the description), a sortable list view in the
 media panel, a GPU self-test that switches to safe mode by itself, the shuttle speed on the transport bar,
