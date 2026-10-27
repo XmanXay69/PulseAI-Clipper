@@ -117,7 +117,7 @@ extension ProjectSession {
             }
             if options.extras.brollClips, !result.brollMoments.isEmpty {
                 if job.state != .running { return }
-                let found = await self.brollCutaways(result.brollMoments, job: job)
+                let found = await self.brollCutaways(result.brollMoments, job: job, timeline: result.timeline)
                 let placed = BrollPlacer.place(&result.timeline, clips: found.placements)
                 let stills = Set(found.placements.map(\.asset).filter { $0.kind == .image }.map(\.id))
                 if !stills.isEmpty { _ = Self.animateStills(in: &result.timeline, images: stills) }
@@ -218,7 +218,7 @@ extension ProjectSession {
     }
 
     /// "B-roll cutaways": one Creative Commons clip per moment, downloaded and imported as project media.
-    func brollCutaways(_ moments: [BrollPlacer.Moment], job: BackgroundJob) async -> (placements: [(asset: MediaAsset, at: Seconds)], clips: [OnlineTrack]) {
+    func brollCutaways(_ moments: [BrollPlacer.Moment], job: BackgroundJob, timeline built: Timeline? = nil) async -> (placements: [(asset: MediaAsset, at: Seconds)], clips: [OnlineTrack]) {
         var placements: [(asset: MediaAsset, at: Seconds)] = []
         var clips: [OnlineTrack] = []
         // Not the same meme as the last few videos (#133).
@@ -297,7 +297,7 @@ extension ProjectSession {
             let covered = Set(placements.map { Int(($0.at * 10).rounded()) })
             for moment in moments where !covered.contains(Int((moment.time * 10).rounded())) {
                 if job.state != .running { break }
-                let sourceTime = activeTimeline.flatMap { t in t.allClips.first { $0.assetID == primary.id && $0.timelineRange.contains(moment.time) }?.sourceTime(atTimeline: moment.time) }
+                let sourceTime = (built ?? activeTimeline).flatMap { t in t.allClips.first { $0.assetID == primary.id && $0.timelineRange.contains(moment.time) }?.sourceTime(atTimeline: moment.time) }
                 if let still = await stillForBroll(moment: moment, primary: primary, sourceTime: sourceTime, used: &usedStills) {
                     placements.append((still, moment.time))
                 }

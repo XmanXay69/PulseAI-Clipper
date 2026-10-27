@@ -364,6 +364,7 @@ prompt), cloud AI providers with live keys.
 2. Report anything confusing or broken; the CI screenshot loop (`--ui-snapshots`) makes UI fixes quick to verify.
 3. Candidates for the next build phase: test with real recordings and tune from what breaks (speaker
    clustering threshold, music mix levels, layout morph timing), then notarized Developer ID builds.
-4. Keep working through `docs/ROADMAP-500.md`; items done so far are cited by number in `versions/1.6.x/NOTES.md`
-   and in the batch commits (about 428 of 500 as of 1.6.2). The big remaining ones (#481–#500: plugins, a render farm, collaborative editing,
-   an iOS companion) need design work first.
+4. `docs/ROADMAP-500.md` is done: 499 of the 500 items are cited by number in `versions/1.6.x/NOTES.md` and in
+   the batch commits (as of 1.6.2); #484 (voice clone) is deliberately not built — see "Not built, on purpose"
+   in `versions/1.6.2/NOTES.md`. The next phase is tuning with real recordings: each roadmap feature shipped
+   with unit tests and a compile on CI, not with hours of real VODs behind it.

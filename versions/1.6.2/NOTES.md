@@ -423,6 +423,12 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   photo from the project whose name fits it (or a frame of the recording a moment earlier) with a slow push,
   pull or drift, a different move per still, so a story with no footage still moves.
 
+#### Not built, on purpose
+- **Voice clone for a flubbed word** (#484) would need a local voice-cloning model (a few hundred megabytes,
+  consent and licensing questions of its own); PULSE ships none. Re-record the word with Record Voice-Over
+  (Timeline menu) or dub the sentence with the system voice (#486) instead. Every other item of the 500 is in a release
+  note by number.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
