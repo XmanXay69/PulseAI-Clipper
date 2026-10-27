@@ -35,7 +35,10 @@ public enum YouTubeUploader {
     public static func signIn(clientID: String, clientSecret: String?) async throws -> Credentials {
         let (verifier, challenge) = YouTubeOAuth.pkce()
         let state = PhoneReview.token()
-        let listener = try NWListener(using: .tcp, on: .any)
+        // The redirect lands on 127.0.0.1, so the listener is bound to loopback only: nothing on the network can reach it.
+        let params = NWParameters.tcp
+        params.requiredLocalEndpoint = NWEndpoint.hostPort(host: "127.0.0.1", port: .any)
+        let listener = try NWListener(using: params)
         let queue = DispatchQueue(label: "app.pulse.oauth")
         let box = ContinuationBox()
         let code: String = try await withCheckedThrowingContinuation { continuation in
