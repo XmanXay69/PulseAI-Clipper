@@ -29,6 +29,9 @@ public final class AppleSpeechTranscriber: TranscriptionProvider, @unchecked Sen
         }
     }
 
+    /// Words so far after each chunk (#39), for a transcript panel that fills in as it goes.
+    public var onPartial: (@Sendable ([TranscriptWord]) -> Void)?
+
     public func transcribe(audioURL: URL, language: String?, progress: @escaping @Sendable (Double) -> Void) async throws -> Transcript {
         guard AppleSpeechTranscriber.hasUsageDescription else {
             throw EngineError.transcriptionUnavailable("Apple speech recognition needs the PULSE app bundle (run scripts/build-app.sh). Install whisper.cpp (`brew install whisper-cpp`) to transcribe from a development build.")
@@ -69,6 +72,7 @@ public final class AppleSpeechTranscriber: TranscriptionProvider, @unchecked Sen
             words.append(contentsOf: chunkWords.map { w in
                 TranscriptWord(text: w.text, start: w.start + range.start, end: w.end + range.start, confidence: w.confidence)
             })
+            onPartial?(words)
             progress(Double(index + 1) / Double(boundaries.count))
         }
         return Transcript(language: locale.identifier, words: words, source: .appleSpeech)
@@ -202,6 +206,29 @@ public struct WhisperCppTranscriber: TranscriptionProvider {
         return found.first
     }
 
+    /// Words so far (#39): whisper prints each segment as it finishes, so its text is spread over the segment's span.
+    public var onPartial: (@Sendable ([TranscriptWord]) -> Void)?
+
+    /// "[00:01:02.000 --> 00:01:05.500]   the text" → words spread over that span.
+    static func partialWords(fromSegmentLine line: String) -> [TranscriptWord]? {
+        guard line.hasPrefix("["), let close = line.firstIndex(of: "]") else { return nil }
+        let stamp = line[line.index(after: line.startIndex)..<close]
+        let parts = stamp.components(separatedBy: "-->").map { $0.trimmingCharacters(in: .whitespaces) }
+        guard parts.count == 2, let start = seconds(parts[0]), let end = seconds(parts[1]), end > start else { return nil }
+        let text = line[line.index(after: close)...].trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return nil }
+        return TranscriptParser.distribute(text: text, over: TimeRange(start: start, end: end))
+    }
+
+    static func seconds(_ stamp: String) -> Seconds? {
+        let parts = stamp.split(separator: ":").compactMap { Double($0.replacingOccurrences(of: ",", with: ".")) }
+        switch parts.count {
+        case 3: return parts[0] * 3600 + parts[1] * 60 + parts[2]
+        case 2: return parts[0] * 60 + parts[1]
+        default: return nil
+        }
+    }
+
     public func transcribe(audioURL: URL, language: String?, progress: @escaping @Sendable (Double) -> Void) async throws -> Transcript {
         let outBase = FileManager.default.temporaryDirectory.appendingPathComponent("pulse-whisper-\(UUID().uuidString)")
         let lang = language == "auto" ? "auto" : ((language ?? "en").split(separator: "-").first.map(String.init) ?? "auto")
@@ -214,7 +241,20 @@ public struct WhisperCppTranscriber: TranscriptionProvider {
             process.arguments = args
             let errPipe = Pipe()
             process.standardError = errPipe
-            process.standardOutput = FileHandle.nullDevice
+            // Segments as they finish (#39), for the live transcript.
+            let outPipe = Pipe()
+            process.standardOutput = outPipe
+            let partial = onPartial
+            let gathered = PartialWords()
+            outPipe.fileHandleForReading.readabilityHandler = { handle in
+                let data = handle.availableData
+                guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
+                var added = false
+                for line in text.split(separator: "\n") {
+                    if let words = WhisperCppTranscriber.partialWords(fromSegmentLine: String(line)) { gathered.append(words); added = true }
+                }
+                if added, let partial { partial(gathered.snapshot()) }
+            }
             errPipe.fileHandleForReading.readabilityHandler = { handle in
                 let data = handle.availableData
                 guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
@@ -226,6 +266,7 @@ public struct WhisperCppTranscriber: TranscriptionProvider {
             }
             process.terminationHandler = { p in
                 errPipe.fileHandleForReading.readabilityHandler = nil
+                outPipe.fileHandleForReading.readabilityHandler = nil
                 continuation.resume(returning: p.terminationStatus)
             }
             do { try process.run() } catch { continuation.resume(throwing: error) }
@@ -309,4 +350,12 @@ public enum TranscriptionEngineFactory {
         }
         return parts.joined(separator: " · ")
     }
+}
+
+/// Words gathered from whisper's output as it runs (#39).
+final class PartialWords: @unchecked Sendable {
+    private let lock = NSLock()
+    private var words: [TranscriptWord] = []
+    func append(_ more: [TranscriptWord]) { lock.lock(); words += more; lock.unlock() }
+    func snapshot() -> [TranscriptWord] { lock.lock(); defer { lock.unlock() }; return words }
 }

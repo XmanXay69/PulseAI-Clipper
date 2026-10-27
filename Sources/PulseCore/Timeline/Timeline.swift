@@ -370,6 +370,11 @@ public struct Timeline: Codable, Hashable, Identifiable, Sendable {
     public var targetDuration: Seconds?
     /// The frame people see before it plays (#70): the export thumbnail, in timeline seconds.
     public var coverTime: Seconds?
+    /// Caption tracks in other languages (#248), by language code; "original" holds the source language
+    /// while a translation is showing.
+    public var captionTranslations: [String: CaptionTrack] = [:]
+    /// The language `captions` currently shows; nil = the original.
+    public var captionLanguage: String?
 
     public init(id: UUID = UUID(), name: String, canvas: CanvasSettings = .vertical1080, tracks: [Track] = [],
                 captions: CaptionTrack? = nil, markers: [Marker] = [], layout: LayoutPreset? = nil,
@@ -411,6 +416,34 @@ public struct Timeline: Codable, Hashable, Identifiable, Sendable {
         copy = c.decode(ClipCopy?.self, forKey: .copy, default: nil)
         targetDuration = c.decode(Seconds?.self, forKey: .targetDuration, default: nil)
         coverTime = c.decode(Seconds?.self, forKey: .coverTime, default: nil)
+        captionTranslations = c.decode([String: CaptionTrack].self, forKey: .captionTranslations, default: [:])
+        captionLanguage = c.decode(String?.self, forKey: .captionLanguage, default: nil)
+    }
+
+    /// Languages the captions exist in: nil for the original, then the translations.
+    public var captionLanguages: [String?] {
+        var codes = Set(captionTranslations.keys.filter { $0 != "original" })
+        if let captionLanguage { codes.insert(captionLanguage) }
+        return [nil] + codes.sorted()
+    }
+
+    /// Shows the captions in `language` (nil = the original), keeping the current ones for later (#248).
+    public mutating func switchCaptions(to language: String?) {
+        guard language != captionLanguage, let current = captions else { return }
+        let key = language ?? "original"
+        guard let next = captionTranslations[key] else { return }
+        captionTranslations[captionLanguage ?? "original"] = current
+        captionTranslations[key] = nil
+        var shown = next
+        shown.style = current.style
+        shown.isEnabled = current.isEnabled
+        captions = shown
+        captionLanguage = language
+    }
+
+    /// Stores a translation (#248) without showing it.
+    public mutating func addCaptionTranslation(_ track: CaptionTrack, language: String) {
+        if captionLanguage == language { captions = track } else { captionTranslations[language] = track }
     }
 
     /// Standard empty editing timeline: V1, V2, T1, A1, A2.

@@ -309,6 +309,26 @@ struct CaptionStylePanel: View {
                                 ForEach(ProfanityMode.allCases, id: \.self) { Text($0.displayName).tag($0) }
                             }
                         }
+                        InspectorSection("Language", isAI: true, expanded: (session.activeTimeline?.captionTranslations.isEmpty == false)) {
+                            if let timeline = session.activeTimeline, timeline.captionLanguages.count > 1 {
+                                Picker("Showing", selection: Binding(get: { timeline.captionLanguage ?? "" }, set: { code in
+                                    session.editTimeline("Switch Caption Language") { $0.switchCaptions(to: code.isEmpty ? nil : code) }
+                                })) {
+                                    ForEach(timeline.captionLanguages, id: \.self) { code in
+                                        Text(code.map(CaptionTranslator.name(for:)) ?? "Original").tag(code ?? "")
+                                    }
+                                }
+                            }
+                            Menu {
+                                ForEach(CaptionTranslator.languages, id: \.code) { entry in
+                                    Button(entry.name) { session.translateCaptions(to: entry.code) }
+                                }
+                            } label: { Label("Translate…", systemImage: "character.book.closed") }
+                            .menuStyle(.borderlessButton).fixedSize()
+                            .help("Translates the captions sentence by sentence through the AI provider in Settings → AI and keeps both languages (#248)")
+                            Text("The original stays; timing follows the speech. Needs Claude, OpenAI or a local OpenAI-compatible server.")
+                                .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                        }
                         InspectorSection("Export", expanded: false) {
                             Button("Export SRT…") { exportSRT() }.buttonStyle(.pulse(.secondary, compact: true))
                             Button("Remove Captions", role: .destructive) { session.editTimeline("Remove Captions") { $0.captions = nil } }

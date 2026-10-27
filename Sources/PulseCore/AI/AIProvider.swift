@@ -47,6 +47,7 @@ public enum AICapability: String, Codable, CaseIterable, Sendable {
     case speakerDiarization
     case faceDetection
     case sceneDetection
+    case translation
 }
 
 public enum AIProviderError: Error, LocalizedError, Equatable {

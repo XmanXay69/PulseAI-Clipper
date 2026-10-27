@@ -188,7 +188,15 @@ public struct AnalysisPipeline: Sendable {
                     report(label, 0, base, speechWeight)
                     do {
                         let language = options.ai.transcriptionLanguage
-                        let heard = try await engine.transcribe(audioURL: wavURL, language: language) { p in
+                        // Words so far go out with the progress (#39), so the transcript panel fills in live.
+                        let partial: @Sendable ([TranscriptWord]) -> Void = { words in
+                            progress(EngineProgress(stage: label, fraction: min(1, (base + 0.5 * speechWeight) / totalWeight),
+                                                    detail: "\(words.count) words so far", partialTranscript: words))
+                        }
+                        var live: TranscriptionProvider = engine
+                        if var apple = engine as? AppleSpeechTranscriber { apple.onPartial = partial; live = apple }
+                        if var whisper = engine as? WhisperCppTranscriber { whisper.onPartial = partial; live = whisper }
+                        let heard = try await live.transcribe(audioURL: wavURL, language: language) { p in
                             report(label, p, base, speechWeight)
                         }
                         transcript = options.voiceSource.map { Self.shift(heard, delta: $0.delta, duration: meta.duration) } ?? heard

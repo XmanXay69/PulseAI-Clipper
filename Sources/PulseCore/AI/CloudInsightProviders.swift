@@ -181,3 +181,102 @@ public struct OpenAICompatibleInsightProvider: InsightProvider {
         return try ClipCopyPrompt.parse(json, generatedBy: displayName)
     }
 }
+
+// MARK: - Translation (#248)
+
+enum TranslationPrompt {
+    static let system = """
+    You translate subtitles for a video. You receive numbered sentences and return each one translated into the \
+    requested language, keeping the meaning, the tone and roughly the length, one translation per sentence, in the \
+    same order. Keep names, game terms and emoji as they are. Return JSON only.
+    """
+
+    static func user(sentences: [String], from source: String?, to language: String) -> String {
+        let list = sentences.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
+        return "Translate into \(language)\(source.map { " (from \($0))" } ?? "").\n\n\(list)\n\nReturn {\"sentences\": [...]} with exactly \(sentences.count) strings."
+    }
+
+    static let schema: [String: Any] = [
+        "type": "object",
+        "properties": ["sentences": ["type": "array", "items": ["type": "string"]]],
+        "required": ["sentences"],
+        "additionalProperties": false,
+    ]
+
+    static func parse(_ json: [String: Any], expected: Int) throws -> [String] {
+        guard let list = json["sentences"] as? [String] else { throw AIProviderError.badResponse("no sentences") }
+        guard list.count == expected else { throw AIProviderError.badResponse("got \(list.count) sentences for \(expected)") }
+        return list
+    }
+}
+
+extension AnthropicInsightProvider: TranslationProvider {
+    public func translate(sentences: [String], from source: String?, to language: String) async throws -> [String] {
+        guard !apiKey.isEmpty else { throw AIProviderError.missingAPIKey(provider: displayName) }
+        guard !sentences.isEmpty else { return [] }
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 180
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.setValue("server-side-fallback-2026-07-01", forHTTPHeaderField: "anthropic-beta")
+        let body: [String: Any] = [
+            "model": model,
+            "max_tokens": 16000,
+            "fallbacks": "default",
+            "system": TranslationPrompt.system,
+            "output_config": ["effort": effort, "format": ["type": "json_schema", "schema": TranslationPrompt.schema]],
+            "messages": [["role": "user", "content": TranslationPrompt.user(sentences: sentences, from: source, to: language)]],
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        guard (200..<300).contains(status) else {
+            let message = ((object["error"] as? [String: Any])?["message"] as? String) ?? String(decoding: data.prefix(300), as: UTF8.self)
+            throw AIProviderError.http(status: status, message: message)
+        }
+        if object["stop_reason"] as? String == "refusal" { throw AIProviderError.refused("policy") }
+        guard let content = object["content"] as? [[String: Any]],
+              let text = content.first(where: { $0["type"] as? String == "text" })?["text"] as? String,
+              let json = (try? JSONSerialization.jsonObject(with: Data(text.utf8))) as? [String: Any] else {
+            throw AIProviderError.badResponse("no JSON text block")
+        }
+        return try TranslationPrompt.parse(json, expected: sentences.count)
+    }
+}
+
+extension OpenAICompatibleInsightProvider: TranslationProvider {
+    public func translate(sentences: [String], from source: String?, to language: String) async throws -> [String] {
+        if location == .cloud && apiKey.isEmpty { throw AIProviderError.missingAPIKey(provider: displayName) }
+        guard !sentences.isEmpty else { return [] }
+        var request = URLRequest(url: baseURL.appendingPathComponent("chat/completions"))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 180
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        if !apiKey.isEmpty { request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "authorization") }
+        let body: [String: Any] = [
+            "model": model,
+            "response_format": ["type": "json_object"],
+            "messages": [
+                ["role": "system", "content": TranslationPrompt.system],
+                ["role": "user", "content": TranslationPrompt.user(sentences: sentences, from: source, to: language)],
+            ],
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(status) else {
+            throw AIProviderError.http(status: status, message: String(decoding: data.prefix(300), as: UTF8.self))
+        }
+        guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let choices = object["choices"] as? [[String: Any]],
+              let message = choices.first?["message"] as? [String: Any],
+              let text = message["content"] as? String,
+              let json = (try? JSONSerialization.jsonObject(with: Data(text.utf8))) as? [String: Any] else {
+            throw AIProviderError.badResponse("unexpected chat completion format")
+        }
+        return try TranslationPrompt.parse(json, expected: sentences.count)
+    }
+}

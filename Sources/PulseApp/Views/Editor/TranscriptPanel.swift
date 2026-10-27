@@ -80,6 +80,21 @@ struct TranscriptPanel: View {
             if let transcript, let assetID {
                 if let selection { selectionBar(transcript: transcript, assetID: assetID, selection: selection) }
                 content(transcript: transcript, assetID: assetID)
+            } else if let assetID, let partial = session.analysisProgress[assetID]?.partialTranscript, !partial.isEmpty {
+                // Transcribing right now (#39): the words so far, read-only, newest at the bottom.
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        IndeterminateBar(width: 60)
+                        Text("Transcribing — \(partial.count) words so far").font(.pulseMicro).foregroundStyle(Theme.textSecondary)
+                    }
+                    .padding(.horizontal, 8)
+                    ScrollView {
+                        Text(partial.map(\.text).joined(separator: " "))
+                            .font(.pulseBody).foregroundStyle(Theme.textPrimary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(8)
+                    }
+                }
             } else {
                 EmptyStateView(symbol: "text.quote", title: "No transcript",
                                message: "Analyze the recording to transcribe it, or import an SRT/VTT file from the Import page.",

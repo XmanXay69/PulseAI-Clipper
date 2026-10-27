@@ -144,11 +144,14 @@ public struct EngineProgress: Sendable {
     public var stage: String
     public var fraction: Double
     public var detail: String?
+    /// Words transcribed so far (#39), while the transcription stage runs.
+    public var partialTranscript: [TranscriptWord]?
 
-    public init(stage: String, fraction: Double, detail: String? = nil) {
+    public init(stage: String, fraction: Double, detail: String? = nil, partialTranscript: [TranscriptWord]? = nil) {
         self.stage = stage
         self.fraction = fraction
         self.detail = detail
+        self.partialTranscript = partialTranscript
     }
 }
 

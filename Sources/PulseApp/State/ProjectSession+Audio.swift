@@ -182,3 +182,50 @@ extension ProjectSession {
         }
     }
 }
+
+extension ProjectSession {
+    /// Captions → Translate… (#248): the current captions translated sentence by sentence through the configured
+    /// AI provider, kept as a second track you can switch to; the original stays.
+    func translateCaptions(to language: String) {
+        guard let timeline = activeTimeline, let captions = timeline.captions else { app.toast("Add captions first"); return }
+        guard let provider = AIProviders.translationProvider(settings: app.settings.ai) else {
+            app.presentMessage(title: "No translator set up", message: "Translation uses the AI provider from Settings → AI: Claude, OpenAI, or a local OpenAI-compatible server (LM Studio, Ollama). PULSE has no built-in translation model.")
+            return
+        }
+        if provider.location == .cloud, app.settings.ai.processingPolicy == .alwaysLocal {
+            app.presentMessage(title: "Cloud AI is off", message: "Settings → AI → Processing is set to always local. Allow cloud processing, or point PULSE at a local OpenAI-compatible server.")
+            return
+        }
+        let sentences = CaptionTranslator.sentences(in: captions)
+        guard !sentences.isEmpty else { app.toast("Nothing to translate"); return }
+        let timelineID = timeline.id
+        let source = analyses[captions.sourceAssetID]?.transcript?.language
+        let name = CaptionTranslator.name(for: language)
+        app.jobs.start("Translating captions · \(name)", kind: .captions, location: provider.location) { [weak self] job in
+            guard let self else { return }
+            // In batches, so a long edit doesn't ride on one giant request.
+            var translations: [String] = []
+            let batch = 40
+            var index = 0
+            while index < sentences.count {
+                if job.state != .running { return }
+                let slice = Array(sentences[index..<min(index + batch, sentences.count)])
+                job.detail = "Sentences \(index + 1)–\(index + slice.count) of \(sentences.count)"
+                translations += try await provider.translate(sentences: slice.map(\.text), from: source, to: name)
+                index += batch
+                job.progress = Double(index) / Double(sentences.count)
+            }
+            guard let track = CaptionTranslator.track(from: captions, sentences: sentences, translations: translations) else {
+                throw AIProviderError.badResponse("the translation came back empty")
+            }
+            self.edit("Translate Captions") { doc in
+                doc.updateTimeline(id: timelineID) { t in
+                    t.addCaptionTranslation(track, language: language)
+                    t.switchCaptions(to: language)
+                }
+            }
+            self.app.logActivity(.captions, title: "Captions translated to \(name)", detail: "\(sentences.count) sentences", location: provider.location)
+            self.app.toast("Captions in \(name) — switch languages in the Captions panel")
+        }
+    }
+}

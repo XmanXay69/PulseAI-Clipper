@@ -51,7 +51,7 @@ open build/PULSE.app
 
 | Module | What it is |
 |---|---|
-| `PulseCore` (pure Swift, 403 unit tests) | Timeline model + all edit ops (split, ripple, trim, speed, link, text-based delete/restore), snapshot undo/redo, `.pulse` project packages (autosave, rotating backups, versions, crash recovery), transcripts (SRT/VTT/whisper.cpp/OpenAI JSON), filler words, silence detection, audio sync, engagement model + AI clip generation (HOOK→CONTEXT→PAYOFF→END, AI Potential), titles/hooks, captions (8 presets, paging, word timing, emphasis, safe areas), streamer layouts + facecam detection, AI reframing, punch-ins, one-click short builder, "Make More Entertaining", templates, export presets/queue, AI provider abstraction + privacy policy (Local / Claude / OpenAI-compatible), settings, global search, multicam (sync groups, angle cuts, AI switching, grid layouts), compound clips (nested timelines), speaker diarization (segmenting, embedding clustering, MFCC fallback clustering, labels) |
+| `PulseCore` (pure Swift, 407 unit tests) | Timeline model + all edit ops (split, ripple, trim, speed, link, text-based delete/restore), snapshot undo/redo, `.pulse` project packages (autosave, rotating backups, versions, crash recovery), transcripts (SRT/VTT/whisper.cpp/OpenAI JSON), filler words, silence detection, audio sync, engagement model + AI clip generation (HOOK→CONTEXT→PAYOFF→END, AI Potential), titles/hooks, captions (8 presets, paging, word timing, emphasis, safe areas), streamer layouts + facecam detection, AI reframing, punch-ins, one-click short builder, "Make More Entertaining", templates, export presets/queue, AI provider abstraction + privacy policy (Local / Claude / OpenAI-compatible), settings, global search, multicam (sync groups, angle cuts, AI switching, grid layouts), compound clips (nested timelines), speaker diarization (segmenting, embedding clustering, MFCC fallback clustering, labels) |
 | `PulseEngine` (AVFoundation, Vision, Speech, Core Image/Metal, SQLite) | Media probing/import, thumbnails, waveforms, proxies, audio analysis, Vision face detection, Apple Speech + whisper.cpp transcription, composition builder + custom `AVVideoCompositing` compositor (layouts, masks, crops, keyframes, captions, text, color, LUTs, effects, transitions), AVAssetWriter export (H.264/HEVC hardware, ProRes), playback controller, demo media generator, SQLite library index with FTS5 transcript search, ScreenCaptureKit + camera/mic session recorder (pause/resume), audio enhance chain, neural speaker encoder (GE2E LSTM via BLAS) + MFCC fallback |
 | `PulseApp` (SwiftUI) | Sidebar app: Home, Projects, Import, AI Clips, Editor (viewer, timeline, inspector, transcript), Captions, Media, Templates, Exports, Settings; onboarding, recovery, ⌘F global search, background jobs, toasts, keyboard shortcuts |
 
@@ -93,7 +93,10 @@ Key files to know:
   frame beside the viewer's picture; `ExtraPreviews.swift` (#104, #126) draws the mock-ups in the extras sheets.
   `MulticamGridLayout.slots(split:)` (#330) moves the grid's main divider; `TimecodeSync` + `MediaMetadata.startTimecode`
   (#325, read by `MediaProbe.startTimecode`) give exact multicam offsets; `JobCenter.resumeStalled` (#390) restarts
-  a job with a `restart` closure after the Mac wakes.
+  a job with a `restart` closure after the Mac wakes. `TranslationProvider` + `CaptionTranslator` (#248,
+  `Sources/PulseCore/AI/CaptionTranslation.swift`) translate sentence by sentence through the cloud providers;
+  `Timeline.captionTranslations` / `switchCaptions(to:)` keep every language. `EngineProgress.partialTranscript`
+  (#39) carries the words so far from `AppleSpeechTranscriber.onPartial` / `WhisperCppTranscriber.onPartial`.
 
 ## Phase status
 
@@ -359,5 +362,5 @@ prompt), cloud AI providers with live keys.
 3. Candidates for the next build phase: test with real recordings and tune from what breaks (speaker
    clustering threshold, music mix levels, layout morph timing), then notarized Developer ID builds.
 4. Keep working through `docs/ROADMAP-500.md`; items done so far are cited by number in `versions/1.6.x/NOTES.md`
-   and in the batch commits (about 397 of 500 as of 1.6.2). The big remaining ones (#481–#500: plugins, a render farm, collaborative editing,
+   and in the batch commits (about 399 of 500 as of 1.6.2). The big remaining ones (#481–#500: plugins, a render farm, collaborative editing,
    an iOS companion) need design work first.

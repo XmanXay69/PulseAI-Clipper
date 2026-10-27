@@ -718,6 +718,22 @@ struct FlowChips: View {
 
 /// Resolves the insight provider from settings (Keychain API keys for cloud providers).
 enum AIProviders {
+    /// The translation provider (#248): the configured cloud provider or a local OpenAI-compatible server; nil when
+    /// nothing is set up (PULSE has no built-in translation model).
+    static func translationProvider(settings: AISettings) -> TranslationProvider? {
+        switch settings.cloudProvider {
+        case .none:
+            return nil
+        case .anthropic:
+            guard let key = KeychainStore.read(account: "anthropic"), !key.isEmpty else { return nil }
+            return AnthropicInsightProvider(apiKey: key, model: settings.cloudModel.isEmpty ? "claude-opus-5-5" : settings.cloudModel)
+        case .openAICompatible:
+            let key = KeychainStore.read(account: "openai") ?? ""
+            let base = URL(string: settings.openAIBaseURL) ?? URL(string: "http://localhost:1234/v1")!
+            return OpenAICompatibleInsightProvider(apiKey: key, model: settings.cloudModel, baseURL: base, isLocalServer: settings.openAIIsLocalServer)
+        }
+    }
+
     static func insightProvider(settings: AISettings) -> InsightProvider {
         switch settings.cloudProvider {
         case .none:

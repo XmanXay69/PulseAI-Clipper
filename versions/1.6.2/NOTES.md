@@ -285,6 +285,15 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
 - **Back from sleep** (#390) — a download that stops moving after the Mac wakes starts over by itself and
   carries on from its partial file.
 
+### Batch 42
+
+- **Translated captions, both kept** (#248) — Captions → Language → Translate… sends the captions sentence
+  by sentence to the AI provider from Settings → AI (Claude, OpenAI, or a local OpenAI-compatible server
+  such as LM Studio) and keeps the result as a second track; each translation's words follow the timing
+  of the speech, and a picker switches between the original and every language you've added.
+- **Transcript as it happens** (#39) — while a recording transcribes, the Transcript panel shows the words so
+  far (Apple Speech after each chunk, whisper.cpp as each segment prints) instead of an empty state.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
