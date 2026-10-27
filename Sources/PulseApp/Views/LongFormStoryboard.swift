@@ -15,6 +15,7 @@ struct LongFormStoryboard: View {
     /// Segments in storyboard order, the hook's payoff, and whether the order was changed by hand (#109).
     let onBuild: ([LongFormSegment], Seconds?, Bool) -> Void
     @State private var reordered = false
+    @State private var hoveringMoment: UUID?
 
     @State private var plan: LongFormPlan?
     @State private var selected: Set<UUID> = []
@@ -232,9 +233,16 @@ struct LongFormStoryboard: View {
                 }
             }))
             .labelsHidden().toggleStyle(.checkbox)
-            ThumbnailView(url: asset.map(session.url(for:)), time: moment.payoff, maxWidth: 240)
+            ZStack {
+                ThumbnailView(url: asset.map(session.url(for:)), time: moment.payoff, maxWidth: 240)
+                if hoveringMoment == moment.id, let asset {
+                    // A short loop of the moment while the mouse rests on it (#112).
+                    HoverLoopPreview(url: session.url(for: asset), range: r)
+                }
+            }
                 .frame(width: 120, height: 68)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
+                .onHover { inside in hoveringMoment = inside ? moment.id : (hoveringMoment == moment.id ? nil : hoveringMoment) }
                 .overlay(alignment: .bottomLeading) {
                     Text(Timecode.short(r.duration)).font(.pulseMicro).padding(.horizontal, 4).padding(.vertical, 1)
                         .background(Capsule().fill(.black.opacity(0.65))).foregroundStyle(.white).padding(4)
@@ -386,5 +394,37 @@ struct RangePreview: View {
             player.play()
         }
         .onDisappear { player.pause() }
+    }
+}
+
+
+/// Loops a stretch of the recording silently in a thumbnail-sized player (#112).
+struct HoverLoopPreview: View {
+    let url: URL
+    let range: TimeRange
+    @State private var player = AVPlayer()
+    @State private var observer: Any?
+
+    var body: some View {
+        PlayerView(player: player)
+            .allowsHitTesting(false)
+            .onAppear {
+                let item = AVPlayerItem(url: url)
+                player.replaceCurrentItem(with: item)
+                player.isMuted = true
+                player.seek(to: .seconds(range.start), toleranceBefore: .zero, toleranceAfter: .positiveInfinity)
+                player.play()
+                let end = range.end
+                let start = range.start
+                observer = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 10), queue: .main) { [weak player] time in
+                    if time.secondsValue >= end - 0.1 { player?.seek(to: .seconds(start), toleranceBefore: .zero, toleranceAfter: .positiveInfinity) }
+                }
+            }
+            .onDisappear {
+                if let observer { player.removeTimeObserver(observer) }
+                observer = nil
+                player.pause()
+                player.replaceCurrentItem(with: nil)
+            }
     }
 }

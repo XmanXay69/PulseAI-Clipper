@@ -165,6 +165,11 @@ struct MulticamAngleInspector: View {
             }
             .font(.pulseCaption)
             Text("Switching keeps the clip in sync and the same length.").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            if group.videoAngles.count >= 2 {
+                Button { session.matchAngleColours(group: group) } label: { Label("Match colours to “\(group.videoAngles[0].name)”", systemImage: "wand.and.rays") }
+                    .buttonStyle(.pulse(.secondary, compact: true))
+                    .help("Every other angle takes on the first angle's brightness, colourfulness and warmth, on all of its clips here (#326)")
+            }
         }
     }
 }

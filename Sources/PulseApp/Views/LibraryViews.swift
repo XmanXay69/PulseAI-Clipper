@@ -506,7 +506,7 @@ struct ExportSettingsForm: View {
                         .help("Renders in the background at low priority: slower, but the timeline and viewer stay responsive (#342)")
                 }
                 GridRow {
-                    Text("Loudness").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    HStack(spacing: 4) { Text("Loudness").font(.pulseCaption).foregroundStyle(Theme.textSecondary); HelpChip(topic: .loudness) }
                     Picker("", selection: Binding(get: { settings.loudnessTarget ?? 0 }, set: { settings.loudnessTarget = $0 == 0 ? nil : $0 })) {
                         Text("Check only").tag(0.0)
                         Text("−14 LUFS (YouTube)").tag(-14.0)

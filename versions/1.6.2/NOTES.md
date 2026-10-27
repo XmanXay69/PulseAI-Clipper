@@ -153,6 +153,19 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
 - **Brand kit per platform** (#371) — Settings → Brand Kit → Per platform: a different corner or size for the
   logo on TikTok, Shorts, Reels or YouTube, or no logo at all; new shorts resolve the kit for their platform.
 
+### Batch 33
+
+- **Keyframe lane** (#152) — a selected clip with keyframes shows them as diamonds along its bottom edge:
+  click one to jump there, drag it to retime it.
+- **Rotation on the canvas** (#191) — a knob above the selection box rotates the layer; ⇧ snaps to 15°,
+  double-click resets.
+- **Looping storyboard previews** (#112) — rest the mouse on a storyboard thumbnail and the moment loops.
+- **Colour-matched angles** (#326) — the multicam inspector matches every angle to the first one's look.
+- **Two people in frame** (#487) — face-aware reframing centres between two faces of comparable size when
+  both fit in the crop, instead of flipping between them.
+- **Help where you are** (#433) — small "?" chips next to loudness, enhance, chroma key and Speed Edit open a
+  paragraph on what the thing does.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
@@ -163,7 +176,8 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   panel sizes (#427, #428); ⇧⌘M marks a moment from any app while recording once Input Monitoring is allowed
   (#464); window recording with the window's title is in the recording sources (#332); image overlays take the same
   masks and shadows as any layer (#219); the composition builds off the main thread with cancellation (#379);
-  icon buttons share one symbol weight and size (#409).
+  icon buttons share one symbol weight and size (#409); the microphone and the screen's audio record to
+  separate files (#320).
 
 ### Under the hood
 - `ChapterArt` (engine) draws with AppKit on the source frame, so a marker over a cutaway or gap is skipped.

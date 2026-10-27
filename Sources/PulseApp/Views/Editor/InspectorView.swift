@@ -373,6 +373,7 @@ struct ClipInspector: View {
                 .help("Soft edge on the mask — a circle facecam that fades into the game (#220)")
         }
         InspectorSection("Chroma Key", expanded: clip.style.chromaKey?.enabled == true) {
+            HStack { Spacer(); HelpChip(topic: .chromaKey) }
             ToggleRow(label: "Key out a colour", isOn: Binding(get: { clip.style.chromaKey?.enabled ?? false }, set: { on in
                 session.editSelectedClips(primary: clip.id, "Chroma Key") { c in
                     if on { var key = c.style.chromaKey ?? .green; key.enabled = true; c.style.chromaKey = key } else { c.style.chromaKey?.enabled = false }
@@ -631,7 +632,7 @@ struct AudioInspector: View {
             b.plainSlider("Release", \.audio.duckRelease, range: 0.05...3, format: "%.2f", unit: " s")
         }
         InspectorSection("Enhance", expanded: clip.audio.needsEnhanceRender) {
-            EnhancePreviewRow(session: session, clip: clip)
+            HStack { EnhancePreviewRow(session: session, clip: clip); Spacer(); HelpChip(topic: .enhance) }
             HStack(spacing: 6) {
                 Button { session.editClip(clip.id, "Voice Preset") { $0.audio.applyVoicePreset() } } label: { Label("Voice Preset", systemImage: "mic") }
                     .buttonStyle(.pulse(.secondary, compact: true))

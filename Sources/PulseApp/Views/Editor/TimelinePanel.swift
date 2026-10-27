@@ -1041,6 +1041,11 @@ struct TimelineClipView: View, Equatable {
                                      startPoint: .top, endPoint: .bottom))
             clipContent(width: w)
                 .clipShape(RoundedRectangle(cornerRadius: 5))
+            if isSelected, KeyframeLane.hasKeyframes(clip) {
+                KeyframeLane(session: session, playback: playback, clip: clip, pps: pps)
+                    .frame(width: w, height: 12)
+                    .offset(y: height - 12)
+            }
             if let preview = trimPreview { preview }
             HStack(spacing: 4) {
                 if clip.aiGenerated { Image(systemName: "sparkles").font(.system(size: 8, weight: .bold)).foregroundStyle(Theme.ai) }
@@ -1577,5 +1582,56 @@ struct BeatGrid: View {
             ctx.fill(bars, with: .color(.white.opacity(0.7)))
         }
         .allowsHitTesting(false)
+    }
+}
+
+
+/// Keyframe lane under a selected clip (#152): a diamond per keyframe of position, scale, zoom, opacity, rotation
+/// and volume; click one to jump there, drag it along the clip to retime it.
+struct KeyframeLane: View {
+    @ObservedObject var session: ProjectSession
+    let playback: PlaybackController
+    let clip: TimelineClip
+    let pps: CGFloat
+    @State private var dragging: (id: UUID, keyPath: WritableKeyPath<TimelineClip, AnimatedDouble>, original: Seconds)?
+
+    static let properties: [(String, WritableKeyPath<TimelineClip, AnimatedDouble>, Color)] = [
+        ("Position", \.transform.positionX, Theme.info), ("Position", \.transform.positionY, Theme.info),
+        ("Scale", \.transform.scale, Theme.accent), ("Zoom", \.transform.zoom, Theme.ai),
+        ("Opacity", \.transform.opacity, Theme.textSecondary), ("Rotation", \.transform.rotation, Theme.warning),
+        ("Volume", \.audio.volume, Theme.audioClip),
+    ]
+
+    static func hasKeyframes(_ clip: TimelineClip) -> Bool {
+        properties.contains { clip[keyPath: $0.1].isAnimated }
+    }
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Rectangle().fill(.black.opacity(0.35))
+            ForEach(Array(Self.properties.enumerated()), id: \.offset) { _, property in
+                ForEach(clip[keyPath: property.1].keyframes, id: \.id) { keyframe in
+                    let t = dragging?.id == keyframe.id ? keyframe.time : keyframe.time
+                    Image(systemName: keyframe.aiGenerated ? "diamond" : "diamond.fill")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(property.2)
+                        .frame(width: 12, height: 12)
+                        .offset(x: CGFloat(t / max(clip.speed, 0.01)) * pps - 6)
+                        .help("\(property.0) keyframe at \(Timecode.short(clip.start + t / max(clip.speed, 0.01))) — click to jump, drag to retime")
+                        .gesture(
+                            DragGesture(minimumDistance: 2)
+                                .onChanged { value in
+                                    if dragging == nil { dragging = (keyframe.id, property.1, keyframe.time) }
+                                    guard let dragging else { return }
+                                    let newTime = max(0, min(clip.sourceDuration, dragging.original + Double(value.translation.width / pps) * clip.speed))
+                                    let id = dragging.id, keyPath = dragging.keyPath
+                                    session.editClip(clip.id, "Move Keyframe", coalesce: "keyframe-\(id)") { $0[keyPath: keyPath].moveKeyframe(id: id, to: newTime) }
+                                }
+                                .onEnded { _ in dragging = nil; session.commitCoalescing() }
+                        )
+                        .onTapGesture { playback.seek(to: clip.start + keyframe.time / max(clip.speed, 0.01)) }
+                }
+            }
+        }
     }
 }

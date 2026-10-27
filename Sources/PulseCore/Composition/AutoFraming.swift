@@ -2,6 +2,21 @@ import Foundation
 
 /// AI reframing: pans a full-frame crop to follow the subject (face) with smooth, sparse keyframes.
 public enum AutoReframer {
+    /// Where the crop should centre for one set of face boxes: the biggest face, unless a second face of
+    /// comparable size sits close enough that both fit in the crop — then the point between them (#487).
+    public static func followX(boxes: [NormRect], cropWidth: Double) -> Double? {
+        let sorted = boxes.sorted { $0.area > $1.area }
+        guard let first = sorted.first else { return nil }
+        if sorted.count >= 2 {
+            let second = sorted[1]
+            let span = max(first.maxX, second.maxX) - min(first.minX, second.minX)
+            if second.area >= first.area * 0.35, span <= cropWidth * 0.92 {
+                return (min(first.minX, second.minX) + max(first.maxX, second.maxX)) / 2
+            }
+        }
+        return first.center.x
+    }
+
     /// Adds pan keyframes to a clip so its crop follows faces detected in the source.
     /// - Parameters:
     ///   - faces: face samples in SOURCE time of the clip's asset.
@@ -14,12 +29,12 @@ public enum AutoReframer {
         guard samples.count >= 2 else { return }
         let baseCenter = clip.transform.crop.center
         let cropW = clip.transform.crop.width
-        // Largest face per sample, smoothed with an exponential moving average.
+        // The face to follow per sample — or, in a conversation, the middle of the two biggest faces when both
+        // fit inside the crop (#487) — smoothed with an exponential moving average.
         var smoothed: [(time: Seconds, x: Double)] = []
         var ema: Double?
         for s in samples {
-            guard let face = s.boxes.max(by: { $0.area < $1.area }) else { continue }
-            let x = face.center.x
+            guard let x = followX(boxes: s.boxes, cropWidth: cropW) else { continue }
             ema = ema.map { $0 * 0.6 + x * 0.4 } ?? x
             smoothed.append((s.time, ema!))
         }

@@ -148,3 +148,41 @@ extension ProjectSession {
         }
     }
 }
+
+
+extension ProjectSession {
+    /// Multicam (#326): every angle takes on the first angle's look — exposure, saturation and temperature
+    /// from the average of a frame in the middle of each recording — on all of its clips in this timeline.
+    func matchAngleColours(group: MulticamGroup) {
+        let angles = group.videoAngles
+        guard angles.count >= 2, let timeline = activeTimeline else { return }
+        let timelineID = timeline.id
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            func stats(_ assetID: UUID) async -> FrameStats? {
+                guard let asset = self.document.asset(id: assetID) else { return nil }
+                guard let image = await ThumbnailService.shared.image(for: self.url(for: asset), at: asset.metadata.duration / 2, maxWidth: 160, precise: true) else { return nil }
+                return Self.stats(of: image)
+            }
+            guard let reference = await stats(angles[0].assetID) else { self.app.toast("Couldn't read a frame from the first angle"); return }
+            let referenceGrade = timeline.allClips.first { $0.content.assetID == angles[0].assetID }?.color ?? ColorAdjustments()
+            var grades: [UUID: ColorAdjustments] = [:]
+            for angle in angles.dropFirst() {
+                guard let target = await stats(angle.assetID) else { continue }
+                let current = timeline.allClips.first { $0.content.assetID == angle.assetID }?.color ?? ColorAdjustments()
+                grades[angle.assetID] = GradeMatch.match(reference: reference, referenceGrade: referenceGrade, target: target, targetGrade: current)
+            }
+            guard !grades.isEmpty else { return }
+            self.edit("Match Angle Colours") { doc in
+                doc.updateTimeline(id: timelineID) { t in
+                    for ti in t.tracks.indices {
+                        for ci in t.tracks[ti].clips.indices {
+                            if let id = t.tracks[ti].clips[ci].content.assetID, let grade = grades[id] { t.tracks[ti].clips[ci].color = grade }
+                        }
+                    }
+                }
+            }
+            self.app.toast("\(grades.count) angle\(grades.count == 1 ? "" : "s") matched to “\(angles[0].name)”")
+        }
+    }
+}

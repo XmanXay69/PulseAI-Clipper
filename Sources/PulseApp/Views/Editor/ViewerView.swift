@@ -290,6 +290,20 @@ struct CanvasHandlesOverlay: View {
                         .offset(x: rect.maxX - 5.5, y: rect.maxY - 5.5)
                         .gesture(scaleGesture(clip: clip, local: local, rect: rect))
                         .help("Drag to scale")
+                    // Rotation knob above the box (#191): drag around the centre; ⇧ snaps to 15°; double-click resets.
+                    Circle()
+                        .fill(Theme.panelRaised)
+                        .frame(width: 11, height: 11)
+                        .overlay(Circle().stroke(Theme.accent, lineWidth: 1.5))
+                        .overlay(Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 6, weight: .bold)).foregroundStyle(Theme.accent))
+                        .offset(x: rect.midX - 5.5, y: rect.minY - 22)
+                        .gesture(rotateGesture(clip: clip, local: local, rect: rect))
+                        .onTapGesture(count: 2) {
+                            session.editClip(clip.id, "Reset Rotation", coalesce: nil) { c in
+                                if c.transform.rotation.isAnimated { c.transform.rotation.setKeyframe(at: local, value: 0) } else { c.transform.rotation.value = 0 }
+                            }
+                        }
+                        .help("Drag to rotate (⇧ snaps to 15°); double-click to reset")
                 }
                 .frame(width: frameSize.width, height: frameSize.height, alignment: .topLeading)
             }
@@ -348,6 +362,22 @@ struct CanvasHandlesOverlay: View {
                 dragStart = nil
                 session.commitCoalescing()
             }
+    }
+
+    func rotateGesture(clip: TimelineClip, local: Seconds, rect: CGRect) -> some Gesture {
+        DragGesture(minimumDistance: 1)
+            .onChanged { value in
+                let centre = CGPoint(x: rect.midX, y: rect.midY)
+                let knob = CGPoint(x: rect.midX, y: rect.minY - 16)
+                let point = CGPoint(x: knob.x + value.translation.width, y: knob.y + value.translation.height)
+                var degrees = Double(atan2(point.x - centre.x, centre.y - point.y)) * 180 / .pi
+                if NSEvent.modifierFlags.contains(.shift) { degrees = (degrees / 15).rounded() * 15 }
+                if abs(degrees) < 1.5 { degrees = 0 }
+                session.editClip(clip.id, "Rotate Layer", coalesce: "rotate-\(clip.id)") { c in
+                    if c.transform.rotation.isAnimated { c.transform.rotation.setKeyframe(at: local, value: degrees) } else { c.transform.rotation.value = degrees }
+                }
+            }
+            .onEnded { _ in session.commitCoalescing() }
     }
 
     func scaleGesture(clip: TimelineClip, local: Seconds, rect: CGRect) -> some Gesture {
@@ -772,6 +802,7 @@ struct SpeedEditHUD: View {
             HStack(spacing: 8) {
                 Image(systemName: "bolt.fill").foregroundStyle(Theme.accent)
                 Text("SPEED EDIT").font(.system(size: 10, weight: .heavy)).foregroundStyle(Theme.accent)
+                HelpChip(topic: .speedEdit)
                 if let current, let index = session.speedEditIndex {
                     Text("\(index + 1) / \(moments.count)").font(.pulseMono).foregroundStyle(.white.opacity(0.8))
                     Text(current.title).font(.pulseCaption).foregroundStyle(.white).lineLimit(1)
@@ -787,6 +818,5 @@ struct SpeedEditHUD: View {
         .padding(.horizontal, 12).padding(.vertical, 7)
         .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.7)))
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.accent.opacity(0.5)))
-        .allowsHitTesting(false)
     }
 }
