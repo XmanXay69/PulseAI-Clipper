@@ -38,15 +38,15 @@ struct EditExtrasSheet: View {
                     .padding(.bottom, 8)
                     .help("Sensible answers for a kind of stream — change anything after")
                     SectionLabel(text: "While editing")
-                    row("Facecam punch-ins", "person.crop.square", facecamDetail, \.facecamPunchIns, enabled: hasFacecam)
+                    row("Facecam punch-ins", "person.crop.square", facecamDetail, \.facecamPunchIns, enabled: hasFacecam, preview: .punchIns)
                     row("B-roll cutaways", "film", "Short Creative Commons meme and reaction clips cut in on the funniest moments, downloaded from YouTube. Credits go in the description. Adds about a minute.",
-                        \.brollClips)
+                        \.brollClips, preview: .broll)
                     row("Beat-synced music & zooms", "metronome", musicOn ? "Music starts on a beat and the zooms land on beats. Adds a few seconds." : "Needs music; music is off for this edit.",
-                        \.beatSync, enabled: musicOn)
-                    row("Speaker-aware cuts", "person.2.wave.2", speakerDetail, \.speakerAware)
+                        \.beatSync, enabled: musicOn, preview: .beatSync)
+                    row("Speaker-aware cuts", "person.2.wave.2", speakerDetail, \.speakerAware, preview: .speakers)
                     row("Retention title cards", "text.badge.star", "Short “THEN THIS HAPPENED…” or “20 MINUTES LATER…” cards where the video jumps ahead.",
-                        \.titleCards)
-                    row("Instant replays", "arrow.counterclockwise.circle", replayDetail, \.instantReplays, enabled: isGameplay)
+                        \.titleCards, preview: .titleCards)
+                    row("Instant replays", "arrow.counterclockwise.circle", replayDetail, \.instantReplays, enabled: isGameplay, preview: .replays)
                     if offerApproveCut {
                         SectionLabel(text: "Before building").padding(.top, 10)
                         row("Approve the cut", "checklist", "Review every section first: preview it, keep or drop it, move its start and end. Nothing is built until you approve.",
@@ -158,7 +158,8 @@ struct EditExtrasSheet: View {
                                 : " Crosstalk trimming also needs speaker labels (Detect Speakers in Settings → AI).")
     }
 
-    func row(_ title: String, _ symbol: String, _ detail: String, _ key: WritableKeyPath<EditExtras, Bool>, enabled: Bool = true) -> some View {
+    func row(_ title: String, _ symbol: String, _ detail: String, _ key: WritableKeyPath<EditExtras, Bool>, enabled: Bool = true,
+             preview: ExtraPreview.Kind? = nil) -> some View {
         let isOn = Binding(get: { extras[keyPath: key] && enabled }, set: { extras[keyPath: key] = $0 })
         return Toggle(isOn: isOn) {
             HStack(alignment: .top, spacing: 10) {
@@ -168,6 +169,8 @@ struct EditExtrasSheet: View {
                     Text(detail).font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
+                // What it looks like (#126), so the choice is visual.
+                if let preview { ExtraPreview(kind: preview).opacity(enabled ? 1 : 0.4) }
             }
             .padding(.leading, 4)
         }

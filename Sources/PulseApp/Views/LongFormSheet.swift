@@ -158,7 +158,7 @@ struct LongFormSheet: View {
             touch("Fire hook", "flame.fill", "Opens with a teaser of the best moment", $coldOpen)
             touch("Zooms", "plus.magnifyingglass", "Punch-ins on the big reactions", $zooms)
             touch("Captions", "captions.bubble", "Clean subtitles — outlined, no box, easy to read", $captions)
-            touch("Memes", "face.smiling", "Pop-up text on the funniest moments", $memes)
+            touch("Memes", "face.smiling", "Pop-up text on the funniest moments", $memes, preview: .memes)
             touch("Sound effects", "speaker.wave.2.fill", "Whooshes, booms and comedy stings", $soundEffects)
             touch("Music", "music.note", "A quiet, calm bed under each chapter, ducked under talking", $music)
             if music {
@@ -182,7 +182,7 @@ struct LongFormSheet: View {
         }
     }
 
-    func touch(_ title: String, _ symbol: String, _ detail: String, _ isOn: Binding<Bool>) -> some View {
+    func touch(_ title: String, _ symbol: String, _ detail: String, _ isOn: Binding<Bool>, preview: ExtraPreview.Kind? = nil) -> some View {
         HStack(spacing: 10) {
             Image(systemName: symbol).foregroundStyle(isOn.wrappedValue ? Theme.ai : Theme.textTertiary).frame(width: 20)
             VStack(alignment: .leading, spacing: 1) {
@@ -190,6 +190,8 @@ struct LongFormSheet: View {
                 Text(detail).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
             }
             Spacer()
+            // The memes as they'll look (#104): the moods' pop-ups in their colours.
+            if let preview { ExtraPreview(kind: preview).opacity(isOn.wrappedValue ? 1 : 0.45) }
             Toggle("", isOn: isOn).labelsHidden().toggleStyle(.switch).controlSize(.small).tint(Theme.ai)
         }
         .padding(.vertical, 4)

@@ -54,6 +54,17 @@ public enum ThumbnailStudioLink {
         return url
     }
 
+    /// Saves a picture with transparency (a person cutout, #363) next to the frames, as PNG.
+    public static func storePNG(_ image: CGImage) throws -> URL {
+        let rep = NSBitmapImageRep(cgImage: image)
+        guard let data = rep.representation(using: .png, properties: [:]) else { throw LinkError.encodeFailed }
+        try FileManager.default.createDirectory(at: imagesFolder, withIntermediateDirectories: true)
+        let digest = SHA256.hash(data: data).prefix(10).map { String(format: "%02x", $0) }.joined()
+        let url = imagesFolder.appendingPathComponent(digest + ".png")
+        if !FileManager.default.fileExists(atPath: url.path) { try data.write(to: url, options: .atomic) }
+        return url
+    }
+
     /// Writes a design into the gallery without overwriting one already there ("Name 2.json", …).
     @discardableResult
     public static func writeDesign(_ document: ThumbStudioDocument, named name: String) throws -> URL {

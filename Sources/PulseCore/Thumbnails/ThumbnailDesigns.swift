@@ -340,6 +340,8 @@ public enum ThumbnailLayout: String, CaseIterable, Codable, Identifiable, Sendab
     case faceZoom
     /// A slanted colour panel on the left carrying the text, the frame on the right.
     case panel
+    /// The person cut out of the frame, big, on a colour panel, text on the left (#363).
+    case cutout
 
     public var id: String { rawValue }
 
@@ -348,6 +350,7 @@ public enum ThumbnailLayout: String, CaseIterable, Codable, Identifiable, Sendab
         case .fullFrame: return "Full Frame"
         case .faceZoom: return "Face Zoom"
         case .panel: return "Color Panel"
+        case .cutout: return "Big Face Cutout"
         }
     }
 
@@ -356,6 +359,7 @@ public enum ThumbnailLayout: String, CaseIterable, Codable, Identifiable, Sendab
         case .fullFrame: return "rectangle.inset.filled"
         case .faceZoom: return "face.smiling"
         case .panel: return "rectangle.split.2x1"
+        case .cutout: return "person.crop.rectangle.fill"
         }
     }
 }
@@ -384,10 +388,38 @@ public enum ThumbnailDesigner {
     /// One design. `framePath` is the full-resolution frame already saved where the studio keeps images.
     public static func design(_ layout: ThumbnailLayout, framePath: String, sourceAspect: Double, face: NormRect?,
                               headline: String, accentHex: String = "FFD60A", panelHex: String = "FF2D55",
-                              logoPath: String? = nil) -> ThumbStudioDocument {
+                              logoPath: String? = nil, cutoutPath: String? = nil) -> ThumbStudioDocument {
         var doc = ThumbStudioDocument(width: canvas.width, height: canvas.height, backgroundHex: "000000")
         let text = headline.trimmingCharacters(in: .whitespacesAndNewlines)
+        // No cutout to place → the face zoom is the nearest look.
+        let layout = layout == .cutout && cutoutPath == nil ? ThumbnailLayout.faceZoom : layout
         switch layout {
+        case .cutout:
+            // The frame, pushed back and darkened, under a colour wash; the person cut out big on the right.
+            var background = ThumbStudioImage(path: framePath, crop: coverCrop(sourceAspect: sourceAspect, focus: face?.center, zoom: 1.2))
+            background.saturation = -0.3
+            background.contrast = -0.1
+            background.vignette = 0.6
+            doc.layers.append(ThumbStudioLayer(name: "PULSE frame", kind: .image(background), x: 0.5, y: 0.5, widthFraction: 1, heightFraction: 1))
+            var wash = ThumbStudioShape(shape: "rectangle", fillHex: panelHex)
+            wash.fillGradientHex = darker(panelHex)
+            doc.layers.append(ThumbStudioLayer(name: "Wash", kind: .shape(wash), x: 0.5, y: 0.5, widthFraction: 1.02, heightFraction: 1.02, opacity: 0.55))
+            if let cutoutPath {
+                // The cutout keeps the frame's aspect; the crop centres the face horizontally and shows the whole person.
+                let focus = face.map { Vec2($0.center.x, min(1, $0.center.y + 0.15)) }
+                let crop = coverCrop(sourceAspect: sourceAspect, focus: focus, zoom: face.map { (0.55 / max($0.height, 0.05)).clamped(1.2, 3) } ?? 1.5)
+                var person = ThumbStudioImage(path: cutoutPath, crop: crop)
+                person.contrast = 0.1
+                person.saturation = 0.1
+                person.sharpness = 0.2
+                doc.layers.append(ThumbStudioLayer(name: "Person", kind: .image(person), x: 0.7, y: 0.52, widthFraction: 0.62, heightFraction: 1.08))
+            }
+            if !text.isEmpty {
+                var spec = headlineSpec(text, size: 0.16, accentHex: accentHex)
+                spec.alignment = "left"
+                spec.extraStrokes = [ThumbStudioStroke(width: 22, hex: "FFFFFF")]
+                doc.layers.append(ThumbStudioLayer(name: "Headline", kind: .text(spec), x: 0.26, y: 0.46, widthFraction: 0.46, heightFraction: 0.6))
+            }
         case .fullFrame:
             // Aim a little above the face so heads aren't cut by the top text.
             let focus = face.map { Vec2($0.center.x, $0.center.y - 0.05) }

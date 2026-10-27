@@ -51,7 +51,7 @@ open build/PULSE.app
 
 | Module | What it is |
 |---|---|
-| `PulseCore` (pure Swift, 400 unit tests) | Timeline model + all edit ops (split, ripple, trim, speed, link, text-based delete/restore), snapshot undo/redo, `.pulse` project packages (autosave, rotating backups, versions, crash recovery), transcripts (SRT/VTT/whisper.cpp/OpenAI JSON), filler words, silence detection, audio sync, engagement model + AI clip generation (HOOK→CONTEXT→PAYOFF→END, AI Potential), titles/hooks, captions (8 presets, paging, word timing, emphasis, safe areas), streamer layouts + facecam detection, AI reframing, punch-ins, one-click short builder, "Make More Entertaining", templates, export presets/queue, AI provider abstraction + privacy policy (Local / Claude / OpenAI-compatible), settings, global search, multicam (sync groups, angle cuts, AI switching, grid layouts), compound clips (nested timelines), speaker diarization (segmenting, embedding clustering, MFCC fallback clustering, labels) |
+| `PulseCore` (pure Swift, 401 unit tests) | Timeline model + all edit ops (split, ripple, trim, speed, link, text-based delete/restore), snapshot undo/redo, `.pulse` project packages (autosave, rotating backups, versions, crash recovery), transcripts (SRT/VTT/whisper.cpp/OpenAI JSON), filler words, silence detection, audio sync, engagement model + AI clip generation (HOOK→CONTEXT→PAYOFF→END, AI Potential), titles/hooks, captions (8 presets, paging, word timing, emphasis, safe areas), streamer layouts + facecam detection, AI reframing, punch-ins, one-click short builder, "Make More Entertaining", templates, export presets/queue, AI provider abstraction + privacy policy (Local / Claude / OpenAI-compatible), settings, global search, multicam (sync groups, angle cuts, AI switching, grid layouts), compound clips (nested timelines), speaker diarization (segmenting, embedding clustering, MFCC fallback clustering, labels) |
 | `PulseEngine` (AVFoundation, Vision, Speech, Core Image/Metal, SQLite) | Media probing/import, thumbnails, waveforms, proxies, audio analysis, Vision face detection, Apple Speech + whisper.cpp transcription, composition builder + custom `AVVideoCompositing` compositor (layouts, masks, crops, keyframes, captions, text, color, LUTs, effects, transitions), AVAssetWriter export (H.264/HEVC hardware, ProRes), playback controller, demo media generator, SQLite library index with FTS5 transcript search, ScreenCaptureKit + camera/mic session recorder (pause/resume), audio enhance chain, neural speaker encoder (GE2E LSTM via BLAS) + MFCC fallback |
 | `PulseApp` (SwiftUI) | Sidebar app: Home, Projects, Import, AI Clips, Editor (viewer, timeline, inspector, transcript), Captions, Media, Templates, Exports, Settings; onboarding, recovery, ⌘F global search, background jobs, toasts, keyboard shortcuts |
 
@@ -88,6 +88,9 @@ Key files to know:
   `AudioSettings.sourceTrack` + `OBSTracks.lanes` (#11) pick a file's audio track per clip (CompositionBuilder
   honours it); `FaceFollower.pinned` (#81) keyframes a text layer onto the face; `VoiceOverRecorder` (#331)
   wraps the mic capture; `TextRenderer.cachedDraw` (#260) keeps rendered caption pages in an NSCache.
+  `Sources/PulseEngine/Support/PersonCutout.swift` (#363) runs Vision's person segmentation for the
+  `ThumbnailLayout.cutout` design; `CompareWipeOverlay` in `ViewerView.swift` (#193) shows the raw source
+  frame beside the viewer's picture; `ExtraPreviews.swift` (#104, #126) draws the mock-ups in the extras sheets.
 
 ## Phase status
 
@@ -353,5 +356,5 @@ prompt), cloud AI providers with live keys.
 3. Candidates for the next build phase: test with real recordings and tune from what breaks (speaker
    clustering threshold, music mix levels, layout morph timing), then notarized Developer ID builds.
 4. Keep working through `docs/ROADMAP-500.md`; items done so far are cited by number in `versions/1.6.x/NOTES.md`
-   and in the batch commits (about 389 of 500 as of 1.6.2). The big remaining ones (#481–#500: plugins, a render farm, collaborative editing,
+   and in the batch commits (about 394 of 500 as of 1.6.2). The big remaining ones (#481–#500: plugins, a render farm, collaborative editing,
    an iOS companion) need design work first.

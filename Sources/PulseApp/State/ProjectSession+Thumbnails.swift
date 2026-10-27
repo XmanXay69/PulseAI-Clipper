@@ -72,12 +72,21 @@ extension ProjectSession {
             }
             let frame = try ThumbnailStudioLink.storeFrame(image)
             let aspect = image.height > 0 ? Double(image.width) / Double(image.height) : 16.0 / 9.0
+            // The person cut out of the frame for the big-face style (#363), when that style is wanted and a face is there.
+            var cutoutPath: String?
+            if layouts.contains(.cutout), pick.face != nil {
+                let source = image
+                if let cut = await Task.detached(priority: .userInitiated, operation: { PersonCutout.cutout(source) }).value {
+                    cutoutPath = try? ThumbnailStudioLink.storePNG(cut).path
+                }
+            }
             for layout in layouts {
-                // A face zoom needs a face.
+                // A face zoom needs a face; so does the cutout.
                 if layout == .faceZoom, pick.face == nil, layouts.count > 1 { continue }
+                if layout == .cutout, cutoutPath == nil, layouts.count > 1 { continue }
                 let design = ThumbnailDesigner.design(layout, framePath: frame.path, sourceAspect: aspect, face: pick.face,
                                                       headline: pick.headline, accentHex: brandHex ?? "FFD60A",
-                                                      panelHex: brandHex ?? "FF2D55", logoPath: logo)
+                                                      panelHex: brandHex ?? "FF2D55", logoPath: logo, cutoutPath: cutoutPath)
                 var name = ThumbnailDesigner.designName(project: project, headline: pick.headline, layout: layout)
                 if abPair { name += " " + (pickIndex == 0 ? "A" : "B") }
                 written.append(try ThumbnailStudioLink.writeDesign(design, named: name))

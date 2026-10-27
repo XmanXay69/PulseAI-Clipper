@@ -262,6 +262,19 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
 - **Caption pages cached** (#260) — a page's rendered picture is kept between word changes, so a
   20-minute captioned edit scrubs and plays without laying the text out every frame.
 
+### Batch 40
+
+- **Before / after wipe** (#193) — a button in the viewer's strip draws a line across the picture: the
+  recording as shot on the left, the edit (grade, enhance, layout) on the right; drag the line.
+- **See what an extra does** (#104, #126) — the Extras question and the Edit My VOD sheet show a small
+  mock-up next to each choice: the memes in their colours, a title card, a film strip with its CC badge, a
+  replay, the beat grid, a punch-in, speakers.
+- **Before / after in the storyboard** (#108) — each moment's Before / After opens two silent loops side by
+  side: the raw stretch around it and what the edit keeps.
+- **Big-face cutout thumbnails** (#363) — a fourth thumbnail style cuts the person out of the frame with
+  Vision's person segmentation and sets them big on a colour wash with the text beside them; without a
+  clean cutout it falls back to the face zoom.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);

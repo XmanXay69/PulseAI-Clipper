@@ -61,6 +61,7 @@ struct ViewerView: View {
     @State private var zoom: ViewerZoom = .fit
     @AppStorage("viewer.grid") private var showGrid = false
     @AppStorage("viewer.scopes") private var showScopes = false
+    @AppStorage("viewer.wipe") private var showWipe = false
     @State private var fullscreen = false
     @State private var showCaptionEdit = false
 
@@ -125,6 +126,9 @@ struct ViewerView: View {
                             SpeedEditHUD(session: session)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                                 .padding(10)
+                        }
+                        if showWipe {
+                            CompareWipeOverlay(session: session, playback: playback, frameSize: frameSize)
                         }
                         if showScopes {
                             ScopesPanel(playback: playback)
@@ -191,6 +195,8 @@ struct ViewerView: View {
                 }
                 IconButton(symbol: "grid", help: "Grid, center lines and thirds", isActive: showGrid) { showGrid.toggle() }
                 IconButton(symbol: "waveform.path", help: "Scopes — luma waveform and vectorscope of the frame (#310)", isActive: showScopes) { showScopes.toggle() }
+                IconButton(symbol: "rectangle.lefthalf.inset.filled", help: "Before / after wipe (#193): the recording as shot on the left of the line, the edit on the right — drag the line",
+                           isActive: showWipe) { showWipe.toggle() }
                 IconButton(symbol: "crop", help: "Crop tool (#192): drag the selected layer's picture to pan it, the corner to zoom in, double-click to reset",
                            isActive: session.canvasTool == .crop) { session.canvasTool = session.canvasTool == .crop ? .transform : .crop }
                 if t.captions?.isEnabled == true {
@@ -970,4 +976,78 @@ struct CaptionQuickEdit: View {
         session.editTimeline("Edit Caption") { $0.captions?.setWordText(id: id, text: text) }
         load()
     }
+}
+
+/// Before / after (#193): the source frame under the playhead, as recorded, on the left of a draggable line;
+/// the viewer's own picture (graded, enhanced, laid out) shows through on the right.
+struct CompareWipeOverlay: View {
+    @ObservedObject var session: ProjectSession
+    @ObservedObject var playback: PlaybackController
+    let frameSize: CGSize
+    @State private var split: CGFloat = 0.5
+    @State private var before: CGImage?
+    @State private var loadedKey = ""
+
+    var body: some View {
+        ClockObserving(clock: playback.slowClock) {
+            let key = sourceKey()
+            ZStack(alignment: .topLeading) {
+                if let before {
+                    Image(decorative: before, scale: 1).resizable().aspectRatio(contentMode: .fit)
+                        .frame(width: frameSize.width, height: frameSize.height)
+                        .clipShape(WipeShape(fraction: split))
+                        .allowsHitTesting(false)
+                }
+                Rectangle().fill(Color.white).frame(width: 2, height: frameSize.height).offset(x: split * frameSize.width - 1)
+                    .shadow(color: .black.opacity(0.6), radius: 2)
+                Circle().fill(Color.white).frame(width: 18, height: 18)
+                    .overlay(Image(systemName: "arrow.left.and.right").font(.system(size: 9, weight: .bold)).foregroundStyle(.black))
+                    .offset(x: split * frameSize.width - 9, y: frameSize.height / 2 - 9)
+                    .gesture(DragGesture(minimumDistance: 1).onChanged { value in
+                        split = min(max((split * frameSize.width + value.translation.width) / max(frameSize.width, 1), 0.02), 0.98)
+                    })
+                label("BEFORE", x: 8)
+                label("AFTER", x: frameSize.width - 54)
+            }
+            .frame(width: frameSize.width, height: frameSize.height, alignment: .topLeading)
+            .task(id: key) { await load(key: key) }
+        }
+    }
+
+    func label(_ text: String, x: CGFloat) -> some View {
+        Text(text).font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+            .padding(.horizontal, 5).padding(.vertical, 2).background(Capsule().fill(.black.opacity(0.55)))
+            .offset(x: x, y: frameSize.height - 22)
+            .allowsHitTesting(false)
+    }
+
+    /// The topmost picture clip under the playhead and its source time, as a stable key.
+    func sourceKey() -> String {
+        guard let timeline = session.activeTimeline else { return "" }
+        let t = playback.currentTime
+        for track in timeline.videoTracks.reversed() where !track.isHidden {
+            if let clip = track.clips.first(where: { $0.isEnabled && $0.timelineRange.contains(t) && $0.assetID != nil }), let id = clip.assetID {
+                let source = clip.sourceIn + (t - clip.start) * clip.speed
+                return "\(id)@\((source * 4).rounded() / 4)"
+            }
+        }
+        return ""
+    }
+
+    func load(key: String) async {
+        guard !key.isEmpty, key != loadedKey else { if key.isEmpty { before = nil }; return }
+        let parts = key.split(separator: "@")
+        guard parts.count == 2, let id = UUID(uuidString: String(parts[0])), let time = Double(parts[1]), let asset = session.document.asset(id: id) else { return }
+        let url = session.url(for: asset)
+        let image = await ThumbnailService.shared.image(for: url, at: time, maxWidth: Int(frameSize.width.rounded()) * 2, precise: true)
+        guard !Task.isCancelled else { return }
+        before = image
+        loadedKey = key
+    }
+}
+
+/// The left `fraction` of a rectangle.
+struct WipeShape: Shape {
+    var fraction: CGFloat
+    func path(in rect: CGRect) -> Path { Path(CGRect(x: rect.minX, y: rect.minY, width: rect.width * fraction, height: rect.height)) }
 }

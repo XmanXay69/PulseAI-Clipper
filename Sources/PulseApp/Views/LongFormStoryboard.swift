@@ -16,6 +16,8 @@ struct LongFormStoryboard: View {
     let onBuild: ([LongFormSegment], Seconds?, Bool) -> Void
     @State private var reordered = false
     @State private var hoveringMoment: UUID?
+    /// The moment whose before/after two-up is open (#108).
+    @State private var comparing: UUID?
 
     @State private var plan: LongFormPlan?
     @State private var selected: Set<UUID> = []
@@ -270,6 +272,16 @@ struct LongFormStoryboard: View {
                         .help("The moment's waveform; the bright line is the payoff")
                 }
                 HStack(spacing: 6) {
+                    Button { comparing = moment.id } label: { Label("Before / After", systemImage: "rectangle.split.2x1").font(.system(size: 10, weight: .medium)) }
+                        .buttonStyle(.pulse(.ghost, compact: true))
+                        .help("The raw stretch around this moment next to what the edit keeps (#108)")
+                        .popover(isPresented: Binding(get: { comparing == moment.id }, set: { if !$0 { comparing = nil } })) {
+                            if let asset {
+                                let limit = asset.metadata.duration
+                                let raw = TimeRange(start: max(0, moment.range.start - 4), end: min(limit, moment.range.end + 4))
+                                BeforeAfterPreview(url: session.url(for: asset), before: raw, after: r)
+                            }
+                        }
                     Button { previewing = moment.id } label: { Label("Preview", systemImage: "play.fill").font(.system(size: 10, weight: .medium)) }
                         .buttonStyle(.pulse(.ghost, compact: true))
                         .popover(isPresented: Binding(get: { previewing == moment.id }, set: { if !$0 { previewing = nil } })) {
@@ -426,5 +438,34 @@ struct HoverLoopPreview: View {
                 player.pause()
                 player.replaceCurrentItem(with: nil)
             }
+    }
+}
+
+/// Two silent loops side by side (#108): the raw stretch of the recording on the left, the kept moment on
+/// the right, so a cut can be judged against what it came from.
+struct BeforeAfterPreview: View {
+    let url: URL
+    let before: TimeRange
+    let after: TimeRange
+
+    var body: some View {
+        HStack(spacing: 12) {
+            pane("Before — as recorded", before, color: Theme.textTertiary)
+            pane("After — what the edit keeps", after, color: Theme.ai)
+        }
+        .padding(12)
+    }
+
+    func pane(_ title: String, _ range: TimeRange, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HoverLoopPreview(url: url, range: range)
+                .frame(width: 300, height: 169)
+                .background(Color.black)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.radius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(color.opacity(0.7)))
+            Text(title).font(.pulseCaption).foregroundStyle(Theme.textPrimary)
+            Text("\(Timecode.short(range.start)) → \(Timecode.short(range.end)) · \(Int(range.duration.rounded())) s")
+                .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+        }
     }
 }

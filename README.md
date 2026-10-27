@@ -32,8 +32,9 @@ last videos", level meters with peak hold, a voice-vs-game balance slider, room 
 guide before you record, an "Ask PULSE" box that turns plain English into edits, a render-load bar on the
 ruler, an animated caption gallery, a game-plus-cam multicam style, a loudness readout, macros, better
 thumbnail frames, per-file import jobs, a guided tour, sample projects per genre, media folders, the next
-video on the end screen, OBS multi-track lanes, a sticker that follows the face, voice-over recording and
-cached caption pages ([notes](versions/1.6.2/NOTES.md)).
+video on the end screen, OBS multi-track lanes, a sticker that follows the face, voice-over recording,
+cached caption pages, a before/after wipe, visual previews of the extras and big-face cutout thumbnails
+([notes](versions/1.6.2/NOTES.md)).
 
 **New in 1.6.1:** colour labels on clips with a filter, keyboard caption editing (tab, return, ⌫), a caption
 spell-check, a generated 3-second intro card from the Brand Kit, cuts that land on sentence ends, "Drop"
