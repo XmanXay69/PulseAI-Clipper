@@ -550,6 +550,8 @@ public enum LongFormEditor {
         var facecamZooms = 0
         if options.extras.facecamPunchIns, profile == .gameplayWithFacecam, let webcam = analysis.webcam, timeline.tracks[0].clips.count > 0 {
             var times: [Seconds] = []
+            // The facecam may have moved during the stream (#46): each push-in uses the region of its own stretch.
+            var regions: [Seconds: NormRect] = [:]
             let budget = options.extras.punchInsPerVideo > 0 ? options.extras.punchInsPerVideo : 6
             // No punch-in where the facecam is empty (#47).
             let absent = FacecamPresence.absentRanges(faces: analysis.visual?.faces ?? [], region: webcam.region, duration: analysis.duration)
@@ -558,8 +560,12 @@ public enum LongFormEditor {
                       !absent.contains(where: { $0.contains(s.payoff) }),
                       let t = timelineTime(ofSource: s.payoff), !times.contains(where: { abs($0 - t) < 45 }) else { continue }
                 times.append(t)
+                regions[t] = (analysis.webcam(at: s.payoff) ?? webcam).region
             }
-            facecamZooms = FacecamPunchIn.apply(&timeline, at: times, region: webcam.region, hold: options.extras.punchInHold)
+            for region in Set(regions.values) {
+                let group = times.filter { regions[$0] == region }
+                facecamZooms += FacecamPunchIn.apply(&timeline, at: group, region: region, hold: options.extras.punchInHold)
+            }
         }
 
         // Long static stretches breathe: a slow push-in where nothing else moves the frame.

@@ -1102,7 +1102,7 @@ final class AppModel: ObservableObject {
             presentMessage(title: "Can't export yet", message: problem)
             return
         }
-        exports.enqueue(timelines: [timeline], document: session.document, settings: export, range: range)
+        exports.enqueue(timelines: [timeline], document: session.document, settings: export, range: range, projectPath: session.package.url.path)
         toast("Exporting “\(timeline.name)”")
         section = .exports
     }

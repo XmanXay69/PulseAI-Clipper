@@ -63,10 +63,12 @@ public struct LayoutContext: Sendable {
         self.profile = profile
     }
 
-    public init(analysis: MediaAnalysis?, sourceSize: Size2) {
+    /// `at` is a source time: on a stream whose facecam moved (#46) the region of that stretch is used.
+    public init(analysis: MediaAnalysis?, sourceSize: Size2, at time: Seconds? = nil) {
+        let webcam = time.flatMap { analysis?.webcam(at: $0) } ?? analysis?.webcam
         self.init(sourceSize: sourceSize,
-                  webcamRegion: analysis?.webcam?.profile == .gameplayWithFacecam ? analysis?.webcam?.region : nil,
-                  faceCenter: analysis?.webcam?.face.center,
+                  webcamRegion: webcam?.profile == .gameplayWithFacecam ? webcam?.region : nil,
+                  faceCenter: webcam?.face.center,
                   profile: analysis?.profile ?? .unknown)
     }
 }

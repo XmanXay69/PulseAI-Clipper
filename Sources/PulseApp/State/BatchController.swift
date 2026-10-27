@@ -262,7 +262,7 @@ final class BatchController: ObservableObject {
             for timeline in session.document.timelines {
                 var settings = ExportSettings(preset: EditFormat.of(timeline) == .longForm ? .youtube : (ExportPreset.preset(id: options.exportPresetID) ?? .tiktok))
                 settings.outputDirectory = folder.path
-                app.exports.enqueue(timelines: [timeline], document: session.document, settings: settings)
+                app.exports.enqueue(timelines: [timeline], document: session.document, settings: settings, projectPath: session.package.url.path)
             }
             made.append("exporting to \(folder.lastPathComponent)")
         }

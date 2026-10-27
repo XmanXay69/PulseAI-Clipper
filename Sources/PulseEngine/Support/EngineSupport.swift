@@ -146,12 +146,15 @@ public struct EngineProgress: Sendable {
     public var detail: String?
     /// Words transcribed so far (#39), while the transcription stage runs.
     public var partialTranscript: [TranscriptWord]?
+    /// The audio-only analysis (#35), sent once before transcription so the app can show a first look at the clips.
+    public var partialAnalysis: MediaAnalysis?
 
-    public init(stage: String, fraction: Double, detail: String? = nil, partialTranscript: [TranscriptWord]? = nil) {
+    public init(stage: String, fraction: Double, detail: String? = nil, partialTranscript: [TranscriptWord]? = nil, partialAnalysis: MediaAnalysis? = nil) {
         self.stage = stage
         self.fraction = fraction
         self.detail = detail
         self.partialTranscript = partialTranscript
+        self.partialAnalysis = partialAnalysis
     }
 }
 

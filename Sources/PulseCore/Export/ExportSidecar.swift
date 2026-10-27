@@ -3,6 +3,14 @@ import Foundation
 /// The text that goes with an export: title ideas, the YouTube chapter list and music/clip credits (from the
 /// timeline's notes), hashtags — written next to the video as a .txt, ready to paste into the description.
 public enum ExportSidecar {
+    /// The Finder comment stamped on an export (#465): Get Info and Spotlight show which project and edit it
+    /// came from, and the project's path leads back to it.
+    public static func finderComment(projectName: String, timelineName: String, projectPath: String?) -> String {
+        var line = "PULSE · \(projectName) › \(timelineName)"
+        if let projectPath, !projectPath.isEmpty { line += " · Project: \(projectPath)" }
+        return line
+    }
+
     public static func text(for timeline: Timeline, projectName: String) -> String {
         var blocks: [String] = []
         let copy = timeline.copy

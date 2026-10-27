@@ -168,6 +168,16 @@ public struct AnalysisPipeline: Sendable {
             warnings.append(EngineError.noAudioTrack(url).localizedDescription)
         }
 
+        // First look (#35): the audio features alone already find the loud and surprising moments, so the app
+        // can show candidates now and refine them once the transcript (the slow part) lands.
+        if let audioFeatures, needsTranscription, savedTranscript == nil {
+            var early = MediaAnalysis(assetID: asset.id, duration: meta.duration, audio: audioFeatures, transcript: options.importedTranscript,
+                                      profile: meta.hasVideo ? .unknown : .podcast, processing: processing)
+            early.version = -1
+            progress(EngineProgress(stage: "First look", fraction: min(1, completed / totalWeight), detail: "Loud and surprising moments found; transcribing next",
+                                    partialAnalysis: early))
+        }
+
         // 2. Transcript.
         var transcript = options.importedTranscript
         if transcript != nil { processing["transcript"] = .local }
@@ -275,6 +285,12 @@ public struct AnalysisPipeline: Sendable {
         }
 
         let webcam = visual.flatMap { WebcamEstimator.estimate(faces: $0.faces, frameSize: meta.size) }
+        // A facecam that moved between stretches of the stream (#46).
+        let webcamSegments = visual.flatMap { v -> [WebcamSegment]? in
+            guard webcam?.profile == .gameplayWithFacecam else { return nil }
+            let found = WebcamEstimator.segments(faces: v.faces, frameSize: meta.size, duration: meta.duration)
+            return found.isEmpty ? nil : found
+        }
         let profile = MediaAnalysis.inferProfile(webcam: webcam, visual: visual, transcript: transcript, hasVideo: meta.hasVideo)
 
         // 4. Game banners (gameplay only): the game's own "VICTORY" / "YOU DIED" read off sampled frames.
@@ -310,6 +326,7 @@ public struct AnalysisPipeline: Sendable {
         var analysis = MediaAnalysis(assetID: asset.id, duration: meta.duration, audio: audioFeatures, visual: visual,
                                      transcript: transcript, webcam: webcam, profile: profile, processing: processing)
         analysis.hudEvents = hudEvents
+        analysis.webcamSegments = webcamSegments
         progress(EngineProgress(stage: "Done", fraction: 1))
         checkpoint.clear()
         return Output(analysis: analysis, warnings: warnings, stageSeconds: stageSeconds, resumedStages: resumed)

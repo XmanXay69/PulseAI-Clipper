@@ -179,7 +179,7 @@ enum UISnapshotter {
             // Export through the app's queue — the same path as the Export button.
             if let session = app.session, let timeline = session.activeTimeline {
                 let settings = ExportSettings(preset: .tiktok, outputDirectory: directory.path)
-                app.exports.enqueue(timelines: [timeline], document: session.document, settings: settings)
+                app.exports.enqueue(timelines: [timeline], document: session.document, settings: settings, projectPath: session.package.url.path)
                 app.section = .exports
                 var exportWait = 0.0
                 while app.exports.jobs.contains(where: { !$0.status.isFinished }) && exportWait < 180 {

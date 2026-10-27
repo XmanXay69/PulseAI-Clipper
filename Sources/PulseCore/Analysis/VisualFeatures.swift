@@ -90,7 +90,76 @@ public struct WebcamEstimate: Codable, Hashable, Sendable {
     public var profile: ContentProfile
 }
 
+/// Where the facecam sat during one stretch of a long stream (#46): overlays move between segments.
+public struct WebcamSegment: Codable, Hashable, Sendable {
+    public var range: TimeRange
+    public var estimate: WebcamEstimate
+
+    public init(range: TimeRange, estimate: WebcamEstimate) {
+        self.range = range
+        self.estimate = estimate
+    }
+}
+
 public enum WebcamEstimator {
+    /// The facecam position per stretch of the recording (#46): face detections are grouped into windows,
+    /// each window estimated on its own, and consecutive windows whose facecam regions overlap are joined.
+    /// Returns [] when the facecam never moved (one position for the whole recording), so callers fall back
+    /// to the single estimate. Windows without a persistent face continue the previous stretch.
+    public static func segments(faces samples: [FaceSample], frameSize: Size2, duration: Seconds,
+                                window: Seconds = 60, minimumSegment: Seconds = 90) -> [WebcamSegment] {
+        guard duration > 0, window > 0, !samples.isEmpty else { return [] }
+        let count = max(1, Int((duration / window).rounded(.up)))
+        var buckets = [[FaceSample]](repeating: [], count: count)
+        for sample in samples where sample.time >= 0 {
+            let i = min(count - 1, Int(sample.time / window))
+            buckets[i].append(sample)
+        }
+        struct Run { var start: Int; var end: Int; var samples: [FaceSample]; var region: NormRect }
+        var runs: [Run] = []
+        for (i, bucket) in buckets.enumerated() {
+            guard bucket.count >= 3, let estimate = estimate(faces: bucket, frameSize: frameSize), estimate.profile == .gameplayWithFacecam else {
+                if !runs.isEmpty { runs[runs.count - 1].end = i }
+                continue
+            }
+            if !runs.isEmpty, runs[runs.count - 1].region.iou(estimate.region) >= 0.4 {
+                runs[runs.count - 1].end = i
+                runs[runs.count - 1].samples += bucket
+                continue
+            }
+            runs.append(Run(start: i, end: i, samples: bucket, region: estimate.region))
+        }
+        // Short detours (a quick move and back) fold into the stretch before them, and stretches that land back
+        // on the same spot join up.
+        var merged: [Run] = []
+        for run in runs {
+            let length = Double(run.end - run.start + 1) * window
+            if var last = merged.last {
+                if length < minimumSegment {
+                    last.end = run.end
+                    merged[merged.count - 1] = last
+                    continue
+                }
+                if last.region.iou(run.region) >= 0.4 {
+                    last.end = run.end
+                    last.samples += run.samples
+                    merged[merged.count - 1] = last
+                    continue
+                }
+            }
+            merged.append(run)
+        }
+        guard merged.count >= 2 else { return [] }
+        var segments: [WebcamSegment] = []
+        for (k, run) in merged.enumerated() {
+            guard let estimate = estimate(faces: run.samples, frameSize: frameSize) else { continue }
+            let start = k == 0 ? 0 : Double(run.start) * window
+            let end = k == merged.count - 1 ? duration : min(duration, Double(run.end + 1) * window)
+            segments.append(WebcamSegment(range: TimeRange(start: start, end: end), estimate: estimate))
+        }
+        return segments.count >= 2 ? segments : []
+    }
+
     /// Clusters face detections over time to find a persistent face. Small persistent faces near an
     /// edge are a facecam overlay; large central faces mean talking-head footage.
     public static func estimate(faces samples: [FaceSample], frameSize: Size2) -> WebcamEstimate? {
@@ -185,6 +254,17 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
     public var hudEvents: [HUDEvent]?
     /// Beat times of a music track once detected (#287): drawn as a grid on its clips.
     public var beats: [Seconds]?
+    /// Where the facecam sat over the recording when it moved (#46); nil or empty = `webcam` everywhere.
+    public var webcamSegments: [WebcamSegment]?
+
+    /// The facecam estimate for a moment of the source (#46): the segment holding `time`, else the overall one.
+    public func webcam(at time: Seconds) -> WebcamEstimate? {
+        if let segments = webcamSegments, let hit = segments.first(where: { $0.range.contains(time) }) { return hit.estimate }
+        return webcam
+    }
+
+    /// True when the facecam moved during the recording.
+    public var facecamMoves: Bool { (webcamSegments?.count ?? 0) >= 2 }
 
     public init(assetID: UUID, duration: Seconds, audio: AudioFeatureSeries? = nil, visual: VisualFeatureSeries? = nil,
                 transcript: Transcript? = nil, webcam: WebcamEstimate? = nil, profile: ContentProfile = .unknown,

@@ -321,6 +321,18 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   the cache and placed under every cut of the edit, linked to its audio and cut like any camera. Running the
   edit again reuses the picture.
 
+### Batch 45
+
+- **A facecam that moves** (#46) — on a long stream whose webcam overlay changes corner between segments, the
+  analysis keeps one position per stretch: each short's layout uses the position of its own moment, long-form
+  facecam push-ins land on the right spot, and the Layout section says how many times it moved.
+- **First look** (#35) — clips from the audio alone show up before transcription (the slow part) starts: the
+  loud and surprising moments are scored and badged "First look" in AI Clips, then replaced by the full pass
+  when the transcript lands; favorites and opened clips stay.
+- **Exports that know their project** (#465) — every export gets a Finder comment ("PULSE · project › edit ·
+  Project: path") and a Where-from entry pointing at the project package, so Get Info and Spotlight lead back
+  to it; Quick Look previews the file as usual.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
@@ -338,7 +350,8 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   Blur fill); timeline clips are rounded with a top highlight, a name chip, a filmstrip and tinted waveforms
   (#403); Home opens on a soft-gradient hero with two primary cards and a tidy grid of actions (#406); the
   app icon and the DMG background are drawn by the app itself (#440); a separate microphone recording is
-  found as the voice companion of a screen recording and synced by its audio (#10).
+  found as the voice companion of a screen recording and synced by its audio (#10); the enhance chain has a
+  de-esser and plosive reducer (#264) and the Warm / Clear / Radio voice EQ presets with the A/B preview (#265).
 
 ### Under the hood
 - `ChapterArt` (engine) draws with AppKit on the source frame, so a marker over a cutaway or gap is skipped.

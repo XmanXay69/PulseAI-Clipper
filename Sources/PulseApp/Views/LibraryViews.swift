@@ -778,7 +778,7 @@ struct ExportsView: View {
 
     func queue(_ timeline: Timeline) {
         guard let session = app.session else { return }
-        app.exports.enqueue(timelines: [timeline], document: session.document, settings: settings)
+        app.exports.enqueue(timelines: [timeline], document: session.document, settings: settings, projectPath: session.package.url.path)
         app.toast("Added “\(timeline.name)” to the export queue")
     }
 
@@ -796,7 +796,7 @@ struct ExportsView: View {
 
     func exportAllShorts() {
         guard let session = app.session else { return }
-        app.exports.enqueue(timelines: session.document.timelines, document: session.document, settings: settings)
+        app.exports.enqueue(timelines: session.document.timelines, document: session.document, settings: settings, projectPath: session.package.url.path)
         app.toast("Queued \(session.document.timelines.count) exports")
     }
 }
@@ -946,7 +946,7 @@ struct BatchExportSheet: View {
             if let t = session.createShort(from: id, mode: mode, open: false) { timelineIDs.append(t) }
         }
         let timelines = timelineIDs.compactMap { session.document.timeline(id: $0) }
-        app.exports.enqueue(timelines: timelines, document: session.document, settings: settings)
+        app.exports.enqueue(timelines: timelines, document: session.document, settings: settings, projectPath: session.package.url.path)
         app.toast("Queued \(timelines.count) exports")
         dismiss()
         app.section = .exports

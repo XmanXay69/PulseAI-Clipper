@@ -41,11 +41,12 @@ final class ExportQueueController: ObservableObject {
         return running.reduce(0, +) + Double(waiting) * average
     }
 
-    func enqueue(timelines: [Timeline], document: ProjectDocument, settings: ExportSettings, range: TimeRange? = nil) {
+    func enqueue(timelines: [Timeline], document: ProjectDocument, settings: ExportSettings, range: TimeRange? = nil, projectPath: String? = nil) {
         let assets = Dictionary(uniqueKeysWithValues: document.media.map { ($0.id, $0) })
         for timeline in timelines {
             var job = ExportJob(projectID: document.id, projectName: document.name, timelineID: timeline.id, timelineName: timeline.name, settings: settings)
             job.range = range
+            job.projectPath = projectPath
             payloads[job.id] = Payload(timeline: timeline, assets: assets, compounds: document.compoundsByID)
             jobs.append(job)
         }
@@ -175,6 +176,10 @@ final class ExportQueueController: ObservableObject {
                 if probed.duration < expected - 1.5 {
                     throw EngineError.exportFailed("the file came out \(Int((expected - probed.duration).rounded())) s short — check the log and try again")
                 }
+                // Get Info and Spotlight know which project and edit the file came from (#465).
+                try? FinderMetadata.setComment(ExportSidecar.finderComment(projectName: job.projectName, timelineName: job.timelineName,
+                                                                           projectPath: job.projectPath), for: url)
+                if let projectPath = job.projectPath { try? FinderMetadata.setWhereFroms([URL(fileURLWithPath: projectPath).absoluteString], for: url) }
                 update(job.id) {
                     $0.status = .completed(path: url.path)
                     $0.outputPath = url.path

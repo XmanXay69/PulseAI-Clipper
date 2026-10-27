@@ -321,6 +321,8 @@ public struct ExportJob: Codable, Hashable, Identifiable, Sendable {
     public var outputPath: String?
     /// Only this stretch of the timeline (in → out), when set (#158).
     public var range: TimeRange?
+    /// Where the project package lives, for the export's Finder comment (#465).
+    public var projectPath: String?
 
     public init(id: UUID = UUID(), projectID: UUID, projectName: String, timelineID: UUID, timelineName: String, settings: ExportSettings) {
         self.id = id

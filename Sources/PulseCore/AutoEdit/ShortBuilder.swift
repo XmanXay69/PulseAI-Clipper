@@ -198,7 +198,8 @@ public enum ShortBuilder {
         }
 
         // Layout.
-        var context = LayoutContext(analysis: analysis, sourceSize: asset.metadata.size.isEmpty ? Size2(1920, 1080) : asset.metadata.size)
+        var context = LayoutContext(analysis: analysis, sourceSize: asset.metadata.size.isEmpty ? Size2(1920, 1080) : asset.metadata.size,
+                                    at: candidate.payoffTime)
         var companionCam: TimelineClip?
         if let cam = input.companionWebcam, cam.metadata.hasVideo,
            let clip = companionClip(cam, input: input, candidate: candidate, group: group, role: .webcam) {

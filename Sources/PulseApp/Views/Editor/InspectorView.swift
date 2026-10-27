@@ -924,8 +924,9 @@ struct TimelineInspector: View {
                 Text("Layouts set crops and positions on the gameplay and facecam clips. Select a clip to fine-tune it.")
                     .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
                 if let main = session.document.primaryAsset, let webcam = session.analyses[main.id]?.webcam {
-                    KeyValueRow(key: "Facecam", value: "found in \(Int((webcam.persistence * 100).rounded())) % of sampled frames · \(Int((webcam.region.width * 100).rounded())) × \(Int((webcam.region.height * 100).rounded())) % of the picture")
-                        .help("How sure the analysis is about the facecam overlay (#45); move or resize the facecam clip on the canvas to override it")
+                    let moves = (session.analyses[main.id]?.webcamSegments?.count ?? 1) - 1
+                    KeyValueRow(key: "Facecam", value: "found in \(Int((webcam.persistence * 100).rounded())) % of sampled frames · \(Int((webcam.region.width * 100).rounded())) × \(Int((webcam.region.height * 100).rounded())) % of the picture" + (moves > 0 ? " · moved \(moves)× during the stream" : ""))
+                        .help("How sure the analysis is about the facecam overlay (#45); move or resize the facecam clip on the canvas to override it. When the overlay moved (#46), each short uses the position of its own stretch.")
                 }
                 LayoutChangesEditor(session: session, timeline: timeline)
             }

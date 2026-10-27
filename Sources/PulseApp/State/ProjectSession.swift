@@ -960,6 +960,8 @@ final class ProjectSession: ObservableObject, Identifiable {
                         job.detail = p.stage
                         self?.analysisProgress[assetID] = p
                         self?.analysisRemaining[assetID] = job.remaining
+                        // Clips from the audio alone while the transcript is still coming (#35).
+                        if let early = p.partialAnalysis, generateClips, followUp == nil { self?.firstLook(early) }
                     }
                 }, isCancelled: job.isCancelledCheck)
                 self.analysisProgress[assetID] = nil
@@ -1026,8 +1028,9 @@ final class ProjectSession: ObservableObject, Identifiable {
                     .applyingTaste(taste).sorted { $0.potential > $1.potential }
             }.value
             self.edit("Generate AI Clips") { doc in
-                // Keep clips the user already worked with; replace the rest.
+                // Keep clips the user already worked with; replace the rest (first-look ones included, #35).
                 let kept = doc.candidates.filter { $0.assetID != assetID || $0.status != .new || $0.isFavorite }
+                    .map { c -> ClipCandidate in var c = c; if c.assetID == assetID { c.preliminary = nil }; return c }
                 let fresh = candidates.filter { c in !kept.contains { $0.range.iou(c.range) > 0.5 } }
                 doc.candidates = kept + fresh
                 doc.generation = settings
@@ -1756,7 +1759,9 @@ final class ProjectSession: ObservableObject, Identifiable {
     func layoutContext(for timeline: Timeline) -> (context: LayoutContext, assetID: UUID?) {
         let assetID = timeline.origin?.assetID ?? timeline.allClips.first { $0.isVisual && $0.role != .webcam && $0.assetID != nil }?.assetID ?? timeline.assetIDs.first
         let size = assetID.flatMap { document.asset(id: $0)?.metadata.size } ?? Size2(1920, 1080)
-        var context = LayoutContext(analysis: analysis(for: timeline), sourceSize: size.isEmpty ? Size2(1920, 1080) : size)
+        // The facecam region of the stretch this timeline comes from, when the overlay moved (#46).
+        let sourceMoment = timeline.origin.map { $0.sourceRange.start + $0.sourceRange.duration / 2 }
+        var context = LayoutContext(analysis: analysis(for: timeline), sourceSize: size.isEmpty ? Size2(1920, 1080) : size, at: sourceMoment)
         // A separate facecam recording (screen + webcam sessions).
         if let camID = timeline.allClips.first(where: { $0.role == .webcam && $0.assetID != nil && $0.assetID != assetID })?.assetID,
            let cam = document.asset(id: camID) {

@@ -273,6 +273,12 @@ struct ClipCandidateCard: View {
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(2)
                     Spacer(minLength: 4)
+                    if candidate.preliminary == true {
+                        Text("First look").font(.pulseMicro).foregroundStyle(Theme.ai)
+                            .padding(.horizontal, 5).padding(.vertical, 2)
+                            .background(Theme.aiSoft, in: Capsule())
+                            .help("Scored on the audio alone while the transcript was still coming (#35); the full pass replaces it unless you favorite it")
+                    }
                     if candidate.isFavorite { Image(systemName: "star.fill").font(.system(size: 10)).foregroundStyle(Theme.warning) }
                 }
                 if !candidate.transcriptSnippet.isEmpty {

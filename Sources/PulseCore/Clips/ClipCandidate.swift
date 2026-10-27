@@ -172,6 +172,9 @@ public struct ClipCandidate: Codable, Hashable, Identifiable, Sendable {
     public var feedback: Int?
     /// More moments cut into the same short, after `range` (#65).
     public var extraRanges: [TimeRange]?
+    /// Found by the first look (#35): scored on audio alone while the transcript was still coming; replaced
+    /// by the full pass unless you favorited or opened it.
+    public var preliminary: Bool?
 
     public init(id: UUID = UUID(), assetID: UUID, range: TimeRange, payoffTime: Seconds, targetDuration: Seconds, potential: Int,
                 scores: ClipScores, tags: [ClipTag], title: String, copy: ClipCopy, transcriptSnippet: String,
