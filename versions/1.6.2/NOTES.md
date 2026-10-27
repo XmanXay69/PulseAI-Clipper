@@ -121,6 +121,15 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   at the top.
 - **Focus rings** (#408) — keyboard focus on icon buttons draws in the accent colour.
 
+### Batch 30
+
+- **Speed Edit** (#500) — ⌃⇧E (or the bolt in the timeline toolbar) turns the editor into a keyboard pass over
+  the recording's moments: N / P jump between them with in → out set around each, I / O re-mark, X makes a
+  short, D dismisses, return exports in → out, J K L shuttle, escape leaves. A whole VOD in minutes.
+- **Transition handles** (#167) — drag the inner edge of a transition's wedge to change its length.
+- **Live level while recording** (#323) — a small meter in the recording strip, amber over −12 dBFS and red
+  when the microphone clips.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);

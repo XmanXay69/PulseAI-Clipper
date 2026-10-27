@@ -183,6 +183,7 @@ struct RecordingHUD: View {
                     .onAppear { withAnimation(Theme.motion(.easeInOut(duration: 0.8).repeatForever())) { pulse = true } }
                 Text(paused ? "PAUSED" : "REC").font(.system(size: 11, weight: .heavy)).foregroundStyle(paused ? Theme.warning : Theme.danger)
                 Text(Timecode.duration(recorder.elapsed)).font(.pulseTimecode).foregroundStyle(.white)
+                RecordingMeter(levelDB: recorder.audioLevelDB)
                 Button { recorder.markMoment() } label: {
                     Label(recorder.markedMoments.isEmpty ? "Clip it" : "Clip it · \(recorder.markedMoments.count)", systemImage: "flag.fill")
                 }
@@ -248,5 +249,26 @@ struct MulticamSessionCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(Theme.panelRaised))
         .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(Theme.border))
+    }
+}
+
+
+/// A small level bar for the recording HUD (#323): green, amber over −12 dBFS, red at clipping.
+struct RecordingMeter: View {
+    let levelDB: Float
+
+    var body: some View {
+        let fraction = CGFloat(max(0, min(1, (levelDB + 60) / 60)))
+        let color: Color = levelDB > -1 ? Theme.danger : (levelDB > -12 ? Theme.warning : Theme.success)
+        HStack(spacing: 5) {
+            Image(systemName: "mic.fill").font(.system(size: 9)).foregroundStyle(.white.opacity(0.7))
+            ZStack(alignment: .leading) {
+                Capsule().fill(.white.opacity(0.15))
+                Capsule().fill(color).frame(width: max(2, 60 * fraction))
+            }
+            .frame(width: 60, height: 5)
+        }
+        .help(levelDB > -1 ? "Clipping — turn the microphone down" : String(format: "%.0f dBFS", levelDB))
+        .accessibilityLabel("Audio level")
     }
 }

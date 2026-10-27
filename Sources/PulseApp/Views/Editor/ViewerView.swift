@@ -112,6 +112,11 @@ struct ViewerView: View {
                             .allowsHitTesting(false)
                             .help("You can play and edit right away — the original audio plays until the leveled audio is ready")
                         }
+                        if session.speedEdit {
+                            SpeedEditHUD(session: session)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                                .padding(10)
+                        }
                         if showScopes {
                             ScopesPanel(playback: playback)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
@@ -752,5 +757,36 @@ struct ScopesPanel: View {
         }
         guard drawn else { return }
         data = ScopeData.compute(pixels: pixels, width: width, height: height, bytesPerRow: width * 4)
+    }
+}
+
+
+/// The Speed Edit strip over the viewer (#500): which moment you're on and the keys that move it along.
+struct SpeedEditHUD: View {
+    @ObservedObject var session: ProjectSession
+
+    var body: some View {
+        let moments = session.speedEditMoments
+        let current = session.speedEditCurrent
+        VStack(spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: "bolt.fill").foregroundStyle(Theme.accent)
+                Text("SPEED EDIT").font(.system(size: 10, weight: .heavy)).foregroundStyle(Theme.accent)
+                if let current, let index = session.speedEditIndex {
+                    Text("\(index + 1) / \(moments.count)").font(.pulseMono).foregroundStyle(.white.opacity(0.8))
+                    Text(current.title).font(.pulseCaption).foregroundStyle(.white).lineLimit(1)
+                    Text("\(current.potential)").font(.pulseMono).foregroundStyle(Theme.ai)
+                    Text("\(Timecode.short(current.range.start)) → \(Timecode.short(current.range.end))").font(.pulseMono).foregroundStyle(.white.opacity(0.7))
+                } else {
+                    Text(moments.isEmpty ? "No moments yet — analyze the recording" : "Press N for the first moment").font(.pulseCaption).foregroundStyle(.white.opacity(0.8))
+                }
+            }
+            Text("N / P next · previous   I / O mark   X short   D dismiss   ↩ export in → out   J K L shuttle   ⎋ leave")
+                .font(.pulseMicro).foregroundStyle(.white.opacity(0.6))
+        }
+        .padding(.horizontal, 12).padding(.vertical, 7)
+        .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.7)))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.accent.opacity(0.5)))
+        .allowsHitTesting(false)
     }
 }

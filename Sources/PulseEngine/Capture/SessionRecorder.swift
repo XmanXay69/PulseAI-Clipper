@@ -198,6 +198,9 @@ public final class SessionRecorder: NSObject, @unchecked Sendable {
         }
     }
 
+    /// Loudest audio in the last stretch, in dBFS (#323); −60 when nothing is coming in.
+    public var audioLevelDB: Float { screen?.audioLevelDB ?? -60 }
+
     /// Recorded time so far (paused time excluded).
     public var elapsed: TimeInterval {
         lock.lock(); defer { lock.unlock() }
@@ -476,6 +479,26 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecke
         return (url, first.seconds, (end - first).seconds)
     }
 
+    private let levelLock = NSLock()
+    private var level: Float = -60
+
+    /// Peak of the last buffer in dBFS, falling back slowly between loud moments so the meter reads naturally.
+    var audioLevelDB: Float {
+        levelLock.lock(); defer { levelLock.unlock() }
+        return level
+    }
+
+    private func meter(_ buffer: CMSampleBuffer) {
+        let samples = SampleBufferReader.floats(from: buffer)
+        guard !samples.isEmpty else { return }
+        var peak: Float = 0
+        for v in samples { let a = abs(v); if a > peak { peak = a } }
+        let db = peak > 0 ? max(-60, 20 * log10(peak)) : -60
+        levelLock.lock()
+        level = db >= level ? db : max(db, level - 3)   // fast up, 3 dB per buffer down
+        levelLock.unlock()
+    }
+
     // SCStreamOutput (called on `queue`).
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
         guard sampleBuffer.isValid, writer.status == .writing, !isPaused else { return }
@@ -494,6 +517,7 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecke
                 lastVideoPTS = pts
             }
         case .audio:
+            meter(sampleBuffer)
             guard let audioInput, let first = firstVideoPTS, sampleBuffer.presentationTimeStamp >= first else { return }
             if audioInput.isReadyForMoreMediaData { audioInput.append(sampleBuffer) }
         default:

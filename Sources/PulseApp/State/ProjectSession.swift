@@ -76,6 +76,9 @@ final class ProjectSession: ObservableObject, Identifiable {
     @Published var showEditCheck = false
     /// File → Project Settings… (#445).
     @Published var showProjectSettings = false
+    /// Speed Edit (#500): keyboard-only pass over the recording's moments — N/P move, I/O mark, X makes a short.
+    @Published var speedEdit = false
+    @Published var speedEditIndex: Int?
     @Published var focusedCaptionWordID: UUID?
     /// Show only clips with this label; others dim (#177).
     @Published var labelFilter: MarkerColor?

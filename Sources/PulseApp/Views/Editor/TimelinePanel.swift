@@ -120,6 +120,7 @@ struct TimelineToolbar: View {
             IconButton(symbol: "arrow.right.and.line.vertical.and.arrow.left", help: "Snapping (S)", isActive: app.settings.snapping) { app.settings.snapping.toggle() }
             IconButton(symbol: "rectangle.compress.vertical", help: "Magnetic timeline — deleting closes gaps", isActive: app.settings.magneticTimeline) { app.settings.magneticTimeline.toggle() }
             IconButton(symbol: "waveform.path.ecg", help: "Excitement strip on the ruler — where the energy is", isActive: showEnergy) { showEnergy.toggle() }
+            IconButton(symbol: "bolt.fill", help: "Speed Edit (⌃⇧E) — N / P through the moments, X makes a short, D dismisses, ↩ exports in → out (#500)", isActive: session.speedEdit) { session.toggleSpeedEdit() }
             Spacer()
             if let timeline = session.activeTimeline {
                 let over = timeline.targetDuration.map { timeline.duration > $0 * 1.1 } ?? false
@@ -1159,6 +1160,8 @@ struct TimelineClipView: View, Equatable {
                     p.closeSubpath()
                 }
                 .fill(Color.white.opacity(0.25))
+                transitionHandle(duration: tin.duration, incoming: true, width: width)
+                    .offset(x: min(CGFloat(tin.duration) * pps, width / 2) - 4)
             }
             if let tout = clip.transitionOut {
                 Path { p in
@@ -1169,9 +1172,32 @@ struct TimelineClipView: View, Equatable {
                     p.closeSubpath()
                 }
                 .fill(Color.white.opacity(0.25))
+                transitionHandle(duration: tout.duration, incoming: false, width: width)
+                    .offset(x: width - min(CGFloat(tout.duration) * pps, width / 2) - 4)
             }
         }
         .allowsHitTesting(false)
+    }
+
+    /// Drag the inner edge of a transition to change its length (#167); released, it writes the new duration.
+    func transitionHandle(duration: Seconds, incoming: Bool, width: CGFloat) -> some View {
+        Rectangle()
+            .fill(Color.white.opacity(hovering ? 0.5 : 0.001))
+            .frame(width: 8, height: 10)
+            .contentShape(Rectangle())
+            .onHover { inside in if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() } }
+            .help(String(format: "Transition %.2f s — drag to change", duration))
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onEnded { value in
+                        let delta = Double(value.translation.width / pps) * (incoming ? 1 : -1)
+                        let newDuration = max(0.1, min(clip.duration / 2, duration + delta))
+                        let id = clip.id
+                        session.editClip(id, "Transition Length", coalesce: nil) { c in
+                            if incoming { c.transitionIn?.duration = newDuration } else { c.transitionOut?.duration = newDuration }
+                        }
+                    }
+            )
     }
 
     /// While a trim handle drags (#142): the frame on each side of the new cut, floating by the handle.

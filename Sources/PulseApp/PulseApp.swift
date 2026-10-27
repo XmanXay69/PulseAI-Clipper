@@ -264,6 +264,10 @@ struct PulseCommands: Commands {
             Button("Export In → Out") { app.session?.exportInOut() }.keyboardShortcut(app.shortcut(.exportInOut))
                 .disabled(app.session?.inOutRange == nil)
             Button("Export Selected Clips") { app.session?.exportSelectedClips() }.keyboardShortcut(app.shortcut(.exportSelectedClips))
+            Divider()
+            Button(app.session?.speedEdit == true ? "Leave Speed Edit" : "Speed Edit Mode") { app.session?.toggleSpeedEdit() }
+                .keyboardShortcut("e", modifiers: [.control, .shift])
+                .disabled(app.session?.activeTimeline == nil)
                 .disabled(app.session?.selectedClipIDs.isEmpty ?? true)
             Button("Export Final Cut Pro XML…") { app.session?.exportFCPXML() }
                 .disabled(app.session?.activeTimeline == nil)
@@ -408,6 +412,21 @@ final class KeyboardShortcutMonitor {
         case 115: playback.goToStart(); return true                             // Home
         case 119: playback.goToEnd(); return true                               // End
         default: break
+        }
+        // Speed Edit (#500) takes a few keys while it's on; the rest fall through to the editor.
+        if session.speedEdit {
+            switch event.keyCode {
+            case 53: session.toggleSpeedEdit(); return true                        // Escape
+            case 36, 76: session.exportInOut(); return true                        // Return / Enter
+            default: break
+            }
+            switch event.charactersIgnoringModifiers?.lowercased() {
+            case "n": session.speedEditNext(); return true
+            case "p": session.speedEditPrevious(); return true
+            case "x": session.speedEditMakeShort(); return true
+            case "d": session.speedEditDismiss(); return true
+            default: break
+            }
         }
         guard let chars = event.charactersIgnoringModifiers?.lowercased() else { return false }
         // 1–9 cut to multicam angle N at the playhead (works while playing).

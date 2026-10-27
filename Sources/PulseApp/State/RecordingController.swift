@@ -16,6 +16,8 @@ final class RecordingController: ObservableObject {
 
     @Published private(set) var phase: Phase = .idle
     @Published private(set) var elapsed: TimeInterval = 0
+    /// Microphone / system audio level in dBFS while recording (#323), −60 when silent.
+    @Published private(set) var audioLevelDB: Float = -60
     @Published var sources: [CaptureSource] = []
     @Published var cameras: [CaptureDevice] = []
     @Published var microphones: [CaptureDevice] = []
@@ -115,6 +117,7 @@ final class RecordingController: ObservableObject {
                         try? await Task.sleep(nanoseconds: 250_000_000)
                         guard let self else { return }
                         self.elapsed = self.recorder.elapsed
+                        self.audioLevelDB = self.recorder.audioLevelDB
                     }
                 }
             } catch {
