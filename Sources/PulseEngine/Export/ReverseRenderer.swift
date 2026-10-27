@@ -48,7 +48,8 @@ public enum ReverseRenderer {
         let end = CMTime.seconds(range.end)
         var lastWritten = CMTime(value: -1, timescale: 600)
         var chunkEnd = range.end
-        let chunk: Seconds = 1
+        // A second of 1080p NV12 is ~180 MB; above 1080p the stretch read at once halves so 4K stays under 400 MB.
+        let chunk: Seconds = width * height > 2_100_000 ? 0.5 : 1
         while chunkEnd > range.start + 0.0005 {
             try Task.checkCancellation()
             let chunkStart = max(range.start, chunkEnd - chunk)
