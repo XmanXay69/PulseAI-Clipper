@@ -48,6 +48,8 @@ public final class ExportEngine: @unchecked Sendable {
             ])
             output.videoComposition = videoComposition
             output.alwaysCopiesSampleData = false
+            // Two-pass (#343): the encoder asks to read stretches again, so the output must seek.
+            if settings.runsTwoPasses { output.supportsRandomAccess = true }
             guard reader.canAdd(output) else { throw EngineError.exportFailed("couldn't read the composed video") }
             reader.add(output)
             videoOutput = output
@@ -121,6 +123,7 @@ public final class ExportEngine: @unchecked Sendable {
         if !audioOnly {
             let input = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
             input.expectsMediaDataInRealTime = false
+            if settings.runsTwoPasses { input.performsMultiPassEncodingIfSupported = true }
             guard writer.canAdd(input) else { throw EngineError.exportFailed("the encoder rejected these settings (\(settings.codec.displayName) \(size.width)×\(size.height))") }
             writer.add(input)
             videoInput = input
@@ -154,7 +157,9 @@ public final class ExportEngine: @unchecked Sendable {
         writer.startSession(atSourceTime: .seconds(exportStart))
 
         let pump = ExportPump(reader: reader, writer: writer, start: exportStart, duration: duration, progress: progress, isCancelled: isCancelled)
+        pump.multiPass = settings.runsTwoPasses
         await pump.run(videoOutput: videoOutput, videoInput: videoInput, audioOutput: audioOutput, audioInput: audioInput)
+        if pump.multiPass { PulseLog.info("Two-pass export: \(pump.passes) pass\(pump.passes == 1 ? "" : "es")") }
 
         if pump.cancelled {
             reader.cancelReading()
@@ -236,6 +241,13 @@ final class ExportPump: @unchecked Sendable {
     let isCancelled: @Sendable () -> Bool
     private let lock = NSLock()
     private var _cancelled = false
+    /// Two-pass encoding (#343): the video input re-reads the stretches the encoder asks for.
+    var multiPass = false
+    private var _passes = 0
+    var passes: Int {
+        lock.lock(); defer { lock.unlock() }
+        return _passes
+    }
     var cancelled: Bool {
         lock.lock(); defer { lock.unlock() }
         return _cancelled
@@ -259,7 +271,11 @@ final class ExportPump: @unchecked Sendable {
     func run(videoOutput: AVAssetReaderOutput?, videoInput: AVAssetWriterInput?, audioOutput: AVAssetReaderOutput?, audioInput: AVAssetWriterInput?) async {
         await withTaskGroup(of: Void.self) { group in
             if let videoOutput, let videoInput {
-                group.addTask { await self.transfer(from: videoOutput, to: videoInput, reportsProgress: true, label: "video") }
+                if self.multiPass, videoInput.canPerformMultiplePasses {
+                    group.addTask { await self.transferMultiPass(from: videoOutput, to: videoInput) }
+                } else {
+                    group.addTask { await self.transfer(from: videoOutput, to: videoInput, reportsProgress: true, label: "video") }
+                }
             }
             if let audioOutput, let audioInput {
                 group.addTask { await self.transfer(from: audioOutput, to: audioInput, reportsProgress: videoOutput == nil, label: "audio") }
@@ -270,6 +286,62 @@ final class ExportPump: @unchecked Sendable {
     private final class TransferState: @unchecked Sendable {
         var finished = false
         var lastReported = -1.0
+        var pass = 0
+    }
+
+    /// Two-pass encoding (#343): pass 1 reads everything; each later pass re-reads the stretches the encoder
+    /// names in its pass description, until it asks for no more. Progress runs 0…½ in pass 1 and ½…1 after.
+    private func transferMultiPass(from output: AVAssetReaderOutput, to input: AVAssetWriterInput) async {
+        let queue = DispatchQueue(label: "app.pulse.export.video")
+        let state = TransferState()
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            input.respondToEachPassDescription(on: queue) {
+                guard !state.finished else { return }
+                if let description = input.currentPassDescription {
+                    state.pass += 1
+                    self.lock.lock(); self._passes = state.pass; self.lock.unlock()
+                    state.lastReported = -1
+                    if state.pass > 1 { output.reset(forReadingTimeRanges: description.sourceTimeRanges) }
+                } else {
+                    state.finished = true
+                    output.markConfigurationAsFinal()
+                    input.markAsFinished()
+                    continuation.resume()
+                }
+            }
+            input.requestMediaDataWhenReady(on: queue) {
+                guard !state.finished else { return }
+                while input.isReadyForMoreMediaData {
+                    if self.isCancelled() || self.cancelled {
+                        self.markCancelled()
+                        state.finished = true
+                        output.markConfigurationAsFinal()
+                        input.markAsFinished()
+                        continuation.resume()
+                        return
+                    }
+                    guard let sample = output.copyNextSampleBuffer() else {
+                        // This pass is done; the pass-description block decides whether another follows.
+                        input.markCurrentPassAsFinished()
+                        return
+                    }
+                    let t = CMSampleBufferGetPresentationTimeStamp(sample).secondsValue
+                    let within = self.duration > 0 ? min(max(0, t - self.start) / self.duration, 0.999) : 0
+                    let p = state.pass <= 1 ? within * 0.5 : 0.5 + within * 0.5
+                    if p - state.lastReported >= 0.005 {
+                        state.lastReported = p
+                        self.progress(p)
+                    }
+                    if !input.append(sample) {
+                        state.finished = true
+                        output.markConfigurationAsFinal()
+                        input.markAsFinished()
+                        continuation.resume()
+                        return
+                    }
+                }
+            }
+        }
     }
 
     private func transfer(from output: AVAssetReaderOutput, to input: AVAssetWriterInput, reportsProgress: Bool, label: String) async {

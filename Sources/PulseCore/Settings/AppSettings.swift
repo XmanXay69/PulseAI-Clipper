@@ -46,6 +46,8 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var aiMusic: Bool = false
     /// Edit My VOD finds Creative Commons background music on YouTube (else the built-in calm beds).
     public var onlineMusic: Bool = true
+    /// Fill each mood's shelf with five tracks while the Mac is idle, so an edit never waits on a download (#303).
+    public var prefetchMusic: Bool = false
     /// Your last answers to Edit My VOD's "Extras" question (the starting ticks next time; the overnight
     /// batch uses them as they are).
     public var editExtras: EditExtras = EditExtras()
@@ -149,6 +151,7 @@ public struct AISettings: Codable, Hashable, Sendable {
         aiSoundEffects = c.decode(Bool.self, forKey: .aiSoundEffects, default: d.aiSoundEffects)
         aiMusic = c.decode(Bool.self, forKey: .aiMusic, default: d.aiMusic)
         onlineMusic = c.decode(Bool.self, forKey: .onlineMusic, default: d.onlineMusic)
+        prefetchMusic = c.decode(Bool.self, forKey: .prefetchMusic, default: d.prefetchMusic)
         editExtras = c.decode(EditExtras.self, forKey: .editExtras, default: d.editExtras)
         memeTexts = c.decode([String: String].self, forKey: .memeTexts, default: d.memeTexts)
         extraProfanity = c.decode([String].self, forKey: .extraProfanity, default: d.extraProfanity)

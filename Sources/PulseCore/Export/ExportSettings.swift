@@ -116,6 +116,9 @@ public struct ExportSettings: Codable, Hashable, Sendable {
     public var loudnessTarget: Double?
     /// Render at low priority so editing stays smooth while it runs (#342).
     public var lowPriority: Bool = false
+    /// Two-pass encoding (#343): the encoder sees the whole video first and spends the bitrate where it's
+    /// needed — the best quality at a given size, at roughly twice the render time. H.264 / HEVC only.
+    public var twoPass: Bool = false
 
     public init(preset: ExportPreset = .tiktok, outputDirectory: String = "", quality: ExportQuality = .high) {
         self.presetID = preset.id
@@ -175,7 +178,11 @@ public struct ExportSettings: Codable, Hashable, Sendable {
         exportThumbnail = c.decode(Bool.self, forKey: .exportThumbnail, default: d.exportThumbnail)
         loudnessTarget = c.decode(Double?.self, forKey: .loudnessTarget, default: nil)
         lowPriority = c.decode(Bool.self, forKey: .lowPriority, default: false)
+        twoPass = c.decode(Bool.self, forKey: .twoPass, default: false)
     }
+
+    /// True when this export actually runs two passes (the codec has to be H.264 or HEVC, with video).
+    public var runsTwoPasses: Bool { twoPass && !audioOnly && !codec.isProRes }
 
     /// Where a job's files go: the export folder, or the project's own sub-folder inside it.
     public func outputDirectoryURL(projectName: String) -> URL {

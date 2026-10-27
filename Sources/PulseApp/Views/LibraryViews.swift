@@ -563,6 +563,9 @@ struct ExportSettingsForm: View {
                         Toggle("Burn in captions", isOn: $settings.burnInCaptions)
                         Toggle("Also export .srt", isOn: $settings.exportSRT)
                         Toggle("Hardware encoder", isOn: $settings.useHardwareEncoding)
+                        Toggle("Two-pass", isOn: $settings.twoPass)
+                            .disabled(settings.audioOnly || settings.codec.isProRes)
+                            .help("The encoder sees the whole video first and spends the bitrate where it's needed — the best quality at a given size, at about twice the render time (#343). H.264 and HEVC only.")
                     }
                     .toggleStyle(.checkbox)
                     .font(.pulseCaption)

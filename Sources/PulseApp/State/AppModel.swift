@@ -260,6 +260,7 @@ final class AppModel: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in self?.remindAboutDeadlines() }
         EmphasisDetector.learned = settings.ai.emphasisLearned
         watchFolderChanged()
+        startMusicPrefetch()
         DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in self?.checkDependencies() }
     }
 
@@ -482,6 +483,35 @@ final class AppModel: ObservableObject {
         }
         if trashed, session?.package == package { closeProject() }
         refreshProjects()
+    }
+
+    // MARK: Music shelves filled while idle (#303)
+
+    private var musicPrefetchTimer: Timer?
+
+    func startMusicPrefetch() {
+        musicPrefetchTimer?.invalidate()
+        musicPrefetchTimer = Timer.scheduledTimer(withTimeInterval: 600, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.prefetchMusicIfIdle() }
+        }
+    }
+
+    /// With nothing running, no hands on the keyboard for a few minutes and the Mac plugged in, each mood's shelf
+    /// is topped up to five Creative Commons tracks.
+    func prefetchMusicIfIdle() {
+        guard settings.ai.onlineMusic, settings.ai.prefetchMusic, jobs.running.isEmpty else { return }
+        if let power = PowerState.read(), power.onBattery { return }
+        let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0) ?? .null)
+        guard idle >= 180 else { return }
+        let blocked = Set(settings.ai.blockedTrackIDs)
+        jobs.start("Filling music shelves", kind: .importMedia) { [weak self] job in
+            job.detail = "Looking for Creative Commons tracks"
+            let added = await OnlineMusicLibrary.shared.prefetch(perMood: 5, blocked: blocked) { status in
+                Task { @MainActor in job.detail = status }
+            }
+            guard let self, added > 0 else { return }
+            self.logActivity(.importMedia, title: "\(added) Creative Commons track\(added == 1 ? "" : "s") downloaded while idle", detail: "Music shelves topped up (#303)")
+        }
     }
 
     // MARK: Watch folder (#3) and nightly batch (#461)

@@ -84,7 +84,27 @@ public actor OnlineMusicLibrary {
             chosen += spare.prefix(count - chosen.count)
         }
         guard !chosen.isEmpty else { throw EngineError.readerFailed("Couldn't find or download any Creative Commons music") }
-        return chosen
+        // Tempo that fits the pace first (#291).
+        return MusicPicker.preferring(chosen, pace: pace)
+    }
+
+    /// How many downloaded tracks sit on a mood's shelf.
+    public func count(mood: String) -> Int { downloaded.filter { $0.mood == mood }.count }
+
+    /// Fills each mood's shelf up to `perMood` tracks while the Mac is idle (#303), so an edit never waits on
+    /// a download. Returns how many tracks were added.
+    public func prefetch(perMood: Int = 5, pace: MusicPace = .medium, blocked: Set<String> = [], progress: (@Sendable (String) -> Void)? = nil) async -> Int {
+        let shelves: [[ClipTag]] = [[.gaming], [.story], []]
+        var added = 0
+        for tags in shelves {
+            let (mood, _) = MusicPicker.queries(for: tags, pace: pace)
+            let have = count(mood: mood)
+            guard have < perMood else { continue }
+            let before = Set(downloaded.map(\.videoID))
+            _ = try? await tracks(for: tags, count: perMood - have, pace: pace, avoiding: before, blocked: blocked, progress: progress)
+            added += Set(downloaded.map(\.videoID)).subtracting(before).count
+        }
+        return added
     }
 
     /// Lower-cased, bracketed tags and punctuation dropped, spaces collapsed: "Sunny Day (Official) [Free]" → "sunny day".
@@ -121,8 +141,10 @@ public actor OnlineMusicLibrary {
         let fileName = "\(result.videoID).m4a"
         let destination = Self.folder.appendingPathComponent(fileName)
         try await rangedDownload(audio.url, to: destination)
-        let track = OnlineTrack(videoID: result.videoID, title: result.title, channel: result.channel, duration: result.duration ?? 0,
-                                mood: mood, fileName: fileName)
+        var track = OnlineTrack(videoID: result.videoID, title: result.title, channel: result.channel, duration: result.duration ?? 0,
+                                mood: mood, fileName: fileName, license: OnlineTrack.defaultLicense)
+        // Tempo for the pace filter (#291); a bed with no steady beat just has none.
+        if let grid = try? await BeatDetector.shared.beats(url: destination) { track.bpm = MusicPicker.bpm(fromBeats: grid) }
         tracks.removeAll { $0.videoID == track.videoID }
         tracks.append(track)
         save()

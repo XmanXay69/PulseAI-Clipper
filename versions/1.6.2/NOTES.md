@@ -344,6 +344,19 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   instead of guessing from the quietest frames, the profile is saved with the clip, and a learned profile
   gets its own cached render.
 
+### Batch 47
+
+- **Two-pass encoding** (#343) — Deliver → Options → Two-pass: the encoder sees the whole video first and
+  spends the bitrate where it's needed, for the best quality at a given size at about twice the render time
+  (H.264 and HEVC; the progress bar runs through both passes).
+- **Music with a tempo and a license line** (#291) — every Creative Commons track gets its tempo measured
+  after download and carries its license; a fast-cut edit prefers beds around 110–170 BPM, a slow one under
+  95, the search casts a wider net per mood, and the music row in the inspector shows the shelf, the license,
+  the BPM and the page.
+- **Shelves filled while idle** (#303) — Edit My VOD → Extras → "Download five tracks per mood while the Mac
+  is idle": every ten minutes, with nothing running, no input for three minutes and the Mac plugged in, each
+  mood's shelf is topped up so an edit never waits on a download.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);

@@ -11,14 +11,29 @@ public struct OnlineTrack: Codable, Hashable, Identifiable, Sendable {
     /// File name inside the music library folder, once downloaded.
     public var fileName: String?
     public var addedAt: Date
+    /// Tempo measured after download (#291); nil until the beat detector has run.
+    public var bpm: Double?
+    /// The license the search filtered on (#291). YouTube's Creative Commons filter is CC BY.
+    public var license: String?
 
     public var id: String { videoID }
     public var url: URL { URL(string: "https://www.youtube.com/watch?v=\(videoID)")! }
 
+    public static let defaultLicense = "Creative Commons Attribution (CC BY)"
+
     /// The credit line for a video description.
     public var credit: String { "\(title) — \(channel) · \(url.absoluteString) (Creative Commons)" }
 
-    public init(videoID: String, title: String, channel: String, duration: Seconds, mood: String, fileName: String? = nil, addedAt: Date = Date()) {
+    /// One line a platform's description or a label can quote (#291): the license, the tempo and the page.
+    public var licenseLine: String {
+        var parts = [license ?? Self.defaultLicense]
+        if let bpm, bpm > 0 { parts.append("\(Int(bpm.rounded())) BPM") }
+        parts.append(url.absoluteString)
+        return parts.joined(separator: " · ")
+    }
+
+    public init(videoID: String, title: String, channel: String, duration: Seconds, mood: String, fileName: String? = nil, addedAt: Date = Date(),
+                bpm: Double? = nil, license: String? = nil) {
         self.videoID = videoID
         self.title = title
         self.channel = channel
@@ -26,6 +41,8 @@ public struct OnlineTrack: Codable, Hashable, Identifiable, Sendable {
         self.mood = mood
         self.fileName = fileName
         self.addedAt = addedAt
+        self.bpm = bpm
+        self.license = license
     }
 }
 
@@ -164,7 +181,40 @@ public enum MusicPicker {
         case .medium:
             break
         }
+        // A wider net (#291): one more phrase per mood so a shelf never runs dry.
+        queries.append("\(mood) instrumental background music free to use")
         return (mood, queries)
+    }
+
+    /// The tempo a pace asks for (#291): beds for a fast-cut edit sit around 120–160 BPM, slow ones under 95.
+    public static func bpmRange(for pace: MusicPace) -> ClosedRange<Double> {
+        switch pace {
+        case .slow: return 55...95
+        case .medium: return 80...125
+        case .fast: return 110...170
+        }
+    }
+
+    /// Beats per minute from a beat grid: the median gap between beats. Nil under four beats.
+    public static func bpm(fromBeats beats: [Seconds]) -> Double? {
+        guard beats.count >= 4 else { return nil }
+        var gaps: [Double] = []
+        for i in 1..<beats.count where beats[i] > beats[i - 1] { gaps.append(beats[i] - beats[i - 1]) }
+        guard !gaps.isEmpty else { return nil }
+        let sorted = gaps.sorted()
+        let median = sorted[sorted.count / 2]
+        guard median > 0.2, median < 2 else { return nil }
+        return (60 / median * 10).rounded() / 10
+    }
+
+    /// Tracks whose tempo fits the pace first (unknown tempos keep their place after them), order otherwise kept.
+    public static func preferring(_ tracks: [OnlineTrack], pace: MusicPace) -> [OnlineTrack] {
+        let range = bpmRange(for: pace)
+        func rank(_ t: OnlineTrack) -> Int {
+            guard let bpm = t.bpm else { return 1 }
+            return range.contains(bpm) ? 0 : 2
+        }
+        return tracks.enumerated().sorted { (rank($0.element), $0.offset) < (rank($1.element), $1.offset) }.map(\.element)
     }
 
     static let goodWords = ["no copyright", "copyright free", "royalty free", "free to use", "creative commons", "background",
@@ -194,7 +244,7 @@ public enum MusicPicker {
     /// Credits for the description: one line per distinct track.
     public static func creditBlock(_ tracks: [OnlineTrack]) -> String {
         var seen = Set<String>()
-        let lines = tracks.filter { seen.insert($0.videoID).inserted }.map { "♪ " + $0.credit }
+        let lines = tracks.filter { seen.insert($0.videoID).inserted }.map { "♪ " + $0.credit + ($0.bpm.map { String(format: ", %.0f BPM", $0) } ?? "") }
         return lines.isEmpty ? "" : (["Music"] + lines).joined(separator: "\n")
     }
 }

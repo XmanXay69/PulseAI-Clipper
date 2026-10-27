@@ -178,6 +178,12 @@ struct LongFormSheet: View {
                 touch("Find music on YouTube", "globe", "Creative Commons tracks via the built-in downloader (credits go in the description)",
                       Binding(get: { app.settings.ai.onlineMusic }, set: { app.settings.ai.onlineMusic = $0 }))
                     .padding(.leading, 20)
+                if app.settings.ai.onlineMusic {
+                    Toggle("Download five tracks per mood while the Mac is idle", isOn: Binding(get: { app.settings.ai.prefetchMusic }, set: { app.settings.ai.prefetchMusic = $0 }))
+                        .toggleStyle(.checkbox).font(.pulseCaption)
+                        .padding(.leading, 40)
+                        .help("Every ten minutes, with nothing running, no input for three minutes and the Mac plugged in, each mood's shelf is topped up so an edit never waits on a download (#303)")
+                }
             }
         }
     }

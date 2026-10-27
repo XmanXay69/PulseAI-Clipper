@@ -1105,6 +1105,8 @@ struct MusicTrackRow: View {
             if let track {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(track.credit).font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(2)
+                    Text("\(track.mood) · \(track.licenseLine)").font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(1)
+                        .help("The shelf it sits on, the license the search filtered on, the measured tempo and the page (#291)")
                     HStack(spacing: 6) {
                         let favorite = app.settings.ai.favoriteTrackIDs.contains(track.videoID)
                         Button { toggleFavorite(track) } label: { Label(favorite ? "Favourite" : "Favourite", systemImage: favorite ? "star.fill" : "star") }
