@@ -130,6 +130,19 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
 - **Live level while recording** (#323) — a small meter in the recording strip, amber over −12 dBFS and red
   when the microphone clips.
 
+### Batch 31
+
+- **Storyboard in your order** (#109) — the arrows on a storyboard row move a moment earlier or later; the edit
+  then keeps that order instead of the recording's, so a payoff can open the video. Rows show the moment's
+  waveform with the payoff marked (#438).
+- **Predicted retention** (#490) — a line along the ruler guesses where viewers leave, from the recording's
+  energy and your cuts; red where it falls fastest.
+- **Text templates and a live look** (#217, #214) — the text inspector shows the layer as the renderer draws
+  it and applies Lower third, Callout, Meme, Big title or Subtitle looks; Save Look keeps yours.
+- **Where the drop is** (#293) — a previewed sound shows its waveform with the drop marked.
+- **Sharpening waits for the export** (#314) — proxy or reduced-size playback skips it, so the viewer doesn't
+  show halos the file won't have.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
@@ -138,7 +151,9 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   Extras controls; each multicam cut is its own undo step (#329); waveforms are generated at low priority in the
   background on import (#381); the Edit / Captions / Colour / Audio / Deliver workspaces each remember their own
   panel sizes (#427, #428); ⇧⌘M marks a moment from any app while recording once Input Monitoring is allowed
-  (#464); window recording with the window's title is in the recording sources (#332).
+  (#464); window recording with the window's title is in the recording sources (#332); image overlays take the same
+  masks and shadows as any layer (#219); the composition builds off the main thread with cancellation (#379);
+  icon buttons share one symbol weight and size (#409).
 
 ### Under the hood
 - `ChapterArt` (engine) draws with AppKit on the source frame, so a marker over a cutaway or gap is skipped.

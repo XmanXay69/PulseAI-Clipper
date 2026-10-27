@@ -58,6 +58,16 @@ final class ProjectSession: ObservableObject, Identifiable {
     private var energyRequests: Set<UUID> = []
 
     /// The asset's excitement curve if it's ready; kicks off the computation (off the main thread) if not.
+    /// Predicted retention per recording (#490), from the engagement signals; nil until they're ready.
+    func retentionCurve(for assetID: UUID) -> RetentionPredictor.Curve? {
+        if let ready = retentionCurves[assetID] { return ready }
+        guard let signals = energySignal(for: assetID), signals.step > 0 else { return nil }
+        let curve = RetentionPredictor.predict(excitement: signals.excitement, step: signals.step)
+        retentionCurves[assetID] = curve
+        return curve
+    }
+    private var retentionCurves: [UUID: RetentionPredictor.Curve] = [:]
+
     func energySignal(for assetID: UUID) -> EngagementSignals? {
         if let ready = energySignals[assetID] { return ready }
         guard !energyRequests.contains(assetID), let analysis = analyses[assetID] else { return nil }

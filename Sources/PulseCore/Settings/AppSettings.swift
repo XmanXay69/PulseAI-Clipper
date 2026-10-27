@@ -362,6 +362,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var shortcuts: ShortcutMap = ShortcutMap()
     /// Fonts picked for text lately, newest first (#215).
     public var recentFonts: [String] = []
+    /// Text looks saved from the inspector (#217).
+    public var textTemplates: [TextTemplate] = []
 
     public init() {}
 
@@ -430,6 +432,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
         trackHeight = c.decode(TrackHeightPreset.self, forKey: .trackHeight, default: d.trackHeight)
         shortcuts = c.decode(ShortcutMap.self, forKey: .shortcuts, default: d.shortcuts)
         recentFonts = c.decode([String].self, forKey: .recentFonts, default: d.recentFonts)
+        textTemplates = c.decode([TextTemplate].self, forKey: .textTemplates, default: d.textTemplates)
         showPlatformChrome = c.decode(Bool.self, forKey: .showPlatformChrome, default: d.showPlatformChrome)
         watchFolderAnalyzes = c.decode(Bool.self, forKey: .watchFolderAnalyzes, default: d.watchFolderAnalyzes)
         nightlyBatchHour = c.decode(Int?.self, forKey: .nightlyBatchHour, default: nil)

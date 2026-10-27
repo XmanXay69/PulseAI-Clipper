@@ -30,6 +30,8 @@ struct LongFormSheet: View {
     @State private var extras: EditExtras?
     /// Moments picked in the storyboard while the extras question is open.
     @State private var pendingSegments: [LongFormSegment]?
+    /// The storyboard's rows were moved by hand (#109): build in that order.
+    @State private var keepOrder = false
     @State private var pendingHook: Seconds?
 
     var options: LongFormOptions {
@@ -37,6 +39,7 @@ struct LongFormSheet: View {
                                       cutDeadAir: true, zooms: zooms, captions: captions, memes: memes, soundEffects: soundEffects, music: music,
                                       restraint: LongFormOptions.Restraint(rawValue: restraint) ?? .balanced)
         options.extras = extras ?? EditExtras()
+        options.keepStoryOrder = keepOrder
         options.tighten = tighten
         options.shortenPauses = shortenPauses
         options.musicLevel = musicLevel
@@ -53,7 +56,8 @@ struct LongFormSheet: View {
         Group {
             if choosing {
                 LongFormStoryboard(session: session, options: options, approving: extras?.approveCut == true,
-                                   onBack: { choosing = false; extras = nil }) { segments, hookPayoff in
+                                   onBack: { choosing = false; extras = nil }) { segments, hookPayoff, reordered in
+                    keepOrder = reordered
                     if extras != nil {
                         build(segments: segments, hookPayoff: hookPayoff)
                     } else if skipExtrasQuestion {

@@ -165,7 +165,7 @@ public final class FrameRenderer: @unchecked Sendable {
 
         if let key = clip.style.chromaKey, key.enabled { image = applyChromaKey(image, key) }
         if clip.color.autoWhiteBalance, !clip.color.bypass { image = applyAutoWhiteBalance(image, clipID: clip.id, time: local) }
-        image = applyColor(image, clip.color)
+        image = applyColor(image, clip.color, sharpen: !scene.isPreview)
         var shake = CGPoint.zero
         var pulse = 1.0
         for effect in clip.effects where effect.isEnabled {
@@ -440,7 +440,9 @@ public final class FrameRenderer: @unchecked Sendable {
         return blend.outputImage?.cropped(to: extent) ?? input
     }
 
-    func applyColor(_ input: CIImage, _ c: ColorAdjustments) -> CIImage {
+    /// `sharpen` is off for proxy or reduced-size preview (#314): sharpening a downscaled picture only adds
+    /// halos the export won't have.
+    func applyColor(_ input: CIImage, _ c: ColorAdjustments, sharpen: Bool = true) -> CIImage {
         guard !c.isIdentity else { return input }
         var image = input
         if c.exposure != 0 {
@@ -480,7 +482,7 @@ public final class FrameRenderer: @unchecked Sendable {
             f.targetNeutral = CIVector(x: CGFloat(6500 + c.temperature * 3000), y: CGFloat(c.tint * 60))
             image = f.outputImage ?? image
         }
-        if c.sharpness > 0 {
+        if c.sharpness > 0, sharpen {
             let f = CIFilter.sharpenLuminance()
             f.inputImage = image
             f.sharpness = Float(c.sharpness * 1.5)

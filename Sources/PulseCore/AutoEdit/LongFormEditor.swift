@@ -19,6 +19,8 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
     /// Editor finishing passes: boring-stretch trims, sliver removal, clean audio cuts, hidden jump cuts,
     /// chapter transitions, a gentle grade and music drops on punchlines.
     public var polish = true
+    /// Lay the storyboard's sections in the order given instead of the recording's order (#109).
+    public var keepStoryOrder = false
     /// A 10-second end screen with room for YouTube's end-screen cards.
     public var endScreen = true
     /// Opt-in extras (asked before every edit; nothing here is on unless you said yes).
@@ -256,6 +258,22 @@ public enum LongFormEditor {
         segments.map(\.range).merged().reduce(0) { $0 + $1.duration }
     }
 
+    /// The storyboard's order kept (#109): only neighbours that overlap in the recording are joined, nothing is
+    /// re-sorted, so a payoff can come before its setup when that's the story you want.
+    static func joinInOrder(_ segments: [LongFormSegment]) -> [LongFormSegment] {
+        var result: [LongFormSegment] = []
+        for s in segments {
+            if var last = result.last, s.range.start >= last.range.start, s.range.start <= last.range.end {
+                last.range = TimeRange(start: last.range.start, end: max(last.range.end, s.range.end))
+                if s.potential > last.potential { last.payoff = s.payoff; last.title = s.title; last.potential = s.potential; last.tags = s.tags }
+                result[result.count - 1] = last
+            } else {
+                result.append(s)
+            }
+        }
+        return result
+    }
+
     /// Chronological, with overlapping or nearly touching stretches joined (a short gap is kept as context).
     static func merge(_ segments: [LongFormSegment], gap: Seconds) -> [LongFormSegment] {
         var result: [LongFormSegment] = []
@@ -279,7 +297,8 @@ public enum LongFormEditor {
     public static func build(asset: MediaAsset, analysis: MediaAnalysis, options: LongFormOptions = LongFormOptions(),
                              sounds: LongFormSounds = LongFormSounds(), taste: TasteProfile = TasteProfile(),
                              segments chosen: [LongFormSegment]? = nil, hookPayoff: Seconds? = nil) -> LongFormResult {
-        var segments = chosen.map { LongFormEditor.merge($0, gap: 8) } ?? selectSegments(analysis: analysis, options: options, taste: taste)
+        var segments = chosen.map { options.keepStoryOrder ? LongFormEditor.joinInOrder($0) : LongFormEditor.merge($0, gap: 8) }
+            ?? selectSegments(analysis: analysis, options: options, taste: taste)
         let words = analysis.transcript?.words ?? []
         // Sections open on a fresh shot when a scene change sits just before them.
         if options.polish, let cuts = analysis.visual?.sceneCuts, !cuts.isEmpty {
@@ -287,7 +306,8 @@ public enum LongFormEditor {
         }
         // Extra: whole sentences only — sections start where a thought starts and end where it ends.
         if options.extras.speakerAware, !words.isEmpty {
-            segments = LongFormEditor.merge(SpeakerAware.snapToSentences(segments, words: words, duration: analysis.duration), gap: 0.5)
+            let snapped = SpeakerAware.snapToSentences(segments, words: words, duration: analysis.duration)
+            segments = options.keepStoryOrder ? LongFormEditor.joinInOrder(snapped) : LongFormEditor.merge(snapped, gap: 0.5)
         }
         let size = asset.metadata.size.isEmpty ? Size2(1920, 1080) : asset.metadata.size
         let landscape = size.aspect >= 1

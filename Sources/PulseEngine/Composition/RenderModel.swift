@@ -84,15 +84,18 @@ public final class RenderScene: @unchecked Sendable {
     public let showSafeArea: SafeAreaPlatform?
     public let watermark: Watermark?
     public let transparentBackground: Bool
+    /// Viewer playback over proxies or at a reduced size (#314): sharpening waits for the export.
+    public let isPreview: Bool
 
     public init(canvas: CanvasSettings, renderSize: CGSize, captions: CaptionRenderData?, showSafeArea: SafeAreaPlatform? = nil,
-                watermark: Watermark? = nil, transparentBackground: Bool = false) {
+                watermark: Watermark? = nil, transparentBackground: Bool = false, isPreview: Bool = false) {
         self.canvas = canvas
         self.renderSize = renderSize
         self.captions = captions
         self.showSafeArea = showSafeArea
         self.watermark = watermark
         self.transparentBackground = transparentBackground
+        self.isPreview = isPreview
     }
 
     /// Output pixels per canvas unit.

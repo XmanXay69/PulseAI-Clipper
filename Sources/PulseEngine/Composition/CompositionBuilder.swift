@@ -82,7 +82,8 @@ public enum CompositionBuilder {
             return CaptionRenderData(track: captions, timeline: timeline)
         }()
         let scene = RenderScene(canvas: timeline.canvas, renderSize: renderSize, captions: captionData, showSafeArea: options.showSafeArea,
-                                watermark: options.watermark.flatMap { RenderScene.Watermark(spec: $0) }, transparentBackground: options.transparentBackground)
+                                watermark: options.watermark.flatMap { RenderScene.Watermark(spec: $0) }, transparentBackground: options.transparentBackground,
+                                isPreview: options.useProxies || Int(renderSize.width) < timeline.canvas.width)
 
         // Background filler keeps a video track alive so the compositor always runs (text-only, gaps).
         let filler = try await BlackFiller.shared.asset()

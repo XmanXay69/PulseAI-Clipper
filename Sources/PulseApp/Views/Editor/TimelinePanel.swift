@@ -71,6 +71,7 @@ struct TimelineToolbar: View {
     @State private var showHistory = false
     @State private var showReport = false
     @AppStorage("timeline.energyStrip") private var showEnergy = true
+    @AppStorage("timeline.retentionStrip") private var showRetention = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -120,6 +121,7 @@ struct TimelineToolbar: View {
             IconButton(symbol: "arrow.right.and.line.vertical.and.arrow.left", help: "Snapping (S)", isActive: app.settings.snapping) { app.settings.snapping.toggle() }
             IconButton(symbol: "rectangle.compress.vertical", help: "Magnetic timeline — deleting closes gaps", isActive: app.settings.magneticTimeline) { app.settings.magneticTimeline.toggle() }
             IconButton(symbol: "waveform.path.ecg", help: "Excitement strip on the ruler — where the energy is", isActive: showEnergy) { showEnergy.toggle() }
+            IconButton(symbol: "chart.line.downtrend.xyaxis", help: "Predicted retention on the ruler — where viewers are likely to leave (#490)", isActive: showRetention) { showRetention.toggle() }
             IconButton(symbol: "bolt.fill", help: "Speed Edit (⌃⇧E) — N / P through the moments, X makes a short, D dismisses, ↩ exports in → out (#500)", isActive: session.speedEdit) { session.toggleSpeedEdit() }
             Spacer()
             if let timeline = session.activeTimeline {
@@ -809,6 +811,7 @@ struct TimelineRuler: View {
     let pps: CGFloat
     let width: CGFloat
     @AppStorage("timeline.energyStrip") private var showEnergy = true
+    @AppStorage("timeline.retentionStrip") private var showRetention = false
 
     var body: some View {
         Canvas { ctx, size in
@@ -878,6 +881,27 @@ struct TimelineRuler: View {
                     path.closeSubpath()
                     ctx.fill(path, with: .linearGradient(Gradient(colors: [Theme.accent.opacity(0.75), Theme.ai.opacity(0.35)]),
                                                          startPoint: CGPoint(x: 0, y: bottom - h), endPoint: CGPoint(x: 0, y: bottom)))
+                }
+            }
+            // Predicted retention (#490): a falling line along the ruler's top — red where it drops fastest.
+            if showRetention, let v = timeline.tracks.first(where: { $0.kind == .video }) {
+                let h: CGFloat = 10
+                for clip in v.clips where clip.isEnabled && clip.role != .graphic {
+                    guard let assetID = clip.content.assetID, let curve = session.retentionCurve(for: assetID) else { continue }
+                    let x0 = CGFloat(clip.start) * pps, x1 = CGFloat(clip.end) * pps
+                    guard x1 > 0, x0 < size.width else { continue }
+                    var path = Path()
+                    var x = max(x0, 0)
+                    var first = true
+                    while x <= min(x1, size.width) {
+                        let sourceT = clip.sourceIn + Double((x - x0) / pps) * clip.speed
+                        let r = CGFloat(curve.value(at: sourceT))
+                        let point = CGPoint(x: x, y: 2 + h * (1 - min(max(r, 0), 1)))
+                        if first { path.move(to: point); first = false } else { path.addLine(to: point) }
+                        x += 2
+                    }
+                    ctx.stroke(path, with: .linearGradient(Gradient(colors: [Theme.success, Theme.warning, Theme.danger]),
+                                                           startPoint: CGPoint(x: 0, y: 2), endPoint: CGPoint(x: 0, y: 2 + h)), lineWidth: 1.5)
                 }
             }
             // Layout morphs: a violet bar spanning each morph on the ruler's bottom edge.

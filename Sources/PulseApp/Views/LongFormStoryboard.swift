@@ -12,7 +12,9 @@ struct LongFormStoryboard: View {
     let options: LongFormOptions
     var approving = false
     let onBack: () -> Void
-    let onBuild: ([LongFormSegment], Seconds?) -> Void
+    /// Segments in storyboard order, the hook's payoff, and whether the order was changed by hand (#109).
+    let onBuild: ([LongFormSegment], Seconds?, Bool) -> Void
+    @State private var reordered = false
 
     @State private var plan: LongFormPlan?
     @State private var selected: Set<UUID> = []
@@ -119,6 +121,17 @@ struct LongFormStoryboard: View {
             footer
         }
         .task { await loadPlan() }
+    }
+
+    /// Storyboard reorder (#109): swap with the neighbour; the build then keeps this order instead of the recording's.
+    func move(_ moment: LongFormSegment, by delta: Int) {
+        guard var plan, let i = plan.moments.firstIndex(where: { $0.id == moment.id }) else { return }
+        let j = i + delta
+        guard plan.moments.indices.contains(j) else { return }
+        plan.moments.swapAt(i, j)
+        self.plan = plan
+        reordered = true
+        focusedMoment = moment.id
     }
 
     func loadPlan() async {
@@ -235,6 +248,19 @@ struct LongFormStoryboard: View {
                 HStack(spacing: 4) {
                     ForEach(moment.tags.prefix(3), id: \.self) { TagChip(text: $0.displayName, color: Theme.ai) }
                 }
+                if let asset, on {
+                    // The moment's sound with its payoff marked (#438).
+                    WaveformStrip(url: session.url(for: asset), sourceRange: r, color: Theme.ai)
+                        .frame(height: 16)
+                        .overlay {
+                            GeometryReader { geo in
+                                let x = r.duration > 0 ? CGFloat((moment.payoff - r.start) / r.duration) * geo.size.width : 0
+                                Rectangle().fill(Theme.accent).frame(width: 1.5).offset(x: max(0, min(geo.size.width - 1.5, x)))
+                            }
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                        .help("The moment's waveform; the bright line is the payoff")
+                }
                 HStack(spacing: 6) {
                     Button { previewing = moment.id } label: { Label("Preview", systemImage: "play.fill").font(.system(size: 10, weight: .medium)) }
                         .buttonStyle(.pulse(.ghost, compact: true))
@@ -249,6 +275,16 @@ struct LongFormStoryboard: View {
                 }
             }
             Spacer(minLength: 8)
+            VStack(spacing: 2) {
+                Button { move(moment, by: -1) } label: { Image(systemName: "chevron.up").font(.system(size: 9, weight: .bold)) }
+                    .buttonStyle(.plain).foregroundStyle(Theme.textTertiary)
+                    .disabled(plan?.moments.first?.id == moment.id)
+                    .help("Move this moment earlier in the video — the edit keeps your order (#109)")
+                Button { move(moment, by: 1) } label: { Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)) }
+                    .buttonStyle(.plain).foregroundStyle(Theme.textTertiary)
+                    .disabled(plan?.moments.last?.id == moment.id)
+                    .help("Move this moment later in the video")
+            }
             PotentialMeter(potential: moment.potential)
             Button {
                 hook = isHook ? nil : moment.id
@@ -316,7 +352,7 @@ struct LongFormStoryboard: View {
                     return m
                 }
                 let hookPayoff = chosen.first { $0.id == hook }?.payoff
-                onBuild(chosen, hookPayoff)
+                onBuild(chosen, hookPayoff, reordered)
             } label: { Label(approving ? "Approve & Build" : "Build My Video", systemImage: "wand.and.stars") }
                 .buttonStyle(.pulseAI)
                 .keyboardShortcut(.defaultAction)

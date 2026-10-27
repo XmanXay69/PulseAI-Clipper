@@ -515,6 +515,38 @@ struct TextInspector: View {
                 .frame(height: 64)
                 .scrollContentBackground(.hidden)
                 .background(RoundedRectangle(cornerRadius: 4).fill(Theme.well))
+            TextStylePreview(element: element)
+            HStack(spacing: 6) {
+                Menu {
+                    Section("Built in") {
+                        ForEach(TextTemplates.builtIn) { template in
+                            Button(template.name) { session.editClip(clip.id, "Apply \(template.name)") { template.apply(to: &$0) } }
+                        }
+                    }
+                    if !app.settings.textTemplates.isEmpty {
+                        Section("Yours") {
+                            ForEach(app.settings.textTemplates) { template in
+                                Button(template.name) { session.editClip(clip.id, "Apply \(template.name)") { template.apply(to: &$0) } }
+                            }
+                            Divider()
+                            ForEach(app.settings.textTemplates) { template in
+                                Button("Delete “\(template.name)”", role: .destructive) { app.settings.textTemplates.removeAll { $0.id == template.id } }
+                            }
+                        }
+                    }
+                } label: { Label("Templates", systemImage: "square.on.square") }
+                    .menuStyle(.borderlessButton).fixedSize()
+                    .help("Lower third, callout, meme, big title, subtitle — or one you saved (#217). The words stay.")
+                Button {
+                    let name = String(element.text.split(separator: "\n").first ?? "Text look").prefix(24)
+                    if let template = TextTemplate.capture(clip, name: String(name)) {
+                        app.settings.textTemplates.append(template)
+                        app.toast("Saved “\(name)” as a text template")
+                    }
+                } label: { Label("Save Look", systemImage: "plus.square.on.square") }
+                    .buttonStyle(.pulse(.ghost, compact: true))
+                    .help("Keeps this font, colours, box, animation and position as a template")
+            }
             Picker("Font", selection: textBinding("Font", \.style.fontName)) {
                 if !app.settings.recentFonts.isEmpty {
                     Section("Recent") {
@@ -1137,5 +1169,49 @@ struct EnhancePreviewRow: View {
             if let error = preview.error { Text(error).font(.pulseMicro).foregroundStyle(Theme.warning).lineLimit(1) }
         }
         .onDisappear { preview.stop() }
+    }
+}
+
+
+/// The text look as the renderer draws it (#214): stroke, shadow, box and animation-free, updated as sliders move.
+struct TextStylePreview: View {
+    let element: TextElement
+    @State private var image: CGImage?
+
+    var body: some View {
+        ZStack {
+            CheckerboardBackground()
+            if let image {
+                Image(decorative: image, scale: 2).resizable().aspectRatio(contentMode: .fit).padding(8)
+            }
+        }
+        .frame(height: 64)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.border))
+        .task(id: element.style.hashValue ^ element.text.hashValue ^ Int(element.maxWidth * 1000)) {
+            var sample = element
+            if sample.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { sample.text = "Your text" }
+            sample.text = String(sample.text.split(separator: "\n").first ?? "Your text")
+            let rendered = await Task.detached(priority: .userInitiated) { TextRenderer.renderText(sample, renderScale: 0.5, canvasWidth: 1080) }.value
+            image = rendered?.image
+        }
+    }
+}
+
+struct CheckerboardBackground: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let cell: CGFloat = 8
+            var y: CGFloat = 0
+            while y < size.height {
+                var x: CGFloat = 0
+                while x < size.width {
+                    let dark = (Int(x / cell) + Int(y / cell)) % 2 == 0
+                    ctx.fill(Path(CGRect(x: x, y: y, width: cell, height: cell)), with: .color(dark ? Color(white: 0.16) : Color(white: 0.22)))
+                    x += cell
+                }
+                y += cell
+            }
+        }
     }
 }
