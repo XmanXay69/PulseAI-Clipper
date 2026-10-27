@@ -24,6 +24,7 @@ public enum VideoEncoders {
         case .h264: type = kCMVideoCodecType_H264
         case .hevc: type = kCMVideoCodecType_HEVC
         case .proRes422: type = kCMVideoCodecType_AppleProRes422
+        case .proRes4444: type = kCMVideoCodecType_AppleProRes4444
         }
         var list: CFArray?
         guard VTCopyVideoEncoderList(nil, &list) == noErr, let encoders = list as? [[String: Any]] else { return false }

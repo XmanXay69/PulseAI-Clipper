@@ -481,6 +481,14 @@ struct ExportSettingsForm: View {
                         Text(AudioQuality.nearest(settings.audioBitrate).detail).font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(2)
                     }
                 }
+                if settings.codec.supportsAlpha {
+                    GridRow {
+                        Text("Transparency").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                        Toggle("Transparent background — overlays and stingers keep their alpha", isOn: $settings.transparentBackground)
+                            .toggleStyle(.checkbox).font(.pulseCaption)
+                            .help("Renders over nothing instead of the canvas colour; ProRes 4444 keeps it in the file (#346)")
+                    }
+                }
                 GridRow {
                     Text("Brand logo").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
                     Toggle(app.settings.brandKit.watermarkSpec == nil ? "Add a logo in Settings → Brand Kit first" : "Burn the Brand Kit logo into this export",
@@ -675,7 +683,7 @@ struct ExportsView: View {
         .onAppear {
             guard !loaded else { return }
             loaded = true
-            let preset = ExportPreset.preset(id: app.settings.defaultExportPresetID) ?? .tiktok
+            let preset = ExportPreset.preset(id: session.document.overrides.exportPresetID ?? app.settings.defaultExportPresetID) ?? .tiktok
             settings = app.session?.document.exportSettings ?? ExportSettings(preset: preset)
             if settings.outputDirectory.isEmpty { settings.outputDirectory = app.exportFolder.path }
             // A YouTube edit (Edit My VOD) shouldn't start on a vertical short-form preset.
@@ -741,7 +749,7 @@ struct ExportsView: View {
                 }
                 let verdict = LoudnessVerdict(lufs: measured.lufs, peakDB: measured.peakDB, unleveledDialogue: LoudnessVerdict.hasUnleveledDialogue(timeline))
                 if verdict.action == .fine {
-                    app.toast(verdict.summary)
+                    app.toast(verdict.summary + (measured.truePeakDB.isFinite ? String(format: " · true peak %.1f dBTP", measured.truePeakDB) : ""))
                     queue(timeline)
                 } else if let remembered = session.document.loudnessChoice {
                     // What you chose last time in this project (#358).

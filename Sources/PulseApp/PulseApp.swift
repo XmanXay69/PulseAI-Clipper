@@ -65,16 +65,60 @@ struct PulseMain: App {
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 720, height: 560)
+
+        // Inspector and transcript as their own windows (#429), driven by the open project.
+        Window("Inspector", id: "inspector") {
+            DetachedPanelWindow(panel: .inspector)
+                .environmentObject(app)
+                .preferredColorScheme(.dark)
+                .frame(minWidth: 300, minHeight: 400)
+        }
+        .defaultSize(width: 340, height: 720)
+
+        Window("Transcript", id: "transcript") {
+            DetachedPanelWindow(panel: .transcript)
+                .environmentObject(app)
+                .preferredColorScheme(.dark)
+                .frame(minWidth: 320, minHeight: 400)
+        }
+        .defaultSize(width: 420, height: 720)
     }
 }
 
-/// Window → Viewer in Separate Window. Lives in a view so the command can reach `openWindow`.
+/// Window → Viewer / Inspector / Transcript in a separate window. Lives in a view so the command can reach `openWindow`.
 struct OpenViewerWindowButton: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Button("Viewer in Separate Window") { openWindow(id: "viewer") }
             .keyboardShortcut("v", modifiers: [.command, .option, .shift])
+        Button("Inspector in Separate Window") { openWindow(id: "inspector") }
+            .keyboardShortcut("i", modifiers: [.command, .option, .shift])
+        Button("Transcript in Separate Window") { openWindow(id: "transcript") }
+            .keyboardShortcut("t", modifiers: [.command, .option, .shift])
+    }
+}
+
+/// A panel of the editor on its own (#429).
+struct DetachedPanelWindow: View {
+    enum Panel { case inspector, transcript }
+    @EnvironmentObject var app: AppModel
+    let panel: Panel
+
+    var body: some View {
+        Group {
+            if let session = app.session {
+                switch panel {
+                case .inspector: InspectorView(session: session)
+                case .transcript: TranscriptPanel(session: session)
+                }
+            } else {
+                Text("Open a project and this panel shows here")
+                    .font(.pulseBody).foregroundStyle(Theme.textSecondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .background(Theme.panel)
     }
 }
 
@@ -210,6 +254,9 @@ struct PulseCommands: Commands {
                 .disabled(app.session?.activeTimeline == nil)
             Button("Export Chapter Art…") { app.session?.exportChapterArt() }
                 .disabled(app.session?.activeTimeline == nil)
+            Divider()
+            Button("Project Settings…") { app.session?.showProjectSettings = true }
+                .disabled(app.session == nil)
             Menu("Snapshots") {
                 Button("Take Snapshot") { app.session?.takeSnapshot() }.keyboardShortcut("s", modifiers: [.command, .option])
                     .disabled(app.session?.activeTimeline == nil)

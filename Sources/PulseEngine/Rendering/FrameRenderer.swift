@@ -51,8 +51,10 @@ public final class FrameRenderer: @unchecked Sendable {
         let scene = instruction.scene
         let bounds = CGRect(origin: .zero, size: scene.renderSize)
         let bg = scene.canvas.backgroundColor
-        var output = CIImage(color: CIColor(red: bg.red, green: bg.green, blue: bg.blue, alpha: bg.alpha)).cropped(to: bounds)
-        if scene.canvas.blurFill, let fill = blurFill(instruction: instruction, bounds: bounds, source: source) {
+        var output = scene.transparentBackground
+            ? CIImage(color: CIColor(red: 0, green: 0, blue: 0, alpha: 0)).cropped(to: bounds)
+            : CIImage(color: CIColor(red: bg.red, green: bg.green, blue: bg.blue, alpha: bg.alpha)).cropped(to: bounds)
+        if scene.canvas.blurFill, !scene.transparentBackground, let fill = blurFill(instruction: instruction, bounds: bounds, source: source) {
             output = fill.composited(over: output)
         }
         for layer in instruction.layers {

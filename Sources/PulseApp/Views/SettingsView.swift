@@ -283,6 +283,16 @@ struct GeneralSettings: View {
             SettingsRow("Frame-step tick", detail: "A soft click on every ← / → frame step.") {
                 Toggle("", isOn: $app.settings.scrubTick).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
             }
+            SettingsRow("Audio scrub", detail: "Hear a blip of sound where the playhead lands while you drag it.") {
+                Toggle("", isOn: Binding(get: { app.settings.audioScrub }, set: { on in app.settings.audioScrub = on; app.session?.playback.audioScrub = on }))
+                    .labelsHidden().toggleStyle(.switch).tint(Theme.accent)
+            }
+            SettingsRow("Track height", detail: "How tall timeline tracks are; compact mode still tightens long timelines.") {
+                Picker("", selection: $app.settings.trackHeight) {
+                    ForEach(TrackHeightPreset.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .pickerStyle(.segmented).labelsHidden().frame(width: 200)
+            }
             SettingsRow("Thumbnail after export", detail: "Send a thumbnail design for every finished export to Thumbnail Studio (when it's installed).") {
                 Toggle("", isOn: $app.settings.thumbnailAfterExport).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
             }

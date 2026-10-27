@@ -9,6 +9,7 @@ public enum RecordingEstimate {
         case .hevc: bitsPerPixel = 0.045
         case .h264: bitsPerPixel = 0.085
         case .proRes422: bitsPerPixel = 1.9
+        case .proRes4444: bitsPerPixel = 2.9
         }
         let pixels = Double(max(width, 16)) * Double(max(height, 16))
         let videoBitsPerSecond = pixels * Double(max(fps, 1)) * bitsPerPixel

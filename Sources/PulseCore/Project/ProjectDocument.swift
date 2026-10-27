@@ -93,6 +93,8 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
     public var loudnessChoice: String?
     /// The status-board column you put this in (#474); nil = wherever its contents say.
     public var workflowStage: WorkflowStage?
+    /// Settings this project pins instead of the app-wide ones (#445).
+    public var overrides: ProjectOverrides = ProjectOverrides()
 
     public init(id: UUID = UUID(), name: String, createdAt: Date = Date()) {
         self.id = id
@@ -144,6 +146,7 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
         extrasAnswered = c.decode(Bool.self, forKey: .extrasAnswered, default: false)
         deadline = c.decode(Date?.self, forKey: .deadline, default: nil)
         workflowStage = c.decode(WorkflowStage?.self, forKey: .workflowStage, default: nil)
+        overrides = c.decode(ProjectOverrides.self, forKey: .overrides, default: ProjectOverrides())
         editingSeconds = c.decode(Seconds.self, forKey: .editingSeconds, default: 0)
         loudnessChoice = c.decode(String?.self, forKey: .loudnessChoice, default: nil)
     }
@@ -264,4 +267,25 @@ public struct ProjectSummary: Codable, Hashable, Identifiable, Sendable {
         self.isFavorite = isFavorite
         self.isTrashed = isTrashed
     }
+}
+
+/// Per-project settings (#445): each is nil to follow the app setting, or a value this project keeps whatever
+/// Settings says — the export preset, the target platform's safe area, the loudness target and the caption look.
+public struct ProjectOverrides: Codable, Hashable, Sendable {
+    public var exportPresetID: String?
+    public var safeAreaPlatform: SafeAreaPlatform?
+    public var loudnessTarget: Double?
+    public var captionPresetName: String?
+
+    public init(exportPresetID: String? = nil, safeAreaPlatform: SafeAreaPlatform? = nil, loudnessTarget: Double? = nil, captionPresetName: String? = nil) {
+        self.exportPresetID = exportPresetID
+        self.safeAreaPlatform = safeAreaPlatform
+        self.loudnessTarget = loudnessTarget
+        self.captionPresetName = captionPresetName
+    }
+
+    public var isEmpty: Bool { exportPresetID == nil && safeAreaPlatform == nil && loudnessTarget == nil && captionPresetName == nil }
+
+    /// How many settings this project pins.
+    public var count: Int { [exportPresetID != nil, safeAreaPlatform != nil, loudnessTarget != nil, captionPresetName != nil].filter { $0 }.count }
 }

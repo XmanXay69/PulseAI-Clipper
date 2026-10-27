@@ -56,6 +56,9 @@ public final class PlaybackController: ObservableObject {
     @Published public private(set) var missingAssetIDs: Set<UUID> = []
     @Published public private(set) var lastError: String?
     @Published public var loopEnabled = false
+    /// Hear a short blip of audio when the scrub settles (#156).
+    public var audioScrub = false
+    private var scrubBlip: Task<Void, Never>?
     /// With `loopEnabled`, loop this stretch instead of the whole timeline (in → out, #159).
     @Published public var loopRange: TimeRange?
     @Published public var volume: Float = 1 {
@@ -92,8 +95,9 @@ public final class PlaybackController: ObservableObject {
         rateObservation = player.observe(\.rate, options: [.new]) { [weak self] player, _ in
             let rate = player.rate
             Task { @MainActor in
-                self?.isPlaying = rate != 0
-                self?.playbackRate = rate
+                guard let self, self.scrubBlip == nil else { return }   // a scrub blip is not "playing"
+                self.isPlaying = rate != 0
+                self.playbackRate = rate
             }
         }
     }
@@ -256,6 +260,8 @@ public final class PlaybackController: ObservableObject {
     // MARK: Transport
 
     public func play() {
+        scrubBlip?.cancel()
+        scrubBlip = nil
         if currentTime >= duration - 0.05 { seek(to: 0) }
         player.playImmediately(atRate: 1)
     }
@@ -320,11 +326,30 @@ public final class PlaybackController: ObservableObject {
     private var isSeekingForScrub = false
 
     private func chaseNext() {
-        guard let target = chaseTarget else { isSeekingForScrub = false; return }
+        guard let target = chaseTarget else {
+            isSeekingForScrub = false
+            if audioScrub, !isPlaying { blip() }
+            return
+        }
         chaseTarget = nil
         isSeekingForScrub = true
         player.seek(to: .seconds(target), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
             Task { @MainActor in self?.chaseNext() }
+        }
+    }
+
+    /// Audio scrub (#156): play about 90 ms from the new position, then stop where we were.
+    private func blip() {
+        scrubBlip?.cancel()
+        let position = player.currentTime()
+        scrubBlip = Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.player.playImmediately(atRate: 1)
+            try? await Task.sleep(nanoseconds: 90_000_000)
+            guard !Task.isCancelled, self.scrubBlip != nil else { return }
+            self.player.pause()
+            self.player.seek(to: position, toleranceBefore: .zero, toleranceAfter: .zero)
+            self.scrubBlip = nil
         }
     }
 

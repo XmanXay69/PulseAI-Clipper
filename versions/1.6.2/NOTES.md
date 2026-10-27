@@ -93,6 +93,20 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
 - **One system dot** (#421) — the top bar's LOCAL / CLOUD pill is now one quiet indicator whose popover lists
   processing location, memory, GPU mode and network; the save state is a dot you can hover (#405).
 
+### Batch 28
+
+- **Transparent exports** (#346) — Apple ProRes 4444 with a transparent background keeps the alpha channel,
+  for overlays and stingers that go on top of something else.
+- **True peak** (#280) — the loudness check reports the inter-sample peak in dBTP next to the LUFS figure.
+- **Hear it first** (#261) — Inspector → Audio → Enhance → "Hear 10 s raw vs processed" plays both and a switch
+  picks which one you hear, before the setting is committed.
+- **Audio scrub** (#156) — a blip of sound where the playhead lands while dragging (Settings → General).
+- **Track height** (#148) — Small / Medium / Large from Settings → General or any track header's menu.
+- **Project settings** (#445) — File → Project Settings… pins the export preset, target platform, loudness target
+  and caption look for one project while everything else follows Settings.
+- **Inspector and transcript in their own windows** (#429) — Window → … in Separate Window (⌥⇧⌘I / ⌥⇧⌘T).
+- **"= EXPORT" badge** (#197) — the viewer says it runs the export's renderer, so what you see is what ships.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
@@ -101,7 +115,7 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   Extras controls; each multicam cut is its own undo step (#329); waveforms are generated at low priority in the
   background on import (#381); the Edit / Captions / Colour / Audio / Deliver workspaces each remember their own
   panel sizes (#427, #428); ⇧⌘M marks a moment from any app while recording once Input Monitoring is allowed
-  (#464).
+  (#464); window recording with the window's title is in the recording sources (#332).
 
 ### Under the hood
 - `ChapterArt` (engine) draws with AppKit on the source frame, so a marker over a cutaway or gap is skipped.

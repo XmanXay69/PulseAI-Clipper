@@ -8,6 +8,8 @@ public enum MixLoudness {
     public struct Measurement: Sendable {
         public var lufs: Double
         public var peakDB: Double
+        /// Inter-sample ("true") peak in dBTP (#280), from 4× cubic oversampling; platforms want ≤ −1 dBTP.
+        public var truePeakDB: Double = -.infinity
     }
 
     public static func measure(timeline: Timeline, assets: [UUID: MediaAsset], compounds: [UUID: Timeline] = [:],
@@ -37,6 +39,7 @@ public enum MixLoudness {
         guard reader.startReading() else { throw EngineError.readerFailed(reader.error?.localizedDescription ?? "Couldn't read the mix") }
 
         var meter = StreamingLoudness(sampleRate: rate)
+        var truePeak: Float = 0
         var frames = 0
         var lastReported = -1.0
         let total = max(built.duration * rate, 1)
@@ -51,6 +54,7 @@ public enum MixLoudness {
                 right[i] = interleaved[2 * i + 1]
             }
             meter.add([left, right])
+            truePeak = max(truePeak, Self.interSamplePeak(left), Self.interSamplePeak(right))
             frames += count
             let fraction = min(1, Double(frames) / total)
             if fraction - lastReported >= 0.01 {
@@ -59,8 +63,26 @@ public enum MixLoudness {
             }
         }
         if reader.status == .failed { throw EngineError.readerFailed(reader.error?.localizedDescription ?? "Couldn't read the mix") }
-        let result = Measurement(lufs: meter.integratedLUFS, peakDB: meter.peakDB)
-        PulseLog.info(String(format: "Loudness check: %.1f LUFS, peak %.1f dBFS", result.lufs, result.peakDB))
+        var result = Measurement(lufs: meter.integratedLUFS, peakDB: meter.peakDB)
+        result.truePeakDB = truePeak > 0 ? 20 * log10(Double(truePeak)) : -.infinity
+        PulseLog.info(String(format: "Loudness check: %.1f LUFS, peak %.1f dBFS, true peak %.1f dBTP", result.lufs, result.peakDB, result.truePeakDB))
         return result
+    }
+
+    /// The largest absolute value the waveform reaches between samples, from Catmull-Rom interpolation at
+    /// quarter-sample points: close enough to the broadcast 4× oversampled true-peak meter for a readout.
+    static func interSamplePeak(_ x: [Float]) -> Float {
+        guard x.count >= 4 else { return x.map { abs($0) }.max() ?? 0 }
+        var peak: Float = 0
+        for i in 1..<(x.count - 2) {
+            let p0 = x[i - 1], p1 = x[i], p2 = x[i + 1], p3 = x[i + 2]
+            peak = max(peak, abs(p1))
+            for t in [Float(0.25), 0.5, 0.75] {
+                let t2 = t * t, t3 = t2 * t
+                let v = 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3)
+                peak = max(peak, abs(v))
+            }
+        }
+        return peak
     }
 }

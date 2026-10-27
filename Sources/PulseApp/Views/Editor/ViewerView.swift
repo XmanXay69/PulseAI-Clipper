@@ -87,7 +87,7 @@ struct ViewerView: View {
                                 .allowsHitTesting(false)
                         }
                         if app.settings.showSafeAreas, canvas.aspect < 1 {
-                            SafeAreaOverlay(platform: app.settings.safeAreaPlatform, chrome: app.settings.showPlatformChrome)
+                            SafeAreaOverlay(platform: session.document.overrides.safeAreaPlatform ?? app.settings.safeAreaPlatform, chrome: app.settings.showPlatformChrome)
                         }
                         if showGrid { GridOverlay() }
                         CanvasHandlesOverlay(session: session, playback: playback, frameSize: frameSize)
@@ -171,6 +171,10 @@ struct ViewerView: View {
                 .frame(minWidth: 60, maxWidth: 260, alignment: .leading)
                 .layoutPriority(1)
                 if t.hasAIContent { AIBadge(label: "AI edit").fixedSize() }
+                if session.effectivePlaybackQuality == .full {
+                    TagChip(text: "= EXPORT", color: Theme.textTertiary).fixedSize()
+                        .help("The viewer runs the same renderer as the export — captions, colour and layouts match the file exactly (#197)")
+                }
                 IconButton(symbol: "grid", help: "Grid, center lines and thirds", isActive: showGrid) { showGrid.toggle() }
                 IconButton(symbol: "waveform.path", help: "Scopes — luma waveform and vectorscope of the frame (#310)", isActive: showScopes) { showScopes.toggle() }
                 if let review = session.activeReview {

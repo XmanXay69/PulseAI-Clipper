@@ -4,16 +4,22 @@ public enum VideoCodec: String, Codable, CaseIterable, Sendable {
     case h264
     case hevc
     case proRes422
+    /// ProRes 4444 keeps an alpha channel (#346): overlays and stingers with a transparent background.
+    case proRes4444
+
+    public var isProRes: Bool { self == .proRes422 || self == .proRes4444 }
+    public var supportsAlpha: Bool { self == .proRes4444 }
 
     public var displayName: String {
         switch self {
         case .h264: return "H.264"
         case .hevc: return "HEVC (H.265)"
         case .proRes422: return "Apple ProRes 422"
+        case .proRes4444: return "Apple ProRes 4444 (alpha)"
         }
     }
 
-    public var fileExtension: String { self == .proRes422 ? "mov" : "mp4" }
+    public var fileExtension: String { isProRes ? "mov" : "mp4" }
 }
 
 public enum ExportQuality: String, Codable, CaseIterable, Sendable {
@@ -99,6 +105,8 @@ public struct ExportSettings: Codable, Hashable, Sendable {
     public var targetFileMB: Int?
     /// Burn the brand logo into this export (#353); nil = no watermark.
     public var watermark: WatermarkSpec?
+    /// Render over nothing instead of the canvas colour (#346); only ProRes 4444 keeps it in the file.
+    public var transparentBackground: Bool = false
     /// Also save a PNG of a representative frame next to the video (#337).
     public var exportThumbnail: Bool
     /// Bring the mix to this integrated loudness at export (−14 YouTube, −16 podcasts, −18 quiet); nil = only check (#279).
@@ -160,6 +168,7 @@ public struct ExportSettings: Codable, Hashable, Sendable {
         audioOnly = c.decode(Bool.self, forKey: .audioOnly, default: d.audioOnly)
         targetFileMB = c.decode(Int?.self, forKey: .targetFileMB, default: nil)
         watermark = c.decode(WatermarkSpec?.self, forKey: .watermark, default: nil)
+        transparentBackground = c.decode(Bool.self, forKey: .transparentBackground, default: false)
         exportThumbnail = c.decode(Bool.self, forKey: .exportThumbnail, default: d.exportThumbnail)
         loudnessTarget = c.decode(Double?.self, forKey: .loudnessTarget, default: nil)
         lowPriority = c.decode(Bool.self, forKey: .lowPriority, default: false)

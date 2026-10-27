@@ -1068,7 +1068,8 @@ final class AppModel: ObservableObject {
         }
         var export = session.document.exportSettings
         if ExportPreset.preset(id: export.presetID) == nil {
-            export = ExportSettings(preset: ExportPreset.preset(id: settings.defaultExportPresetID) ?? .tiktok)
+            export = ExportSettings(preset: ExportPreset.preset(id: session?.document.overrides.exportPresetID ?? settings.defaultExportPresetID) ?? .tiktok)
+            if let target = session?.document.overrides.loudnessTarget { export.loudnessTarget = target }
         }
         if export.outputDirectory.isEmpty { export.outputDirectory = exportFolder.path }
         if EditFormat.of(timeline) == .longForm, ["tiktok", "shorts", "reels"].contains(export.presetID) {

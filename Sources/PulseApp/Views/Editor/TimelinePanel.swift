@@ -8,13 +8,17 @@ enum TimelineMetrics {
     static let rulerHeight: CGFloat = 26
     /// Tighter rows for long timelines (#182): set from Settings, or on its own past 300 clips.
     nonisolated(unsafe) static var compact = false
+    /// Track height preset (#148), applied on top of the compact mode.
+    nonisolated(unsafe) static var heightScale: CGFloat = 1
 
     static func laneHeight(_ kind: TrackKind) -> CGFloat {
+        let base: CGFloat
         switch kind {
-        case .video: return compact ? 40 : 58
-        case .audio: return compact ? 30 : 46
-        case .text: return compact ? 24 : 32
+        case .video: base = compact ? 40 : 58
+        case .audio: base = compact ? 30 : 46
+        case .text: base = compact ? 24 : 32
         }
+        return (base * heightScale).rounded()
     }
 }
 
@@ -107,6 +111,7 @@ struct TimelineToolbar: View {
                 if session.lastEditCheck == nil { session.checkEdit() } else { session.showEditCheck.toggle() }
             }
             .popover(isPresented: $session.showEditCheck, arrowEdge: .bottom) { EditCheckView(session: session).frame(width: 380) }
+            .sheet(isPresented: $session.showProjectSettings) { ProjectSettingsSheet(session: session) }
             IconButton(symbol: TimelineMetrics.compact ? "rectangle.compress.vertical" : "rectangle.expand.vertical", help: "Compact tracks (#182)", isActive: app.settings.compactTimeline) {
                 app.settings.compactTimeline.toggle()
                 TimelineMetrics.compact = app.settings.compactTimeline || (session.activeTimeline?.allClips.count ?? 0) > 300
@@ -137,8 +142,12 @@ struct TimelineToolbar: View {
         .padding(.horizontal, 10)
         .frame(height: 34)
         .background(Theme.panelRaised)
-        .onAppear { TimelineMetrics.compact = app.settings.compactTimeline || (session.activeTimeline?.allClips.count ?? 0) > 300 }
+        .onAppear {
+            TimelineMetrics.compact = app.settings.compactTimeline || (session.activeTimeline?.allClips.count ?? 0) > 300
+            TimelineMetrics.heightScale = CGFloat(app.settings.trackHeight.scale)
+        }
         .onChange(of: app.settings.compactTimeline) { _, on in TimelineMetrics.compact = on || (session.activeTimeline?.allClips.count ?? 0) > 300 }
+        .onChange(of: app.settings.trackHeight) { _, preset in TimelineMetrics.heightScale = CGFloat(preset.scale) }
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
     }
 
@@ -508,6 +517,13 @@ struct TrackHeader: View {
                 .disabled(session.activeTimeline?.trackIndex(id: track.id) == 0)
             Button("Move Track Down") { let id = track.id; session.editTimeline("Move Track") { $0.moveTrack(id: id, by: 1) } }
                 .disabled((session.activeTimeline?.trackIndex(id: track.id) ?? 0) >= (session.activeTimeline?.tracks.count ?? 1) - 1)
+            Menu("Track Height") {
+                ForEach(TrackHeightPreset.allCases, id: \.self) { preset in
+                    Button { session.app.settings.trackHeight = preset } label: {
+                        if session.app.settings.trackHeight == preset { Label(preset.displayName, systemImage: "checkmark") } else { Text(preset.displayName) }
+                    }
+                }
+            }
             Menu("Colour") {
                 Button("None") { update { $0.color = nil } }
                 ForEach(MarkerColor.allCases, id: \.self) { c in

@@ -60,6 +60,8 @@ public enum CompositionBuilder {
         public var renderEnhancements = true
         /// A logo to burn into every frame (exports, #353).
         public var watermark: WatermarkSpec?
+        /// Leave the canvas clear where nothing is drawn (#346); the encoder decides whether that survives.
+        public var transparentBackground = false
 
         public init(renderSize: CGSize? = nil, useProxies: Bool = false, includeCaptions: Bool = true, showSafeArea: SafeAreaPlatform? = nil,
                     enhanceCacheDirectory: URL? = PulseDirectories.cache("Enhanced Audio")) {
@@ -80,7 +82,7 @@ public enum CompositionBuilder {
             return CaptionRenderData(track: captions, timeline: timeline)
         }()
         let scene = RenderScene(canvas: timeline.canvas, renderSize: renderSize, captions: captionData, showSafeArea: options.showSafeArea,
-                                watermark: options.watermark.flatMap { RenderScene.Watermark(spec: $0) })
+                                watermark: options.watermark.flatMap { RenderScene.Watermark(spec: $0) }, transparentBackground: options.transparentBackground)
 
         // Background filler keeps a video track alive so the compositor always runs (text-only, gaps).
         let filler = try await BlackFiller.shared.asset()

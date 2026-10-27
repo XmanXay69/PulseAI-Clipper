@@ -17,6 +17,7 @@ public final class ExportEngine: @unchecked Sendable {
         var buildOptions = CompositionBuilder.Options(renderSize: renderSize, useProxies: false, includeCaptions: settings.burnInCaptions)
         buildOptions.compounds = compounds
         buildOptions.watermark = settings.watermark
+        buildOptions.transparentBackground = settings.transparentBackground && settings.codec.supportsAlpha
         let built = try await CompositionBuilder.build(timeline: timeline, assets: assets, options: buildOptions)
         if !built.missingAssetIDs.isEmpty {
             let names = built.missingAssetIDs.compactMap { assets[$0]?.name }.joined(separator: ", ")
@@ -73,7 +74,7 @@ public final class ExportEngine: @unchecked Sendable {
 
         let temp = destination.deletingLastPathComponent().appendingPathComponent(".pulse-export-\(UUID().uuidString).\(settings.outputExtension)")
         try? FileManager.default.removeItem(at: temp)
-        let writer = try AVAssetWriter(outputURL: temp, fileType: audioOnly ? .m4a : (settings.codec == .proRes422 ? .mov : .mp4))
+        let writer = try AVAssetWriter(outputURL: temp, fileType: audioOnly ? .m4a : (settings.codec.isProRes ? .mov : .mp4))
         writer.shouldOptimizeForNetworkUse = true
         writer.metadata = Self.metadata(for: timeline)
 
@@ -99,8 +100,10 @@ public final class ExportEngine: @unchecked Sendable {
             ] as [String: Any]
         case .proRes422:
             videoSettings[AVVideoCodecKey] = AVVideoCodecType.proRes422
+        case .proRes4444:
+            videoSettings[AVVideoCodecKey] = AVVideoCodecType.proRes4444
         }
-        if settings.useHardwareEncoding && settings.codec != .proRes422 {
+        if settings.useHardwareEncoding && !settings.codec.isProRes {
             videoSettings[AVVideoEncoderSpecificationKey] = [
                 kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder as String: true,
             ]

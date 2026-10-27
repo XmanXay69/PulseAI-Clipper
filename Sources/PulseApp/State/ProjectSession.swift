@@ -74,6 +74,8 @@ final class ProjectSession: ObservableObject, Identifiable {
     /// The last Check Edit result, shown as a panel instead of an alert (#436).
     @Published var lastEditCheck: EditCheckReport?
     @Published var showEditCheck = false
+    /// File → Project Settings… (#445).
+    @Published var showProjectSettings = false
     @Published var focusedCaptionWordID: UUID?
     /// Show only clips with this label; others dim (#177).
     @Published var labelFilter: MarkerColor?
@@ -343,6 +345,7 @@ final class ProjectSession: ObservableObject, Identifiable {
 
     func reloadPlayback(debounce: Double = 0.05) {
         guard let timeline = activeTimeline else { return }
+        playback.audioScrub = app.settings.audioScrub
         playback.load(timeline: timeline, assets: assetsByID, compounds: document.compoundsByID,
                       useProxies: app.settings.proxy.useProxiesForPlayback, debounce: debounce,
                       renderScale: effectivePlaybackQuality.scale)
@@ -1226,7 +1229,7 @@ final class ProjectSession: ObservableObject, Identifiable {
             let transcript = try TranscriptParser.parse(data: Data(contentsOf: url), fileExtension: url.pathExtension)
             let sourceRanges = timeline.allClips.filter { $0.content.assetID == assetID }.map(\.sourceRange).merged()
             guard let start = sourceRanges.first?.start, let end = sourceRanges.last?.end else { return }
-            let style = timeline.captions?.style ?? CaptionStyle.preset(named: app.settings.ai.captionPresetName) ?? .tiktok
+            let style = timeline.captions?.style ?? CaptionStyle.preset(named: document.overrides.captionPresetName ?? app.settings.ai.captionPresetName) ?? .tiktok
             editTimeline("Import Captions") { t in
                 t.captions = CaptionTrack.make(from: transcript, range: TimeRange(start: start, end: end), assetID: assetID, style: style, emphasize: false, aiGenerated: false)
             }
@@ -1363,7 +1366,8 @@ final class ProjectSession: ObservableObject, Identifiable {
         -> (timeline: Timeline, wantsMusic: Bool, options: ShortBuildOptions, music: MediaAsset?, sfx: [MediaAsset])? {
         guard let asset = document.asset(id: candidate.assetID) else { return nil }
         var options = ShortBuildOptions(settings: app.settings.ai, mode: mode)
-        options.canvasPresetID = app.settings.safeAreaPlatform == .youtubeShorts ? CanvasPreset.shorts.id : (app.settings.safeAreaPlatform == .instagramReels ? CanvasPreset.reels.id : CanvasPreset.tiktok.id)
+        let platform = document.overrides.safeAreaPlatform ?? app.settings.safeAreaPlatform
+        options.canvasPresetID = platform == .youtubeShorts ? CanvasPreset.shorts.id : (platform == .instagramReels ? CanvasPreset.reels.id : CanvasPreset.tiktok.id)
         // "Make shorts like this reference": its captions, zooms, pacing and effects.
         var wantsMusic = app.settings.ai.aiMusic
         if let style {

@@ -354,6 +354,10 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var importPreset: ImportPreset = .auto
     /// After every finished export, write a thumbnail design for the edit to Thumbnail Studio (#357).
     public var thumbnailAfterExport: Bool = false
+    /// Hear a blip of audio while dragging the playhead (#156).
+    public var audioScrub: Bool = false
+    /// How tall timeline tracks are (#148).
+    public var trackHeight: TrackHeightPreset = .medium
 
     public init() {}
 
@@ -410,6 +414,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
         thumbnailCacheMB = c.decode(Int.self, forKey: .thumbnailCacheMB, default: d.thumbnailCacheMB).clamped(50, 2000)
         importPreset = c.decode(ImportPreset.self, forKey: .importPreset, default: d.importPreset)
         thumbnailAfterExport = c.decode(Bool.self, forKey: .thumbnailAfterExport, default: d.thumbnailAfterExport)
+        audioScrub = c.decode(Bool.self, forKey: .audioScrub, default: d.audioScrub)
+        trackHeight = c.decode(TrackHeightPreset.self, forKey: .trackHeight, default: d.trackHeight)
         showPlatformChrome = c.decode(Bool.self, forKey: .showPlatformChrome, default: d.showPlatformChrome)
         watchFolderAnalyzes = c.decode(Bool.self, forKey: .watchFolderAnalyzes, default: d.watchFolderAnalyzes)
         nightlyBatchHour = c.decode(Int?.self, forKey: .nightlyBatchHour, default: nil)
@@ -420,4 +426,19 @@ public struct AppSettings: Codable, Hashable, Sendable {
         defaultTransitionDuration = c.decode(Seconds.self, forKey: .defaultTransitionDuration, default: d.defaultTransitionDuration)
         streamSetup = c.decode(StreamSetup?.self, forKey: .streamSetup, default: nil)
     }
+}
+
+/// Timeline track height (#148), as a multiplier on the standard lane sizes.
+public enum TrackHeightPreset: String, Codable, CaseIterable, Sendable {
+    case small, medium, large
+
+    public var scale: Double {
+        switch self {
+        case .small: return 0.75
+        case .medium: return 1
+        case .large: return 1.45
+        }
+    }
+
+    public var displayName: String { rawValue.capitalized }
 }

@@ -83,14 +83,16 @@ public final class RenderScene: @unchecked Sendable {
     public let captions: CaptionRenderData?
     public let showSafeArea: SafeAreaPlatform?
     public let watermark: Watermark?
+    public let transparentBackground: Bool
 
     public init(canvas: CanvasSettings, renderSize: CGSize, captions: CaptionRenderData?, showSafeArea: SafeAreaPlatform? = nil,
-                watermark: Watermark? = nil) {
+                watermark: Watermark? = nil, transparentBackground: Bool = false) {
         self.canvas = canvas
         self.renderSize = renderSize
         self.captions = captions
         self.showSafeArea = showSafeArea
         self.watermark = watermark
+        self.transparentBackground = transparentBackground
     }
 
     /// Output pixels per canvas unit.

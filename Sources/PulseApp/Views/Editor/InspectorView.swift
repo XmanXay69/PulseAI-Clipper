@@ -356,6 +356,7 @@ struct ClipInspector: View {
         return LabeledSlider(label: label, value: binding, range: range, onEditingChanged: { if !$0 { session.commitCoalescing() } })
     }
 
+    @ViewBuilder
     var styleSection: some View {
         InspectorSection("Shape & Border", expanded: clip.role == .webcam) {
             Picker("Mask", selection: b.value("Mask", \.style.mask, fallback: .rectangle)) {
@@ -589,6 +590,7 @@ struct AudioInspector: View {
             b.plainSlider("Release", \.audio.duckRelease, range: 0.05...3, format: "%.2f", unit: " s")
         }
         InspectorSection("Enhance", expanded: clip.audio.needsEnhanceRender) {
+            EnhancePreviewRow(session: session, clip: clip)
             HStack(spacing: 6) {
                 Button { session.editClip(clip.id, "Voice Preset") { $0.audio.applyVoicePreset() } } label: { Label("Voice Preset", systemImage: "mic") }
                     .buttonStyle(.pulse(.secondary, compact: true))
@@ -1090,5 +1092,41 @@ struct ClipLabelRow: View {
                 .accessibilityAddTraits(current == color ? [.isSelected] : [])
             }
         }
+    }
+}
+
+
+/// "Hear 10 s": raw against processed for the clip's enhance settings (#261).
+struct EnhancePreviewRow: View {
+    @ObservedObject var session: ProjectSession
+    let clip: TimelineClip
+    @StateObject private var preview = EnhancePreview()
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if preview.isPlaying {
+                Picker("", selection: $preview.hearing) {
+                    Text("Raw").tag(EnhancePreview.Hearing.raw)
+                    Text("Processed").tag(EnhancePreview.Hearing.processed)
+                }
+                .pickerStyle(.segmented).labelsHidden().frame(width: 150)
+                Button("Stop") { preview.stop() }.buttonStyle(.pulse(.ghost, compact: true))
+            } else {
+                Button {
+                    guard let id = clip.assetID, let asset = session.document.asset(id: id) else { return }
+                    session.playback.pause()
+                    let local = max(0, min(session.playhead - clip.start, clip.duration))
+                    preview.start(sourceURL: session.url(for: asset), clip: clip, sourceTime: clip.sourceTime(atTimeline: clip.start + local))
+                } label: {
+                    Label(preview.isRendering ? "Rendering…" : "Hear 10 s raw vs processed", systemImage: "ear")
+                }
+                .buttonStyle(.pulse(.secondary, compact: true))
+                .disabled(preview.isRendering || !clip.audio.needsProcessing)
+                .help(clip.audio.needsProcessing ? "Plays ten seconds around the playhead with and without these settings — flip between them while it plays (#261)"
+                                                 : "Turn on an enhance setting first")
+            }
+            if let error = preview.error { Text(error).font(.pulseMicro).foregroundStyle(Theme.warning).lineLimit(1) }
+        }
+        .onDisappear { preview.stop() }
     }
 }
