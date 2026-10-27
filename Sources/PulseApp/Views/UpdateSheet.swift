@@ -26,7 +26,7 @@ struct UpdateSheet: View {
                     } else if case .failed(let message) = updater.state {
                         Label(message, systemImage: "exclamationmark.triangle.fill").font(.pulseBody).foregroundStyle(Theme.warning)
                     } else if updater.state == .checking {
-                        HStack { ProgressView().controlSize(.small); Text("Checking GitHub…").font(.pulseBody) }
+                        BusyLine("Checking GitHub…")
                     } else {
                         Label("You're on the latest version.", systemImage: "checkmark.seal.fill").font(.pulseBody).foregroundStyle(Theme.success)
                     }
@@ -41,7 +41,7 @@ struct UpdateSheet: View {
                     Text("Downloading \(ByteCountFormatter.string(fromByteCount: Int64(Double(release.sizeBytes) * fraction), countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: release.sizeBytes, countStyle: .file))")
                         .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
                 } else if case .installing = updater.state {
-                    HStack { ProgressView().controlSize(.small); Text("Installing — PULSE will reopen in a moment…").font(.pulseCaption) }
+                    BusyLine("Installing — PULSE will reopen in a moment…")
                 }
                 Label("Your projects, settings and downloaded caption models are kept — they live outside the app, so nothing is re-downloaded.",
                       systemImage: "externaldrive.badge.checkmark")

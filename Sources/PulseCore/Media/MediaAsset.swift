@@ -258,10 +258,39 @@ public struct MediaFolder: Codable, Hashable, Identifiable, Sendable {
     public var id: UUID
     public var name: String
     public var parentID: UUID?
+    /// A colour label for the media panel (#20); nil = plain.
+    public var color: MarkerColor?
 
-    public init(id: UUID = UUID(), name: String, parentID: UUID? = nil) {
+    public init(id: UUID = UUID(), name: String, parentID: UUID? = nil, color: MarkerColor? = nil) {
         self.id = id
         self.name = name
         self.parentID = parentID
+        self.color = color
+    }
+}
+
+extension ProjectDocument {
+    /// Folders as a tree flattened top-down, each with its depth (#20); orphans sit at the root.
+    public var folderTree: [(folder: MediaFolder, depth: Int)] {
+        var out: [(MediaFolder, Int)] = []
+        let ids = Set(folders.map(\.id))
+        func walk(_ parent: UUID?, depth: Int, seen: inout Set<UUID>) {
+            for folder in folders where (folder.parentID == parent || (parent == nil && folder.parentID.map { !ids.contains($0) } == true)) && !seen.contains(folder.id) {
+                seen.insert(folder.id)
+                out.append((folder, depth))
+                if depth < 8 { walk(folder.id, depth: depth + 1, seen: &seen) }
+            }
+        }
+        var seen = Set<UUID>()
+        walk(nil, depth: 0, seen: &seen)
+        return out
+    }
+
+    /// Removes a folder: its media and sub-folders move up to its parent.
+    public mutating func removeFolder(id: UUID) {
+        guard let folder = folders.first(where: { $0.id == id }) else { return }
+        for i in media.indices where media[i].folderID == id { media[i].folderID = folder.parentID }
+        for i in folders.indices where folders[i].parentID == id { folders[i].parentID = folder.parentID }
+        folders.removeAll { $0.id == id }
     }
 }

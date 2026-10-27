@@ -563,7 +563,7 @@ struct CandidateDetailPanel: View {
                 Button {
                     generateCloudCopy()
                 } label: {
-                    if aiBusy { ProgressView().controlSize(.mini) } else { Label("Rewrite with AI", systemImage: "sparkles") }
+                    if aiBusy { HStack(spacing: 6) { IndeterminateBar(width: 40); Text("Rewriting…") } } else { Label("Rewrite with AI", systemImage: "sparkles") }
                 }
                 .buttonStyle(.pulse(.ghost, compact: true))
                 .disabled(aiBusy)

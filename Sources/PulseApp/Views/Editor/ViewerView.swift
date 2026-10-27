@@ -93,7 +93,15 @@ struct ViewerView: View {
                         if showGrid { GridOverlay() }
                         CanvasHandlesOverlay(session: session, playback: playback, frameSize: frameSize)
                         if playback.isBuilding {
-                            ProgressView().controlSize(.small).padding(8).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                            VStack(alignment: .leading, spacing: 3) {
+                                IndeterminateBar(width: 90)
+                                Text("Rebuilding").font(.pulseMicro).foregroundStyle(.white.opacity(0.85))
+                            }
+                            .padding(.horizontal, 9).padding(.vertical, 6)
+                            .background(RoundedRectangle(cornerRadius: 7).fill(.black.opacity(0.55)))
+                            .padding(8)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                            .allowsHitTesting(false)
                         } else if playback.isEnhancingAudio {
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack(spacing: 5) {

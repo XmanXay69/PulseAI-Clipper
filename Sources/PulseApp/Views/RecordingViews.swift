@@ -60,7 +60,7 @@ struct RecordView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 if recorder.isLoadingSources {
-                    HStack { ProgressView().controlSize(.small); Text("Finding screens and windows…").font(.pulseCaption).foregroundStyle(Theme.textSecondary) }
+                    BusyLine("Finding screens and windows…")
                 } else if let error = recorder.loadError {
                     VStack(alignment: .leading, spacing: 8) {
                         Label("Screen Recording permission needed", systemImage: "lock.shield").font(.pulseHeadline).foregroundStyle(Theme.warning)

@@ -123,6 +123,10 @@ final class AppModel: ObservableObject {
     @Published var toastMessage: Toast?
     @Published var pendingRecoveries: [RecoverySnapshot] = []
     @Published var showOnboarding = false
+    /// The spotlight tour's current step (#432); nil when it isn't running.
+    @Published var tourStep: Int?
+
+    func startTour() { tourStep = 0 }
     @Published var showNewProjectSheet = false
     @Published var showGlobalSearch = false
     @Published var globalTemplates: [ClipTemplate] = []
@@ -818,19 +822,19 @@ final class AppModel: ObservableObject {
     /// Settings → Brand Kit → Preview on the sample: the next sample project's short gets the kit (#372).
     var brandKitPreviewPending = false
 
-    func openDemoProject() {
-        jobs.start("Preparing sample project", kind: .importMedia) { [weak self] job in
+    func openDemoProject(genre: DemoMediaGenerator.Genre = .gaming) {
+        jobs.start("Preparing sample project · \(genre.displayName)", kind: .importMedia) { [weak self] job in
             guard let self else { return }
             let mediaDir = PulseDirectories.applicationSupport.appendingPathComponent("Sample Media", isDirectory: true)
-            job.detail = "Generating sample stream"
-            let demo = try await DemoMediaGenerator.generate(in: mediaDir) { p in
+            job.detail = "Generating sample \(genre.displayName.lowercased())"
+            let demo = try await DemoMediaGenerator.generate(in: mediaDir, genre: genre) { p in
                 Task { @MainActor in job.progress = p * 0.5 }
             }
-            let (package, document) = try self.store.create(name: "PULSE Sample Stream", in: self.projectsFolder)
+            let (package, document) = try self.store.create(name: genre.projectName, in: self.projectsFolder)
             self.openSession(package: package, document: document)
             guard let session = self.session else { return }
             let meta = try await MediaProbe.probe(demo.videoURL)
-            let asset = MediaAsset(name: "PULSE Demo Stream", path: demo.videoURL.path, bookmark: nil, kind: .video, role: .main, metadata: meta, generatedBy: "demo")
+            let asset = MediaAsset(name: genre.assetName, path: demo.videoURL.path, bookmark: nil, kind: .video, role: .main, metadata: meta, generatedBy: "demo")
             session.edit("Import Sample") { doc in
                 doc.media.append(asset)
                 doc.primaryAssetID = asset.id
@@ -840,10 +844,12 @@ final class AppModel: ObservableObject {
             let output = try await pipeline.run(asset: asset, options: .init(transcribe: false, detectFaces: true, ai: self.settings.ai, importedTranscript: demo.transcript),
                                                 progress: { p in Task { @MainActor in job.progress = 0.5 + p.fraction * 0.45 } })
             var analysis = output.analysis
-            if analysis.webcam == nil {
+            if analysis.webcam == nil, genre == .gaming {
                 analysis.visual?.faces = demo.faces
                 analysis.webcam = WebcamEstimator.estimate(faces: demo.faces, frameSize: meta.size)
                 analysis.profile = .gameplayWithFacecam
+            } else if genre != .gaming, analysis.visual?.faces.isEmpty ?? true {
+                analysis.visual?.faces = demo.faces
             }
             session.setAnalysis(analysis)
             session.edit("Analyze Sample") { doc in doc.updateAsset(id: asset.id) { $0.preparation.analysisState = .complete } }

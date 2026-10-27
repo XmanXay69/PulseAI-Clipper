@@ -83,7 +83,10 @@ struct ThumbnailSheet: View {
                 if let image = previews[id] {
                     Image(decorative: image, scale: 1).resizable().aspectRatio(contentMode: .fill)
                 } else {
-                    ProgressView().controlSize(.small)
+                    VStack(spacing: 4) {
+                        IndeterminateBar(width: 48)
+                        Text("Grabbing the frame").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                    }
                 }
             }
             .frame(width: 160, height: 90)
@@ -146,7 +149,7 @@ struct ThumbnailSheet: View {
                 Task { await create() }
             } label: {
                 if working {
-                    ProgressView().controlSize(.small)
+                    HStack(spacing: 8) { IndeterminateBar(color: .white, width: 60); Text("Opening…") }
                 } else {
                     Text(studioInstalled ? "Open \(designCount) Design\(designCount == 1 ? "" : "s") in Thumbnail Studio"
                                          : "Save \(designCount) Design\(designCount == 1 ? "" : "s")")

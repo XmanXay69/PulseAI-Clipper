@@ -135,8 +135,13 @@ struct HomeView: View {
             QuickActionTile(symbol: "slider.horizontal.3", title: "Set Up for My Stream", subtitle: app.settings.streamSetup == nil ? "Six questions, twenty settings" : "Change your answers", color: Theme.info) {
                 app.showSetupWizard = true
             }
-            QuickActionTile(symbol: "play.rectangle.on.rectangle", title: "Sample Project", subtitle: "See PULSE in action", color: Theme.warning) {
+            QuickActionTile(symbol: "play.rectangle.on.rectangle", title: "Sample Project", subtitle: "Gaming · right-click for podcast or IRL", color: Theme.warning) {
                 app.openDemoProject()
+            }
+            .contextMenu {
+                ForEach(DemoMediaGenerator.Genre.allCases, id: \.self) { genre in
+                    Button(genre.displayName) { app.openDemoProject(genre: genre) }
+                }
             }
         }
     }

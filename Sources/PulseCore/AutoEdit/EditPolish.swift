@@ -195,7 +195,7 @@ public enum EditPolish {
 
     /// A 10-second end screen after the last moment: dark slate, "thanks for watching", the right half left
     /// clear for YouTube's end-screen cards (videos / subscribe). Music plays out under it.
-    public static func addEndScreen(_ timeline: inout Timeline, length: Seconds = 10, handle: String = "") {
+    public static func addEndScreen(_ timeline: inout Timeline, length: Seconds = 10, handle: String = "", nextVideo: UUID? = nil) {
         guard let v = timeline.tracks.firstIndex(where: { $0.kind == .video }), let last = timeline.tracks[v].clips.max(by: { $0.end < $1.end }) else { return }
         let at = last.end
         if let li = timeline.tracks[v].clips.firstIndex(where: { $0.id == last.id }) {
@@ -205,6 +205,26 @@ public enum EditPolish {
         slate.transitionIn = ClipTransition(kind: .fadeToBlack, duration: 0.5, aiGenerated: true)
         timeline.tracks[v].clips.append(slate)
         timeline.tracks[v].sortClips()
+        // The next video's real thumbnail in the right half (#99), where YouTube's end-screen card will sit.
+        if let nextVideo {
+            let upper: Int
+            if let other = timeline.tracks.indices.first(where: { timeline.tracks[$0].kind == .video && $0 != v
+                && !timeline.tracks[$0].clips.contains { $0.timelineRange.overlaps(TimeRange(start: at, end: at + length)) } }) {
+                upper = other
+            } else {
+                timeline.tracks.append(Track(kind: .video, name: "V\(timeline.videoTracks.count + 1) End Screen"))
+                upper = timeline.tracks.count - 1
+            }
+            var next = TimelineClip(name: "Next Video", content: .media(assetID: nextVideo), start: at + 0.8, sourceDuration: length - 1,
+                                    role: .graphic, aiGenerated: true)
+            next.transform.scale = AnimatedDouble(0.42)
+            next.transform.positionX = AnimatedDouble(0.74)
+            next.transform.positionY = AnimatedDouble(0.46)
+            next.style = LayerStyle(mask: .roundedRectangle, cornerRadius: 0.06, borderWidth: 3, borderColor: .white, shadowRadius: 18, shadowOpacity: 0.5, shadowOffsetY: 6)
+            next.transitionIn = ClipTransition(kind: .crossDissolve, duration: 0.4, aiGenerated: true)
+            timeline.tracks[upper].clips.append(next)
+            timeline.tracks[upper].sortClips()
+        }
         guard let t = timeline.tracks.firstIndex(where: { $0.kind == .text }) else { return }
         let title = TextStyle(fontName: TextStyle.tiktokSans, fontSize: 84, weight: .black, textCase: .uppercase, color: .white,
                               strokeColor: .black, strokeWidth: 0, shadowOpacity: 0.4, shadowRadius: 10, shadowOffsetY: 4)

@@ -232,6 +232,21 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
 - **One sheet header** (#413) — Edit My VOD, Make Thumbnail, Overnight Batch, Project Settings, Extras,
   Report a Problem and Edit Like a Reference share one header component.
 
+### Batch 38
+
+- **Show me around** (#432) — a four-step tour over the real window: the sidebar, the page bar, the editor
+  and the search / Ask PULSE spots light up in turn with a card beside each. From the welcome screen or
+  Help → Take the Tour; Return goes on, Escape ends it.
+- **Sample projects per genre** (#449) — the sample project comes as a gaming stream, a two-host podcast
+  or a handheld IRL vlog, each synthesized on your Mac with its own script, moments and faces. Help →
+  Open Sample Project, or right-click the Home tile.
+- **Media folders** (#20) — a folder strip in the media panel: click to filter, drop media on a folder to
+  move it, right-click to rename, colour or delete; folders nest, and deleting one lifts its contents up.
+- **The next video on the end screen** (#99) — a Thumbnail Studio export in the project (an image named
+  "…thumbnail…") goes into the end screen's right half, where YouTube's card will sit.
+- **Bars, not spinners** (#412) — checking for updates, installing, finding screens, grabbing frames,
+  rebuilding the viewer and rewriting copy show a sweeping bar with words instead of a lone spinner.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
@@ -246,7 +261,10 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   separate files (#320); edits during a drag coalesce into one rebuild and undo step, with a 20–100 ms
   debounce (#380); inspector sections have disclosure arrows, reset icons and a per-section AI badge (#414);
   the canvas can fill the bars around a 16:9 source with a blurred copy of the same frame (#79, Canvas →
-  Blur fill).
+  Blur fill); timeline clips are rounded with a top highlight, a name chip, a filmstrip and tinted waveforms
+  (#403); Home opens on a soft-gradient hero with two primary cards and a tidy grid of actions (#406); the
+  app icon and the DMG background are drawn by the app itself (#440); a separate microphone recording is
+  found as the voice companion of a screen recording and synced by its audio (#10).
 
 ### Under the hood
 - `ChapterArt` (engine) draws with AppKit on the source frame, so a marker over a cutaway or gap is skipped.

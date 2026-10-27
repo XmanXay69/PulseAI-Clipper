@@ -31,6 +31,9 @@ extension ProjectSession {
             analyze(assetID: asset.id, generateClips: false) { [weak self] in self?.editMyVOD(options: options, segments: segments, hookPayoff: hookPayoff) }
             return
         }
+        var options = options
+        // A Thumbnail Studio export in the project fills the end screen's "next video" slot (#99).
+        if options.nextVideoAssetID == nil { options.nextVideoAssetID = nextVideoThumbnail?.id }
         lastLongFormOptions = options
         let job = app.jobs.start("Editing your VOD", kind: .autoEdit) { [weak self] job in
             guard let self else { return }
@@ -134,6 +137,14 @@ extension ProjectSession {
             self.app.toast("Your edit is ready — \(result.report)")
         }
         job.expect(longFormEstimate(options: options))
+    }
+
+    /// The newest image in the project that looks like a thumbnail (#99): a Thumbnail Studio export imported
+    /// or dropped in, named "…thumbnail…" or "…thumb…".
+    var nextVideoThumbnail: MediaAsset? {
+        document.media.filter { $0.kind == .image && !$0.isTrashed && ($0.name.localizedCaseInsensitiveContains("thumb") || $0.role == .graphic) }
+            .sorted { $0.importedAt > $1.importedAt }
+            .first { $0.name.localizedCaseInsensitiveContains("thumb") } ?? nil
     }
 
     /// Keeps a track's beats with its analysis so the timeline can draw the grid (#287).

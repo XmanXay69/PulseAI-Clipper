@@ -41,6 +41,8 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
     public var cutGameOnly = false
     /// Your @handle for the end screen (#374).
     public var socialHandle = ""
+    /// An image in the project (a Thumbnail Studio export) shown in the end screen's "next video" slot (#99).
+    public var nextVideoAssetID: UUID? = nil
     /// Your own meme pop-up text per mood (Settings → AI Features); empty = PULSE's default.
     public var memeTexts: [ClipTag: String] = [:]
 
@@ -640,7 +642,7 @@ public enum LongFormEditor {
 
         // Ending: an end screen for YouTube's cards, or a soft fade.
         if options.endScreen && landscape && analysis.duration > 120 {
-            EditPolish.addEndScreen(&timeline, handle: options.socialHandle)
+            EditPolish.addEndScreen(&timeline, handle: options.socialHandle, nextVideo: options.nextVideoAssetID)
         } else if let last = timeline.tracks[0].clips.indices.last {
             timeline.tracks[0].clips[last].transitionOut = ClipTransition(kind: .fadeToBlack, duration: 0.6, aiGenerated: true)
         }

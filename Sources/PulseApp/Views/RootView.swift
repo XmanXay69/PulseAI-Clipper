@@ -27,6 +27,7 @@ struct RootView: View {
         }
         .overlay(alignment: .bottom) { ToastView() }
         .overlay(alignment: .top) { RecordingHUD(recorder: app.recording) }
+        .overlay { if let step = app.tourStep { TourOverlay(step: step) } }
         .overlay {
             if dropTargeted {
                 RoundedRectangle(cornerRadius: 12)

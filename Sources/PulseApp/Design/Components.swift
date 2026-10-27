@@ -572,6 +572,49 @@ struct ProgressRing: View {
     }
 }
 
+/// A thin accent bar that sweeps while something with no known length runs (#412) — never a lone spinner.
+struct IndeterminateBar: View {
+    var color: Color = Theme.accent
+    var width: CGFloat? = nil
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 30)) { context in
+            let phase = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.4) / 1.4
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Theme.control)
+                    Capsule().fill(LinearGradient(colors: [color.opacity(0), color, color.opacity(0)], startPoint: .leading, endPoint: .trailing))
+                        .frame(width: geo.size.width * 0.45)
+                        .offset(x: (geo.size.width * 1.45) * CGFloat(phase) - geo.size.width * 0.45)
+                }
+                .clipShape(Capsule())
+            }
+        }
+        .frame(width: width, height: 4)
+        .accessibilityLabel("In progress")
+    }
+}
+
+/// "Working on it" as a sweeping bar with the words under it (#412).
+struct BusyLine: View {
+    let text: String
+    var color: Color = Theme.accent
+    var width: CGFloat = 160
+
+    init(_ text: String, color: Color = Theme.accent, width: CGFloat = 160) {
+        self.text = text
+        self.color = color
+        self.width = width
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            IndeterminateBar(color: color, width: width)
+            Text(text).font(.pulseCaption).foregroundStyle(Theme.textSecondary).lineLimit(2)
+        }
+    }
+}
+
 struct ThinProgressBar: View {
     let progress: Double
     var color: Color = Theme.accent

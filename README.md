@@ -31,7 +31,8 @@ Media pages, caption editing right on the viewer, a multicam switching sensitivi
 last videos", level meters with peak hold, a voice-vs-game balance slider, room tone between cuts, a face
 guide before you record, an "Ask PULSE" box that turns plain English into edits, a render-load bar on the
 ruler, an animated caption gallery, a game-plus-cam multicam style, a loudness readout, macros, better
-thumbnail frames and per-file import jobs ([notes](versions/1.6.2/NOTES.md)).
+thumbnail frames, per-file import jobs, a guided tour, sample projects per genre, media folders and the
+next video on the end screen ([notes](versions/1.6.2/NOTES.md)).
 
 **New in 1.6.1:** colour labels on clips with a filter, keyboard caption editing (tab, return, ⌫), a caption
 spell-check, a generated 3-second intro card from the Brand Kit, cuts that land on sentence ends, "Drop"

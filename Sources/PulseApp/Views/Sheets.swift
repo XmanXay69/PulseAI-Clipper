@@ -65,7 +65,15 @@ struct OnboardingView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { app.showSetupWizard = true }
                 } label: { Label("Set Up for My Stream", systemImage: "slider.horizontal.3") }
                     .buttonStyle(.pulse(.secondary))
-                Button { finish(); app.openDemoProject() } label: { Label("Open Sample Project", systemImage: "play.rectangle") }
+                Button { finish(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { app.startTour() } } label: { Label("Show Me Around", systemImage: "hand.point.up.left") }
+                    .buttonStyle(.pulse(.secondary))
+                    .help("A four-step tour over the real window (#432)")
+                Menu {
+                    ForEach(DemoMediaGenerator.Genre.allCases, id: \.self) { genre in
+                        Button(genre.displayName) { finish(); app.openDemoProject(genre: genre) }
+                    }
+                } label: { Label("Open Sample Project", systemImage: "play.rectangle") }
+                    .menuStyle(.borderlessButton).fixedSize()
                     .buttonStyle(.pulse(.secondary))
                 Button { finish(); app.showImportPanel() } label: { Label("Import a Video", systemImage: "square.and.arrow.down") }
                     .buttonStyle(.pulse(.primary))

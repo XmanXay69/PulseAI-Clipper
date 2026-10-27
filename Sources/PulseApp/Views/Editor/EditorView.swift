@@ -222,18 +222,25 @@ struct MediaPanel: View {
     @ObservedObject var session: ProjectSession
     @EnvironmentObject var app: AppModel
     @State private var query = ""
+    /// The folder being shown (#20); nil = everything.
+    @State private var folderID: UUID?
+    @State private var dropTargetFolder: UUID?
 
     var assets: [MediaAsset] {
-        session.document.media.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
+        session.document.media.filter { asset in
+            (query.isEmpty || asset.name.localizedCaseInsensitiveContains(query)) && (folderID == nil || asset.folderID == folderID)
+        }
     }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 TextField("Search media", text: $query).textFieldStyle(.roundedBorder).controlSize(.small)
+                IconButton(symbol: "folder.badge.plus", help: "New folder (#20) — drag media onto a folder to move it there") { newFolder() }
                 IconButton(symbol: "plus", help: "Import media (⌘I)") { app.showImportPanel() }
             }
             .padding(8)
+            if !session.document.folders.isEmpty { folderStrip }
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
                     ForEach(assets) { asset in
@@ -262,6 +269,14 @@ struct MediaPanel: View {
                         .contextMenu {
                             Button("Add at Playhead") { session.placeAsset(asset.id) }
                             Button("Analyze") { session.analyze(assetID: asset.id) }
+                            if !session.document.folders.isEmpty {
+                                Menu("Move to Folder") {
+                                    Button("No Folder") { move(asset.id, to: nil) }
+                                    ForEach(session.document.folderTree, id: \.folder.id) { entry in
+                                        Button(String(repeating: "   ", count: entry.depth) + entry.folder.name) { move(asset.id, to: entry.folder.id) }
+                                    }
+                                }
+                            }
                         }
                         .help("Double-click or drag onto the timeline")
                     }
@@ -269,6 +284,90 @@ struct MediaPanel: View {
                 .padding(8)
             }
         }
+    }
+
+    /// Folders as chips (#20): click to filter, drop media on one to move it, right-click to rename, colour or delete.
+    var folderStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 4) {
+                folderChip(nil, name: "All", depth: 0, color: nil, count: session.document.media.count)
+                ForEach(session.document.folderTree, id: \.folder.id) { entry in
+                    folderChip(entry.folder.id, name: entry.folder.name, depth: entry.depth, color: entry.folder.color,
+                               count: session.document.media.filter { $0.folderID == entry.folder.id }.count)
+                }
+            }
+            .padding(.horizontal, 8).padding(.bottom, 6)
+        }
+    }
+
+    func folderChip(_ id: UUID?, name: String, depth: Int, color: MarkerColor?, count: Int) -> some View {
+        let selected = folderID == id
+        let targeted = dropTargetFolder == id && id != nil
+        return Button { folderID = id } label: {
+            HStack(spacing: 4) {
+                if let color { Circle().fill(Color(color.rgba)).frame(width: 7, height: 7) }
+                else if id != nil { Image(systemName: "folder").font(.system(size: 9)) }
+                Text(String(repeating: "· ", count: depth) + name).font(.system(size: 10, weight: .medium)).lineLimit(1)
+                Text("\(count)").font(.system(size: 9)).foregroundStyle(Theme.textTertiary)
+            }
+            .padding(.horizontal, 7).padding(.vertical, 4)
+            .foregroundStyle(selected ? Theme.accent : Theme.textSecondary)
+            .background(RoundedRectangle(cornerRadius: 5).fill(selected || targeted ? Theme.control : Theme.panelRaised))
+            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(targeted ? Theme.accent : Theme.border))
+        }
+        .buttonStyle(.plain)
+        .dropDestination(for: String.self) { items, _ in
+            guard let id, let first = items.first, let assetID = UUID(uuidString: first) else { return false }
+            move(assetID, to: id)
+            return true
+        } isTargeted: { dropTargetFolder = $0 ? id : (dropTargetFolder == id ? nil : dropTargetFolder) }
+        .contextMenu {
+            if let id {
+                Button("Rename…") { rename(id) }
+                Menu("Colour") {
+                    Button("None") { setColor(id, nil) }
+                    ForEach(MarkerColor.allCases, id: \.self) { c in Button(c.rawValue.capitalized) { setColor(id, c) } }
+                }
+                Button("New Folder Inside") { newFolder(parent: id) }
+                Divider()
+                Button("Delete Folder", role: .destructive) {
+                    session.edit("Delete Folder") { $0.removeFolder(id: id) }
+                    if folderID == id { folderID = nil }
+                }
+            }
+        }
+        .help(id == nil ? "Everything in the project" : "Click to show this folder; drop media here to move it")
+    }
+
+    func newFolder(parent: UUID? = nil) {
+        let n = session.document.folders.count + 1
+        let folder = MediaFolder(name: "Folder \(n)", parentID: parent)
+        session.edit("New Folder") { $0.folders.append(folder) }
+        folderID = folder.id
+        rename(folder.id)
+    }
+
+    func rename(_ id: UUID) {
+        guard let folder = session.document.folders.first(where: { $0.id == id }) else { return }
+        let alert = NSAlert()
+        alert.messageText = "Folder name"
+        let field = NSTextField(string: folder.name)
+        field.frame = NSRect(x: 0, y: 0, width: 220, height: 24)
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Rename")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let name = field.stringValue.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        session.edit("Rename Folder") { doc in if let i = doc.folders.firstIndex(where: { $0.id == id }) { doc.folders[i].name = name } }
+    }
+
+    func setColor(_ id: UUID, _ color: MarkerColor?) {
+        session.edit("Folder Colour") { doc in if let i = doc.folders.firstIndex(where: { $0.id == id }) { doc.folders[i].color = color } }
+    }
+
+    func move(_ assetID: UUID, to folder: UUID?) {
+        session.edit("Move to Folder") { $0.updateAsset(id: assetID) { $0.folderID = folder } }
     }
 }
 

@@ -233,6 +233,12 @@ struct PulseCommands: Commands {
             Button("Check for Updates…") { app.updater.showSheet = true }
             Button("What's New in \(AppModel.shortVersion)…") { app.openWhatsNew() }
             Button("Set Up for My Stream…") { app.showSetupWizard = true }
+            Button("Take the Tour") { app.startTour() }
+            Menu("Open Sample Project") {
+                ForEach(DemoMediaGenerator.Genre.allCases, id: \.self) { genre in
+                    Button(genre.displayName) { app.openDemoProject(genre: genre) }
+                }
+            }
             Button("Report a Problem…") { app.showReportProblem = true }
             Button("Open Log Folder") { NSWorkspace.shared.open(PulseLog.directory) }
             Button(FrameRenderer.safeMode ? "Turn Off Safe Mode (CPU Rendering)" : "Use Safe Mode (CPU Rendering)") {
