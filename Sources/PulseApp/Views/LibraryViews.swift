@@ -857,8 +857,10 @@ struct ExportQueueView: View {
 }
 
 struct ExportJobRow: View {
+    @EnvironmentObject var app: AppModel
     @ObservedObject var queue: ExportQueueController
     let job: ExportJob
+    @State private var publishing = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -889,9 +891,14 @@ struct ExportJobRow: View {
                     Label("Completed", systemImage: "checkmark.circle.fill").font(.pulseMicro).foregroundStyle(Theme.success)
                     Spacer()
                     Button("Show in Finder") { queue.reveal(job) }.buttonStyle(.pulse(.ghost, compact: true))
+                    if !job.settings.audioOnly {
+                        Button("YouTube…") { publishing = true }.buttonStyle(.pulse(.ghost, compact: true))
+                            .help("Upload this file to your YouTube channel, private, unlisted, public or scheduled (#482). Sign in once in Settings → Publishing.")
+                    }
                     Button("Again") { queue.retry(job.id) }.buttonStyle(.pulse(.ghost, compact: true))
                         .help("Export this timeline again with the same settings (#351)")
                 }
+                .sheet(isPresented: $publishing) { PublishSheet(queue: queue, job: job).environmentObject(app) }
             case .failed(let message):
                 VStack(alignment: .leading, spacing: 4) {
                     Label("Failed", systemImage: "xmark.octagon.fill").font(.pulseMicro).foregroundStyle(Theme.danger)

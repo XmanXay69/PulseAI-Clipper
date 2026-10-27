@@ -41,6 +41,8 @@ struct EditExtrasSheet: View {
                     row("Facecam punch-ins", "person.crop.square", facecamDetail, \.facecamPunchIns, enabled: hasFacecam, preview: .punchIns)
                     row("B-roll cutaways", "film", "Short Creative Commons meme and reaction clips cut in on the funniest moments, downloaded from YouTube. Credits go in the description. Adds about a minute.",
                         \.brollClips, preview: .broll)
+                    row("Stills to motion", "photo.on.rectangle.angled", "When a moment has no cutaway, a photo from the project (or a frame of the recording a moment earlier) stands in with a slow push or drift (#485). Needs B-roll cutaways on.",
+                        \.stillMotion, enabled: extras.brollClips)
                     row("Beat-synced music & zooms", "metronome", musicOn ? "Music starts on a beat and the zooms land on beats. Adds a few seconds." : "Needs music; music is off for this edit.",
                         \.beatSync, enabled: musicOn, preview: .beatSync)
                     row("Speaker-aware cuts", "person.2.wave.2", speakerDetail, \.speakerAware, preview: .speakers)

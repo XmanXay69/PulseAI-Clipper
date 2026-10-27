@@ -410,6 +410,19 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   choices plus your stars as one .pulsepack file to hand to another streamer; Import Pack… applies the
   choices and fills in ratings you haven't given.
 
+### Batch 52
+
+- **Publish to YouTube** (#482) — Deliver → export queue → a finished job → YouTube…: the title, the
+  share-ready description and the hashtags come from the edit; pick private, unlisted or public, or tick Go
+  live at for a schedule (private until then). The upload runs as a job through YouTube's own Data API with a
+  Google OAuth client you own (Settings → Publishing walks through the five-minute setup; tokens stay in the
+  Keychain, PULSE asks only for the upload permission) and the link lands in a toast, the activity log and the
+  clipboard. TikTok's posting API needs app review, so TikTok keeps the share-ready copy and the upload page;
+  docs/PUBLISHING.md has the details.
+- **Stills to motion** (#485) — Edit My VOD → Extras → Stills to motion: a moment with no cutaway gets a
+  photo from the project whose name fits it (or a frame of the recording a moment earlier) with a slow push,
+  pull or drift, a different move per still, so a story with no footage still moves.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);

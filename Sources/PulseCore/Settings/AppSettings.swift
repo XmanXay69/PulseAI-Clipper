@@ -352,6 +352,10 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var watchFolderAnalyzes: Bool = true
     /// Split recordings into files of at most this many gigabytes (#322); 0 = never.
     public var recordingSplitGB: Double = 0
+    /// Google OAuth client id for publishing to YouTube (#482); the secret and tokens live in the Keychain.
+    public var youtubeClientID: String = ""
+    /// The channel the last sign-in was for, for the settings page.
+    public var youtubeChannel: String = ""
     /// Hour (0–23) at which the batch runs on what the watch folder gathered that day; nil = never (#461).
     public var nightlyBatchHour: Int?
     /// Stable releases only, or betas too (#454).
@@ -459,6 +463,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
         stats = c.decode(LifetimeStats.self, forKey: .stats, default: d.stats)
         watchFolder = c.decode(String.self, forKey: .watchFolder, default: d.watchFolder)
         recordingSplitGB = c.decode(Double.self, forKey: .recordingSplitGB, default: d.recordingSplitGB)
+        youtubeClientID = c.decode(String.self, forKey: .youtubeClientID, default: d.youtubeClientID)
+        youtubeChannel = c.decode(String.self, forKey: .youtubeChannel, default: d.youtubeChannel)
         compactTimeline = c.decode(Bool.self, forKey: .compactTimeline, default: d.compactTimeline)
         timelineFollowsPlayhead = c.decode(Bool.self, forKey: .timelineFollowsPlayhead, default: d.timelineFollowsPlayhead)
         batchPausesOnLowBattery = c.decode(Bool.self, forKey: .batchPausesOnLowBattery, default: d.batchPausesOnLowBattery)

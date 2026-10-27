@@ -119,6 +119,8 @@ extension ProjectSession {
                 if job.state != .running { return }
                 let found = await self.brollCutaways(result.brollMoments, job: job)
                 let placed = BrollPlacer.place(&result.timeline, clips: found.placements)
+                let stills = Set(found.placements.map(\.asset).filter { $0.kind == .image }.map(\.id))
+                if !stills.isEmpty { _ = Self.animateStills(in: &result.timeline, images: stills) }
                 if placed > 0 {
                     newAssets += found.placements.map { $0.asset }.filter { a in !self.document.media.contains { $0.id == a.id } }
                     result.timeline.notes += "\n\n" + BrollPlacer.creditBlock(found.clips)
@@ -286,6 +288,19 @@ extension ProjectSession {
                 asset.tags.append("creative-commons")
                 placements.append((asset, moment.time))
                 clips.append(hit.clip)
+            }
+        }
+        // Moments still without a cutaway get a still with a slow move (#485): a photo from the project, or a
+        // frame of the recording itself.
+        if app.settings.ai.editExtras.stillMotion, let primary = document.primaryAsset {
+            var usedStills = Set<UUID>()
+            let covered = Set(placements.map { Int(($0.at * 10).rounded()) })
+            for moment in moments where !covered.contains(Int((moment.time * 10).rounded())) {
+                if job.state != .running { break }
+                let sourceTime = activeTimeline.flatMap { t in t.allClips.first { $0.assetID == primary.id && $0.timelineRange.contains(moment.time) }?.sourceTime(atTimeline: moment.time) }
+                if let still = await stillForBroll(moment: moment, primary: primary, sourceTime: sourceTime, used: &usedStills) {
+                    placements.append((still, moment.time))
+                }
             }
         }
         PulseLog.info("B-roll: \(placements.count) of \(moments.count) cutaways found")

@@ -108,6 +108,12 @@ final class ExportQueueController: ObservableObject {
         for id in finished where jobs.first(where: { $0.id == id }) == nil { payloads[id] = nil }
     }
 
+    /// A YouTube upload draft from the job's timeline (#482).
+    func publishDraft(for job: ExportJob) -> YouTubeUpload? {
+        guard let payload = payloads[job.id] else { return nil }
+        return YouTubeUpload.draft(from: payload.timeline, projectName: job.projectName)
+    }
+
     func reveal(_ job: ExportJob) {
         guard let path = job.outputPath else { return }
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])

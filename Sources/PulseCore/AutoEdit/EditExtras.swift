@@ -34,6 +34,9 @@ public struct EditExtras: Codable, Hashable, Sendable {
     public var punchInsPerVideo = 0
     /// Your own title-card phrases, used in turn instead of the built-in ones when not empty (#138).
     public var titleCardPhrases: [String] = []
+    /// Stills to motion (#485): when a moment has no footage, a photo from the project or a frame of the
+    /// recording gets a slow push or drift and stands in as B-roll.
+    public var stillMotion: Bool = false
 
     public init(facecamPunchIns: Bool = false, brollClips: Bool = false, beatSync: Bool = false, speakerAware: Bool = false,
                 approveCut: Bool = false, titleCards: Bool = false, loudnessCheck: Bool = false, instantReplays: Bool = false) {
@@ -64,6 +67,7 @@ public struct EditExtras: Codable, Hashable, Sendable {
         punchInHold = c.decode(Seconds.self, forKey: .punchInHold, default: 1.8).clamped(0.8, 4)
         punchInsPerVideo = c.decode(Int.self, forKey: .punchInsPerVideo, default: 0).clamped(0, 20)
         titleCardPhrases = c.decode([String].self, forKey: .titleCardPhrases, default: [])
+        stillMotion = c.decode(Bool.self, forKey: .stillMotion, default: false)
     }
 
     /// The on/off answers only (the fine controls don't count).

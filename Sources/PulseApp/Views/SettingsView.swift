@@ -5,7 +5,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, aiProcessing, aiFeatures, brandKit, performance, transcription, files, proxies, shortcuts, plugins, statistics, diagnostics, privacy
+    case general, aiProcessing, aiFeatures, brandKit, performance, transcription, files, proxies, shortcuts, plugins, publishing, statistics, diagnostics, privacy
 
     var id: String { rawValue }
 
@@ -24,6 +24,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .diagnostics: return "Diagnostics"
         case .privacy: return "Privacy"
         case .plugins: return "Plugins"
+        case .publishing: return "Publishing"
         }
     }
 
@@ -43,6 +44,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .diagnostics: return "log report problem dependencies gpu encoder"
         case .privacy: return "data network telemetry offline"
         case .plugins: return "plugin effects signals extensions custom filters"
+        case .publishing: return "youtube upload publish schedule google sign in oauth tiktok"
         }
     }
 
@@ -61,6 +63,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .diagnostics: return "stethoscope"
         case .privacy: return "hand.raised"
         case .plugins: return "puzzlepiece.extension"
+        case .publishing: return "paperplane"
         }
     }
 }
@@ -128,6 +131,7 @@ struct SettingsView: View {
                     case .diagnostics: DiagnosticsPane()
                     case .privacy: PrivacyPane()
                     case .plugins: PluginsPane()
+                    case .publishing: PublishingPane()
                     }
                 }
                 .padding(24)
@@ -1559,5 +1563,53 @@ enum SoundPackSharing {
         }
         let taken = pack.apply(to: &app.settings.ai)
         app.toast("“\(pack.name)” applied — \(taken) rating\(taken == 1 ? "" : "s") taken on")
+    }
+}
+
+
+/// Settings → Publishing (#482): the Google OAuth client for YouTube uploads and the signed-in account.
+struct PublishingPane: View {
+    @EnvironmentObject var app: AppModel
+    @State private var secret = ""
+    @State private var signedIn = YouTubeAccount.credentials() != nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Uploads go straight from this Mac to your channel through YouTube's own API — private, unlisted, public or scheduled — from the export queue's YouTube… button. You bring the Google OAuth client (free, five minutes): docs/PUBLISHING.md walks through it. TikTok's posting API needs app review, so TikTok stays a share-ready copy and the upload page.")
+                .font(.pulseCaption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+            SettingsRow("Google client id", detail: "From the Google Cloud console: an OAuth client of type Desktop app, with the YouTube Data API v3 enabled.") {
+                TextField("…apps.googleusercontent.com", text: $app.settings.youtubeClientID).textFieldStyle(.roundedBorder).frame(width: 300)
+            }
+            SettingsRow("Client secret", detail: KeychainStore.read(account: YouTubeAccount.secretAccount) == nil ? "Optional for a Desktop client; saved in the Keychain." : "Saved in the Keychain.") {
+                HStack(spacing: 6) {
+                    SecureField("optional", text: $secret).textFieldStyle(.roundedBorder).frame(width: 200)
+                    Button("Save") { if KeychainStore.write(account: YouTubeAccount.secretAccount, value: secret) { secret = ""; app.toast("Secret saved") } }
+                        .buttonStyle(.pulse(.ghost, compact: true)).disabled(secret.isEmpty)
+                }
+            }
+            SettingsRow("Account", detail: signedIn ? "Signed in. Tokens stay in the Keychain; PULSE only asks for the upload permission." : "Not signed in.") {
+                HStack(spacing: 6) {
+                    Button(signedIn ? "Sign in again" : "Sign in with Google") { YouTubeAccount.signIn(app: app); refreshSoon() }
+                        .buttonStyle(.pulse(.primary, compact: true))
+                        .disabled(app.settings.youtubeClientID.trimmingCharacters(in: .whitespaces).isEmpty)
+                    if signedIn {
+                        Button("Sign out") { YouTubeAccount.signOut(app: app); signedIn = false }.buttonStyle(.pulse(.ghost, compact: true))
+                    }
+                }
+            }
+            Text("Only accounts.google.com, oauth2.googleapis.com and www.googleapis.com are contacted, and only when you sign in or press Upload.")
+                .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            Spacer()
+        }
+        .padding(16)
+    }
+
+    func refreshSoon() {
+        Task { @MainActor in
+            for _ in 0..<60 {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                if YouTubeAccount.credentials() != nil { signedIn = true; return }
+            }
+        }
     }
 }

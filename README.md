@@ -44,7 +44,8 @@ stretch you mark as silence; two-pass encoding; music beds with a measured tempo
 the Mac is idle; recordings split under a size limit and joined back together; the voice leaning toward the
 facecam; another project in a browser window with drag-and-drop between them; localization scaffolding; moments found by the live meter while recording; exact game timestamps from Riot's Live Client
 Data API or an imported event log; translated captions dubbed by the system voice for a second-language channel; a plugin
-folder for custom effects (Core Image filter chains with sliders) and signals (commands that print events); reviewing the moments from a phone on the same Wi-Fi; stars on sounds and shareable sound packs.
+folder for custom effects (Core Image filter chains with sliders) and signals (commands that print events); reviewing the moments from a phone on the same Wi-Fi; stars on sounds and shareable sound packs; publishing an export to YouTube (private, unlisted, public or scheduled) through your own Google
+OAuth client; stills with a slow move standing in for missing footage.
 
 **New in 1.6.1:** colour labels on clips with a filter, keyboard caption editing (tab, return, ⌫), a caption
 spell-check, a generated 3-second intro card from the Brand Kit, cuts that land on sentence ends, "Drop"
