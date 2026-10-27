@@ -189,7 +189,8 @@ public enum EditorAssistant {
         return x
     }
 
-    static func seconds(_ s: Seconds) -> String {
+    /// "12 s" under a minute, else "1:30".
+    public static func seconds(_ s: Seconds) -> String {
         s < 60 ? "\(Int(s.rounded())) s" : Timecode.short(s)
     }
 }

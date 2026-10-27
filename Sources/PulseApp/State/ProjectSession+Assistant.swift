@@ -56,7 +56,7 @@ extension ProjectSession {
             }
             guard let payoff = best?.time else { return "Couldn't find a moment to open on." }
             var applied = false
-            editTimeline("Punchier Hook") { applied = ShortsFromEdit.coldOpen(&$0, assetID: assetID, payoffAtSource: payoff) }
+            editTimeline("Punchier Hook") { applied = EditPolish.coldOpen(&$0, assetID: assetID, payoffAtSource: payoff) }
             playback.seek(to: 0)
             return applied ? "Opens on the moment at \(Timecode.short(payoff)) now, then the story." : "That moment is too close to the start to open on."
         case .captions(let on):

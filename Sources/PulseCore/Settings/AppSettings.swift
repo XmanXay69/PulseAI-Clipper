@@ -328,6 +328,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
     /// AI multicam switching (#327): 0 = patient, 1 = eager; and whether cuts snap to the music's beats.
     public var multicamSensitivity: Double = 0.5
     public var multicamOnBeat: Bool = false
+    /// Saved Ask PULSE sequences (#479).
+    public var macros: [EditorMacro] = []
     /// Grades you saved from the inspector (#317).
     public var gradePresets: [GradePreset] = []
     /// What PULSE has done for you so far (#478).
@@ -375,6 +377,13 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public init() {}
 
     /// Keeps a measured style (replacing an older one with the same name), newest first, at most 12.
+    /// Saves a macro, replacing one with the same name (#479).
+    public mutating func rememberMacro(_ macro: EditorMacro) {
+        macros.removeAll { $0.id == macro.id || $0.name.caseInsensitiveCompare(macro.name) == .orderedSame }
+        macros.insert(macro, at: 0)
+        if macros.count > 40 { macros.removeLast(macros.count - 40) }
+    }
+
     /// Keeps the fingerprint of a finished edit (#489): the last ten exports make up "my style".
     public mutating func noteOwnEdit(_ style: ReferenceStyle) {
         ownStyleSamples.insert(style, at: 0)
@@ -437,6 +446,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
         ownStyleSamples = c.decode([ReferenceStyle].self, forKey: .ownStyleSamples, default: d.ownStyleSamples)
         multicamSensitivity = c.decode(Double.self, forKey: .multicamSensitivity, default: d.multicamSensitivity)
         multicamOnBeat = c.decode(Bool.self, forKey: .multicamOnBeat, default: d.multicamOnBeat)
+        macros = c.decode([EditorMacro].self, forKey: .macros, default: d.macros)
         gradePresets = c.decode([GradePreset].self, forKey: .gradePresets, default: d.gradePresets)
         stats = c.decode(LifetimeStats.self, forKey: .stats, default: d.stats)
         watchFolder = c.decode(String.self, forKey: .watchFolder, default: d.watchFolder)

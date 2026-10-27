@@ -14,14 +14,18 @@ public struct ThumbnailPick: Identifiable, Hashable, Sendable {
     /// Why it was picked, e.g. "🔥 Peak reaction · 92".
     public var reason: String
     public var candidateID: UUID?
+    /// Where big text fits without covering the face (#361): the freer side of the frame.
+    public var textSpace: NormRect?
 
-    public init(id: UUID = UUID(), time: Seconds, face: NormRect? = nil, headline: String, reason: String, candidateID: UUID? = nil) {
+    public init(id: UUID = UUID(), time: Seconds, face: NormRect? = nil, headline: String, reason: String, candidateID: UUID? = nil,
+                textSpace: NormRect? = nil) {
         self.id = id
         self.time = time
         self.face = face
         self.headline = headline
         self.reason = reason
         self.candidateID = candidateID
+        self.textSpace = textSpace ?? ThumbnailPicker.textSpace(beside: face)
     }
 }
 
@@ -59,14 +63,41 @@ public enum ThumbnailPicker {
         return picks
     }
 
-    /// The best face frames in a range, at least `spacing` apart and away from `avoiding`.
+    /// The frame region left for text beside a face (#361): the wider of the two sides, full height, or
+    /// the top band when the face sits in the middle. The whole frame when there's no face.
+    public static func textSpace(beside face: NormRect?) -> NormRect {
+        guard let face else { return NormRect(x: 0.04, y: 0.06, width: 0.92, height: 0.4) }
+        let left = max(0, face.minX - 0.04)
+        let right = max(0, 1 - face.maxX - 0.04)
+        if max(left, right) >= 0.3 {
+            return left >= right ? NormRect(x: 0.04, y: 0.08, width: left - 0.04, height: 0.84)
+                                 : NormRect(x: face.maxX + 0.04, y: 0.08, width: right - 0.04, height: 0.84)
+        }
+        let above = max(0, face.minY - 0.04)
+        return NormRect(x: 0.04, y: 0.04, width: 0.92, height: max(0.12, above))
+    }
+
+    /// How much the biggest face grew over the previous second — a head coming at the camera is a
+    /// reaction (#361); 0 when it didn't, 1 when it doubled in size.
+    public static func reaction(at time: Seconds, visual: VisualFeatureSeries) -> Double {
+        let now = visual.faces(in: TimeRange(start: time - 0.01, end: time + 0.01)).first
+            ?? visual.faces.min { abs($0.time - time) < abs($1.time - time) }
+        guard let now, let face = now.boxes.max(by: { $0.area < $1.area }), face.area > 0 else { return 0 }
+        let earlier = visual.faces(in: TimeRange(start: time - 1.3, end: time - 0.5))
+        guard let before = earlier.compactMap({ $0.boxes.max { $0.area < $1.area }?.area }).max(), before > 0 else { return 0 }
+        return ((face.area / before) - 1).clamped(0, 1)
+    }
+
+    /// The best face frames in a range, at least `spacing` apart and away from `avoiding`: a big face that
+    /// just got bigger, holding still, with room beside it for the text.
     public static func alternates(in range: TimeRange, visual: VisualFeatureSeries?, count: Int, avoiding: [Seconds] = [],
                                   spacing: Seconds = 3) -> [(time: Seconds, face: NormRect)] {
         guard count > 0, let visual else { return [] }
         let scored = visual.faces(in: range).compactMap { sample -> (Seconds, NormRect, Double)? in
             guard let face = sample.boxes.max(by: { $0.area < $1.area }) else { return nil }
             let stillness = 1 - Double(visual.motion(at: sample.time)).clamped(0, 0.25) * 4
-            return (sample.time, face, sqrt(face.area) * 3 + stillness)
+            let room = textSpace(beside: face).width.clamped(0, 0.6) / 0.6
+            return (sample.time, face, sqrt(face.area) * 3 + stillness + reaction(at: sample.time, visual: visual) * 1.5 + room * 0.8)
         }
         .sorted { $0.2 > $1.2 }
         var taken = avoiding
@@ -92,7 +123,8 @@ public enum ThumbnailPicker {
             let faceScore = face.map { min(1, sqrt($0.area) / 0.35) } ?? 0
             let stillness = 1 - Double(visual.motion(at: t)).clamped(0, 0.25) * 4
             let closeness = 1 - min(1, abs(t - payoff) / 3)
-            let score = faceScore * 2 + stillness + closeness * 0.8
+            let room = face.map { textSpace(beside: $0).width.clamped(0, 0.6) / 0.6 } ?? 0.5
+            let score = faceScore * 2 + stillness + closeness * 0.8 + reaction(at: t, visual: visual) + room * 0.5
             if score > best.score { best = (t, face, score) }
         }
         // Without a face nearby, the peak itself is the frame — but still borrow the nearest face box

@@ -52,6 +52,8 @@ struct CaptionStylePanel: View {
     @State private var findText = ""
     @State private var replaceText = ""
     @State private var showSpelling = false
+    /// The mouse is over the preset gallery, so the swatches animate (#233).
+    @State private var galleryHovering = false
 
     func shiftCaptions(by delta: Seconds) {
         session.editTimeline("Shift Captions") { $0.captions?.shiftTiming(by: delta) }
@@ -322,26 +324,34 @@ struct CaptionStylePanel: View {
     var presets: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel(text: "Presets")
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 8)], spacing: 8) {
-                ForEach(CaptionStyle.presets, id: \.presetName) { preset in
-                    Button {
-                        session.editTimeline("Caption Preset: \(preset.presetName)") { t in
-                            let y = t.captions?.style.positionY ?? preset.positionY
-                            let keepY = t.layout == .splitScreen || t.layout == .dynamic
-                            t.captions?.style = preset
-                            if keepY { t.captions?.style.positionY = y }
-                        }
-                    } label: {
-                        CaptionPresetSwatch(style: preset, selected: captions?.style.presetName == preset.presetName, animated: galleryHovering)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .onHover { galleryHovering = $0 }
-            .help("Rest the mouse here and every preset plays its highlight (#233)")
+            presetGrid
+                .onHover { galleryHovering = $0 }
+                .help("Rest the mouse here and every preset plays its highlight (#233)")
         }
         .padding(12)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
+    }
+
+    var presetGrid: some View {
+        let columns = [GridItem(.adaptive(minimum: 100), spacing: 8)]
+        let currentName = captions?.style.presetName
+        return LazyVGrid(columns: columns, spacing: 8) {
+            ForEach(CaptionStyle.presets, id: \.presetName) { preset in
+                Button { applyPreset(preset) } label: {
+                    CaptionPresetSwatch(style: preset, selected: currentName == preset.presetName, animated: galleryHovering)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    func applyPreset(_ preset: CaptionStyle) {
+        session.editTimeline("Caption Preset: \(preset.presetName)") { t in
+            let y = t.captions?.style.positionY ?? preset.positionY
+            let keepY = t.layout == .splitScreen || t.layout == .dynamic
+            t.captions?.style = preset
+            if keepY { t.captions?.style.positionY = y }
+        }
     }
 
     func exportSRT() {
