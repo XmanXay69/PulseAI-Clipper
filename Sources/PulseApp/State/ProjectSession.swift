@@ -504,6 +504,7 @@ final class ProjectSession: ObservableObject, Identifiable {
 
     func close() {
         stopEditingClock()
+        stopPhoneReview()   // the review page serves this project's clips; switching projects must not leave it listening
         if isDirty || pendingEditingSeconds > 0 { save() }
         autosaveTask?.cancel()
         playback.pause()
