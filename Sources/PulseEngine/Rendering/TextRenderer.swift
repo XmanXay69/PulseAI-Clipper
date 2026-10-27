@@ -200,14 +200,29 @@ public enum TextRenderer {
     // MARK: Titles
 
     /// Renders a free text element. `visibleCharacters` supports the typewriter animation.
-    public static func renderText(_ element: TextElement, renderScale: Double, canvasWidth: Double, visibleCharacters: Int? = nil) -> Rendered? {
+    /// `wordState` gives each word (by index across the whole text) a scale and alpha — the word-pop entrance (#216).
+    public static func renderText(_ element: TextElement, renderScale: Double, canvasWidth: Double, visibleCharacters: Int? = nil,
+                                  wordState: ((Int, Int) -> (scale: Double, alpha: Double))? = nil) -> Rendered? {
         let style = element.style
         let pointSize = CGFloat(style.fontSize * renderScale)
         var text = style.textCase.apply(element.text)
         if let visibleCharacters { text = String(text.prefix(max(0, visibleCharacters))) }
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         let maxWidth = CGFloat(element.maxWidth * canvasWidth * renderScale)
-        let lines = wrap(text, style: style, pointSize: pointSize, maxWidth: maxWidth).map { line in
+        let wrapped = wrap(text, style: style, pointSize: pointSize, maxWidth: maxWidth)
+        if let wordState {
+            let total = wrapped.reduce(0) { $0 + $1.split(separator: " ").count }
+            var index = 0
+            let lines: [[Run]] = wrapped.map { line in
+                line.split(separator: " ").map { word in
+                    let state = wordState(index, total)
+                    index += 1
+                    return Run(text: String(word), color: style.color, scale: CGFloat(state.scale), boxColor: nil, alpha: CGFloat(state.alpha))
+                }
+            }
+            return draw(lines: lines, style: style, pointSize: pointSize, maxWidth: maxWidth)
+        }
+        let lines = wrapped.map { line in
             [Run(text: line, color: style.color, scale: 1, boxColor: nil, alpha: 1)]
         }
         return draw(lines: lines, style: style, pointSize: pointSize, maxWidth: maxWidth)

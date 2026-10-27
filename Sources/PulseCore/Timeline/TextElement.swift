@@ -46,6 +46,8 @@ public enum TextCase: String, Codable, CaseIterable, Sendable {
 
 public enum TextAnimation: String, Codable, CaseIterable, Sendable {
     case none, fadeIn, pop, slideUp, typewriter, bounce
+    /// Each word pops in on its own, one after the other (#216).
+    case wordPop
 
     public var displayName: String {
         switch self {
@@ -55,7 +57,19 @@ public enum TextAnimation: String, Codable, CaseIterable, Sendable {
         case .slideUp: return "Slide Up"
         case .typewriter: return "Typewriter"
         case .bounce: return "Bounce"
+        case .wordPop: return "Word Pop"
         }
+    }
+
+    /// Scale and alpha of word `index` (of `count`) at animation progress `p` (0…1 over the whole entrance).
+    public static func wordPop(index: Int, count: Int, progress p: Double) -> (scale: Double, alpha: Double) {
+        guard count > 0 else { return (1, 1) }
+        // Words start staggered over the first 70 % of the entrance; each takes 30 % to land.
+        let start = Double(index) / Double(max(count, 1)) * 0.7
+        let local = min(max((p - start) / 0.3, 0), 1)
+        if local <= 0 { return (0.6, 0) }
+        let scale = 0.6 + 0.4 * local + 0.15 * sin(local * .pi)
+        return (scale, min(1, local * 1.6))
     }
 }
 

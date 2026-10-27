@@ -58,7 +58,7 @@ struct UpdateSheet: View {
         }
         .frame(width: 600, height: 520)
         .background(Theme.panel)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(AppModel.current?.colorScheme)
         .task { if updater.state == .idle || updater.state == .upToDate { await updater.check(userInitiated: true) } }
     }
 

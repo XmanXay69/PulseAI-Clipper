@@ -326,7 +326,7 @@ enum UISnapshotter {
                                     size: CGSize(width: 540, height: 600), name: "18b-extras-question", to: directory)
                 var review = LongFormOptions()
                 review.minimumLength = 20
-                await captureHosted(LongFormStoryboard(session: session, options: review, approving: true, onBack: {}, onBuild: { _, _ in })
+                await captureHosted(LongFormStoryboard(session: session, options: review, approving: true, onBack: {}, onBuild: { _, _, _ in })
                                         .environmentObject(app).background(Theme.panel).preferredColorScheme(.dark),
                                     size: CGSize(width: 820, height: 680), name: "18c-approve-the-cut", to: directory)
                 let before = Set(session.document.timelines.map(\.id))

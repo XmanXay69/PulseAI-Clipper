@@ -613,7 +613,7 @@ struct ImportURLSheet: View {
         .padding(20)
         .frame(width: 480)
         .background(Theme.panel)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(AppModel.current?.colorScheme)
         .onAppear { if let pasted = NSPasteboard.general.string(forType: .string), YouTubeURL.videoID(from: pasted) != nil { text = pasted } }
     }
 

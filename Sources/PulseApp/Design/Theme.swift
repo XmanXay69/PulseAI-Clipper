@@ -5,22 +5,27 @@ import SwiftUI
 /// PULSE design tokens. Dark, dense, professional — subtle borders, compact controls,
 /// a single energetic accent ("pulse") plus a violet reserved for AI features.
 enum Theme {
-    // Surfaces (darkest → lightest): neutral graphite, like a pro grading/editing suite.
-    static let window = Color(hex: 0x151517)
-    static let panel = Color(hex: 0x1C1C1F)
-    static let panelRaised = Color(hex: 0x232327)
-    static let control = Color(hex: 0x2C2C31)
-    static let controlHover = Color(hex: 0x36363C)
-    static let well = Color(hex: 0x101012)
+    /// Light theme on (#424). Set from Settings → General → Appearance (or macOS when matching it); views
+    /// read the surface, border and text colours below at draw time, so a change repaints on the next pass.
+    nonisolated(unsafe) static var isLight = false
 
-    static let border = Color.white.opacity(0.07)
-    static let borderStrong = Color.white.opacity(0.13)
-    static let divider = Color.white.opacity(0.05)
+    // Surfaces (darkest → lightest): neutral graphite, like a pro grading/editing suite; a cool paper white
+    // in the light theme.
+    static var window: Color { isLight ? Color(hex: 0xEDEDF0) : Color(hex: 0x151517) }
+    static var panel: Color { isLight ? Color(hex: 0xF6F6F8) : Color(hex: 0x1C1C1F) }
+    static var panelRaised: Color { isLight ? Color(hex: 0xFFFFFF) : Color(hex: 0x232327) }
+    static var control: Color { isLight ? Color(hex: 0xE6E6EA) : Color(hex: 0x2C2C31) }
+    static var controlHover: Color { isLight ? Color(hex: 0xDCDCE2) : Color(hex: 0x36363C) }
+    static var well: Color { isLight ? Color(hex: 0xE2E2E6) : Color(hex: 0x101012) }
+
+    static var border: Color { isLight ? Color.black.opacity(0.09) : Color.white.opacity(0.07) }
+    static var borderStrong: Color { isLight ? Color.black.opacity(0.18) : Color.white.opacity(0.13) }
+    static var divider: Color { isLight ? Color.black.opacity(0.07) : Color.white.opacity(0.05) }
 
     // Text.
-    static let textPrimary = Color.white.opacity(0.92)
-    static let textSecondary = Color.white.opacity(0.62)
-    static let textTertiary = Color.white.opacity(0.38)
+    static var textPrimary: Color { isLight ? Color.black.opacity(0.88) : Color.white.opacity(0.92) }
+    static var textSecondary: Color { isLight ? Color.black.opacity(0.6) : Color.white.opacity(0.62) }
+    static var textTertiary: Color { isLight ? Color.black.opacity(0.4) : Color.white.opacity(0.38) }
 
     // Accents. The accent follows Settings → General → Appearance (#425); the AI violet never changes.
     nonisolated(unsafe) static var accentChoice: AccentChoice = .pulse
@@ -54,7 +59,7 @@ enum Theme {
     static let radiusXL: CGFloat = 16
 
     /// A lifted surface (popovers, hovered cards).
-    static let elevated = Color(hex: 0x27272C)
+    static var elevated: Color { isLight ? Color(hex: 0xFFFFFF) : Color(hex: 0x27272C) }
 
     // Gradients: the accent and the AI violet get a little warmth/cool so filled controls read as lit.
     static var accentGradient: LinearGradient {
@@ -62,7 +67,9 @@ enum Theme {
     }
     static let aiGradient = LinearGradient(colors: [Color(hex: 0x8C6CFF), Color(hex: 0x5E9BFF)], startPoint: .topLeading, endPoint: .bottomTrailing)
     /// The 1 px light catch along the top edge of raised surfaces.
-    static let edgeHighlight = LinearGradient(colors: [Color.white.opacity(0.09), Color.white.opacity(0)], startPoint: .top, endPoint: .center)
+    static var edgeHighlight: LinearGradient {
+        LinearGradient(colors: [Color.white.opacity(isLight ? 0.8 : 0.09), Color.white.opacity(0)], startPoint: .top, endPoint: .center)
+    }
 
     static func potentialColor(_ potential: Int) -> Color {
         switch PotentialBand(potential) {

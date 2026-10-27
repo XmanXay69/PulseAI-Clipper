@@ -36,6 +36,38 @@ public struct BrandKit: Codable, Hashable, Sendable {
     public var palette: [RGBAColor]
     /// Typeface for cards and captions (#370); "" = each preset's own.
     public var fontName: String
+    /// Per-platform differences (#371), keyed by `SafeAreaPlatform.rawValue`: nil fields follow the kit.
+    public var platformVariants: [String: PlatformVariant] = [:]
+
+    public struct PlatformVariant: Codable, Hashable, Sendable {
+        public var logoCorner: Corner?
+        public var logoSize: Double?
+        public var logoOpacity: Double?
+        public var captionPresetName: String?
+        public var showLogo: Bool?
+
+        public init(logoCorner: Corner? = nil, logoSize: Double? = nil, logoOpacity: Double? = nil, captionPresetName: String? = nil, showLogo: Bool? = nil) {
+            self.logoCorner = logoCorner
+            self.logoSize = logoSize
+            self.logoOpacity = logoOpacity
+            self.captionPresetName = captionPresetName
+            self.showLogo = showLogo
+        }
+
+        public var isEmpty: Bool { logoCorner == nil && logoSize == nil && logoOpacity == nil && captionPresetName == nil && showLogo == nil }
+    }
+
+    /// The kit as it applies to one platform: the variant's values over the kit's own.
+    public func resolved(for platform: SafeAreaPlatform?) -> BrandKit {
+        guard let platform, let variant = platformVariants[platform.rawValue] else { return self }
+        var kit = self
+        if let corner = variant.logoCorner { kit.logoCorner = corner }
+        if let size = variant.logoSize { kit.logoSize = size }
+        if let opacity = variant.logoOpacity { kit.logoOpacity = opacity }
+        if let preset = variant.captionPresetName { kit.captionPresetName = preset }
+        if let show = variant.showLogo { kit.logoOnShorts = show }
+        return kit
+    }
 
     public init() {
         enabled = false
@@ -78,6 +110,7 @@ public struct BrandKit: Codable, Hashable, Sendable {
         bumperShowsHandle = c.decode(Bool.self, forKey: .bumperShowsHandle, default: d.bumperShowsHandle)
         palette = c.decode([RGBAColor].self, forKey: .palette, default: d.palette)
         fontName = c.decode(String.self, forKey: .fontName, default: d.fontName)
+        platformVariants = c.decode([String: PlatformVariant].self, forKey: .platformVariants, default: [:])
     }
 }
 

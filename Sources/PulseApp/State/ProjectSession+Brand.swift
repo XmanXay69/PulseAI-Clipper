@@ -27,7 +27,7 @@ extension ProjectSession {
 
     /// Applies the kit to one edit (replacing a previous logo / intro / outro).
     func applyBrandKit(to timelineID: UUID, announce: Bool = true) {
-        let kit = app.settings.brandKit
+        let kit = app.settings.brandKit.resolved(for: document.overrides.safeAreaPlatform ?? app.settings.safeAreaPlatform)
         guard kit.hasAnything else {
             if announce { app.presentMessage(title: "No brand kit yet", message: "Add your logo, intro/outro or caption look in Settings → Brand Kit.") }
             return
@@ -50,7 +50,7 @@ extension ProjectSession {
 
     /// New shorts and YouTube edits get the kit when it's switched on.
     func autoApplyBrandKit(to timelineID: UUID) {
-        let kit = app.settings.brandKit
+        let kit = app.settings.brandKit.resolved(for: document.overrides.safeAreaPlatform ?? app.settings.safeAreaPlatform)
         guard kit.enabled, kit.hasAnything else { return }
         applyBrandKit(to: timelineID, announce: false)
     }

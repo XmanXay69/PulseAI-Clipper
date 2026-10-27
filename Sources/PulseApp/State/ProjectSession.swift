@@ -1595,6 +1595,51 @@ final class ProjectSession: ObservableObject, Identifiable {
         }
     }
 
+    /// Timeline → Add Shape (#218): a colour layer shaped by its mask — rectangle, circle, a ring to point at
+    /// something, or a thin line.
+    enum ShapeKind: String, CaseIterable {
+        case rectangle, circle, ring, line
+
+        var displayName: String {
+            switch self {
+            case .rectangle: return "Rectangle"
+            case .circle: return "Circle"
+            case .ring: return "Highlight Ring"
+            case .line: return "Line"
+            }
+        }
+    }
+
+    func addShape(_ kind: ShapeKind) {
+        let t = playhead
+        editTimeline("Add \(kind.displayName)") { timeline in
+            let trackID = timeline.freeTrack(kind: .video, for: TimeRange(start: t, duration: 3))
+            let accent = RGBAColor(hex: "#FFD60A")!
+            var clip = TimelineClip(name: kind.displayName, content: .solid(kind == .ring ? RGBAColor(red: 0, green: 0, blue: 0, alpha: 0) : accent),
+                                    start: t, sourceDuration: 3, role: .graphic)
+            switch kind {
+            case .rectangle:
+                clip.transform.scale = AnimatedDouble(0.35)
+                clip.style.cornerRadius = 0.08
+            case .circle:
+                clip.transform.scale = AnimatedDouble(0.3)
+                clip.style.mask = .circle
+            case .ring:
+                clip.transform.scale = AnimatedDouble(0.3)
+                clip.style.mask = .circle
+                clip.style.borderWidth = 10
+                clip.style.borderColor = accent
+            case .line:
+                clip.transform.scale = AnimatedDouble(0.5)
+                clip.transform.crop = NormRect(x: 0, y: 0.48, width: 1, height: 0.04)
+            }
+            clip.transform.positionX = AnimatedDouble(0.5)
+            clip.transform.positionY = AnimatedDouble(0.5)
+            try timeline.insert(clip, onTrack: trackID)
+            selectedClipIDs = [clip.id]
+        }
+    }
+
     /// Places a media asset at the playhead (video + linked audio).
     func placeAsset(_ assetID: UUID, at time: Seconds? = nil, trackID: UUID? = nil) {
         guard let asset = document.asset(id: assetID) else { return }

@@ -199,6 +199,12 @@ struct GeneralSettings: View {
             }
         }
         SettingsGroup("Appearance") {
+            SettingsRow("Theme", detail: "Dark is the editing suite; Light is a paper white; Match macOS follows the system.") {
+                Picker("", selection: $app.settings.appearance) {
+                    ForEach(AppAppearance.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .pickerStyle(.segmented).labelsHidden().frame(width: 260)
+            }
             SettingsRow("Accent colour", detail: "Buttons, selection and the playhead. AI features keep their violet.") {
                 HStack(spacing: 8) {
                     ForEach(AccentChoice.allCases, id: \.self) { choice in
@@ -1070,6 +1076,11 @@ struct BrandKitSettings: View {
             SettingsRow("Show on shorts") { Toggle("", isOn: kit.logoOnShorts).labelsHidden().toggleStyle(.switch).tint(Theme.accent) }
             SettingsRow("Show on YouTube edits") { Toggle("", isOn: kit.logoOnLongForm).labelsHidden().toggleStyle(.switch).tint(Theme.accent) }
         }
+        SettingsGroup("Per platform", footnote: "Where the kit should differ by platform (#371): a smaller logo in a different corner on TikTok, say, or no logo on Reels. Blank follows the kit.") {
+            ForEach(SafeAreaPlatform.allCases, id: \.self) { platform in
+                BrandVariantRow(platform: platform)
+            }
+        }
         SettingsGroup("Intro & outro", footnote: "Added to YouTube edits (Edit My VOD) only — an intro on a 30-second short costs viewers.") {
             SettingsRow("Intro clip") { pickButton(kit.introPath, types: ["mov", "mp4", "m4v"]) }
             SettingsRow("Outro clip") { pickButton(kit.outroPath, types: ["mov", "mp4", "m4v"]) }
@@ -1403,5 +1414,44 @@ struct ShortcutRow: View {
         problem = nil
         app.settings.shortcuts.set(parsed, for: action)
         draft = ""
+    }
+}
+
+
+/// One platform's brand overrides (#371).
+struct BrandVariantRow: View {
+    @EnvironmentObject var app: AppModel
+    let platform: SafeAreaPlatform
+
+    var variant: Binding<BrandKit.PlatformVariant> {
+        Binding(get: { app.settings.brandKit.platformVariants[platform.rawValue] ?? BrandKit.PlatformVariant() },
+                set: { value in
+                    if value.isEmpty { app.settings.brandKit.platformVariants[platform.rawValue] = nil }
+                    else { app.settings.brandKit.platformVariants[platform.rawValue] = value }
+                })
+    }
+
+    var body: some View {
+        SettingsRow(platform.displayName, detail: variant.wrappedValue.isEmpty ? "Follows the kit" : "Own settings") {
+            HStack(spacing: 8) {
+                Picker("", selection: Binding(get: { variant.wrappedValue.showLogo ?? true }, set: { variant.wrappedValue.showLogo = $0 ? nil : false })) {
+                    Text("Logo on").tag(true)
+                    Text("No logo").tag(false)
+                }
+                .labelsHidden().frame(width: 100)
+                Picker("", selection: Binding(get: { variant.wrappedValue.logoCorner }, set: { variant.wrappedValue.logoCorner = $0 })) {
+                    Text("Kit's corner").tag(BrandKit.Corner?.none)
+                    ForEach(BrandKit.Corner.allCases, id: \.self) { Text($0.displayName).tag(BrandKit.Corner?.some($0)) }
+                }
+                .labelsHidden().frame(width: 130)
+                Picker("", selection: Binding(get: { variant.wrappedValue.logoSize ?? 0 }, set: { variant.wrappedValue.logoSize = $0 == 0 ? nil : $0 })) {
+                    Text("Kit's size").tag(0.0)
+                    Text("Small").tag(0.09)
+                    Text("Medium").tag(0.14)
+                    Text("Large").tag(0.2)
+                }
+                .labelsHidden().frame(width: 100)
+            }
+        }
     }
 }

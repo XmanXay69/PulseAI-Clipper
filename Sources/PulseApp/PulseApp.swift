@@ -38,7 +38,7 @@ struct PulseMain: App {
             RootView()
                 .environmentObject(app)
                 .frame(minWidth: 1180, minHeight: 720)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(app.colorScheme)
                 .onAppear {
                     appDelegate.app = app
                     KeyboardShortcutMonitor.shared.install(app: app)
@@ -52,7 +52,7 @@ struct PulseMain: App {
         Settings {
             SettingsView()
                 .environmentObject(app)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(app.colorScheme)
                 .frame(width: 720, height: 560)
         }
 
@@ -60,7 +60,7 @@ struct PulseMain: App {
         Window("Viewer", id: "viewer") {
             DetachedViewerWindow()
                 .environmentObject(app)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(app.colorScheme)
                 .frame(minWidth: 420, minHeight: 320)
         }
         .windowStyle(.hiddenTitleBar)
@@ -70,7 +70,7 @@ struct PulseMain: App {
         Window("Inspector", id: "inspector") {
             DetachedPanelWindow(panel: .inspector)
                 .environmentObject(app)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(app.colorScheme)
                 .frame(minWidth: 300, minHeight: 400)
         }
         .defaultSize(width: 340, height: 720)
@@ -78,7 +78,7 @@ struct PulseMain: App {
         Window("Transcript", id: "transcript") {
             DetachedPanelWindow(panel: .transcript)
                 .environmentObject(app)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(app.colorScheme)
                 .frame(minWidth: 320, minHeight: 400)
         }
         .defaultSize(width: 420, height: 720)
@@ -147,7 +147,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             PulseLog.error("Uncaught exception: \(exception.name.rawValue) — \(exception.reason ?? "") \(exception.callStackSymbols.prefix(12).joined(separator: " | "))")
             PulseLog.flush()
         }
-        NSApp.appearance = NSAppearance(named: .darkAqua)
+        app?.applyAppearance()
         NSApp.applicationIconImage = AppIcon.render(size: 512)
         // `swift run` launches as a background process; make it a regular foreground app.
         NSApp.setActivationPolicy(.regular)
@@ -328,6 +328,11 @@ struct PulseCommands: Commands {
             Button("Zoom to Fit") { app.session?.zoomTimelineToFit() }.keyboardShortcut(app.shortcut(.zoomToFit))
             Divider()
             Button("Add Text") { app.session?.addText() }.keyboardShortcut("t", modifiers: [.command, .option])
+            Menu("Add Shape") {
+                ForEach(ProjectSession.ShapeKind.allCases, id: \.self) { kind in
+                    Button(kind.displayName) { app.session?.addShape(kind) }
+                }
+            }
             Divider()
             Button("New Compound Clip") { app.session?.createCompoundClip() }
                 .keyboardShortcut("g", modifiers: [.option])

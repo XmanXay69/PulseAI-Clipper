@@ -24,8 +24,8 @@ and feathered masks, scopes in the viewer, grade matching between clips, a brand
 clip, speaker chips and frosted captions, auto white balance, sound-effect variations, transparent ProRes 4444
 exports, true-peak readouts, a raw-vs-processed audio preview, per-project settings, detachable panels, your
 own menu shortcuts, a trim two-up, frame-rate conform, Open with PULSE, a keyboard-only Speed Edit mode, a
-storyboard you can reorder, predicted retention on the ruler and text templates with a live preview
-([notes](versions/1.6.2/NOTES.md)).
+storyboard you can reorder, predicted retention on the ruler, text templates with a live preview, a light
+theme, word-pop text, shape layers and a brand kit that changes per platform ([notes](versions/1.6.2/NOTES.md)).
 
 **New in 1.6.1:** colour labels on clips with a filter, keyboard caption editing (tab, return, ⌫), a caption
 spell-check, a generated 3-second intro card from the Brand Kit, cuts that land on sentence ends, "Drop"

@@ -343,6 +343,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var updateChannel: UpdateChannel = .stable
     /// The accent colour (#425).
     public var accent: AccentChoice = .pulse
+    /// Dark, light or match macOS (#424).
+    public var appearance: AppAppearance = .dark
     /// Viewer render size (#187); with `autoPlaybackQuality` PULSE drops a step on its own when playback can't keep up.
     public var playbackQuality: PlaybackQuality = .full
     public var autoPlaybackQuality: Bool = true
@@ -422,6 +424,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
         batchPausesOnLowBattery = c.decode(Bool.self, forKey: .batchPausesOnLowBattery, default: d.batchPausesOnLowBattery)
         updateChannel = c.decode(UpdateChannel.self, forKey: .updateChannel, default: d.updateChannel)
         accent = c.decode(AccentChoice.self, forKey: .accent, default: d.accent)
+        appearance = c.decode(AppAppearance.self, forKey: .appearance, default: d.appearance)
         playbackQuality = c.decode(PlaybackQuality.self, forKey: .playbackQuality, default: d.playbackQuality)
         autoPlaybackQuality = c.decode(Bool.self, forKey: .autoPlaybackQuality, default: d.autoPlaybackQuality)
         scrubTick = c.decode(Bool.self, forKey: .scrubTick, default: d.scrubTick)

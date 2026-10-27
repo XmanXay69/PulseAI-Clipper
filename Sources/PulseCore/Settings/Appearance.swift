@@ -34,3 +34,16 @@ public enum AccentChoice: String, Codable, CaseIterable, Sendable {
         }
     }
 }
+
+/// Dark (the default), light, or whatever macOS is set to (#424).
+public enum AppAppearance: String, Codable, CaseIterable, Sendable {
+    case dark, light, system
+
+    public var displayName: String {
+        switch self {
+        case .dark: return "Dark"
+        case .light: return "Light"
+        case .system: return "Match macOS"
+        }
+    }
+}

@@ -607,12 +607,22 @@ public final class FrameRenderer: @unchecked Sendable {
         if element.animationIn == .typewriter {
             visible = Int((Double(element.text.count) * min(local / max(d * 3, 0.3), 1)).rounded(.up))
         }
-        let key = "\(element.hashValue)|\(rs)|\(visible ?? -1)"
+        // Word pop (#216): each word scales and fades in on its own over the entrance; cached per 1/30 s step.
+        var wordProgress: Double?
+        if element.animationIn == .wordPop {
+            let p = min(local / max(d * 2, 0.4), 1)
+            wordProgress = p >= 1 ? 1 : (p * 30).rounded() / 30
+        }
+        let key = "\(element.hashValue)|\(rs)|\(visible ?? -1)|\(wordProgress ?? -1)"
         let cg: CGImage
         if let hit = cachedText(key) {
             cg = hit
         } else {
-            guard let rendered = TextRenderer.renderText(element, renderScale: rs, canvasWidth: Double(scene.canvas.width), visibleCharacters: visible) else { return nil }
+            let wordState: ((Int, Int) -> (scale: Double, alpha: Double))? = wordProgress.flatMap { p in
+                p >= 1 ? nil : { index, count in TextAnimation.wordPop(index: index, count: count, progress: p) }
+            }
+            guard let rendered = TextRenderer.renderText(element, renderScale: rs, canvasWidth: Double(scene.canvas.width),
+                                                         visibleCharacters: visible, wordState: wordState) else { return nil }
             storeText(key, rendered.image)
             cg = rendered.image
         }
@@ -627,11 +637,11 @@ public final class FrameRenderer: @unchecked Sendable {
         case .slideUp:
             offsetY = -(1 - Interpolation.easeOut.apply(pIn)) * 60 * rs
             opacity *= pIn
-        case .typewriter, .none: break
+        case .typewriter, .none, .wordPop: break
         }
         switch element.animationOut {
         case .none: break
-        case .fadeIn, .typewriter: opacity *= pOut
+        case .fadeIn, .typewriter, .wordPop: opacity *= pOut
         case .pop: scale *= 0.7 + 0.3 * pOut
         case .slideUp:
             offsetY += (1 - pOut) * 60 * rs

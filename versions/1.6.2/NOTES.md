@@ -143,6 +143,16 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
 - **Sharpening waits for the export** (#314) — proxy or reduced-size playback skips it, so the viewer doesn't
   show halos the file won't have.
 
+### Batch 32
+
+- **Light theme** (#424) — Settings → General → Appearance: Dark, Light or Match macOS. Every surface, border
+  and text colour has a paper-white counterpart; the viewer and timeline stay as they were.
+- **Word pop** (#216) — a text animation where each word lands on its own, one after the other.
+- **Shape layers** (#218) — Timeline → Add Shape: rectangle, circle, a highlight ring to point at things, or a
+  line; they take the same colour, mask, border and shadow controls as any layer.
+- **Brand kit per platform** (#371) — Settings → Brand Kit → Per platform: a different corner or size for the
+  logo on TikTok, Shorts, Reels or YouTube, or no logo at all; new shorts resolve the kit for their platform.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);

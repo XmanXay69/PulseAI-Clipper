@@ -107,6 +107,7 @@ final class AppModel: ObservableObject {
             EngagementLexicon.customProfanity = settings.ai.normalizedExtraProfanity
             EmphasisDetector.learned = settings.ai.emphasisLearned
             Theme.accentChoice = settings.accent
+            if oldValue.appearance != settings.appearance { applyAppearance() }
             updater.channel = settings.updateChannel
             if settings.watchFolder != oldValue.watchFolder { watchFolderChanged() }
         }
@@ -180,6 +181,7 @@ final class AppModel: ObservableObject {
         settings = AppModel.loadSettings()
         library = try? LibraryDatabase(url: LibraryDatabase.defaultURL())
         Theme.accentChoice = settings.accent
+        applyAppearance()
         updater.channel = settings.updateChannel
         store.backupsToKeep = settings.backupsToKeep
         let crashedLastTime = recovery.beginSession()
@@ -1158,6 +1160,42 @@ final class AppModel: ObservableObject {
         guard let v = info?["CFBundleShortVersionString"] as? String else { return "dev" }
         return "\(v) (\(info?["CFBundleVersion"] as? String ?? "?"))"
     }
+
+    /// The colour scheme SwiftUI windows take: nil follows macOS (#424).
+    var colorScheme: ColorScheme? {
+        switch settings.appearance {
+        case .dark: return .dark
+        case .light: return .light
+        case .system: return nil
+        }
+    }
+
+    /// Sets the theme's light flag and the app's appearance; in "match macOS" mode it follows the system and
+    /// listens for the switch.
+    func applyAppearance() {
+        switch settings.appearance {
+        case .dark:
+            Theme.isLight = false
+            NSApp.appearance = NSAppearance(named: .darkAqua)
+        case .light:
+            Theme.isLight = true
+            NSApp.appearance = NSAppearance(named: .aqua)
+        case .system:
+            NSApp.appearance = nil
+            Theme.isLight = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua
+        }
+        if appearanceObserver == nil {
+            appearanceObserver = DistributedNotificationCenter.default().addObserver(forName: Notification.Name("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self, self.settings.appearance == .system else { return }
+                    Theme.isLight = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua
+                    self.objectWillChange.send()
+                }
+            }
+        }
+        objectWillChange.send()
+    }
+    private var appearanceObserver: NSObjectProtocol?
 
     /// The menu shortcut for an action, custom or default (#431).
     func shortcut(_ action: ShortcutAction) -> KeyboardShortcut? {
