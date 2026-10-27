@@ -59,7 +59,11 @@ struct PublishSheet: View {
                 GridRow {
                     Text("Category").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
                     Picker("", selection: $upload.categoryID) {
-                        Text("Gaming").tag("20"); Text("Entertainment").tag("24"); Text("People & Blogs").tag("22"); Text("Comedy").tag("23"); Text("Education").tag("27")
+                        Text("Gaming").tag("20")
+                        Text("Entertainment").tag("24")
+                        Text("People & Blogs").tag("22")
+                        Text("Comedy").tag("23")
+                        Text("Education").tag("27")
                     }
                     .labelsHidden().frame(width: 200)
                 }
