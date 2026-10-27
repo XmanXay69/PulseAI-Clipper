@@ -120,7 +120,13 @@ extension ProjectSession {
                 AudioCensor.apply(self.app.settings.ai.censorAudio, to: &result.timeline, words: words, assetID: asset.id,
                                   extra: self.app.settings.ai.normalizedExtraProfanity, tone: self.app.settings.ai.bleepTone)
             }
-            let timeline = result.timeline
+            var timeline = result.timeline
+            // Hand-made pieces of the previous edit come along (#116).
+            if let carry = self.pendingCarryOver {
+                let placed = carry.apply(to: &timeline)
+                self.pendingCarryOver = nil
+                if placed > 0 || !carry.markers.isEmpty { result.report += " · kept \(placed) of your clip\(placed == 1 ? "" : "s") and \(carry.markers.count) marker\(carry.markers.count == 1 ? "" : "s")" }
+            }
             var seen = Set<UUID>()
             let fresh = newAssets.filter { seen.insert($0.id).inserted }
             self.edit("Edit My VOD") { doc in
@@ -368,7 +374,7 @@ extension ProjectSession {
 
     /// Edit → Edit My VOD Again: the same answers (optionally a little shorter or longer) as a new timeline;
     /// the previous edit stays.
-    func editAgain(lengthScale: Double = 1, restraint: LongFormOptions.Restraint? = nil) {
+    func editAgain(lengthScale: Double = 1, restraint: LongFormOptions.Restraint? = nil, keepChanges: Bool = false) {
         guard var options = lastLongFormOptions else {
             app.toast("Run Edit My VOD first — Edit Again repeats its settings")
             return
@@ -377,6 +383,14 @@ extension ProjectSession {
         options.maximumLength *= lengthScale
         if let restraint { options.restraint = restraint }
         options.extras.approveCut = false
+        // Your own clips, markers, notes and caption look ride along onto the new build (#116).
+        if keepChanges, let timeline = activeTimeline {
+            let carry = TimelineCarryOver.capture(from: timeline, primaryAssetID: document.primaryAsset?.id)
+            pendingCarryOver = carry.isEmpty ? nil : carry
+            if carry.isEmpty { app.toast("Nothing hand-made to carry over — building fresh") }
+        } else {
+            pendingCarryOver = nil
+        }
         editMyVOD(options: options)
     }
 

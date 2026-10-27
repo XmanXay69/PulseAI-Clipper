@@ -502,14 +502,19 @@ struct TrackHeader: View {
                 toggle("speaker.wave.2", "speaker.slash", on: !track.isMuted, help: "Mute") { t in t.isMuted.toggle() }
             }
             if track.kind == .audio {
-                Button { update { $0.isSolo.toggle() } } label: {
-                    Text("S").font(.system(size: 9, weight: .bold))
+                Button {
+                    // ⌥-click solos the track raw — its enhance chain bypassed (#282).
+                    if NSEvent.modifierFlags.contains(.option) { update { $0.rawSolo.toggle(); if $0.rawSolo { $0.isSolo = true } } }
+                    else { update { $0.isSolo.toggle() } }
+                } label: {
+                    Text(track.playsRaw ? "R" : "S").font(.system(size: 9, weight: .bold))
                         .frame(width: 16, height: 16)
-                        .background(RoundedRectangle(cornerRadius: 3).fill(track.isSolo ? Theme.warning : Theme.control))
+                        .background(RoundedRectangle(cornerRadius: 3).fill(track.isSolo ? (track.rawSolo ? Theme.danger : Theme.warning) : Theme.control))
                         .foregroundStyle(track.isSolo ? .black : Theme.textTertiary)
                 }
                 .buttonStyle(.plain)
-                .help("Solo")
+                .help(track.playsRaw ? "Raw solo — the recording as it is, enhance bypassed; ⌥-click to go back to solo in place (#282)"
+                                     : "Solo in place (with its enhance chain); ⌥-click for a raw solo")
             }
             toggle("lock.open", "lock.fill", on: !track.isLocked, help: "Lock") { t in t.isLocked.toggle() }
         }

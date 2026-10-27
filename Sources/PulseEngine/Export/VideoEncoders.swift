@@ -22,7 +22,7 @@ public enum VideoEncoders {
         let type: CMVideoCodecType
         switch codec {
         case .h264: type = kCMVideoCodecType_H264
-        case .hevc: type = kCMVideoCodecType_HEVC
+        case .hevc, .hevc10: type = kCMVideoCodecType_HEVC
         case .proRes422: type = kCMVideoCodecType_AppleProRes422
         case .proRes4444: type = kCMVideoCodecType_AppleProRes4444
         }

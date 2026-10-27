@@ -98,6 +98,15 @@ public final class ExportEngine: @unchecked Sendable {
                 AVVideoExpectedSourceFrameRateKey: fps,
                 AVVideoMaxKeyFrameIntervalKey: Int(fps * 2),
             ] as [String: Any]
+        case .hevc10:
+            // Main 10 profile (#348): VideoToolbox takes the 8-bit frames and writes a 10-bit stream.
+            videoSettings[AVVideoCodecKey] = AVVideoCodecType.hevc
+            videoSettings[AVVideoCompressionPropertiesKey] = [
+                AVVideoAverageBitRateKey: videoBitrate,
+                AVVideoExpectedSourceFrameRateKey: fps,
+                AVVideoMaxKeyFrameIntervalKey: Int(fps * 2),
+                AVVideoProfileLevelKey: kVTProfileLevel_HEVC_Main10_AutoLevel as String,
+            ] as [String: Any]
         case .proRes422:
             videoSettings[AVVideoCodecKey] = AVVideoCodecType.proRes422
         case .proRes4444:

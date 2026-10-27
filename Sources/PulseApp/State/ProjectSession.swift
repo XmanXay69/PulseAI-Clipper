@@ -96,6 +96,8 @@ final class ProjectSession: ObservableObject, Identifiable {
     var meterPeaksLoading: Set<UUID> = []
     /// Render-load spans of the active timeline for the ruler (#183).
     var renderLoadCache: (key: String, spans: [RenderLoad.Span])?
+    /// Your hand-made pieces of the previous edit, to put onto the next Edit My VOD build (#116).
+    var pendingCarryOver: TimelineCarryOver?
     /// Where the main divider of a multicam grid sits (#330), 0.3…0.7.
     @Published var gridSplit: Double = MulticamGridLayout.defaultSplit
     /// A voice-over being recorded (#331) and where on the timeline it started.

@@ -6,7 +6,7 @@ public enum RecordingEstimate {
     public static func bytesPerHour(width: Int, height: Int, fps: Int, codec: VideoCodec, audioTracks: Int = 2) -> Int64 {
         let bitsPerPixel: Double
         switch codec {
-        case .hevc: bitsPerPixel = 0.045
+        case .hevc, .hevc10: bitsPerPixel = 0.045
         case .h264: bitsPerPixel = 0.085
         case .proRes422: bitsPerPixel = 1.9
         case .proRes4444: bitsPerPixel = 2.9

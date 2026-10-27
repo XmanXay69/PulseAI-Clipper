@@ -1153,10 +1153,12 @@ struct EnhancePreviewRow: View {
         HStack(spacing: 8) {
             if preview.isPlaying {
                 Picker("", selection: $preview.hearing) {
-                    Text("Raw").tag(EnhancePreview.Hearing.raw)
-                    Text("Processed").tag(EnhancePreview.Hearing.processed)
+                    Text("0 %").tag(EnhancePreview.Hearing.raw)
+                    Text("50 %").tag(EnhancePreview.Hearing.half)
+                    Text("100 %").tag(EnhancePreview.Hearing.processed)
                 }
-                .pickerStyle(.segmented).labelsHidden().frame(width: 150)
+                .pickerStyle(.segmented).labelsHidden().frame(width: 170)
+                .help("Voice isolation off, at half strength, and as set (#276) — the rest of the chain stays the same")
                 Button("Stop") { preview.stop() }.buttonStyle(.pulse(.ghost, compact: true))
             } else {
                 Button {

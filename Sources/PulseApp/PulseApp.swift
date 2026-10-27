@@ -186,6 +186,8 @@ struct PulseCommands: Commands {
                 .disabled(app.session?.document.primaryAsset == nil)
             Menu("Edit My VOD Again") {
                 Button("Same Settings") { app.session?.editAgain() }
+                Button("Same Settings, Keep My Changes") { app.session?.editAgain(keepChanges: true) }
+                    .help("Rebuilds with the same answers and puts your own clips, markers, notes and caption look back onto the new edit (#116)")
                 Button("10 % Shorter") { app.session?.editAgain(lengthScale: 0.9) }
                 Button("10 % Longer") { app.session?.editAgain(lengthScale: 1.1) }
                 Divider()

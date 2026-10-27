@@ -438,8 +438,9 @@ public enum CompositionBuilder {
                 let renderRange = spans[clip.id] ?? TimeRange(start: clip.sourceIn, end: clip.sourceOut + (tail?.sourceLength ?? 0))
                 let offset = max(0, clip.sourceIn - renderRange.start)
                 var enhancedFile: URL?
-                // The enhance chain reads a file's first track; other OBS tracks play as recorded.
-                if clip.audio.needsEnhanceRender, (clip.audio.sourceTrack ?? 0) == 0, let cacheDirectory = options.enhanceCacheDirectory {
+                // The enhance chain reads a file's first track; other OBS tracks play as recorded, and so does a
+                // raw-soloed track (#282).
+                if clip.audio.needsEnhanceRender, (clip.audio.sourceTrack ?? 0) == 0, !track.playsRaw, let cacheDirectory = options.enhanceCacheDirectory {
                     if options.renderEnhancements {
                         enhancedFile = try? await AudioEnhancer.shared.render(sourceURL: fileURL, range: renderRange, settings: clip.audio, cacheDirectory: cacheDirectory)
                     } else {

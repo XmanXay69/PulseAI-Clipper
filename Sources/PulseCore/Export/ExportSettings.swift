@@ -3,6 +3,8 @@ import Foundation
 public enum VideoCodec: String, Codable, CaseIterable, Sendable {
     case h264
     case hevc
+    /// HEVC Main 10 (#348): a 10-bit stream for HDR-safe pipelines; the picture itself is rendered in 8-bit SDR.
+    case hevc10
     case proRes422
     /// ProRes 4444 keeps an alpha channel (#346): overlays and stingers with a transparent background.
     case proRes4444
@@ -14,6 +16,7 @@ public enum VideoCodec: String, Codable, CaseIterable, Sendable {
         switch self {
         case .h264: return "H.264"
         case .hevc: return "HEVC (H.265)"
+        case .hevc10: return "HEVC 10-bit (Main 10)"
         case .proRes422: return "Apple ProRes 422"
         case .proRes4444: return "Apple ProRes 4444 (alpha)"
         }

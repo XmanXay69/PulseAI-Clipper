@@ -162,11 +162,16 @@ public struct Track: Codable, Hashable, Identifiable, Sendable {
     /// A colour label for the track header (#149); nil = the kind's colour.
     public var color: MarkerColor?
 
+    /// Raw solo (#282): while soloed, the track plays without its enhance chain — the recording as it is.
+    public var rawSolo: Bool
+
     public init(id: UUID = UUID(), kind: TrackKind, name: String, clips: [TimelineClip] = [], isMuted: Bool = false,
-                isLocked: Bool = false, isHidden: Bool = false, isSolo: Bool = false, volume: Double = 1, color: MarkerColor? = nil) {
+                isLocked: Bool = false, isHidden: Bool = false, isSolo: Bool = false, volume: Double = 1, color: MarkerColor? = nil,
+                rawSolo: Bool = false) {
         self.id = id
         self.kind = kind
         self.name = name
+        self.rawSolo = rawSolo
         self.clips = clips.sorted { $0.start < $1.start }
         self.isMuted = isMuted
         self.isLocked = isLocked
@@ -188,7 +193,11 @@ public struct Track: Codable, Hashable, Identifiable, Sendable {
         isSolo = c.decode(Bool.self, forKey: .isSolo, default: false)
         volume = c.decode(Double.self, forKey: .volume, default: 1)
         color = c.decode(MarkerColor?.self, forKey: .color, default: nil)
+        rawSolo = c.decode(Bool.self, forKey: .rawSolo, default: false)
     }
+
+    /// True when this track is heard raw: soloed with raw solo on (#282).
+    public var playsRaw: Bool { isSolo && rawSolo }
 
     public var end: Seconds { clips.map(\.end).max() ?? 0 }
 

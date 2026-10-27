@@ -58,6 +58,17 @@ enum Theme {
     static let radiusLarge: CGFloat = 10
     static let radiusXL: CGFloat = 16
 
+    /// The 4-pt spacing grid (#401): every padding and gap is one of these.
+    enum Spacing {
+        static let xs: CGFloat = 4
+        static let s: CGFloat = 8
+        static let m: CGFloat = 12
+        static let l: CGFloat = 16
+        static let xl: CGFloat = 20
+        static let xxl: CGFloat = 24
+        static let xxxl: CGFloat = 32
+    }
+
     /// A lifted surface (popovers, hovered cards).
     static var elevated: Color { isLight ? Color(hex: 0xFFFFFF) : Color(hex: 0x27272C) }
 
@@ -137,6 +148,8 @@ extension View {
 extension Font {
     static let pulseDisplay = Font.system(size: 28, weight: .bold)
     static let pulseTitle = Font.system(size: 22, weight: .semibold)
+    /// The type scale (#401): 10 micro · 11 caption · 12 body · 13 headline · 15 subtitle · 22 title · 28 display.
+    static let pulseSubtitle = Font.system(size: 15, weight: .semibold)
     static let pulseHeadline = Font.system(size: 13, weight: .semibold)
     static let pulseBody = Font.system(size: 12)
     static let pulseCaption = Font.system(size: 11)

@@ -294,6 +294,19 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
 - **Transcript as it happens** (#39) — while a recording transcribes, the Transcript panel shows the words so
   far (Apple Speech after each chunk, whisper.cpp as each segment prints) instead of an empty state.
 
+### Batch 43
+
+- **Raw solo** (#282) — ⌥-click a track's S: it solos with its enhance chain bypassed (the button reads R),
+  so you hear the recording as it is; a plain click is solo in place, effects and all.
+- **Edit again, keep my changes** (#116) — Edit → Edit My VOD Again → Same Settings, Keep My Changes rebuilds
+  the edit and puts your own clips, markers, notes, caption look and cover frame back onto it.
+- **HEVC 10-bit** (#348) — a Main 10 codec choice for HDR-safe pipelines; the picture is rendered in SDR and
+  VideoToolbox writes the 10-bit stream.
+- **Isolation at 0 / 50 / 100 %** (#276) — the enhance preview plays the stretch three ways: voice isolation
+  off, at half strength and as set.
+- **Spacing grid and type scale** (#401) — `Theme.Spacing` (4 to 32 pt) and the 10/11/12/13/15/22/28 type
+  scale are named constants for every new view.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
