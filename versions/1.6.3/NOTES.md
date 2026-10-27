@@ -33,6 +33,9 @@ any of it meets a real recording.
   mid-countdown, claimed by another app) made the countdown wait forever; it now fails after 10 seconds with
   the device named, and the screen recording starts without it is not lost: a stop the device never finishes
   writing gives up after 20 seconds, keeping the screen file and reporting the camera file as the problem.
+- **Screen capture failures are heard.** The ScreenCaptureKit stream was created without a delegate, so a
+  stream that stopped on its own (display unplugged, permission revoked mid-recording) was never recorded as a
+  failure; a delegate proxy now forwards the stop, which is logged and reported when nothing was captured.
 - **Restoring an archive is a job** with "Unpacking" and "Relinking media" steps, instead of freezing the window
   while a multi-gigabyte zip unpacks.
 - **VOD downloads by link** (#1, #467) failed for anything over 60 MB with "Unexpected file size" — the music

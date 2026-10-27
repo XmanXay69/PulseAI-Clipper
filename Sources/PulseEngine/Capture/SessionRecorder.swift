@@ -326,6 +326,8 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecke
     private var isPaused = false
     private var pauseStartedAt: CMTime?
     private var pausedTotal: CMTime = .zero
+    /// The stream's delegate (SCStream takes it at init, before this object exists, so a proxy stands in).
+    fileprivate var delegateProxy: StreamDelegateProxy?
 
     private static func hostTime() -> CMTime { CMClockGetTime(CMClockGetHostTimeClock()) }
 
@@ -450,8 +452,13 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecke
                 audioInput = input
             }
         }
-        let placeholder = SCStream(filter: filter, configuration: config, delegate: nil)
+        // The delegate hears when the stream stops on its own (display unplugged, permission revoked): without it,
+        // the failure would never be recorded.
+        let proxy = StreamDelegateProxy()
+        let placeholder = SCStream(filter: filter, configuration: config, delegate: proxy)
         let capture = ScreenCapture(url: url, stream: placeholder, writer: writer, videoInput: videoInput, audioInput: audioInput)
+        proxy.target = capture
+        capture.delegateProxy = proxy
         try placeholder.addStreamOutput(capture, type: .screen, sampleHandlerQueue: capture.queue)
         if audioInput != nil {
             try placeholder.addStreamOutput(capture, type: .audio, sampleHandlerQueue: capture.queue)
@@ -543,7 +550,16 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecke
     }
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
+        PulseLog.warning("Screen capture stopped on its own: \(error.localizedDescription)")
         queue.async { self.failure = error }
+    }
+}
+
+/// Forwards the stream's stop to the capture that owns it.
+final class StreamDelegateProxy: NSObject, SCStreamDelegate {
+    weak var target: ScreenCapture?
+    func stream(_ stream: SCStream, didStopWithError error: Error) {
+        target?.stream(stream, didStopWithError: error)
     }
 }
 
