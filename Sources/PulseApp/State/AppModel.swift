@@ -94,6 +94,12 @@ final class AppModel: ObservableObject {
     @Published var settings: AppSettings {
         didSet {
             persistSettings()
+            let changed = Self.changedSettingKeys(oldValue, settings).map(Self.readableSettingKey)
+            if !changed.isEmpty {
+                var recent = recentlyChangedSettings.filter { !changed.contains($0) }
+                recent.insert(contentsOf: changed, at: 0)
+                recentlyChangedSettings = Array(recent.prefix(8))
+            }
             if oldValue.thumbnailCacheMB != settings.thumbnailCacheMB {
                 let mb = settings.thumbnailCacheMB
                 Task.detached(priority: .utility) { await ThumbnailService.shared.setMemoryCeiling(megabytes: mb) }
@@ -356,6 +362,11 @@ final class AppModel: ObservableObject {
         newSession.autoRelinkMissing()
         // Menus, sidebar badges and the top bar reflect session state (undo labels, clip counts…).
         sessionObserver = newSession.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+        if !pendingImportURLs.isEmpty {
+            let urls = pendingImportURLs
+            pendingImportURLs = []
+            Task { @MainActor in newSession.importMedia(urls) }
+        }
         library?.index(document, path: package.url.path, thumbnailPath: document.thumbnailPath.map { package.url.appendingPathComponent($0).path })
         refreshProjects()
     }
@@ -1068,8 +1079,8 @@ final class AppModel: ObservableObject {
         }
         var export = session.document.exportSettings
         if ExportPreset.preset(id: export.presetID) == nil {
-            export = ExportSettings(preset: ExportPreset.preset(id: session?.document.overrides.exportPresetID ?? settings.defaultExportPresetID) ?? .tiktok)
-            if let target = session?.document.overrides.loudnessTarget { export.loudnessTarget = target }
+            export = ExportSettings(preset: ExportPreset.preset(id: session.document.overrides.exportPresetID ?? settings.defaultExportPresetID) ?? .tiktok)
+            if let target = session.document.overrides.loudnessTarget { export.loudnessTarget = target }
         }
         if export.outputDirectory.isEmpty { export.outputDirectory = exportFolder.path }
         if EditFormat.of(timeline) == .longForm, ["tiktok", "shorts", "reels"].contains(export.presetID) {
@@ -1146,6 +1157,42 @@ final class AppModel: ObservableObject {
         let info = Bundle.main.infoDictionary
         guard let v = info?["CFBundleShortVersionString"] as? String else { return "dev" }
         return "\(v) (\(info?["CFBundleVersion"] as? String ?? "?"))"
+    }
+
+    /// The menu shortcut for an action, custom or default (#431).
+    func shortcut(_ action: ShortcutAction) -> KeyboardShortcut? {
+        settings.shortcuts.combo(for: action).keyboardShortcut
+    }
+
+    /// Files opened from the Finder before a project was open (#466); imported once one is.
+    var pendingImportURLs: [URL] = []
+
+    /// Settings keys changed lately, newest first (#423).
+    @Published private(set) var recentlyChangedSettings: [String] = []
+
+    /// Top-level keys whose values differ between two settings snapshots, as readable names.
+    nonisolated static func changedSettingKeys(_ old: AppSettings, _ new: AppSettings) -> [String] {
+        guard let a = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(old)) as? [String: Any],
+              let b = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(new)) as? [String: Any] else { return [] }
+        var out: [String] = []
+        for key in Set(a.keys).union(b.keys).sorted() {
+            let x = a[key] as? NSObject, y = b[key] as? NSObject
+            if x != y { out.append(key) }
+        }
+        return out.filter { !["stats", "recentProjectPaths", "workspaces", "referenceStyles", "hasCompletedOnboarding"].contains($0) }
+    }
+
+    /// "thumbnailCacheMB" → "Thumbnail cache MB".
+    nonisolated static func readableSettingKey(_ key: String) -> String {
+        var words: [String] = []
+        var current = ""
+        for ch in key {
+            if ch.isUppercase, !current.isEmpty, !(current.last?.isUppercase ?? false) { words.append(current); current = "" }
+            current.append(ch)
+        }
+        if !current.isEmpty { words.append(current) }
+        let joined = words.map { $0.count <= 2 && $0 == $0.uppercased() ? $0 : $0.lowercased() }.joined(separator: " ")
+        return joined.prefix(1).uppercased() + joined.dropFirst()
     }
 
     /// A soft click per frame step when the setting is on (#198).

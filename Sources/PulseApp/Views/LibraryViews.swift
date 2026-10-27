@@ -185,8 +185,11 @@ struct MediaView: View {
                     KeyValueRow(key: "Resolution", value: asset.metadata.width > 0 ? "\(asset.metadata.width)×\(asset.metadata.height)" : "—")
                     KeyValueRow(key: "Frame rate", value: asset.metadata.frameRateLabel + (asset.metadata.variableFrameRate == true ? " · variable" : ""))
                     if asset.metadata.variableFrameRate == true {
-                        Label("Variable frame rate — captions and cuts can drift. Convert to constant (Media → Convert) if they do.", systemImage: "exclamationmark.triangle")
+                        Label("Variable frame rate — captions and cuts can drift.", systemImage: "exclamationmark.triangle")
                             .font(.pulseMicro).foregroundStyle(Theme.warning).fixedSize(horizontal: false, vertical: true)
+                        Button { session.conformFrameRate(assetID: asset.id) } label: { Label("Conform to a constant frame rate", systemImage: "metronome") }
+                            .buttonStyle(.pulse(.secondary, compact: true))
+                            .help("Re-encodes the recording at a constant rate in the cache and points the project at it; the original stays where it is (#24)")
                     }
                     if let primaries = asset.metadata.colorPrimaries, primaries.contains("2020") {
                         Label("HDR source (Rec. 2020) — the preview and exports are SDR; colours may look flatter than in QuickTime.", systemImage: "sun.max.trianglebadge.exclamationmark")
@@ -683,7 +686,7 @@ struct ExportsView: View {
         .onAppear {
             guard !loaded else { return }
             loaded = true
-            let preset = ExportPreset.preset(id: session.document.overrides.exportPresetID ?? app.settings.defaultExportPresetID) ?? .tiktok
+            let preset = ExportPreset.preset(id: app.session?.document.overrides.exportPresetID ?? app.settings.defaultExportPresetID) ?? .tiktok
             settings = app.session?.document.exportSettings ?? ExportSettings(preset: preset)
             if settings.outputDirectory.isEmpty { settings.outputDirectory = app.exportFolder.path }
             // A YouTube edit (Edit My VOD) shouldn't start on a vertical short-form preset.

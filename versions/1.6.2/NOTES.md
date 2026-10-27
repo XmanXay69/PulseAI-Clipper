@@ -107,6 +107,20 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
 - **Inspector and transcript in their own windows** (#429) — Window → … in Separate Window (⌥⇧⌘I / ⌥⇧⌘T).
 - **"= EXPORT" badge** (#197) — the viewer says it runs the export's renderer, so what you see is what ships.
 
+### Batch 29
+
+- **Your own shortcuts** (#431) — Settings → Shortcuts → Customize changes the key for twenty menu commands;
+  clashes with another command or a standard Mac shortcut show in amber, and the menus pick the change up at once.
+- **Trim two-up** (#142) — while a trim handle drags, the frame on each side of the new cut floats by the handle.
+- **Conform frame rate** (#24) — a variable-frame-rate recording re-encodes at a constant rate from the media
+  panel; the project points at the new file, the original stays put.
+- **Open with PULSE** (#466) — videos and audio files open with PULSE from the Finder or the Dock: into the open
+  project, or waiting for the next one.
+- **Recently changed** (#423) — Settings → General lists what you've touched this session.
+- **Font picker with previews and recents** (#215) — every font shows in itself; the last six you picked sit
+  at the top.
+- **Focus rings** (#408) — keyboard focus on icon buttons draws in the accent colour.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);

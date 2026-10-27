@@ -489,6 +489,7 @@ struct ClipInspector: View {
 }
 
 struct TextInspector: View {
+    @EnvironmentObject var app: AppModel
     @ObservedObject var session: ProjectSession
     let clip: TimelineClip
     let element: TextElement
@@ -515,8 +516,16 @@ struct TextInspector: View {
                 .scrollContentBackground(.hidden)
                 .background(RoundedRectangle(cornerRadius: 4).fill(Theme.well))
             Picker("Font", selection: textBinding("Font", \.style.fontName)) {
-                ForEach(Self.fonts, id: \.self) { Text($0).tag($0) }
+                if !app.settings.recentFonts.isEmpty {
+                    Section("Recent") {
+                        ForEach(app.settings.recentFonts.filter { Self.fonts.contains($0) }, id: \.self) { Text($0).font(.custom($0, size: 12)).tag($0) }
+                    }
+                }
+                Section("All") {
+                    ForEach(Self.fonts, id: \.self) { Text($0).font(.custom($0, size: 12)).tag($0) }
+                }
             }
+            .onChange(of: element.style.fontName) { _, name in app.settings.noteRecentFont(name) }
             HStack {
                 Picker("Weight", selection: textBinding("Weight", \.style.weight)) {
                     ForEach(FontWeight.allCases, id: \.self) { Text($0.displayName).tag($0) }

@@ -101,6 +101,7 @@ struct IconButton: View {
     var size: CGFloat = 26
     let action: () -> Void
     @State private var hovering = false
+    @FocusState private var focused: Bool
 
     var body: some View {
         Button(action: action) {
@@ -109,8 +110,13 @@ struct IconButton: View {
                 .frame(width: size, height: size)
                 .foregroundStyle(isActive ? Theme.accent : (hovering ? Theme.textPrimary : Theme.textSecondary))
                 .background(RoundedRectangle(cornerRadius: Theme.radiusSmall).fill(isActive ? Theme.accentSoft : (hovering ? Theme.control : .clear)))
+                // Keyboard focus ring in the accent colour (#408), in place of the system's blue one.
+                .overlay(RoundedRectangle(cornerRadius: Theme.radiusSmall).strokeBorder(Theme.accent, lineWidth: focused ? 1.5 : 0))
         }
         .buttonStyle(.plain)
+        .focusable()
+        .focused($focused)
+        .focusEffectDisabled()
         .onHover { hovering = $0 }
         .help(help)
         .accessibilityLabel(accessibilityName)
@@ -538,6 +544,8 @@ struct ThumbnailView: View {
     var time: Seconds = 1
     var maxWidth: Int = 320
     var contentMode: ContentMode = .fill
+    /// Exact frame (no keyframe tolerance) — for trim previews, where a second off is useless.
+    var precise = false
     @State private var image: CGImage?
     @State private var failed = false
 
@@ -559,10 +567,10 @@ struct ThumbnailView: View {
             }
         }
         .clipped()
-        .task(id: "\(url?.path ?? "")|\(Int(time * 10))|\(maxWidth)") {
+        .task(id: "\(url?.path ?? "")|\(Int(time * (precise ? 100 : 10)))|\(maxWidth)|\(precise)") {
             guard let url else { image = nil; return }
             failed = false
-            image = await ThumbnailService.shared.image(for: url, at: time, maxWidth: maxWidth)
+            image = await ThumbnailService.shared.image(for: url, at: time, maxWidth: maxWidth, precise: precise)
             failed = image == nil
         }
     }

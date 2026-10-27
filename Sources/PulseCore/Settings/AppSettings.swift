@@ -358,6 +358,10 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var audioScrub: Bool = false
     /// How tall timeline tracks are (#148).
     public var trackHeight: TrackHeightPreset = .medium
+    /// Custom menu shortcuts (#431).
+    public var shortcuts: ShortcutMap = ShortcutMap()
+    /// Fonts picked for text lately, newest first (#215).
+    public var recentFonts: [String] = []
 
     public init() {}
 
@@ -370,6 +374,14 @@ public struct AppSettings: Codable, Hashable, Sendable {
 
     public func layout(for preset: WorkspacePreset) -> WorkspaceLayout {
         workspaces[preset.rawValue] ?? preset.defaultLayout
+    }
+
+    /// Keeps a font at the front of the recent list (#215), at most six.
+    public mutating func noteRecentFont(_ name: String) {
+        guard !name.isEmpty else { return }
+        recentFonts.removeAll { $0 == name }
+        recentFonts.insert(name, at: 0)
+        if recentFonts.count > 6 { recentFonts.removeLast(recentFonts.count - 6) }
     }
 
     public mutating func noteRecentProject(_ path: String) {
@@ -416,6 +428,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
         thumbnailAfterExport = c.decode(Bool.self, forKey: .thumbnailAfterExport, default: d.thumbnailAfterExport)
         audioScrub = c.decode(Bool.self, forKey: .audioScrub, default: d.audioScrub)
         trackHeight = c.decode(TrackHeightPreset.self, forKey: .trackHeight, default: d.trackHeight)
+        shortcuts = c.decode(ShortcutMap.self, forKey: .shortcuts, default: d.shortcuts)
+        recentFonts = c.decode([String].self, forKey: .recentFonts, default: d.recentFonts)
         showPlatformChrome = c.decode(Bool.self, forKey: .showPlatformChrome, default: d.showPlatformChrome)
         watchFolderAnalyzes = c.decode(Bool.self, forKey: .watchFolderAnalyzes, default: d.watchFolderAnalyzes)
         nightlyBatchHour = c.decode(Int?.self, forKey: .nightlyBatchHour, default: nil)

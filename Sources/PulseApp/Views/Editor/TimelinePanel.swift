@@ -1016,6 +1016,7 @@ struct TimelineClipView: View, Equatable {
                                      startPoint: .top, endPoint: .bottom))
             clipContent(width: w)
                 .clipShape(RoundedRectangle(cornerRadius: 5))
+            if let preview = trimPreview { preview }
             HStack(spacing: 4) {
                 if clip.aiGenerated { Image(systemName: "sparkles").font(.system(size: 8, weight: .bold)).foregroundStyle(Theme.ai) }
                 if clip.linkGroup != nil { Image(systemName: "link").font(.system(size: 7, weight: .bold)).foregroundStyle(.white.opacity(0.55)) }
@@ -1171,6 +1172,37 @@ struct TimelineClipView: View, Equatable {
             }
         }
         .allowsHitTesting(false)
+    }
+
+    /// While a trim handle drags (#142): the frame on each side of the new cut, floating by the handle.
+    var trimPreview: AnyView? {
+        guard trackKind == .video, let asset, case .media = clip.content, asset.metadata.hasVideo, trimLeading != 0 || trimTrailing != 0 else { return nil }
+        let leading = trimLeading != 0
+        let fps = max(asset.metadata.frameRate, 1)
+        let delta = Double((leading ? trimLeading : trimTrailing) / pps) * clip.speed
+        let cut = leading ? clip.sourceIn + delta : clip.sourceOut + delta
+        let before = max(0, cut - 1 / fps)
+        let after = min(asset.metadata.duration, cut)
+        let url = session.url(for: asset)
+        let w = max(CGFloat(clip.duration) * pps - trimLeading + trimTrailing, 3)
+        return AnyView(
+            HStack(spacing: 3) {
+                VStack(spacing: 2) {
+                    ThumbnailView(url: url, time: before, maxWidth: 160, contentMode: .fit, precise: true).frame(width: 72, height: 40)
+                    Text(leading ? "cut" : "last").font(.pulseMicro).foregroundStyle(.white.opacity(0.7))
+                }
+                VStack(spacing: 2) {
+                    ThumbnailView(url: url, time: after, maxWidth: 160, contentMode: .fit, precise: true).frame(width: 72, height: 40)
+                    Text(leading ? "first" : "cut").font(.pulseMicro).foregroundStyle(.white.opacity(0.7))
+                }
+            }
+            .padding(5)
+            .background(RoundedRectangle(cornerRadius: 6).fill(.black.opacity(0.85)))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.accent.opacity(0.7)))
+            .offset(x: leading ? trimLeading - 4 : w - 160, y: -58)
+            .allowsHitTesting(false)
+            .transition(.opacity)
+        )
     }
 
     func trimHandle(leading: Bool) -> some View {

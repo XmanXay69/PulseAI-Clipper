@@ -309,6 +309,13 @@ struct GeneralSettings: View {
                 .labelsHidden().frame(width: 180)
             }
         }
+        if !app.recentlyChangedSettings.isEmpty {
+            SettingsGroup("Recently changed", footnote: "What you've touched this session (#423) — handy when something looks different and you can't remember why.") {
+                SettingsRow("Settings") {
+                    Text(app.recentlyChangedSettings.joined(separator: " · ")).font(.pulseCaption).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                }
+            }
+        }
         SettingsGroup("Saving", footnote: "Recovery snapshots protect unsaved work if PULSE quits unexpectedly. Backups are rotating copies of project.json inside each project.") {
             SettingsRow("Autosave every") {
                 Picker("", selection: $app.settings.autosaveInterval) {
@@ -1007,6 +1014,7 @@ struct ShortcutsPane: View {
                 .buttonStyle(.pulse(.secondary, compact: true))
                 .help("Opens every shortcut as a page you can print or keep next to the keyboard (#451)")
         }
+        ShortcutEditor()
         ForEach(Self.groups, id: \.0) { group in
             SettingsGroup(group.0) {
                 ForEach(group.1, id: \.0) { item in
@@ -1335,5 +1343,65 @@ struct EffectChoiceRow: View {
             }
             .labelsHidden().frame(width: 170)
         }
+    }
+}
+
+
+/// Change a menu shortcut (#431): type it as ⌥⇧⌘K or cmd+shift+k; collisions are called out before they bite.
+struct ShortcutEditor: View {
+    @EnvironmentObject var app: AppModel
+
+    var body: some View {
+        SettingsGroup("Customize", footnote: "Type a shortcut as ⌥⇧⌘K or cmd+shift+k and press return. Clashes with another command or a standard Mac shortcut show in amber; the menus pick up the change straight away.") {
+            ForEach(ShortcutAction.allCases, id: \.self) { action in
+                ShortcutRow(action: action)
+            }
+            if !app.settings.shortcuts.custom.isEmpty {
+                HStack {
+                    Spacer()
+                    Button("Reset All to Defaults") { app.settings.shortcuts = ShortcutMap() }.buttonStyle(.pulse(.ghost, compact: true))
+                }
+            }
+        }
+    }
+}
+
+struct ShortcutRow: View {
+    @EnvironmentObject var app: AppModel
+    let action: ShortcutAction
+    @State private var draft = ""
+    @State private var problem: String?
+
+    var combo: KeyCombo { app.settings.shortcuts.combo(for: action) }
+    var conflicts: [String] { app.settings.shortcuts.conflicts(for: combo, excluding: action) }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(action.displayName).font(.pulseBody).foregroundStyle(Theme.textPrimary).frame(width: 220, alignment: .leading)
+            TextField(combo.display, text: $draft)
+                .textFieldStyle(.roundedBorder).font(.pulseMono).frame(width: 110)
+                .onSubmit { commit() }
+                .help("Current: \(combo.display)")
+            if app.settings.shortcuts.isCustom(action) {
+                Button { app.settings.shortcuts.set(nil, for: action); draft = ""; problem = nil } label: { Image(systemName: "arrow.counterclockwise") }
+                    .buttonStyle(.pulse(.ghost, compact: true)).help("Back to \(action.defaultCombo.display)")
+            }
+            if let problem {
+                Text(problem).font(.pulseMicro).foregroundStyle(Theme.warning).lineLimit(1)
+            } else if !conflicts.isEmpty {
+                Label("Also \(conflicts.joined(separator: ", "))", systemImage: "exclamationmark.triangle").font(.pulseMicro).foregroundStyle(Theme.warning).lineLimit(1)
+            } else {
+                Text(combo.display).font(.pulseMono).foregroundStyle(Theme.textTertiary)
+            }
+            Spacer()
+        }
+    }
+
+    func commit() {
+        guard !draft.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        guard let parsed = KeyCombo.parse(draft) else { problem = "Couldn't read that — try ⌥⇧⌘K or cmd+shift+k"; return }
+        problem = nil
+        app.settings.shortcuts.set(parsed, for: action)
+        draft = ""
     }
 }

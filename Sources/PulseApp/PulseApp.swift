@@ -125,6 +125,23 @@ struct DetachedPanelWindow: View {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var app: AppModel?
 
+    /// Finder → Open With → PULSE, or a drop on the Dock icon (#466): projects open, media imports into the
+    /// open project.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard let app else { return }
+        let projects = urls.filter { $0.pathExtension.lowercased() == "pulse" }
+        let media = urls.filter { $0.pathExtension.lowercased() != "pulse" }
+        if let project = projects.first { app.openProject(at: project) }
+        guard !media.isEmpty else { return }
+        if let session = app.session {
+            session.importMedia(media)
+        } else {
+            app.pendingImportURLs = media
+            app.section = .projects
+            app.toast("Open or create a project and these \(media.count) file\(media.count == 1 ? "" : "s") will import into it")
+        }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSSetUncaughtExceptionHandler { exception in
             PulseLog.error("Uncaught exception: \(exception.name.rawValue) — \(exception.reason ?? "") \(exception.callStackSymbols.prefix(12).joined(separator: " | "))")
@@ -185,13 +202,13 @@ struct PulseCommands: Commands {
                 .keyboardShortcut("e")
                 .disabled(app.session?.activeTimeline == nil)
             Divider()
-            Button("Import Media…") { app.showImportPanel() }.keyboardShortcut("i")
+            Button("Import Media…") { app.showImportPanel() }.keyboardShortcut(app.shortcut(.importMedia))
             Button(app.recording.isCapturing ? "Stop Recording" : "New Recording…") {
                 if app.recording.isCapturing { app.recording.stop(app: app) } else { app.showRecordSheet = true }
             }
             .keyboardShortcut("r", modifiers: [.command, .shift])
             Button(app.recording.phase == .paused ? "Resume Recording" : "Pause Recording") { app.recording.togglePause() }
-            Button("Mark Moment (Clip It)") { app.recording.markMoment() }.keyboardShortcut("m", modifiers: [.command, .shift]).disabled(app.recording.phase != .recording)
+            Button("Mark Moment (Clip It)") { app.recording.markMoment() }.keyboardShortcut(app.shortcut(.markMoment)).disabled(app.recording.phase != .recording)
                 .keyboardShortcut("p", modifiers: [.command, .shift])
                 .disabled(!app.recording.isCapturing)
             Divider()
@@ -199,7 +216,7 @@ struct PulseCommands: Commands {
         }
         CommandGroup(replacing: .saveItem) {
             Button("Save") { app.session?.save() }.keyboardShortcut("s").disabled(app.session == nil)
-            Button("Save Version…") { app.session?.createVersion(label: nil) }.keyboardShortcut("s", modifiers: [.command, .option]).disabled(app.session == nil)
+            Button("Save Version…") { app.session?.createVersion(label: nil) }.keyboardShortcut(app.shortcut(.saveVersion)).disabled(app.session == nil)
         }
         CommandGroup(replacing: .undoRedo) {
             Button(app.session?.undoLabel.map { "Undo \($0)" } ?? "Undo") { app.session?.undo() }
@@ -228,25 +245,25 @@ struct PulseCommands: Commands {
             }
         }
         CommandMenu("Timeline") {
-            Button("Split at Playhead") { app.session?.splitAtPlayhead() }.keyboardShortcut("k")
-            Button("Split All Tracks at Playhead") { app.session?.splitAllAtPlayhead() }.keyboardShortcut("k", modifiers: [.command, .shift])
-            Button("Add Transition") { app.session?.addDefaultTransition() }.keyboardShortcut("t", modifiers: [.command])
+            Button("Split at Playhead") { app.session?.splitAtPlayhead() }.keyboardShortcut(app.shortcut(.splitAtPlayhead))
+            Button("Split All Tracks at Playhead") { app.session?.splitAllAtPlayhead() }.keyboardShortcut(app.shortcut(.splitAllTracks))
+            Button("Add Transition") { app.session?.addDefaultTransition() }.keyboardShortcut(app.shortcut(.addTransition))
                 .disabled(app.session?.activeTimeline == nil)
-            Button("Copy Attributes") { app.session?.copyAttributes() }.keyboardShortcut("c", modifiers: [.command, .option])
+            Button("Copy Attributes") { app.session?.copyAttributes() }.keyboardShortcut(app.shortcut(.copyAttributes))
                 .disabled(app.session?.selectedClipIDs.isEmpty ?? true)
-            Button("Paste Attributes") { app.session?.pasteAttributes() }.keyboardShortcut("v", modifiers: [.command, .option])
+            Button("Paste Attributes") { app.session?.pasteAttributes() }.keyboardShortcut(app.shortcut(.pasteAttributes))
                 .disabled(app.session?.copiedAttributes == nil)
             Button("Paste Look Only") { app.session?.pasteAttributes(parts: .look) }.keyboardShortcut("v", modifiers: [.command, .option, .shift])
                 .disabled(app.session?.copiedAttributes == nil)
-            Button("Match Previous Clip") { app.session?.matchPreviousClip() }.keyboardShortcut("m", modifiers: [.command, .option])
+            Button("Match Previous Clip") { app.session?.matchPreviousClip() }.keyboardShortcut(app.shortcut(.matchPreviousClip))
                 .disabled(app.session?.selectedClipIDs.isEmpty ?? true)
             Button("Set Cover Frame at Playhead") { app.session?.setCoverFrame() }
                 .disabled(app.session?.activeTimeline == nil)
             Divider()
-            Button("Loop In → Out") { app.session?.toggleLoopInOut() }.keyboardShortcut("l", modifiers: [.option])
-            Button("Export In → Out") { app.session?.exportInOut() }.keyboardShortcut("e", modifiers: [.command, .option])
+            Button("Loop In → Out") { app.session?.toggleLoopInOut() }.keyboardShortcut(app.shortcut(.loopInOut))
+            Button("Export In → Out") { app.session?.exportInOut() }.keyboardShortcut(app.shortcut(.exportInOut))
                 .disabled(app.session?.inOutRange == nil)
-            Button("Export Selected Clips") { app.session?.exportSelectedClips() }.keyboardShortcut("e", modifiers: [.command, .option, .shift])
+            Button("Export Selected Clips") { app.session?.exportSelectedClips() }.keyboardShortcut(app.shortcut(.exportSelectedClips))
                 .disabled(app.session?.selectedClipIDs.isEmpty ?? true)
             Button("Export Final Cut Pro XML…") { app.session?.exportFCPXML() }
                 .disabled(app.session?.activeTimeline == nil)
@@ -258,7 +275,7 @@ struct PulseCommands: Commands {
             Button("Project Settings…") { app.session?.showProjectSettings = true }
                 .disabled(app.session == nil)
             Menu("Snapshots") {
-                Button("Take Snapshot") { app.session?.takeSnapshot() }.keyboardShortcut("s", modifiers: [.command, .option])
+                Button("Take Snapshot") { app.session?.takeSnapshot() }.keyboardShortcut(app.shortcut(.takeSnapshot))
                     .disabled(app.session?.activeTimeline == nil)
                 if let session = app.session, let timeline = session.activeTimeline {
                     let list = session.document.snapshots(for: timeline.id)
@@ -276,11 +293,11 @@ struct PulseCommands: Commands {
             }
             Divider()
             Button("Ripple Delete") { app.session?.deleteSelection(ripple: true) }.keyboardShortcut(.delete, modifiers: [.shift])
-            Button("Duplicate") { app.session?.duplicateSelection() }.keyboardShortcut("d")
-            Button("Detach Audio") { app.session?.detachAudio() }.keyboardShortcut("d", modifiers: [.command, .shift])
+            Button("Duplicate") { app.session?.duplicateSelection() }.keyboardShortcut(app.shortcut(.duplicate))
+            Button("Detach Audio") { app.session?.detachAudio() }.keyboardShortcut(app.shortcut(.detachAudio))
             Button("Ripple Delete In → Out") { app.session?.rippleDeleteInOut() }.keyboardShortcut(.delete, modifiers: [.command, .option])
             Button("Close All Gaps") { app.session?.closeAllGaps() }.disabled(app.session?.activeTimeline == nil)
-            Button("Freeze Frame") { app.session?.freezeFrame() }.keyboardShortcut("f", modifiers: [.shift]).disabled(app.session?.activeTimeline == nil)
+            Button("Freeze Frame") { app.session?.freezeFrame() }.keyboardShortcut(app.shortcut(.freezeFrame)).disabled(app.session?.activeTimeline == nil)
             // ⌥ so typing a comma in a text field never moves a clip.
             Button("Nudge Left a Frame") { app.session?.nudgeSelection(frames: -1) }.keyboardShortcut(",", modifiers: [.option])
             Button("Nudge Right a Frame") { app.session?.nudgeSelection(frames: 1) }.keyboardShortcut(".", modifiers: [.option])
@@ -302,9 +319,9 @@ struct PulseCommands: Commands {
                 Button("Roll Cut Right 10 Frames") { app.session?.rollSelection(frames: 10) }
             }
             Divider()
-            Button("Zoom In") { app.session?.zoomTimeline(by: 1.5) }.keyboardShortcut("=", modifiers: [.command])
-            Button("Zoom Out") { app.session?.zoomTimeline(by: 1 / 1.5) }.keyboardShortcut("-", modifiers: [.command])
-            Button("Zoom to Fit") { app.session?.zoomTimelineToFit() }.keyboardShortcut("z", modifiers: [.shift])
+            Button("Zoom In") { app.session?.zoomTimeline(by: 1.5) }.keyboardShortcut(app.shortcut(.zoomIn))
+            Button("Zoom Out") { app.session?.zoomTimeline(by: 1 / 1.5) }.keyboardShortcut(app.shortcut(.zoomOut))
+            Button("Zoom to Fit") { app.session?.zoomTimelineToFit() }.keyboardShortcut(app.shortcut(.zoomToFit))
             Divider()
             Button("Add Text") { app.session?.addText() }.keyboardShortcut("t", modifiers: [.command, .option])
             Divider()
