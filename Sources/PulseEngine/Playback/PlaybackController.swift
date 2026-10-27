@@ -348,7 +348,7 @@ public final class PlaybackController: ObservableObject {
             try? await Task.sleep(nanoseconds: 90_000_000)
             guard !Task.isCancelled, self.scrubBlip != nil else { return }
             self.player.pause()
-            self.player.seek(to: position, toleranceBefore: .zero, toleranceAfter: .zero)
+            _ = await self.player.seek(to: position, toleranceBefore: .zero, toleranceAfter: .zero)
             self.scrubBlip = nil
         }
     }
