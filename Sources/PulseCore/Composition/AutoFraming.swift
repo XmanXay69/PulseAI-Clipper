@@ -62,6 +62,62 @@ public enum AutoReframer {
     }
 }
 
+/// Vertical reframe that follows the action in gameplay (#56): the crop pans toward where the picture is
+/// changing (the fight, the ball, the crosshair) and holds still while nothing much moves.
+public enum ActionReframer {
+    /// Adds pan keyframes so the clip's crop follows the motion centre of its source.
+    /// - deadZone: normalized movement ignored, so a steady scene doesn't jitter.
+    /// - maxStep: the furthest one keyframe may move the crop, so a cut-away never whips.
+    /// Returns how many keyframes were added.
+    @discardableResult
+    public static func applyActionTracking(to clip: inout TimelineClip, visual: VisualFeatureSeries, deadZone: Double = 0.06,
+                                           minInterval: Seconds = 1.0, maxStep: Double = 0.25) -> Int {
+        clip.transform.panX.removeAIKeyframes()
+        guard visual.tracksAction, let xs = visual.actionX, visual.hop > 0 else { return 0 }
+        let src = clip.sourceRange
+        let first = max(0, Int((src.start / visual.hop).rounded(.down)))
+        let last = min(visual.count - 1, Int((src.end / visual.hop).rounded(.up)))
+        guard last > first else { return 0 }
+        // Only samples with real motion steer the crop; the rest hold the last position. "Real" is relative to
+        // the clip's own quiet level, with an absolute floor for a still screen.
+        let levels = (first...last).map { visual.motion[$0] }
+        let quiet = levels.min() ?? 0
+        let typical = SeriesMath.percentile(levels, 0.5)
+        let threshold = max(0.004, quiet + (typical - quiet) * 0.3)
+        let cropW = clip.transform.crop.width
+        let baseCenter = clip.transform.crop.center
+        var ema: Double?
+        var smoothed: [(time: Seconds, x: Double)] = []
+        for i in first...last where visual.motion[i] >= threshold {
+            let x = Double(xs[i])
+            ema = ema.map { $0 * 0.7 + x * 0.3 } ?? x
+            smoothed.append((Double(i) * visual.hop, ema!))
+        }
+        guard smoothed.count >= 2 else { return 0 }
+        var lastKeyTime = -Double.infinity
+        var lastX = smoothed[0].x
+        var added = 0
+        for (k, sample) in smoothed.enumerated() {
+            let isFirst = k == 0
+            guard isFirst || (abs(sample.x - lastX) > deadZone && sample.time - lastKeyTime >= minInterval) else { continue }
+            let stepped = isFirst ? sample.x : lastX + (sample.x - lastX).clamped(-maxStep, maxStep)
+            let desiredCenter = stepped.clamped(cropW / 2, 1 - cropW / 2)
+            let pan = desiredCenter - baseCenter.x
+            let local = clip.localTime(atTimeline: clip.timelineTime(atSource: sample.time))
+            clip.transform.panX.setKeyframe(at: max(local, 0), value: pan, interpolation: .easeInOut, aiGenerated: true)
+            lastKeyTime = sample.time
+            lastX = stepped
+            added += 1
+        }
+        if added == 1 {
+            let v = clip.transform.panX.value(at: 0)
+            clip.transform.panX.removeAIKeyframes()
+            clip.transform.panX.value = v
+        }
+        return added
+    }
+}
+
 public struct PunchInSettings: Codable, Hashable, Sendable {
     public var statementZoom: Double = 1.08
     public var punchlineZoom: Double = 1.14

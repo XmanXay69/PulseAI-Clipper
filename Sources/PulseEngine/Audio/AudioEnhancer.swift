@@ -67,6 +67,26 @@ public actor AudioEnhancer {
     /// Decodes the range to float PCM, runs the chain, writes a CAF next to other caches.
     static func process(sourceURL: URL, range: TimeRange, settings: AudioSettings, output: URL,
                         progress: (@Sendable (Double) -> Void)? = nil) async throws {
+        var channels = try await decode(sourceURL: sourceURL, range: range, progress: progress)
+        let channelCount = channels.count
+        guard channelCount > 0, let frames = channels.first?.count, frames > 0 else { throw EngineError.noAudioTrack(sourceURL) }
+        try await finish(channels: &channels, frames: frames, range: range, settings: settings, output: output)
+    }
+
+    /// The noise of a stretch you marked as silence (#263), learned from the source at `range` (source time).
+    public static func learnNoiseProfile(sourceURL: URL, range: TimeRange) async throws -> NoiseProfile? {
+        let channels = try await decode(sourceURL: sourceURL, range: range, progress: nil)
+        guard let frames = channels.first?.count, frames > 0 else { return nil }
+        var mono = [Float](repeating: 0, count: frames)
+        for c in channels { for i in 0..<frames { mono[i] += c[i] } }
+        let scale = 1 / Float(channels.count)
+        for i in 0..<frames { mono[i] *= scale }
+        guard let bins = SpectralDenoiser.learnProfile(mono) else { return nil }
+        return NoiseProfile(bins: bins, learnedFrom: range, seconds: Double(frames) / sampleRate)
+    }
+
+    /// The range of the source as float PCM at `sampleRate`, one array per channel.
+    static func decode(sourceURL: URL, range: TimeRange, progress: (@Sendable (Double) -> Void)?) async throws -> [[Float]] {
         // One parsed asset per source file: re-opening a multi-hour VOD re-reads its whole index.
         let asset = sourceAsset(sourceURL)
         guard let track = try await asset.loadTracks(withMediaType: .audio).first else { throw EngineError.noAudioTrack(sourceURL) }
@@ -114,8 +134,11 @@ public actor AudioEnhancer {
         if reader.status == .failed {
             throw EngineError.readerFailed(reader.error?.localizedDescription ?? "audio decode failed")
         }
-        guard channelCount > 0, let frames = channels.first?.count, frames > 0 else { throw EngineError.noAudioTrack(sourceURL) }
+        return channels
+    }
 
+    /// Runs the chain over decoded channels and writes the CAF.
+    static func finish(channels: inout [[Float]], frames: Int, range: TimeRange, settings: AudioSettings, output: URL) async throws {
         AudioEnhanceChain.process(&channels, sampleRate: sampleRate, settings: settings, voiceIsolator: VoiceIsolation.isolator, sourceStart: range.start)
         // Panning can turn mono into stereo.
         let outputChannels = channels.count

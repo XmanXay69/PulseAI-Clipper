@@ -42,6 +42,8 @@ public final class VisualAnalyzer: @unchecked Sendable {
         let count = max(1, Int(duration / interval))
         var motion: [Float] = []
         var brightness: [Float] = []
+        var actionX: [Float] = []
+        var actionY: [Float] = []
         var cuts: [Seconds] = []
         var faces: [FaceSample] = []
         var previousGrid: [Float]?
@@ -56,6 +58,8 @@ public final class VisualAnalyzer: @unchecked Sendable {
             guard let cg = try? await generator.image(at: CMTime(seconds: t, preferredTimescale: 600)).image else {
                 motion.append(motion.last ?? 0)
                 brightness.append(brightness.last ?? 0)
+                actionX.append(actionX.last ?? 0.5)
+                actionY.append(actionY.last ?? 0.5)
                 continue
             }
             let (grid, histogram) = VisualAnalyzer.features(of: cg)
@@ -63,10 +67,26 @@ public final class VisualAnalyzer: @unchecked Sendable {
             brightness.append(mean)
             if let prev = previousGrid {
                 var diff: Float = 0
-                for k in grid.indices { diff += abs(grid[k] - prev[k]) }
+                // Where the change is (#56): the centroid of the frame difference, for action-following reframes.
+                var sumX: Float = 0, sumY: Float = 0
+                for k in grid.indices {
+                    let d = abs(grid[k] - prev[k])
+                    diff += d
+                    sumX += d * Float(k % gridWidth)
+                    sumY += d * Float(k / gridWidth)
+                }
                 motion.append(diff / Float(grid.count))
+                if diff > 0.02 * Float(grid.count) * 0.05 {
+                    actionX.append((sumX / diff + 0.5) / Float(gridWidth))
+                    actionY.append((sumY / diff + 0.5) / Float(gridHeight))
+                } else {
+                    actionX.append(actionX.last ?? 0.5)
+                    actionY.append(actionY.last ?? 0.5)
+                }
             } else {
                 motion.append(0)
+                actionX.append(0.5)
+                actionY.append(0.5)
             }
             if let prevHist = previousHistogram {
                 // Chi-square-like histogram distance.
@@ -92,7 +112,8 @@ public final class VisualAnalyzer: @unchecked Sendable {
         // Discard cut bursts (fast motion flashes): keep cuts at least 1 s apart.
         var filtered: [Seconds] = []
         for c in cuts where filtered.last.map({ c - $0 >= 1 }) ?? true { filtered.append(c) }
-        return VisualFeatureSeries(hop: interval, motion: motion, brightness: brightness, sceneCuts: filtered, faces: faces)
+        return VisualFeatureSeries(hop: interval, motion: motion, brightness: brightness, sceneCuts: filtered, faces: faces,
+                                   actionX: actionX, actionY: actionY)
     }
 
     /// Luminance grid (32×18) and a 4×4×4 RGB histogram, normalized.

@@ -199,7 +199,7 @@ public enum AudioEnhanceChain {
                 }
             }
             if denoisedWith == nil {
-                SpectralDenoiser.process(&channels, amount: amount)
+                SpectralDenoiser.process(&channels, amount: amount, profile: settings.noiseProfile.map { $0.expanded(to: SpectralDenoiser.frameSize / 2) })
                 expand(&channels, sampleRate: sampleRate, amount: amount * 0.5)
                 denoisedWith = .spectral
             }
@@ -458,6 +458,7 @@ extension AudioSettings {
             compressor.isEnabled ? String(format: "c%.2f,%.2f,%.2f", compressor.thresholdDB, compressor.ratio, compressor.makeupGainDB) : "",
             censors ? "x" + censor.rawValue + (censor == .bleep ? "@\(Int(censorTone))" : "") + censorRanges.map { String(format: "%.2f-%.2f", $0.start, $0.end) }.joined(separator: ",") : "",
             monoSource == .stereo ? "" : "mono" + monoSource.rawValue,
+            noiseReduction > 0.001 && noiseMethod != .voiceIsolation ? (noiseProfile.map { "np" + $0.fingerprint } ?? "") : "",
         ]
         return parts.joined(separator: "|")
     }

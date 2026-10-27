@@ -39,7 +39,8 @@ languages kept, a transcript that fills in as it's made, raw solo, Edit Again th
 HEVC 10-bit and a three-way enhance preview ([notes](versions/1.6.2/NOTES.md)); per-game profiles for the clip scorer (Shooter, Horror, Sports, Racing, Fighting, Strategy, Sandbox,
 Just Chatting — detected from the names and the transcript, or pinned in Project Settings); a drawn waveform
 picture under every cut when Edit My VOD runs on a podcast WAV or any audio-only recording; a facecam that moves between corners tracked per stretch; a first look at the clips from the
-audio alone before transcription; exports stamped with their project in the Finder comment.
+audio alone before transcription; exports stamped with their project in the Finder comment; vertical reframing that follows the action in gameplay; noise reduction learned from a
+stretch you mark as silence.
 
 **New in 1.6.1:** colour labels on clips with a filter, keyboard caption editing (tab, return, ⌫), a caption
 spell-check, a generated 3-second intro card from the Brand Kit, cuts that land on sentence ends, "Drop"

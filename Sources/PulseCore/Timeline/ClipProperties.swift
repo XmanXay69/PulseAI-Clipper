@@ -649,6 +649,8 @@ public struct AudioSettings: Codable, Hashable, Sendable {
     public var fadeShape: FadeShape = .linear
     /// Keep the voice's pitch when the clip is slowed or sped up; off = tape-style varispeed (#170).
     public var preservePitch: Bool = true
+    /// Noise learned from a stretch you marked as silence (#263); the classic method subtracts it.
+    public var noiseProfile: NoiseProfile? = nil
 
     public init(volume: Double = 1) {
         self.volume = AnimatedDouble(volume)
@@ -697,6 +699,7 @@ public struct AudioSettings: Codable, Hashable, Sendable {
         fadeShape = c.decode(FadeShape.self, forKey: .fadeShape, default: .linear)
         preservePitch = c.decode(Bool.self, forKey: .preservePitch, default: true)
         sourceTrack = c.decode(Int?.self, forKey: .sourceTrack, default: nil)
+        noiseProfile = c.decode(NoiseProfile?.self, forKey: .noiseProfile, default: nil)
     }
 
     /// True when swear words are muted or bleeped in this clip.

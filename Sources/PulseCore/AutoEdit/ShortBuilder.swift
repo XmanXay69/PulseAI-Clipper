@@ -269,6 +269,14 @@ public enum ShortBuilder {
                 AutoReframer.applyFaceTracking(to: &timeline.tracks[0].clips[ci], faces: faces)
             }
         }
+        // Gameplay in a tall frame follows the action instead of a face (#56).
+        let gameplay = analysis?.profile == .gameplay || analysis?.profile == .gameplayWithFacecam
+        if options.aiFraming, gameplay, layout != .dynamic, timeline.canvas.aspect < 1, let visual = analysis?.visual, visual.tracksAction {
+            for ci in timeline.tracks[0].clips.indices where timeline.tracks[0].clips[ci].role == .gameplay || timeline.tracks[0].clips[ci].role == .main {
+                if timeline.tracks[0].clips[ci].transform.panX.keyframes.contains(where: \.aiGenerated) { continue }
+                ActionReframer.applyActionTracking(to: &timeline.tracks[0].clips[ci], visual: visual)
+            }
+        }
 
         // Punch-ins on the face panel when present, else the main picture.
         let payoffTimeline = timeline.timelineRanges(forSource: TimeRange(start: candidate.payoffTime, duration: 0.05), assetID: asset.id).first?.start

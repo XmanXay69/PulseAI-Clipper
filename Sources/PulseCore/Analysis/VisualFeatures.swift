@@ -22,16 +22,33 @@ public struct VisualFeatureSeries: Codable, Hashable, Sendable {
     /// Detected hard cuts / scene changes.
     public var sceneCuts: [Seconds]
     public var faces: [FaceSample]
+    /// Where on screen the motion happened per sample (#56), normalized 0…1 from the left / top; 0.5 when
+    /// nothing moved. Nil on analyses made before the action centre was tracked.
+    public var actionX: FloatSeries?
+    public var actionY: FloatSeries?
 
-    public init(hop: Seconds, motion: [Float], brightness: [Float], sceneCuts: [Seconds], faces: [FaceSample]) {
+    public init(hop: Seconds, motion: [Float], brightness: [Float], sceneCuts: [Seconds], faces: [FaceSample],
+                actionX: [Float]? = nil, actionY: [Float]? = nil) {
         self.hop = hop
         self.motion = FloatSeries(motion)
         self.brightness = FloatSeries(brightness)
         self.sceneCuts = sceneCuts
         self.faces = faces
+        self.actionX = actionX.map(FloatSeries.init)
+        self.actionY = actionY.map(FloatSeries.init)
     }
 
     public var count: Int { motion.count }
+
+    /// True when the analysis tracked where the action was.
+    public var tracksAction: Bool { (actionX?.count ?? 0) == count && count > 0 }
+
+    /// Where the action was at `t` (#56), nil when it wasn't tracked.
+    public func actionCenter(at t: Seconds) -> Vec2? {
+        guard tracksAction, let xs = actionX, hop > 0 else { return nil }
+        let i = Int((t / hop).rounded(.down)).clamped(0, count - 1)
+        return Vec2(Double(xs[i]), Double(actionY.map { $0.count == count ? $0[i] : 0.5 } ?? 0.5))
+    }
 
     public func motion(at t: Seconds) -> Float {
         guard count > 0, hop > 0 else { return 0 }

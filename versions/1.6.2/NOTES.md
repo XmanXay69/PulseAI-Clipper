@@ -333,6 +333,17 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   Project: path") and a Where-from entry pointing at the project package, so Get Info and Spotlight lead back
   to it; Quick Look previews the file as usual.
 
+### Batch 46
+
+- **Reframing that follows the action** (#56) — the video analysis now tracks where the picture is changing
+  (the fight, the ball, the crosshair), and a tall gameplay short pans its crop toward it: the crop holds still
+  while little moves, never whips on a cut-away and stays inside the frame. One-click shorts on gameplay do
+  it on their own; the Auto Reframe button on a gameplay clip reads "Follow the Action".
+- **Noise learned from a marked silence** (#263) — set In and Out around room tone, the fan or hiss and press
+  Learn from In/Out in the Audio inspector: the classic noise reduction subtracts exactly that profile
+  instead of guessing from the quietest frames, the profile is saved with the clip, and a learned profile
+  gets its own cached render.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);

@@ -1409,11 +1409,14 @@ struct TimelineClipView: View, Equatable {
     }
 
     func autoReframe() {
-        guard let assetID = clip.assetID, let faces = session.analyses[assetID]?.visual?.faces, !faces.isEmpty else {
-            app.presentMessage(title: "No faces detected", message: "Analyze the recording first so PULSE knows where faces are.")
-            return
+        let visual = clip.assetID.flatMap { session.analyses[$0]?.visual }
+        if let faces = visual?.faces, !faces.isEmpty {
+            session.editClip(clip.id, "Auto Reframe") { c in AutoReframer.applyFaceTracking(to: &c, faces: faces) }
+        } else if let visual, visual.tracksAction {
+            session.editClip(clip.id, "Follow the Action") { c in ActionReframer.applyActionTracking(to: &c, visual: visual) }
+        } else {
+            app.presentMessage(title: "Nothing to follow yet", message: "Analyze the recording first so PULSE knows where faces and the action are.")
         }
-        session.editClip(clip.id, "Auto Reframe") { c in AutoReframer.applyFaceTracking(to: &c, faces: faces) }
     }
 }
 

@@ -465,7 +465,7 @@ struct ClipInspector: View {
 
     func aiSection(assetID: UUID) -> some View {
         InspectorSection("AI Framing", isAI: true, expanded: false) {
-            Button { autoReframe(assetID: assetID) } label: { Label("Auto Reframe to Face", systemImage: "person.crop.rectangle") }
+            Button { autoReframe(assetID: assetID) } label: { Label(clip.role == .gameplay ? "Follow the Action" : "Auto Reframe to Face", systemImage: clip.role == .gameplay ? "scope" : "person.crop.rectangle") }
                 .buttonStyle(.pulse(.secondary, compact: true))
             Button { session.editClip(clip.id, "Remove AI Keyframes") { $0.transform.removeAIKeyframes() } } label: { Label("Remove AI Keyframes", systemImage: "sparkles") }
                 .buttonStyle(.pulse(.ghost, compact: true))
@@ -474,11 +474,16 @@ struct ClipInspector: View {
     }
 
     func autoReframe(assetID: UUID) {
-        guard let faces = session.analyses[assetID]?.visual?.faces, !faces.isEmpty else {
-            app.presentMessage(title: "No faces detected", message: "Analyze the recording first so PULSE knows where faces are.")
-            return
+        let visual = session.analyses[assetID]?.visual
+        if let faces = visual?.faces, !faces.isEmpty {
+            session.editClip(clip.id, "Auto Reframe") { c in AutoReframer.applyFaceTracking(to: &c, faces: faces) }
+        } else if let visual, visual.tracksAction {
+            // Gameplay: follow the action instead of a face (#56).
+            session.editClip(clip.id, "Follow the Action") { c in ActionReframer.applyActionTracking(to: &c, visual: visual) }
+            app.toast("Following the action — the crop pans toward where the picture changes")
+        } else {
+            app.presentMessage(title: "Nothing to follow yet", message: "Analyze the recording first so PULSE knows where faces and the action are.")
         }
-        session.editClip(clip.id, "Auto Reframe") { c in AutoReframer.applyFaceTracking(to: &c, faces: faces) }
     }
 
     func resetButton(_ label: String, _ body: @escaping (inout TimelineClip) -> Void) -> some View {
@@ -665,6 +670,7 @@ struct AudioInspector: View {
                 .font(.pulseCaption)
                 Text(noiseMethodHelp)
                     .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                if clip.audio.noiseMethod == .spectral { noiseProfileRow }
             }
             ToggleRow(label: "Normalize loudness (−14 LUFS)", isOn: b.value("Normalize", \.audio.normalize, fallback: false))
             ToggleRow(label: "Limiter (−1 dBFS)", isOn: b.value("Limiter", \.audio.limiter, fallback: false))
@@ -697,6 +703,23 @@ struct AudioInspector: View {
 }
 
 extension AudioInspector {
+    /// Learn the noise from a stretch you marked as silence (#263).
+    @ViewBuilder var noiseProfileRow: some View {
+        HStack(spacing: 8) {
+            Button("Learn from In/Out") { session.learnNoiseProfile(clipID: clip.id) }
+                .buttonStyle(.pulse(.ghost, compact: true))
+                .disabled(session.inOutRange == nil)
+                .help("Set In and Out (I / O) around a silent stretch of this clip — room tone, the fan, hiss — and the classic reduction subtracts exactly that noise (#263)")
+            if let profile = clip.audio.noiseProfile {
+                Text(String(format: "learned from %.1f s", profile.seconds)).font(.pulseMicro).foregroundStyle(Theme.textSecondary)
+                Button { session.editClip(clip.id, "Clear Noise Profile") { $0.audio.noiseProfile = nil } } label: { Image(systemName: "xmark.circle") }
+                    .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help("Forget the learned profile and guess from the quietest frames again")
+            } else {
+                Text("guessing from the quietest frames").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            }
+        }
+    }
+
     var noiseMethodHelp: String {
         switch clip.audio.noiseMethod {
         case .voiceIsolation:
