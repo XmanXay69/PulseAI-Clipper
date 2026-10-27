@@ -96,6 +96,9 @@ final class ProjectSession: ObservableObject, Identifiable {
     var meterPeaksLoading: Set<UUID> = []
     /// Render-load spans of the active timeline for the ruler (#183).
     var renderLoadCache: (key: String, spans: [RenderLoad.Span])?
+    /// Integrated loudness of the active timeline (#262), computed off the main thread when the edit changes.
+    var integratedLoudness: (key: String, value: Double?)?
+    var integratedLoudnessPending: String?
     @Published var focusedCaptionWordID: UUID?
     /// Show only clips with this label; others dim (#177).
     @Published var labelFilter: MarkerColor?
@@ -547,61 +550,77 @@ final class ProjectSession: ObservableObject, Identifiable {
             return
         }
         let cacheRoot = app.cacheFolder
-        app.jobs.start("Importing \(plan.items.count) file\(plan.items.count == 1 ? "" : "s")", kind: .importMedia) { [weak self] job in
-            guard let self else { return }
-            var imported: [MediaAsset] = []
-            var failures: [String] = []
-            for (i, item) in plan.items.enumerated() {
-                job.detail = item.url.lastPathComponent
+        // One job per file (#4), each with its own stage and cancel button; the project updates once all are done.
+        let batch = ImportBatch(remaining: plan.items.count)
+        for item in plan.items {
+            app.jobs.start(item.url.lastPathComponent, kind: .importMedia) { [weak self] job in
+                guard let self else { return }
+                job.detail = "Probing"
                 do {
                     var asset = try await MediaImporter.makeAsset(for: item, cacheRoot: cacheRoot)
-                    // The same recording under another name is caught by content, not path (#5).
-                    asset.contentHash = try? ContentFingerprint.compute(url: item.url)
-                    if let hash = asset.contentHash,
-                       let twin = self.document.asset(contentHash: hash) ?? imported.first(where: { $0.contentHash == hash }) {
-                        failures.append("\(item.url.lastPathComponent): the same recording is already in the project as “\(twin.name)”")
-                        continue
+                    if job.state == .running {
+                        job.detail = "Fingerprinting"
+                        job.progress = 0.7
+                        // The same recording under another name is caught by content, not path (#5).
+                        asset.contentHash = try? ContentFingerprint.compute(url: item.url)
+                        if let hash = asset.contentHash,
+                           let twin = self.document.asset(contentHash: hash) ?? batch.imported.first(where: { $0.contentHash == hash }) {
+                            batch.failures.append("\(item.url.lastPathComponent): the same recording is already in the project as “\(twin.name)”")
+                        } else {
+                            batch.imported.append(asset)
+                        }
+                        job.detail = "Imported"
                     }
-                    imported.append(asset)
+                } catch is CancellationError {
+                    // Cancelled from its row: skipped quietly.
                 } catch {
-                    failures.append("\(item.url.lastPathComponent): \((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)")
-                }
-                job.progress = Double(i + 1) / Double(max(plan.items.count, 1))
-            }
-            if !imported.isEmpty {
-                let syncGroup: UUID? = plan.isMultiSourceSession ? UUID() : nil
-                self.registerMediaIdentities(imported)
-                self.edit("Import Media") { doc in
-                    for var asset in imported {
-                        asset.syncGroupID = syncGroup
-                        doc.media.append(asset)
+                    if job.state == .running {
+                        batch.failures.append("\(item.url.lastPathComponent): \((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)")
                     }
-                    if doc.primaryAssetID == nil {
-                        doc.primaryAssetID = imported.first(where: { $0.kind == .video && ($0.role == .main || $0.role == .gameplay) })?.id ?? imported.first?.id
-                    }
-                    if let folder = plan.items.first?.url.deletingLastPathComponent().path { doc.lastImportFolder = folder }
                 }
-                self.save()
-                if let chat = self.pendingChat, let main = self.document.primaryAsset {
-                    self.pendingChat = nil
-                    self.attachChat(chat, to: main.id)
+                job.progress = 1
+                batch.remaining -= 1
+                if batch.remaining <= 0 { self.finishImport(batch.imported, failures: batch.failures, plan: plan) }
+            }
+        }
+    }
+
+    /// Adds the imported recordings to the project in one undo step, then the follow-ups: proxies,
+    /// transcripts and chat logs found beside them, and sync for a multi-camera session.
+    func finishImport(_ imported: [MediaAsset], failures: [String], plan: ImportPlan) {
+        if !imported.isEmpty {
+            let syncGroup: UUID? = plan.isMultiSourceSession ? UUID() : nil
+            registerMediaIdentities(imported)
+            edit("Import Media") { doc in
+                for var asset in imported {
+                    asset.syncGroupID = syncGroup
+                    doc.media.append(asset)
                 }
-                // Offer proxies for heavy media.
-                for asset in imported where asset.kind == .video && self.app.settings.proxy.shouldGenerateProxy(sourceHeight: asset.metadata.height, duration: asset.metadata.duration) {
-                    self.generateProxy(assetID: asset.id)
+                if doc.primaryAssetID == nil {
+                    doc.primaryAssetID = imported.first(where: { $0.kind == .video && ($0.role == .main || $0.role == .gameplay) })?.id ?? imported.first?.id
                 }
+                if let folder = plan.items.first?.url.deletingLastPathComponent().path { doc.lastImportFolder = folder }
             }
-            for url in plan.transcripts { self.importTranscript(url, for: nil) }
-            // Chat replays found beside the recordings (#13); a `.json` that isn't chat is tried as a transcript.
-            for url in plan.chatLogs {
-                if Self.readChat(url) != nil { self.importChat(url, for: nil) } else if url.pathExtension.lowercased() == "json" { self.importTranscript(url, for: nil) }
+            save()
+            if let chat = pendingChat, let main = document.primaryAsset {
+                pendingChat = nil
+                attachChat(chat, to: main.id)
             }
-            if !failures.isEmpty {
-                self.app.presentMessage(title: "Some files couldn't be imported", message: failures.joined(separator: "\n\n"))
+            // Offer proxies for heavy media.
+            for asset in imported where asset.kind == .video && app.settings.proxy.shouldGenerateProxy(sourceHeight: asset.metadata.height, duration: asset.metadata.duration) {
+                generateProxy(assetID: asset.id)
             }
-            if plan.isMultiSourceSession && imported.count >= 2 {
-                self.synchronize(imported.map(\.id))
-            }
+        }
+        for url in plan.transcripts { importTranscript(url, for: nil) }
+        // Chat replays found beside the recordings (#13); a `.json` that isn't chat is tried as a transcript.
+        for url in plan.chatLogs {
+            if Self.readChat(url) != nil { importChat(url, for: nil) } else if url.pathExtension.lowercased() == "json" { importTranscript(url, for: nil) }
+        }
+        if !failures.isEmpty {
+            app.presentMessage(title: "Some files couldn't be imported", message: failures.joined(separator: "\n\n"))
+        }
+        if plan.isMultiSourceSession && imported.count >= 2 {
+            synchronize(imported.map(\.id))
         }
     }
 
@@ -1781,4 +1800,14 @@ final class ProjectSession: ObservableObject, Identifiable {
 enum CanvasTool: String, CaseIterable {
     case transform
     case crop
+}
+
+/// What one Import run has collected so far (#4): the per-file jobs write here and the last one finishes.
+@MainActor
+final class ImportBatch {
+    var imported: [MediaAsset] = []
+    var failures: [String] = []
+    var remaining: Int
+
+    init(remaining: Int) { self.remaining = remaining }
 }

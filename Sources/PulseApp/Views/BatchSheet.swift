@@ -12,17 +12,10 @@ struct BatchSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 12) {
-                Image(systemName: "moon.stars.fill").font(.system(size: 20)).foregroundStyle(Theme.ai)
-                    .frame(width: 44, height: 44).background(RoundedRectangle(cornerRadius: 10).fill(Theme.aiSoft))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Overnight Batch").font(.pulseTitle).foregroundStyle(Theme.textPrimary)
-                    Text("Queue your VODs and let PULSE work through them — your Mac stays awake until it's done.")
-                        .font(.pulseCaption).foregroundStyle(Theme.textSecondary)
-                    if let line = progressLine { Text(line).font(.pulseCaption).foregroundStyle(Theme.ai) }
-                }
+            SheetHeader("Overnight Batch", symbol: "moon.stars.fill",
+                        subtitle: "Queue your VODs and let PULSE work through them — your Mac stays awake until it's done.") {
+                if let line = progressLine { Text(line).font(.pulseCaption).foregroundStyle(Theme.ai) }
             }
-            .padding(20)
             Divider().overlay(Theme.divider)
             HStack(alignment: .top, spacing: 0) {
                 queue.frame(maxWidth: .infinity)

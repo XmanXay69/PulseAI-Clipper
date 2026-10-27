@@ -14,13 +14,8 @@ struct ProjectSettingsSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Image(systemName: "slider.horizontal.below.square.filled.and.square").font(.system(size: 22)).foregroundStyle(Theme.accent)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Project settings").font(.pulseTitle)
-                    Text("Each row follows Settings unless you pin a value here for “\(session.document.name)”.").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
-                }
-            }
+            SheetHeader("Project Settings", symbol: "slider.horizontal.below.square.filled.and.square", tint: Theme.accent,
+                        subtitle: "Each row follows Settings unless you pin a value here for “\(session.document.name)”.", padded: false)
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
                 GridRow {
                     Text("Export preset").font(.pulseCaption).foregroundStyle(Theme.textSecondary)

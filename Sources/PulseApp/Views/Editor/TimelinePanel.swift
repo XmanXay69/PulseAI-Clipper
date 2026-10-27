@@ -1654,10 +1654,14 @@ struct KeyframeLane: View {
 
 /// "Ask PULSE" (#498): type what to change; each line is one ordinary, undoable edit.
 struct AssistantPopover: View {
+    @EnvironmentObject var app: AppModel
     @ObservedObject var session: ProjectSession
     @State private var text = ""
     @State private var log: [(you: String, pulse: String)] = []
     @FocusState private var focused: Bool
+    /// Steps being recorded into a macro (#479); nil when not recording.
+    @State private var recording: [String]?
+    @State private var macroName = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1693,10 +1697,53 @@ struct AssistantPopover: View {
                     .onSubmit { run(text) }
                 Button("Do it") { run(text) }.buttonStyle(.pulse(.ai, compact: true)).disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
             }
+            macroRow
             Text("Every change is one undo step (⌘Z).").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
         }
         .padding(14)
         .onAppear { focused = true }
+    }
+
+    /// Record what you type, name it, play it back later (#479).
+    @ViewBuilder var macroRow: some View {
+        HStack(spacing: 6) {
+            if let steps = recording {
+                Image(systemName: "record.circle.fill").foregroundStyle(Theme.danger)
+                Text(steps.isEmpty ? "Recording — type requests to add them" : "Recording · \(steps.count) step\(steps.count == 1 ? "" : "s")")
+                    .font(.pulseMicro).foregroundStyle(Theme.textSecondary)
+                Spacer(minLength: 4)
+                TextField("Macro name", text: $macroName).textFieldStyle(.roundedBorder).frame(width: 110).controlSize(.small)
+                Button("Save") {
+                    let name = macroName.trimmingCharacters(in: .whitespaces)
+                    app.settings.rememberMacro(EditorMacro(name: name.isEmpty ? "Macro \(app.settings.macros.count + 1)" : name, steps: steps))
+                    recording = nil
+                    macroName = ""
+                    app.toast("Macro saved — play it from the Macros menu here")
+                }
+                .buttonStyle(.pulse(.primary, compact: true)).disabled(steps.isEmpty)
+                Button("Stop") { recording = nil; macroName = "" }.buttonStyle(.pulse(.ghost, compact: true))
+            } else {
+                Button { recording = [] } label: { Label("Record Macro", systemImage: "record.circle") }
+                    .buttonStyle(.pulse(.ghost, compact: true))
+                    .help("Record the next requests as a macro you can replay on any timeline (#479)")
+                Spacer(minLength: 4)
+                if !app.settings.macros.isEmpty {
+                    Menu {
+                        ForEach(app.settings.macros) { macro in
+                            Button(macro.name) { log.append((macro.name, session.runMacro(macro))) }
+                        }
+                        Divider()
+                        Menu("Forget") {
+                            ForEach(app.settings.macros) { macro in
+                                Button(macro.name) { app.settings.macros.removeAll { $0.id == macro.id } }
+                            }
+                        }
+                    } label: { Label("Macros", systemImage: "play.rectangle.on.rectangle") }
+                    .menuStyle(.borderlessButton).fixedSize()
+                    .help(app.settings.macros.map { "\($0.name): \($0.summary)" }.joined(separator: "\n"))
+                }
+            }
+        }
     }
 
     func run(_ request: String) {
@@ -1704,6 +1751,7 @@ struct AssistantPopover: View {
         guard !trimmed.isEmpty else { return }
         let reply = session.runAssistant(trimmed)
         log.append((trimmed, reply))
+        if recording != nil { recording?.append(trimmed) }
         text = ""
     }
 }

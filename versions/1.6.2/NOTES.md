@@ -215,6 +215,23 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   edit: the game stays full-frame and whoever is talking sits small in a rounded, bordered corner, switching
   with the AI cuts.
 
+### Batch 37
+
+- **Loudness readout** (#262) — next to the mix meter: momentary (0.4 s), short-term (3 s) and the whole
+  edit's integrated loudness against the −14 LUFS target most platforms normalise to; green within a dB,
+  orange quiet, red hot. It reads the analysed recordings through every gain, so it costs nothing to show.
+- **Better thumbnail frames** (#361) — the frames PULSE suggests now favour a face that just got bigger (a
+  reaction), holding still, with room beside it for the text; each pick carries where that text space is.
+- **Panel tabs** (#415) — the Media / Sounds / Transcript / Angles / Effects / AI strip is icons, with the
+  name on the chosen tab and under the mouse.
+- **Macros** (#479) — in Ask PULSE, Record Macro keeps the requests you type, Save names them, and the
+  Macros menu replays them on any timeline, each step its own undo.
+- **Import, one row per file** (#4) — every file imports as its own job with its stage (probing,
+  fingerprinting, imported) and its own cancel button; the project updates once in one undo step when the
+  last one lands.
+- **One sheet header** (#413) — Edit My VOD, Make Thumbnail, Overnight Batch, Project Settings, Extras,
+  Report a Problem and Edit Like a Reference share one header component.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);

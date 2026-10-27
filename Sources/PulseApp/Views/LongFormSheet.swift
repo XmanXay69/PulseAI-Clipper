@@ -129,19 +129,7 @@ struct LongFormSheet: View {
     }
 
     var header: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10).fill(Theme.aiSoft)
-                Image(systemName: "film.stack").font(.system(size: 20, weight: .semibold)).foregroundStyle(Theme.ai)
-            }
-            .frame(width: 44, height: 44)
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Edit My VOD").font(.pulseTitle).foregroundStyle(Theme.textPrimary)
-                Text("Turn the whole stream into a YouTube video that feels produced, not a raw VOD.")
-                    .font(.pulseCaption).foregroundStyle(Theme.textSecondary)
-            }
-        }
-        .padding(20)
+        SheetHeader("Edit My VOD", symbol: "film.stack", subtitle: "Turn the whole stream into a YouTube video that feels produced, not a raw VOD.")
     }
 
     var lengthSection: some View {

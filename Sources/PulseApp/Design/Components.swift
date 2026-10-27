@@ -138,6 +138,48 @@ struct IconButton: View {
     }
 }
 
+// MARK: Sheets
+
+/// One header for every sheet (#413): an icon in a tinted square, a title and a one-line reason, with
+/// room for a status line underneath.
+struct SheetHeader<Extra: View>: View {
+    let title: String
+    let symbol: String
+    var tint: Color = Theme.ai
+    var subtitle: String?
+    var lines = 2
+    var padded = true
+    @ViewBuilder var extra: () -> Extra
+
+    init(_ title: String, symbol: String, tint: Color = Theme.ai, subtitle: String? = nil, lines: Int = 2, padded: Bool = true,
+         @ViewBuilder extra: @escaping () -> Extra = { EmptyView() }) {
+        self.title = title
+        self.symbol = symbol
+        self.tint = tint
+        self.subtitle = subtitle
+        self.lines = lines
+        self.padded = padded
+        self.extra = extra
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol).font(.system(size: 20, weight: .semibold)).foregroundStyle(tint)
+                .frame(width: 44, height: 44).background(RoundedRectangle(cornerRadius: 10).fill(tint.opacity(0.14)))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.pulseTitle).foregroundStyle(Theme.textPrimary)
+                if let subtitle {
+                    Text(subtitle).font(.pulseCaption).foregroundStyle(Theme.textSecondary).lineLimit(lines).fixedSize(horizontal: false, vertical: true)
+                }
+                extra()
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(padded ? 20 : 0)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 // MARK: Panels
 
 struct PanelHeader<Trailing: View>: View {

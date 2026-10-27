@@ -22,19 +22,8 @@ struct EditExtrasSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10).fill(Theme.aiSoft)
-                    Image(systemName: "questionmark.bubble").font(.system(size: 20, weight: .semibold)).foregroundStyle(Theme.ai)
-                }
-                .frame(width: 44, height: 44)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Any extras for this edit?").font(.pulseTitle).foregroundStyle(Theme.textPrimary)
-                    Text("Nothing below happens unless you tick it. PULSE remembers your answers for next time.")
-                        .font(.pulseCaption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .padding(20)
+            SheetHeader("Any extras for this edit?", symbol: "questionmark.bubble",
+                        subtitle: "Nothing below happens unless you tick it. PULSE remembers your answers for next time.")
             Divider().overlay(Theme.divider)
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {

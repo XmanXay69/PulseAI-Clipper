@@ -60,3 +60,37 @@ extension ProjectSession {
         return spans
     }
 }
+
+extension ProjectSession {
+    /// The analysed RMS series of a recording, for the loudness readout.
+    func audioFeatures(for assetID: UUID) -> AudioFeatureSeries? { analyses[assetID]?.audio }
+
+    /// Momentary and short-term loudness at `t` (#262); nil parts when nothing analysed is under the playhead.
+    func loudness(at t: Seconds) -> (momentary: Double?, shortTerm: Double?) {
+        guard let timeline = activeTimeline else { return (nil, nil) }
+        let features = analyses
+        func f(_ id: UUID) -> AudioFeatureSeries? { features[id]?.audio }
+        return (PlayheadLoudness.momentary(timeline, at: t, features: f), PlayheadLoudness.shortTerm(timeline, at: t, features: f))
+    }
+
+    /// The whole edit's integrated loudness, from a cache that refills in the background after each edit.
+    func integratedLoudnessValue() -> Double? {
+        guard let timeline = activeTimeline else { return nil }
+        let key = "\(timeline.id)-\(timeline.modifiedAt.timeIntervalSinceReferenceDate)-\(timeline.allClips.count)"
+        if let cached = integratedLoudness, cached.key == key { return cached.value }
+        guard integratedLoudnessPending != key else { return integratedLoudness?.value }
+        integratedLoudnessPending = key
+        var series: [UUID: AudioFeatureSeries] = [:]
+        for id in timeline.assetIDs { if let audio = analyses[id]?.audio { series[id] = audio } }
+        let snapshot = timeline
+        Task.detached(priority: .utility) { [weak self] in
+            let value = PlayheadLoudness.integrated(snapshot) { series[$0] }
+            await MainActor.run {
+                guard let self else { return }
+                self.integratedLoudness = (key, value)
+                if self.integratedLoudnessPending == key { self.integratedLoudnessPending = nil }
+            }
+        }
+        return integratedLoudness?.value
+    }
+}

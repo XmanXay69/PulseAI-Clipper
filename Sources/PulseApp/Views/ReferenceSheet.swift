@@ -42,17 +42,9 @@ struct ReferenceSheet: View {
     }
 
     var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "wand.and.stars").font(.system(size: 20)).foregroundStyle(Theme.ai)
-                .frame(width: 44, height: 44).background(RoundedRectangle(cornerRadius: 10).fill(Theme.aiSoft))
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Edit Like a Reference").font(.pulseTitle).foregroundStyle(Theme.textPrimary)
-                Text(reference.current.map { "Studied “\($0.name)” — answer a few questions, then PULSE edits your VOD the same way." }
-                     ?? "Show PULSE a video whose editing you love. It studies the cuts, zooms, captions, music and effects, then edits your VOD that way.")
-                    .font(.pulseCaption).foregroundStyle(Theme.textSecondary).lineLimit(2)
-            }
-        }
-        .padding(20)
+        SheetHeader("Edit Like a Reference", symbol: "wand.and.stars",
+                    subtitle: reference.current.map { "Studied “\($0.name)” — answer a few questions, then PULSE edits your VOD the same way." }
+                        ?? "Show PULSE a video whose editing you love. It studies the cuts, zooms, captions, music and effects, then edits your VOD that way.")
     }
 
     // MARK: Step 1 — pick a reference

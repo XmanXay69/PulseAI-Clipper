@@ -75,3 +75,42 @@ struct MeterBar: View {
         .accessibilityLabel("Level \(Int(PeakMeter.dB(level))) decibels")
     }
 }
+
+/// Momentary / short-term / integrated loudness against the −14 LUFS target (#262), a few times a second.
+struct LoudnessReadout: View {
+    @ObservedObject var session: ProjectSession
+    @ObservedObject var playback: PlaybackController
+    static let target = AudioEnhanceChain.targetLUFS
+
+    var body: some View {
+        ClockObserving(clock: playback.slowClock) {
+            let now = session.loudness(at: playback.currentTime)
+            let integrated = session.integratedLoudnessValue()
+            if now.momentary != nil || integrated != nil {
+                HStack(spacing: 6) {
+                    part("M", now.momentary)
+                    part("S", now.shortTerm)
+                    part("I", integrated)
+                    Text("LUFS").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                }
+                .help(String(format: "Loudness — momentary (0.4 s), short-term (3 s) and the whole edit, against the %.0f LUFS target most platforms normalise to. Green is within a dB; orange is quiet; red is hot. Read off the analysed recordings through every gain, so it's a close estimate rather than a true meter.", Self.target))
+            }
+        }
+    }
+
+    func part(_ label: String, _ value: Double?) -> some View {
+        HStack(spacing: 2) {
+            Text(label).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            Text(value.map { String(format: "%.0f", $0) } ?? "–").font(.pulseMono).monospacedDigit()
+                .foregroundStyle(value.map { colour(PlayheadLoudness.verdict($0, target: Self.target)) } ?? Theme.textTertiary)
+        }
+    }
+
+    func colour(_ verdict: PlayheadLoudness.Verdict) -> Color {
+        switch verdict {
+        case .onTarget: return Theme.success
+        case .quiet: return Theme.warning
+        case .hot: return Theme.danger
+        }
+    }
+}

@@ -172,24 +172,36 @@ struct ResizeHandle: View {
 
 struct LeftPanel: View {
     @ObservedObject var session: ProjectSession
+    /// The tab under the mouse shows its name (#415); the chosen one always does.
+    @State private var hoveredTab: LeftPanelTab?
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 2) {
                 ForEach(LeftPanelTab.allCases) { tab in
+                    let selected = session.leftTab == tab
+                    let labelled = selected || hoveredTab == tab
                     Button { session.leftTab = tab } label: {
-                        VStack(spacing: 2) {
-                            Image(systemName: tab.symbol).font(.system(size: 12))
-                            Text(tab.title).font(.system(size: 9.5, weight: .medium)).lineLimit(1).minimumScaleFactor(0.75)
+                        HStack(spacing: 4) {
+                            Image(systemName: tab.symbol).font(.system(size: 12, weight: selected ? .semibold : .regular))
+                            if labelled { Text(tab.title).font(.system(size: 10, weight: .medium)).lineLimit(1).fixedSize() }
                         }
-                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, labelled ? 8 : 7)
                         .padding(.vertical, 6)
-                        .foregroundStyle(session.leftTab == tab ? Theme.accent : Theme.textTertiary)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(session.leftTab == tab ? Theme.control : .clear))
+                        .foregroundStyle(selected ? Theme.accent : (labelled ? Theme.textPrimary : Theme.textTertiary))
+                        .background(RoundedRectangle(cornerRadius: 5).fill(selected ? Theme.control : .clear))
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .onHover { inside in hoveredTab = inside ? tab : (hoveredTab == tab ? nil : hoveredTab) }
+                    .help(tab.title)
+                    .accessibilityLabel(tab.title)
+                    .accessibilityAddTraits(selected ? [.isSelected] : [])
                 }
+                Spacer(minLength: 0)
             }
+            .animation(Theme.motion(.easeOut(duration: 0.12)), value: hoveredTab)
+            .animation(Theme.motion(.easeOut(duration: 0.12)), value: session.leftTab)
             .padding(4)
             .background(Theme.panel)
             .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }

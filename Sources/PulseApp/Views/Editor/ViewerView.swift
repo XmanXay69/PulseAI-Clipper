@@ -586,6 +586,7 @@ struct TransportBar: View {
             IconButton(symbol: "repeat.1", help: "Loop in → out", shortcut: app.settings.shortcuts.combo(for: .loopInOut),
                        isActive: playback.loopEnabled && playback.loopRange != nil) { session.toggleLoopInOut() }
             MasterMeter(session: session, playback: playback).padding(.leading, 4)
+            LoudnessReadout(session: session, playback: playback)
             if let speed = shuttleReadout {
                 TagChip(text: speed, color: Theme.accent, symbol: playback.playbackRate < 0 ? "backward.fill" : "forward.fill")
                     .help("Shuttle speed — J/L to go faster, K to stop")

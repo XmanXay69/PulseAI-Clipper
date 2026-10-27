@@ -37,17 +37,9 @@ struct ThumbnailSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 12) {
-                Image(systemName: "photo.badge.plus").font(.system(size: 20)).foregroundStyle(Theme.ai)
-                    .frame(width: 44, height: 44).background(RoundedRectangle(cornerRadius: 10).fill(Theme.aiSoft))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Make Thumbnail").font(.pulseTitle).foregroundStyle(Theme.textPrimary)
-                    Text(setup.map { "Best reaction frames from “\($0.subject)” — opened as editable designs in Thumbnail Studio." }
-                         ?? "Nothing to make a thumbnail from yet — import a video first.")
-                        .font(.pulseCaption).foregroundStyle(Theme.textSecondary).lineLimit(2)
-                }
-            }
-            .padding(20)
+            SheetHeader("Make Thumbnail", symbol: "photo.badge.plus",
+                        subtitle: setup.map { "Best reaction frames from “\($0.subject)” — opened as editable designs in Thumbnail Studio." }
+                            ?? "Nothing to make a thumbnail from yet — import a video first.")
             Divider().overlay(Theme.divider)
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {

@@ -15,14 +15,8 @@ struct ReportProblemSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                Image(systemName: "ladybug.fill").font(.system(size: 22)).foregroundStyle(Theme.warning)
-                    .frame(width: 44, height: 44).background(RoundedRectangle(cornerRadius: 10).fill(Theme.warning.opacity(0.14)))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Report a Problem").font(.pulseTitle).foregroundStyle(Theme.textPrimary)
-                    Text("PULSE bundles its log and system info so the problem can be fixed fast.").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
-                }
-            }
+            SheetHeader("Report a Problem", symbol: "ladybug.fill", tint: Theme.warning,
+                        subtitle: "PULSE bundles its log and system info so the problem can be fixed fast.", padded: false)
             Text("What happened? What were you doing?").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
             TextEditor(text: $text)
                 .font(.pulseBody)

@@ -159,6 +159,15 @@ extension ProjectSession {
         }
     }
 
+    /// Plays a saved macro (#479): every step in order, each its own undo step.
+    @discardableResult
+    func runMacro(_ macro: EditorMacro) -> String {
+        guard !macro.steps.isEmpty else { return "That macro has no steps." }
+        var lines: [String] = []
+        for step in macro.steps { lines.append("\(step): \(runAssistant(step))") }
+        return lines.joined(separator: "\n")
+    }
+
     private func report(_ what: String, before: Seconds) -> String {
         let after = activeTimeline?.duration ?? before
         let saved = before - after
