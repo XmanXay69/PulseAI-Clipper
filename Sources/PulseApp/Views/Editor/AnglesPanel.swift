@@ -119,6 +119,17 @@ struct AnglesPanel: View {
                  ? "Tick angles below to choose who's in the grid (in order); otherwise the current angle comes first."
                  : "Grid angles: " + gridPicks.compactMap { id in group.angle(id)?.name }.joined(separator: ", "))
                 .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+            if current > 1 {
+                // The divider between the main pane and the rest (#330).
+                HStack(spacing: 6) {
+                    Text("Divider").font(.pulseMicro).foregroundStyle(Theme.textSecondary)
+                    Slider(value: Binding(get: { session.gridSplit }, set: { session.resizeMulticamGrid(split: $0) }), in: 0.3...0.7, step: 0.01,
+                           onEditingChanged: { editing in if !editing { session.commitCoalescing() } })
+                        .controlSize(.mini)
+                    Text("\(Int((session.gridSplit * 100).rounded())) %").font(.pulseMicro).foregroundStyle(Theme.textTertiary).monospacedDigit().frame(width: 32)
+                }
+                .help("How much of the canvas the main angle takes; the other cells share the rest")
+            }
         }
         .padding(8)
         .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))

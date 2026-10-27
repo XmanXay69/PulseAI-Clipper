@@ -53,36 +53,43 @@ public enum MulticamGridLayout: String, Codable, CaseIterable, Sendable {
         }
     }
 
+    /// The divider position the layouts use when none is given (#330).
+    public static let defaultSplit = 0.5
+
     /// Normalized canvas rects for `count` angles (first = most prominent), separated by `gap`
-    /// (fraction of the canvas width).
-    public func slots(count: Int, canvas: CanvasSettings, gap: Double = 0.008) -> [NormRect] {
+    /// (fraction of the canvas width). `split` is where the main divider sits (#330): the share of the
+    /// canvas the first slot takes along the layout's main axis (0.3…0.7; the featured layout's main
+    /// pane maps 0.3…0.7 onto 0.55…0.85), 0.5 for the even layouts.
+    public func slots(count: Int, canvas: CanvasSettings, gap: Double = 0.008, split: Double = MulticamGridLayout.defaultSplit) -> [NormRect] {
         let n = max(1, min(count, capacity))
         let portrait = canvas.aspect < 1
+        let s = split.clamped(0.3, 0.7)
         var rects: [NormRect]
         switch self {
         case .single:
             rects = [.full]
         case .twoUp:
             rects = portrait
-                ? [NormRect(x: 0, y: 0, width: 1, height: 0.5), NormRect(x: 0, y: 0.5, width: 1, height: 0.5)]
-                : [NormRect(x: 0, y: 0, width: 0.5, height: 1), NormRect(x: 0.5, y: 0, width: 0.5, height: 1)]
+                ? [NormRect(x: 0, y: 0, width: 1, height: s), NormRect(x: 0, y: s, width: 1, height: 1 - s)]
+                : [NormRect(x: 0, y: 0, width: s, height: 1), NormRect(x: s, y: 0, width: 1 - s, height: 1)]
         case .threeUp:
             rects = portrait
-                ? [NormRect(x: 0, y: 0, width: 1, height: 0.5), NormRect(x: 0, y: 0.5, width: 0.5, height: 0.5), NormRect(x: 0.5, y: 0.5, width: 0.5, height: 0.5)]
-                : [NormRect(x: 0, y: 0, width: 0.5, height: 1), NormRect(x: 0.5, y: 0, width: 0.5, height: 0.5), NormRect(x: 0.5, y: 0.5, width: 0.5, height: 0.5)]
+                ? [NormRect(x: 0, y: 0, width: 1, height: s), NormRect(x: 0, y: s, width: 0.5, height: 1 - s), NormRect(x: 0.5, y: s, width: 0.5, height: 1 - s)]
+                : [NormRect(x: 0, y: 0, width: s, height: 1), NormRect(x: s, y: 0, width: 1 - s, height: 0.5), NormRect(x: s, y: 0.5, width: 1 - s, height: 0.5)]
         case .quad:
-            rects = [NormRect(x: 0, y: 0, width: 0.5, height: 0.5), NormRect(x: 0.5, y: 0, width: 0.5, height: 0.5),
-                     NormRect(x: 0, y: 0.5, width: 0.5, height: 0.5), NormRect(x: 0.5, y: 0.5, width: 0.5, height: 0.5)]
+            rects = [NormRect(x: 0, y: 0, width: s, height: 0.5), NormRect(x: s, y: 0, width: 1 - s, height: 0.5),
+                     NormRect(x: 0, y: 0.5, width: s, height: 0.5), NormRect(x: s, y: 0.5, width: 1 - s, height: 0.5)]
         case .featured:
             let small = max(1, n - 1)
+            let main = 0.55 + (s - 0.3) / 0.4 * 0.3
             if portrait {
-                let mainH = 0.68
+                let mainH = main
                 rects = [NormRect(x: 0, y: 0, width: 1, height: mainH)]
                 for i in 0..<small {
                     rects.append(NormRect(x: Double(i) / Double(small), y: mainH, width: 1 / Double(small), height: 1 - mainH))
                 }
             } else {
-                let mainW = 0.72
+                let mainW = main
                 rects = [NormRect(x: 0, y: 0, width: mainW, height: 1)]
                 for i in 0..<small {
                     rects.append(NormRect(x: mainW, y: Double(i) / Double(small), width: 1 - mainW, height: 1 / Double(small)))
@@ -139,7 +146,7 @@ extension MulticamEditor {
     /// Turns the multicam shot `clipID` into a grid of `angles` (first = main slot). Angles must have
     /// been recording for the whole shot. `.single` (or one angle) removes the grid.
     public static func applyGrid(_ timeline: inout Timeline, clipID: UUID, angles requested: [UUID], layout: MulticamGridLayout,
-                                 group: MulticamGroup, focus: [UUID: Vec2] = [:]) throws {
+                                 group: MulticamGroup, focus: [UUID: Vec2] = [:], split: Double = MulticamGridLayout.defaultSplit) throws {
         guard let clip = timeline.clip(id: clipID), let current = clip.assetID, let from = group.angle(current),
               let mainTrack = timeline.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }) else { throw MulticamError.notMulticam }
         var angles: [UUID] = []
@@ -171,7 +178,7 @@ extension MulticamEditor {
             return
         }
 
-        let slots = layout.slots(count: count, canvas: timeline.canvas)
+        let slots = layout.slots(count: count, canvas: timeline.canvas, split: split)
         let link = UUID()
         if angles[0] != current { try switchAngle(&timeline, clipID: clipID, to: angles[0], group: group) }
         let main = group.angle(angles[0])!

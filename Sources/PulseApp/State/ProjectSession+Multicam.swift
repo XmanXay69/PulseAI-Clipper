@@ -192,8 +192,26 @@ extension ProjectSession {
             for id in ids {
                 guard let current = t.clip(id: id)?.assetID else { continue }
                 let order = angles.isEmpty ? [current] + group.videoAngles.map(\.assetID).filter { $0 != current } : angles
-                try MulticamEditor.applyGrid(&t, clipID: id, angles: order, layout: layout, group: group, focus: focus)
+                try MulticamEditor.applyGrid(&t, clipID: id, angles: order, layout: layout, group: group, focus: focus, split: self.gridSplit)
             }
+        }
+    }
+
+    /// Drags the grid's main divider (#330): the shot under the playhead keeps its layout and angles and
+    /// is laid out again with the new split.
+    func resizeMulticamGrid(split: Double) {
+        gridSplit = split.clamped(0.3, 0.7)
+        guard let group = activeMulticamGroup, let shot = multicamShotAtPlayhead, let timeline = activeTimeline else { return }
+        let current = MulticamEditor.gridLayout(of: shot.id, in: timeline)
+        guard current.count >= 2 else { return }
+        let layout: MulticamGridLayout = current.count == 2 ? .twoUp : (current.count == 3 ? .threeUp : .quad)
+        var focus: [UUID: Vec2] = [:]
+        for angle in group.videoAngles {
+            if let face = analyses[angle.assetID]?.webcam?.face.center { focus[angle.assetID] = face }
+        }
+        let split = gridSplit
+        editTimeline("Grid Divider", coalesce: "grid-split-\(shot.id)") { t in
+            try MulticamEditor.applyGrid(&t, clipID: shot.id, angles: current.angles, layout: layout, group: group, focus: focus, split: split)
         }
     }
 

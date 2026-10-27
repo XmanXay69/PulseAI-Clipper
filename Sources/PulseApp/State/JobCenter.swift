@@ -18,9 +18,12 @@ final class BackgroundJob: ObservableObject, Identifiable {
     let kind: ActivityRecord.Kind
     let location: ProcessingLocation
     let startedAt = Date()
-    @Published var detail: String = ""
+    @Published var detail: String = "" { didSet { noteMoved() } }
     @Published var progress: Double = 0 {
-        didSet { if state == .running { remaining = clock.remaining(elapsed: Date().timeIntervalSince(startedAt), fraction: progress) } }
+        didSet {
+            noteMoved()
+            if state == .running { remaining = clock.remaining(elapsed: Date().timeIntervalSince(startedAt), fraction: progress) }
+        }
     }
     /// Estimated seconds left (nil until there's enough to go on).
     @Published var remaining: Seconds?
@@ -35,6 +38,12 @@ final class BackgroundJob: ObservableObject, Identifiable {
 
     var remainingText: String? { remaining.map(DurationText.remaining) }
     var task: Task<Void, Never>?
+    /// How to start this job over from where it got to (#390): set by jobs that can pick up a partial
+    /// result (downloads resume their file), used when the job stops moving after the Mac wakes.
+    var restart: (@MainActor () -> Void)?
+    /// When `progress` or `detail` last changed.
+    private(set) var lastMovedAt = Date()
+    func noteMoved() { lastMovedAt = Date() }
     private let cancelFlag = CancelFlag()
 
     init(title: String, kind: ActivityRecord.Kind, location: ProcessingLocation) {
@@ -114,6 +123,20 @@ final class JobCenter: ObservableObject {
         }
         objectWillChange.send()
         return job
+    }
+
+    /// After the Mac wakes (#390): a running job that can restart and hasn't moved for `stall` seconds
+    /// is started over — downloads pick up their partial file, so nothing is lost. Returns what restarted.
+    @discardableResult
+    func resumeStalled(stall: TimeInterval = 60) -> [String] {
+        var restarted: [String] = []
+        for job in running where job.restart != nil && Date().timeIntervalSince(job.lastMovedAt) > stall {
+            let again = job.restart
+            job.cancel()
+            restarted.append(job.title)
+            again?()
+        }
+        return restarted
     }
 
     func clearFinished() {

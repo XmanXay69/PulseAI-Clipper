@@ -57,6 +57,10 @@ public enum MediaProbe {
                 throw EngineError.unsupportedMedia(url, reason: "macOS doesn't have a decoder for its video codec (\(meta.videoCodec ?? "unknown")). Re-encode it as H.264 or HEVC.")
             }
         }
+        // A timecode track (cameras, OBS with timecode on) gives multicam an exact sync (#325).
+        if let tc = tracks.first(where: { $0.mediaType == .timecode }) {
+            meta.startTimecode = startTimecode(asset: asset, track: tc)
+        }
         // Chapters embedded in the file (#12).
         if let locale = try? await asset.load(.availableChapterLocales).first,
            let groups = try? await asset.loadChapterMetadataGroups(withTitleLocale: locale, containingItemsWithCommonKeys: []) {
@@ -81,6 +85,39 @@ public enum MediaProbe {
             }
         }
         return meta
+    }
+
+    /// The first timecode sample as seconds since midnight: 'tmcd' frame counters (32-bit) and 'tc64'
+    /// (64-bit), divided by the track's frame rate.
+    static func startTimecode(asset: AVAsset, track: AVAssetTrack) -> Seconds? {
+        guard let reader = try? AVAssetReader(asset: asset) else { return nil }
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
+        output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else { return nil }
+        reader.add(output)
+        guard reader.startReading(), let sample = output.copyNextSampleBuffer(),
+              let description = CMSampleBufferGetFormatDescription(sample), let block = CMSampleBufferGetDataBuffer(sample) else {
+            reader.cancelReading()
+            return nil
+        }
+        defer { reader.cancelReading() }
+        let frameDuration = CMTimeCodeFormatDescriptionGetFrameDuration(description)
+        let fps = frameDuration.seconds > 0 ? 1 / frameDuration.seconds : Double(CMTimeCodeFormatDescriptionGetFrameQuanta(description))
+        guard fps > 0 else { return nil }
+        var length = 0
+        var pointer: UnsafeMutablePointer<Int8>?
+        guard CMBlockBufferGetDataPointer(block, atOffset: 0, lengthAtOffsetOut: nil, totalLengthOut: &length, dataPointerOut: &pointer) == noErr,
+              let pointer else { return nil }
+        let frames: Double
+        if length >= 8, CMFormatDescriptionGetMediaSubType(description) == kCMTimeCodeFormatType_TimeCode64 {
+            frames = Double(Int64(bigEndian: pointer.withMemoryRebound(to: Int64.self, capacity: 1) { $0.pointee }))
+        } else if length >= 4 {
+            frames = Double(Int32(bigEndian: pointer.withMemoryRebound(to: Int32.self, capacity: 1) { $0.pointee }))
+        } else {
+            return nil
+        }
+        guard frames >= 0 else { return nil }
+        return frames / fps
     }
 
     /// The first eight seconds, both channels: when one side is at least 26 dB quieter than the other, the

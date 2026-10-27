@@ -96,6 +96,8 @@ final class ProjectSession: ObservableObject, Identifiable {
     var meterPeaksLoading: Set<UUID> = []
     /// Render-load spans of the active timeline for the ruler (#183).
     var renderLoadCache: (key: String, spans: [RenderLoad.Span])?
+    /// Where the main divider of a multicam grid sits (#330), 0.3…0.7.
+    @Published var gridSplit: Double = MulticamGridLayout.defaultSplit
     /// A voice-over being recorded (#331) and where on the timeline it started.
     var voiceOverRecorder: VoiceOverRecorder?
     var voiceOverStart: Seconds = 0
@@ -729,6 +731,25 @@ final class ProjectSession: ObservableObject, Identifiable {
         guard assets.count >= 2 else { return }
         app.jobs.start("Synchronizing \(assets.count) recordings", kind: .analysis) { [weak self] job in
             guard let self else { return }
+            // Timecode first (#325): when every recording carries one, the offsets are exact and nothing is listened to.
+            var timecodes: [UUID: Seconds] = [:]
+            for asset in assets { if let tc = asset.metadata.startTimecode { timecodes[asset.id] = tc } }
+            if timecodes.count == assets.count, let byTimecode = TimecodeSync.offsets(startTimecodes: timecodes) {
+                job.detail = "Matching timecode"
+                self.edit("Synchronize Recordings") { doc in
+                    let group = UUID()
+                    for (id, offset) in byTimecode.offsets {
+                        doc.updateAsset(id: id) { a in
+                            a.syncOffset = offset
+                            a.syncGroupID = group
+                            a.syncConfidence = 1
+                        }
+                    }
+                }
+                self.app.logActivity(.analysis, title: "Synchronized \(assets.count) recordings by timecode", detail: assets.map(\.name).joined(separator: " · "), location: .local)
+                self.app.toast("Synced by timecode — exact")
+                return
+            }
             var envelopes: [UUID: [Float]] = [:]
             for (i, asset) in assets.enumerated() {
                 job.detail = asset.name
@@ -738,10 +759,12 @@ final class ProjectSession: ObservableObject, Identifiable {
             }
             guard let reference = assets.first, let refEnv = envelopes[reference.id] else { return }
             var offsets: [UUID: Seconds] = [reference.id: 0]
+            var confidences: [UUID: Double] = [reference.id: 1]
             var lowConfidence: [String] = []
             for asset in assets.dropFirst() {
                 guard let env = envelopes[asset.id], let result = AudioSync.estimateOffset(reference: refEnv, other: env, hop: AudioAnalyzer.hop, maxOffset: 120) else { continue }
                 offsets[asset.id] = result.offset
+                confidences[asset.id] = Double(result.confidence)
                 if result.confidence < 0.3 { lowConfidence.append(asset.name) }
             }
             self.edit("Synchronize Recordings") { doc in
@@ -750,10 +773,15 @@ final class ProjectSession: ObservableObject, Identifiable {
                     doc.updateAsset(id: id) {
                         $0.syncOffset = offset
                         $0.syncGroupID = group
+                        $0.syncConfidence = confidences[id]
                     }
                 }
             }
-            self.app.toast(lowConfidence.isEmpty ? "Recordings synchronized" : "Synchronized — low confidence for \(lowConfidence.joined(separator: ", ")). Check alignment.")
+            // The weakest match is the one to check (#325).
+            let weakest = confidences.filter { $0.key != reference.id }.values.min() ?? 1
+            self.app.logActivity(.analysis, title: "Synchronized \(assets.count) recordings by audio", detail: String(format: "weakest match %.0f %%", weakest * 100), location: .local)
+            self.app.toast(lowConfidence.isEmpty ? String(format: "Recordings synchronized by audio · %.0f %% sure", weakest * 100)
+                                                : "Synchronized — low confidence for \(lowConfidence.joined(separator: ", ")). Check alignment.")
         }
     }
 

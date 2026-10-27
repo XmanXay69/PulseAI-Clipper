@@ -275,6 +275,16 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   Vision's person segmentation and sets them big on a colour wash with the text beside them; without a
   clean cutout it falls back to the face zoom.
 
+### Batch 41
+
+- **Grid divider** (#330) — a Divider slider in the Angles panel moves the main pane's edge of a 2-up,
+  3-up, 2×2 or featured grid between 30 and 70 % of the canvas; the shot is laid out again as you drag.
+- **Sync by timecode** (#325) — recordings that carry a timecode track sync by it, exactly, with no audio
+  listened to; otherwise audio sync as before, and both report how sure they are (the weakest match is
+  the one to check).
+- **Back from sleep** (#390) — a download that stops moving after the Mac wakes starts over by itself and
+  carries on from its partial file.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);

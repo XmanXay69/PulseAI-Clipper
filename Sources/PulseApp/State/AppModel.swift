@@ -683,7 +683,7 @@ final class AppModel: ObservableObject {
     /// A YouTube VOD by link: fetched the way the B-roll library fetches clips (YouTube's own MP4 with sound,
     /// usually 720p) into ~/Movies/PULSE Downloads, then imported.
     func importFromYouTube(videoID: String) {
-        jobs.start("Downloading VOD \(videoID)", kind: .importMedia) { [weak self] job in
+        let job = jobs.start("Downloading VOD \(videoID)", kind: .importMedia) { [weak self] job in
             guard let self else { return }
             do {
                 let url = try await VODDownloader.download(videoID: videoID) { status in Task { @MainActor in job.detail = status } }
@@ -693,6 +693,8 @@ final class AppModel: ObservableObject {
                 self.present(error, title: "Couldn't download the VOD")
             }
         }
+        // A download that stalls across a sleep starts over and carries on from its partial file (#390).
+        job.restart = { [weak self] in self?.importFromYouTube(videoID: videoID) }
     }
 
     // MARK: Highlight reel (#492)
@@ -1190,6 +1192,18 @@ final class AppModel: ObservableObject {
             NSApp.appearance = nil
             Theme.isLight = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua
         }
+        if wakeObserver == nil {
+            // Back from sleep (#390): a minute later, anything that stopped moving and can resume does.
+            wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self, !self.jobs.running.isEmpty else { return }
+                    PulseLog.info("Woke with \(self.jobs.running.count) job(s) running")
+                    try? await Task.sleep(nanoseconds: 75_000_000_000)
+                    let restarted = self.jobs.resumeStalled()
+                    if !restarted.isEmpty { self.toast("Picked up after sleep: \(restarted.joined(separator: ", "))") }
+                }
+            }
+        }
         if appearanceObserver == nil {
             appearanceObserver = DistributedNotificationCenter.default().addObserver(forName: Notification.Name("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { [weak self] _ in
                 Task { @MainActor in
@@ -1202,6 +1216,7 @@ final class AppModel: ObservableObject {
         objectWillChange.send()
     }
     private var appearanceObserver: NSObjectProtocol?
+    var wakeObserver: NSObjectProtocol?
 
     /// The menu shortcut for an action, custom or default (#431).
     func shortcut(_ action: ShortcutAction) -> KeyboardShortcut? {

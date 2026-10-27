@@ -85,6 +85,8 @@ public struct MediaMetadata: Codable, Hashable, Sendable {
     public var creationDate: Date?
     /// The recording's frame timing wanders (screen captures, some phones): captions and cuts can drift (#23).
     public var variableFrameRate: Bool?
+    /// The first frame's timecode in seconds since midnight, when the file carries a timecode track (#325).
+    public var startTimecode: Seconds?
     /// Colour primaries from the file ("ITU_R_709_2", "ITU_R_2020"…); Rec. 2020 means an HDR source (#203).
     public var colorPrimaries: String?
     /// Chapter marks embedded in the file (MKV / MP4) (#12).
@@ -184,6 +186,8 @@ public struct MediaAsset: Codable, Hashable, Identifiable, Sendable {
     public var markedMoments: [Seconds] = []
     /// Fingerprint of the file's content so the same recording under two names is caught (#5).
     public var contentHash: String?
+    /// How sure the last sync was (#325): 1 for timecode, the audio match's score otherwise.
+    public var syncConfidence: Double?
     /// Out of the media panel but not gone (#22): its clips still play, and Restore brings it back.
     public var isTrashed: Bool = false
 
@@ -232,6 +236,7 @@ public struct MediaAsset: Codable, Hashable, Identifiable, Sendable {
         generatedBy = c.decode(String?.self, forKey: .generatedBy, default: nil)
         markedMoments = c.decode([Seconds].self, forKey: .markedMoments, default: [])
         contentHash = c.decode(String?.self, forKey: .contentHash, default: nil)
+        syncConfidence = c.decode(Double?.self, forKey: .syncConfidence, default: nil)
         isTrashed = c.decode(Bool.self, forKey: .isTrashed, default: false)
     }
 
