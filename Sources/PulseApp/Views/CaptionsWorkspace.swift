@@ -195,6 +195,16 @@ struct CaptionStylePanel: View {
                                         .buttonStyle(.pulse(on ? .primary : .secondary, compact: true))
                                 }
                             }
+                            Picker("Speaker", selection: styleBinding("Speaker Label", \.speakerLabelStyle, fallback: .text)) {
+                                ForEach(SpeakerLabelStyle.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                            }
+                            .pickerStyle(.segmented)
+                            .help("Speaker names above the words: plain small caps or a lower-third chip (#252)")
+                            Picker("Box", selection: styleBinding("Caption Background", \.backgroundStyle, fallback: .solid)) {
+                                ForEach(CaptionBackgroundStyle.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                            }
+                            .pickerStyle(.segmented)
+                            .help("Frosted blurs the picture behind the words instead of a solid box (#253)")
                             Picker("Highlight", selection: styleBinding("Highlight Mode", \.highlightMode, fallback: .color)) {
                                 ForEach(WordHighlightMode.allCases, id: \.self) { Text($0.displayName).tag($0) }
                             }

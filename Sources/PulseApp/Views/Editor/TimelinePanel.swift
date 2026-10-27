@@ -1273,6 +1273,8 @@ struct TimelineClipView: View, Equatable {
         }
         Divider()
         if case .media = clip.content, trackKind == .video {
+            Button("Reverse Clip") { session.reverseClip(clip.id) }
+                .disabled(clip.sourceDuration > ReverseRenderer.maxDuration)
             Button("Auto Reframe (follow face)") { autoReframe() }
             Button("Remove AI Keyframes") { session.editClip(clip.id, "Remove AI Keyframes") { $0.transform.removeAIKeyframes() } }
         }

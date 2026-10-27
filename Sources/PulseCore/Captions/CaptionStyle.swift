@@ -60,6 +60,20 @@ public enum ProfanityMode: String, Codable, CaseIterable, Sendable {
 }
 
 /// Complete caption look. Every field is user-editable; presets are just starting points.
+/// Speaker names above a caption (#252): plain small caps, or a lower-third chip in a rounded box.
+public enum SpeakerLabelStyle: String, Codable, CaseIterable, Sendable {
+    case text, chip
+
+    public var displayName: String { self == .text ? "Text" : "Chip" }
+}
+
+/// The box behind caption words (#253).
+public enum CaptionBackgroundStyle: String, Codable, CaseIterable, Sendable {
+    case solid, frosted
+
+    public var displayName: String { self == .solid ? "Solid" : "Frosted" }
+}
+
 public struct CaptionStyle: Codable, Hashable, Sendable {
     public var presetName: String
     public var text: TextStyle
@@ -78,6 +92,10 @@ public struct CaptionStyle: Codable, Hashable, Sendable {
     /// Center of the caption block (normalized canvas).
     public var positionX: Double
     public var positionY: Double
+    /// How a speaker's name shows above the caption (#252).
+    public var speakerLabelStyle: SpeakerLabelStyle = .text
+    /// The box behind the words: the style's colour, or the picture behind it blurred (#253).
+    public var backgroundStyle: CaptionBackgroundStyle = .solid
     /// Keep captions clear of this platform's UI.
     public var safeArea: SafeAreaPlatform?
 
@@ -123,6 +141,8 @@ public struct CaptionStyle: Codable, Hashable, Sendable {
         positionX = c.decode(Double.self, forKey: .positionX, default: d.positionX)
         positionY = c.decode(Double.self, forKey: .positionY, default: d.positionY)
         safeArea = c.decode(SafeAreaPlatform?.self, forKey: .safeArea, default: d.safeArea)
+        speakerLabelStyle = c.decode(SpeakerLabelStyle.self, forKey: .speakerLabelStyle, default: .text)
+        backgroundStyle = c.decode(CaptionBackgroundStyle.self, forKey: .backgroundStyle, default: .solid)
     }
 
     // MARK: Presets

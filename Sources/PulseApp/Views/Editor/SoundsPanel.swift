@@ -91,6 +91,13 @@ struct SoundsPanel: View {
             }
             Spacer(minLength: 4)
             Button { session.addLibrarySound(sound) } label: { Image(systemName: "plus") }
+                .contextMenu {
+                    if sound.kind == .soundEffect {
+                        ForEach(SoundLibrary.variations, id: \.self) { semitones in
+                            Button(SoundLibrary.variantName(sound, semitones: semitones) + " semitones") { session.addLibrarySound(sound, semitones: semitones) }
+                        }
+                    }
+                }
                 .buttonStyle(.pulse(.secondary, compact: true))
                 .help(sound.kind == .music ? "Add as a music bed that fits the edit" : "Add at the playhead")
                 .disabled(session.activeTimeline == nil)

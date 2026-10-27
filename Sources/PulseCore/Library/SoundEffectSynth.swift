@@ -12,6 +12,25 @@ public enum SoundEffectSynth {
     static let twoPi = Synth.twoPi
 
     /// Stereo audio peaking at −3 dBFS.
+    /// A pitch/speed variation of a rendered effect (#305): `semitones` above (positive) or below the original,
+    /// by resampling, so a whoosh family comes from one sample. 0 returns the input unchanged.
+    public static func vary(_ channels: [[Float]], semitones: Double) -> [[Float]] {
+        guard semitones != 0, let n = channels.first?.count, n > 1 else { return channels }
+        let factor = pow(2, semitones / 12)              // playback rate: higher pitch = shorter sound
+        let outCount = max(2, Int(Double(n) / factor))
+        return channels.map { input in
+            var out = [Float](repeating: 0, count: outCount)
+            for i in 0..<outCount {
+                let pos = Double(i) * factor
+                let j = Int(pos)
+                guard j < n - 1 else { out[i] = input[n - 1]; break }
+                let frac = Float(pos - Double(j))
+                out[i] = input[j] * (1 - frac) + input[j + 1] * frac
+            }
+            return out
+        }
+    }
+
     public static func render(_ kind: SoundEffectKind) -> [[Float]] {
         var out = make(kind)
         SynthMaster.finish(&out, lufs: nil, peakDB: -3, fadeOut: 0.01)

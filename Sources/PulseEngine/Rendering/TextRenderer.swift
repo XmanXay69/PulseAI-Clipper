@@ -306,8 +306,21 @@ public enum TextRenderer {
         text.letterSpacing = 2
         text.strokeWidth = min(style.text.strokeWidth, 5)
         text.backgroundOpacity = 0
+        var color = style.text.color
+        if style.speakerLabelStyle == .chip {
+            // A lower-third chip (#252): the highlight colour as a rounded box, dark text, no outline.
+            text.backgroundColor = style.highlightMode == .none ? style.emphasisColor : style.highlightColor
+            text.backgroundOpacity = 0.95
+            text.backgroundPadding = max(10, text.fontSize * 0.35)
+            text.backgroundCornerRadius = max(8, text.fontSize * 0.3)
+            text.strokeWidth = 0
+            text.shadowOpacity = 0
+            let bg = text.backgroundColor
+            let luma = 0.2126 * bg.red + 0.7152 * bg.green + 0.0722 * bg.blue
+            color = luma > 0.6 ? RGBAColor(red: 0.08, green: 0.08, blue: 0.1) : .white
+        }
         let pointSize = CGFloat(text.fontSize * renderScale)
-        return draw(lines: [[Run(text: text.textCase.apply(name), color: style.text.color, scale: 1, boxColor: nil, alpha: 1)]],
+        return draw(lines: [[Run(text: text.textCase.apply(name), color: color, scale: 1, boxColor: nil, alpha: 1)]],
                     style: text, pointSize: pointSize, maxWidth: nil)
     }
 }

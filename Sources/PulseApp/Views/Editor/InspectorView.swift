@@ -708,6 +708,8 @@ struct ColorInspector: View {
             }
             ToggleRow(label: "Protect skin tones", isOn: b.value("Protect Skin", \.color.protectSkin, fallback: false),
                       help: "Saturation boosts use vibrance, which leaves faces alone and lifts the rest (#308)")
+            ToggleRow(label: "Auto white balance", isOn: b.value("Auto White Balance", \.color.autoWhiteBalance, fallback: false),
+                      help: "Neutralises this layer's colour cast from its own average — for the facecam, not the game (#307)")
             HStack {
                 Text(clip.color.lutPath.map { ($0 as NSString).lastPathComponent } ?? "No LUT").font(.pulseCaption).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 Spacer()

@@ -80,6 +80,19 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
 - **Captions never clip** (#234) — a page wider than the safe width shrinks its type to fit.
 - **Media cards say "Preparing preview…"** (#15) while a thumbnail decodes instead of sitting blank.
 
+### Batch 27
+
+- **Reverse clip** (#172) — the clip menu renders a reversed copy of a video clip (up to 60 s) as new project
+  media and swaps it in, audio muted.
+- **Speaker chips** (#252) — speaker names above captions as a lower-third chip in the highlight colour, or
+  plain small caps (Captions → Style → Speaker).
+- **Frosted captions** (#253) — the caption box can blur the picture behind the words instead of a solid colour.
+- **Auto white balance** (#307) — a per-layer grey-world correction for the facecam that leaves the game alone.
+- **Sound effect variations** (#305) — every effect in the Sounds panel comes in −5 / −2 / +2 / +5 semitone
+  versions generated from the one sample.
+- **One system dot** (#421) — the top bar's LOCAL / CLOUD pill is now one quiet indicator whose popover lists
+  processing location, memory, GPU mode and network; the save state is a dot you can hover (#405).
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
@@ -87,7 +100,8 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   desaturated look you can switch off (#137) and title cards draw on your own phrase list (#138), both in the
   Extras controls; each multicam cut is its own undo step (#329); waveforms are generated at low priority in the
   background on import (#381); the Edit / Captions / Colour / Audio / Deliver workspaces each remember their own
-  panel sizes (#427, #428).
+  panel sizes (#427, #428); ⇧⌘M marks a moment from any app while recording once Input Monitoring is allowed
+  (#464).
 
 ### Under the hood
 - `ChapterArt` (engine) draws with AppKit on the source frame, so a marker over a cutaway or gap is skipped.

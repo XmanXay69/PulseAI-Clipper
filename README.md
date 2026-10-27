@@ -20,7 +20,8 @@ viewer quality (Full / ½ / ¼) that steps down on its own when playback stutter
 window, fade shapes and pitch preservation, grain and skin-tone protection, import presets, seamless music
 loops, a memory ceiling for the frame cache, no black flash while the timeline rebuilds, track rename and
 colours, keyframe sparklines, a beat grid on music, sound packs, thumbnails straight after export, chroma key
-and feathered masks, scopes in the viewer, grade matching between clips and a brand logo per export
+and feathered masks, scopes in the viewer, grade matching between clips, a brand logo per export, reverse
+clip, speaker chips and frosted captions, auto white balance and sound-effect variations
 ([notes](versions/1.6.2/NOTES.md)).
 
 **New in 1.6.1:** colour labels on clips with a filter, keyboard caption editing (tab, return, ⌫), a caption

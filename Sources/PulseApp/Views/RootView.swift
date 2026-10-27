@@ -358,7 +358,7 @@ struct TopBar: View {
             }
             .buttonStyle(.plain)
             JobsIndicator(jobs: app.jobs)
-            ProcessingBadge(location: app.settings.ai.cloudProvider == .none || app.settings.ai.processingPolicy == .alwaysLocal ? .local : .cloud)
+            SystemStatusIndicator()
             if app.session != nil {
                 Button { app.showImportPanel() } label: { Label("Import", systemImage: "plus") }
                     .buttonStyle(.pulse(.secondary, compact: true))
@@ -396,19 +396,68 @@ struct VersionBadge: View {
     }
 }
 
+/// The save state as a dot (#405): amber while there are unsaved edits, green once saved; hover for the time.
 struct SaveStateBadge: View {
     @ObservedObject var session: ProjectSession
     var body: some View {
         if session.isDirty {
-            HStack(spacing: 4) {
-                Circle().fill(Theme.warning).frame(width: 6, height: 6)
-                Text("Edited").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
-            }
-            .help("Unsaved changes — PULSE autosaves")
+            Circle().fill(Theme.warning).frame(width: 7, height: 7)
+                .help("Unsaved changes — PULSE autosaves")
+                .accessibilityLabel("Unsaved changes")
         } else if let saved = session.lastSaved {
-            HStack(spacing: 4) {
-                Circle().fill(Theme.success).frame(width: 6, height: 6)
-                Text("Saved \(saved.formatted(date: .omitted, time: .shortened))").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            Circle().fill(Theme.success).frame(width: 7, height: 7)
+                .help("Saved \(saved.formatted(date: .omitted, time: .shortened))")
+                .accessibilityLabel("Saved")
+        }
+    }
+}
+
+/// One quiet dot for the app's state (#421): processing location, memory, GPU mode and connectivity live in
+/// its popover instead of a row of pills.
+struct SystemStatusIndicator: View {
+    @EnvironmentObject var app: AppModel
+    @ObservedObject private var memory = MemoryPressure.shared
+    @State private var showPopover = false
+
+    var location: ProcessingLocation {
+        app.settings.ai.cloudProvider == .none || app.settings.ai.processingPolicy == .alwaysLocal ? .local : .cloud
+    }
+
+    var attention: Bool { memory.level != .normal || FrameRenderer.safeMode || (!Connectivity.shared.isOnline && location == .cloud) }
+
+    var body: some View {
+        let online = Connectivity.shared.isOnline
+        Button { showPopover.toggle() } label: {
+            HStack(spacing: 5) {
+                Circle().fill(attention ? Theme.warning : Theme.success).frame(width: 7, height: 7)
+                Text(location == .local ? "LOCAL" : "CLOUD").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            }
+            .padding(.horizontal, 8).frame(height: 24)
+            .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.control))
+        }
+        .buttonStyle(.plain)
+        .help(attention ? "Something needs a look — click for details" : "Everything's normal — click for details")
+        .popover(isPresented: $showPopover, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("System").font(.pulseHeadline)
+                statusRow("Processing", location == .local ? "On this Mac" : "Cloud model for some steps", ok: true)
+                statusRow("Memory", memory.level.displayName + " · PULSE uses " + MemoryPressure.footprintDescription, ok: memory.level == .normal)
+                statusRow("Rendering", FrameRenderer.safeMode ? "Safe mode (CPU)" : "GPU", ok: !FrameRenderer.safeMode)
+                statusRow("Network", online ? "Online" : "Offline — downloads and cloud steps wait", ok: online || location == .local)
+                Divider()
+                ProcessingBadge(location: location)
+            }
+            .padding(14)
+            .frame(width: 320)
+        }
+    }
+
+    func statusRow(_ title: String, _ detail: String, ok: Bool) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Circle().fill(ok ? Theme.success : Theme.warning).frame(width: 7, height: 7).padding(.top, 4)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.pulseCaption).foregroundStyle(Theme.textPrimary)
+                Text(detail).font(.pulseMicro).foregroundStyle(Theme.textSecondary)
             }
         }
     }

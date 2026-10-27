@@ -139,11 +139,19 @@ public enum SoundLibrary {
     }
 
     /// Renders a sound. Music is exactly `duration` long (default 30 s); effects have their natural length.
-    public static func render(_ sound: LibrarySound, duration: Seconds? = nil) -> [[Float]] {
+    public static func render(_ sound: LibrarySound, duration: Seconds? = nil, semitones: Double = 0) -> [[Float]] {
         switch sound.source {
         case .music(let preset): return MusicComposer.render(preset, duration: max(2, duration ?? defaultMusicLength))
-        case .effect(let kind): return SoundEffectSynth.render(kind)
+        case .effect(let kind): return SoundEffectSynth.vary(SoundEffectSynth.render(kind), semitones: semitones)
         }
+    }
+
+    /// The pitch steps the Sounds panel offers for an effect (#305).
+    public static let variations: [Double] = [-5, -2, 2, 5]
+
+    /// "Whoosh −2" style name for a varied effect.
+    public static func variantName(_ sound: LibrarySound, semitones: Double) -> String {
+        semitones == 0 ? sound.name : "\(sound.name) \(semitones > 0 ? "+" : "−")\(Int(abs(semitones)))"
     }
 
     /// Music that suits a clip's tags (deterministic for a given `seed`).

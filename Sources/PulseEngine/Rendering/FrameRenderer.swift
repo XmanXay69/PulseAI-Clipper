@@ -60,7 +60,7 @@ public final class FrameRenderer: @unchecked Sendable {
                 output = image.composited(over: output)
             }
         }
-        if let captions = scene.captions, let caption = renderCaptions(captions, at: time, scene: scene) {
+        if let captions = scene.captions, let caption = renderCaptions(captions, at: time, scene: scene, background: output) {
             output = caption.composited(over: output)
         }
         if let watermark = scene.watermark, let logo = place(watermark: watermark, in: bounds) {
@@ -162,6 +162,7 @@ public final class FrameRenderer: @unchecked Sendable {
         var image = source.cropped(to: cropRect).transformed(by: CGAffineTransform(translationX: -cropRect.minX, y: -cropRect.minY))
 
         if let key = clip.style.chromaKey, key.enabled { image = applyChromaKey(image, key) }
+        if clip.color.autoWhiteBalance, !clip.color.bypass { image = applyAutoWhiteBalance(image, clipID: clip.id, time: local) }
         image = applyColor(image, clip.color)
         var shake = CGPoint.zero
         var pulse = 1.0
@@ -365,6 +366,45 @@ public final class FrameRenderer: @unchecked Sendable {
             apply(t, progress: max(0, clip.duration - local) / t.duration, entering: false)
         }
         return state
+    }
+
+    // MARK: Auto white balance (#307)
+
+    private var whiteCache: [UUID: (bucket: Int, color: CIColor)] = [:]
+
+    /// Grey-world: the layer's average colour becomes the new white point. Measured once a second per clip
+    /// (a GPU read-back), so playback stays smooth and the correction doesn't flicker.
+    func applyAutoWhiteBalance(_ input: CIImage, clipID: UUID, time: Seconds) -> CIImage {
+        let bucket = Int(time)
+        var average: CIColor?
+        lock.lock()
+        if let hit = whiteCache[clipID], hit.bucket == bucket { average = hit.color }
+        lock.unlock()
+        if average == nil {
+            let extent = input.extent
+            guard !extent.isInfinite, extent.width > 0, extent.height > 0 else { return input }
+            let areaFilter = CIFilter.areaAverage()
+            areaFilter.inputImage = input
+            areaFilter.extent = extent
+            guard let pixel = areaFilter.outputImage else { return input }
+            var bytes = [UInt8](repeating: 0, count: 4)
+            context.render(pixel, toBitmap: &bytes, rowBytes: 4, bounds: CGRect(x: 0, y: 0, width: 1, height: 1), format: .RGBA8, colorSpace: colorSpace)
+            let r = CGFloat(bytes[0]) / 255, g = CGFloat(bytes[1]) / 255, b = CGFloat(bytes[2]) / 255
+            guard r + g + b > 0.05 else { return input }
+            // Only the cast matters: normalize so brightness stays as it is.
+            let mean = (r + g + b) / 3
+            let color = CIColor(red: max(0.2, min(1, r / mean * 0.9)), green: max(0.2, min(1, g / mean * 0.9)), blue: max(0.2, min(1, b / mean * 0.9)))
+            lock.lock()
+            whiteCache[clipID] = (bucket, color)
+            if whiteCache.count > 64 { whiteCache.removeAll() }
+            lock.unlock()
+            average = color
+        }
+        guard let average else { return input }
+        let f = CIFilter.whitePointAdjust()
+        f.inputImage = input
+        f.color = average
+        return f.outputImage ?? input
     }
 
     // MARK: Color
@@ -610,10 +650,14 @@ public final class FrameRenderer: @unchecked Sendable {
         return image
     }
 
-    func renderCaptions(_ captions: CaptionRenderData, at time: Seconds, scene: RenderScene) -> CIImage? {
+    func renderCaptions(_ captions: CaptionRenderData, at time: Seconds, scene: RenderScene, background: CIImage? = nil) -> CIImage? {
         guard let page = CaptionLayoutEngine.page(at: time, in: captions.pages) else { return nil }
-        let style = captions.style(for: page)
+        var style = captions.style(for: page)
         let rs = scene.renderScale
+        // Frosted (#253): the words' own box goes mostly clear and the picture behind it is blurred instead.
+        let frosted = style.backgroundStyle == .frosted && style.text.backgroundOpacity > 0.01 && background != nil
+        let frostOpacity = style.text.backgroundOpacity
+        if frosted { style.text.backgroundOpacity = min(0.35, style.text.backgroundOpacity) }
         guard let frame = TextRenderer.renderCaption(page: page, style: style, at: time, renderScale: rs, maxWidth: scene.renderSize.width * 0.92) else { return nil }
         var image = CIImage(cgImage: frame.rendered.image)
         let W = Double(scene.renderSize.width)
@@ -630,6 +674,13 @@ public final class FrameRenderer: @unchecked Sendable {
         if frame.scale != 1 { t = t.concatenating(CGAffineTransform(scaleX: frame.scale, y: frame.scale)) }
         t = t.concatenating(CGAffineTransform(translationX: cxN * W, y: H - cyN * H - Double(frame.offsetY)))
         image = image.transformed(by: t)
+        if frosted, let background {
+            let box = image.extent.insetBy(dx: 2, dy: 2)
+            let radius = CGFloat(style.text.backgroundCornerRadius * rs)
+            let blurred = background.clampedToExtent().applyingGaussianBlur(sigma: 14 * rs).cropped(to: box)
+            let frost = mask(blurred, with: roundedRect(box, radius: radius, color: CIColor(red: 1, green: 1, blue: 1, alpha: min(1, frostOpacity + 0.15))))
+            image = image.composited(over: frost)
+        }
         // Speaker name above the caption block.
         if let speaker = page.speaker, let name = captions.labels[speaker],
            let label = TextRenderer.renderSpeakerLabel(name, style: style, renderScale: rs) {

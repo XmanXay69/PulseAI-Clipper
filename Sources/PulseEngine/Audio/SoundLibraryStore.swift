@@ -23,15 +23,19 @@ public actor SoundLibraryStore {
     }
 
     /// The rendered file, rendering it if needed. Music is exactly `duration` long.
-    public func file(for sound: LibrarySound, duration: Seconds? = nil, directory: URL? = nil) async throws -> URL {
+    /// `semitones` renders a pitch/speed variation of an effect (#305); 0 is the sound itself.
+    public func file(for sound: LibrarySound, duration: Seconds? = nil, semitones: Double = 0, directory: URL? = nil) async throws -> URL {
         let folder = PulseDirectories.ensure(directory ?? Self.defaultDirectory)
         let rounded = duration.map { ($0 * 10).rounded() / 10 }
-        let url = folder.appendingPathComponent(Self.fileName(for: sound, duration: rounded))
+        var url = folder.appendingPathComponent(Self.fileName(for: sound, duration: rounded))
+        if semitones != 0 {
+            url = url.deletingPathExtension().appendingPathExtension("v\(semitones > 0 ? "p" : "m")\(Int(abs(semitones))).m4a")
+        }
         if FileManager.default.fileExists(atPath: url.path) { return url }
         let key = url.path
         if let running = inFlight[key] { return try await running.value }
         let task = Task.detached(priority: .userInitiated) {
-            let audio = SoundLibrary.render(sound, duration: rounded)
+            let audio = SoundLibrary.render(sound, duration: rounded, semitones: semitones)
             let temp = folder.appendingPathComponent(UUID().uuidString + ".m4a")
             try SoundLibraryStore.write(audio, to: temp)
             try? FileManager.default.removeItem(at: url)
@@ -72,12 +76,12 @@ public actor SoundLibraryStore {
     }
 
     /// A media asset for a rendered library file.
-    public static func asset(for sound: LibrarySound, url: URL, duration: Seconds?, cacheRoot: URL) async throws -> MediaAsset {
+    public static func asset(for sound: LibrarySound, url: URL, duration: Seconds?, semitones: Double = 0, cacheRoot: URL) async throws -> MediaAsset {
         var asset = try await MediaImporter.makeAsset(for: ImportPlan.Item(url: url, kind: .audio, role: sound.kind == .music ? .music : .soundEffect),
                                                       cacheRoot: cacheRoot)
-        asset.name = sound.name
+        asset.name = SoundLibrary.variantName(sound, semitones: semitones)
         asset.category = sound.kind == .music ? .music : .sfx
-        asset.tags = sound.assetTags(duration: sound.kind == .music ? duration : nil)
+        asset.tags = sound.assetTags(duration: sound.kind == .music ? duration : nil) + (semitones != 0 ? ["library-variation:\(Int(semitones))"] : [])
         return asset
     }
 }

@@ -10,25 +10,30 @@ extension ProjectSession {
     }
 
     /// The project's copy of a library sound (music: at this length), if it was imported before.
-    func libraryAsset(_ sound: LibrarySound, duration: Seconds?) -> MediaAsset? {
-        let tags = sound.assetTags(duration: Self.libraryLength(sound, duration))
+    func libraryAsset(_ sound: LibrarySound, duration: Seconds?, semitones: Double = 0) -> MediaAsset? {
+        var tags = sound.assetTags(duration: Self.libraryLength(sound, duration))
+        if semitones != 0 { tags.append("library-variation:\(Int(semitones))") }
         return document.media.first { asset in
-            asset.availability != .missing && tags.allSatisfy { tag in !tag.hasPrefix("library") || asset.tags.contains(tag) }
+            guard asset.availability != .missing else { return false }
+            // The plain sound never matches a pitched variation of itself.
+            if semitones == 0, asset.tags.contains(where: { $0.hasPrefix("library-variation:") }) { return false }
+            return tags.allSatisfy { tag in !tag.hasPrefix("library") || asset.tags.contains(tag) }
         }
     }
 
     /// Renders (first time only) and probes a library sound. `isNew` = not in the project yet.
-    func prepareLibrarySound(_ sound: LibrarySound, duration: Seconds? = nil) async throws -> (asset: MediaAsset, isNew: Bool) {
-        if let existing = libraryAsset(sound, duration: duration) { return (existing, false) }
+    func prepareLibrarySound(_ sound: LibrarySound, duration: Seconds? = nil, semitones: Double = 0) async throws -> (asset: MediaAsset, isNew: Bool) {
+        let semitones = sound.kind == .soundEffect ? semitones : 0
+        if let existing = libraryAsset(sound, duration: duration, semitones: semitones) { return (existing, false) }
         let length = Self.libraryLength(sound, duration)
-        let url = try await SoundLibraryStore.shared.file(for: sound, duration: length)
-        let asset = try await SoundLibraryStore.asset(for: sound, url: url, duration: length, cacheRoot: app.cacheFolder)
+        let url = try await SoundLibraryStore.shared.file(for: sound, duration: length, semitones: semitones)
+        let asset = try await SoundLibraryStore.asset(for: sound, url: url, duration: length, semitones: semitones, cacheRoot: app.cacheFolder)
         return (asset, true)
     }
 
     /// Adds a library sound to the active timeline: effects at the playhead, music as a ducked bed composed
     /// to run exactly from the playhead (or the start) to the end of the edit.
-    func addLibrarySound(_ sound: LibrarySound) {
+    func addLibrarySound(_ sound: LibrarySound, semitones: Double = 0) {
         guard let timeline = activeTimeline else {
             app.toast("Open a timeline to add sounds")
             return
@@ -37,10 +42,11 @@ extension ProjectSession {
         let start = isMusic && playhead >= timeline.duration - 1 ? 0 : playhead
         let length: Seconds? = isMusic ? max(3, timeline.duration > 1 ? timeline.duration - start : SoundLibrary.defaultMusicLength) : nil
         let timelineID = timeline.id
-        app.jobs.start("Adding \(sound.name)", kind: .importMedia) { [weak self] job in
+        let displayName = SoundLibrary.variantName(sound, semitones: isMusic ? 0 : semitones)
+        app.jobs.start("Adding \(displayName)", kind: .importMedia) { [weak self] job in
             guard let self else { return }
             job.detail = isMusic ? "Composing \(Timecode.duration(length ?? 0)) of \(sound.category) music" : "Rendering"
-            let (asset, isNew) = try await self.prepareLibrarySound(sound, duration: length)
+            let (asset, isNew) = try await self.prepareLibrarySound(sound, duration: length, semitones: semitones)
             var clipID: UUID?
             self.edit("Add \(sound.name)") { doc in
                 if isNew { doc.media.append(asset) }
@@ -61,7 +67,53 @@ extension ProjectSession {
                 }
             }
             if let clipID { self.selectedClipIDs = [clipID] }
-            self.app.toast(isMusic ? "\(sound.name) added — composed to fit, ducked under speech" : "\(sound.name) added at the playhead")
+            self.app.toast(isMusic ? "\(sound.name) added — composed to fit, ducked under speech" : "\(displayName) added at the playhead")
+        }
+    }
+
+    // MARK: Reverse clip (#172)
+
+    /// Renders a reversed copy of a video clip's source stretch as new project media and swaps it in, muted.
+    func reverseClip(_ clipID: UUID) {
+        guard let timeline = activeTimeline, let clip = timeline.clip(id: clipID), let assetID = clip.assetID,
+              let asset = document.asset(id: assetID), asset.kind == .video else { return }
+        guard clip.sourceDuration <= ReverseRenderer.maxDuration else {
+            app.toast("Reverse works on clips up to \(Int(ReverseRenderer.maxDuration)) s — split it first")
+            return
+        }
+        let range = clip.sourceRange
+        let source = url(for: asset)
+        let folder = app.cacheFolder.appendingPathComponent("Reversed")
+        let name = "\(asset.id.uuidString.prefix(8))-\(Int((range.start * 100).rounded()))-\(Int((range.end * 100).rounded()))-reversed.mp4"
+        let destination = folder.appendingPathComponent(name)
+        let timelineID = timeline.id
+        let clipName = clip.name
+        app.jobs.start("Reversing \(clipName)", kind: .rendering) { [weak self] job in
+            guard let self else { return }
+            job.detail = "Reading the frames back to front"
+            if !FileManager.default.fileExists(atPath: destination.path) {
+                try await ReverseRenderer.reverse(url: source, range: range, to: destination) { p in Task { @MainActor in job.progress = p } }
+            }
+            var reversed = try await MediaImporter.makeAsset(for: ImportPlan.Item(url: destination, kind: .video, role: asset.role), cacheRoot: self.app.cacheFolder)
+            reversed.name = "\(clipName) (reversed)"
+            reversed.tags = ["reversed", "reversed-of:\(asset.id.uuidString)"]
+            let newID = reversed.id
+            let available = reversed.metadata.duration
+            self.edit("Reverse Clip") { doc in
+                if !doc.media.contains(where: { $0.path == reversed.path }) { doc.media.append(reversed) }
+                let existingID = doc.media.first(where: { $0.path == reversed.path })?.id ?? newID
+                doc.updateTimeline(id: timelineID) { t in
+                    for ti in t.tracks.indices {
+                        guard let ci = t.tracks[ti].clips.firstIndex(where: { $0.id == clipID }) else { continue }
+                        t.tracks[ti].clips[ci].content = .media(assetID: existingID)
+                        t.tracks[ti].clips[ci].sourceIn = 0
+                        t.tracks[ti].clips[ci].sourceDuration = min(t.tracks[ti].clips[ci].sourceDuration, max(available, 0.1))
+                        t.tracks[ti].clips[ci].audio.isMuted = true
+                        if !t.tracks[ti].clips[ci].name.hasSuffix("(reversed)") { t.tracks[ti].clips[ci].name += " (reversed)" }
+                    }
+                }
+            }
+            self.app.toast("\(clipName) now plays backwards (muted) — undo to put it back")
         }
     }
 

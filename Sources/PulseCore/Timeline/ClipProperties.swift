@@ -334,6 +334,8 @@ public struct ColorAdjustments: Codable, Hashable, Sendable {
     public var grainSize: Double = 1
     /// Saturation boosts leave skin alone (vibrance instead of a flat saturation lift) (#308).
     public var protectSkin: Bool = false
+    /// Grey-world white balance from the layer's own average colour (#307): for the facecam, not the game.
+    public var autoWhiteBalance: Bool = false
 
     public init() {}
 
@@ -354,12 +356,13 @@ public struct ColorAdjustments: Codable, Hashable, Sendable {
         grain = c.decode(Double.self, forKey: .grain, default: 0).clamped(0, 1)
         grainSize = c.decode(Double.self, forKey: .grainSize, default: 1).clamped(0.5, 3)
         protectSkin = c.decode(Bool.self, forKey: .protectSkin, default: false)
+        autoWhiteBalance = c.decode(Bool.self, forKey: .autoWhiteBalance, default: false)
     }
 
     /// True when the grade has values worth showing (whatever `bypass` says).
     public var hasAdjustments: Bool {
         !(exposure == 0 && contrast == 0 && highlights == 0 && shadows == 0 && saturation == 0 &&
-            temperature == 0 && tint == 0 && sharpness == 0 && vignette == 0 && lutPath == nil && grain == 0)
+            temperature == 0 && tint == 0 && sharpness == 0 && vignette == 0 && lutPath == nil && grain == 0 && !autoWhiteBalance)
     }
 
     /// Nothing to render: no values, or the grade is bypassed.
