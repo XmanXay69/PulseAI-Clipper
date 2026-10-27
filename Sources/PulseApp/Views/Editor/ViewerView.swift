@@ -62,6 +62,7 @@ struct ViewerView: View {
     @AppStorage("viewer.grid") private var showGrid = false
     @AppStorage("viewer.scopes") private var showScopes = false
     @State private var fullscreen = false
+    @State private var showCaptionEdit = false
 
     init(session: ProjectSession) {
         self.session = session
@@ -182,6 +183,17 @@ struct ViewerView: View {
                 }
                 IconButton(symbol: "grid", help: "Grid, center lines and thirds", isActive: showGrid) { showGrid.toggle() }
                 IconButton(symbol: "waveform.path", help: "Scopes — luma waveform and vectorscope of the frame (#310)", isActive: showScopes) { showScopes.toggle() }
+                IconButton(symbol: "crop", help: "Crop tool (#192): drag the selected layer's picture to pan it, the corner to zoom in, double-click to reset",
+                           isActive: session.canvasTool == .crop) { session.canvasTool = session.canvasTool == .crop ? .transform : .crop }
+                if t.captions?.isEnabled == true {
+                    IconButton(symbol: "character.cursor.ibeam", help: "Edit the caption on screen (#231)", isActive: showCaptionEdit) {
+                        playback.pause()
+                        showCaptionEdit.toggle()
+                    }
+                    .popover(isPresented: $showCaptionEdit, arrowEdge: .bottom) {
+                        CaptionQuickEdit(session: session, time: playback.currentTime)
+                    }
+                }
                 if let review = session.activeReview {
                     Button { session.selectedClipIDs = [] } label: { PerformanceBadge(prediction: review.prediction) }
                         .buttonStyle(.plain).fixedSize()
@@ -275,6 +287,9 @@ struct CanvasHandlesOverlay: View {
             if let timeline = session.activeTimeline, session.selectedClipIDs.count == 1, let id = session.selectedClipIDs.first,
                let clip = timeline.clip(id: id), let rect = layerRect(clip, timeline: timeline) {
                 let local = playback.currentTime - clip.start
+                if session.canvasTool == .crop, clip.content.assetID != nil {
+                    cropBody(clip: clip, local: local, rect: rect)
+                } else {
                 ZStack(alignment: .topLeading) {
                     Rectangle()
                         .strokeBorder(Theme.accent, lineWidth: 1.5)
@@ -306,8 +321,88 @@ struct CanvasHandlesOverlay: View {
                         .help("Drag to rotate (⇧ snaps to 15°); double-click to reset")
                 }
                 .frame(width: frameSize.width, height: frameSize.height, alignment: .topLeading)
+                }
             }
         }
+    }
+
+    /// Crop mode (#192): the layer's frame stays put; dragging inside pans the picture (`panX`/`panY`), the
+    /// corner knob zooms into it (`zoom`), a double-click shows the whole picture again.
+    @ViewBuilder func cropBody(clip: TimelineClip, local: Seconds, rect: CGRect) -> some View {
+        let zoom = clip.transform.zoom.value(at: local)
+        ZStack(alignment: .topLeading) {
+            Rectangle()
+                .strokeBorder(Theme.warning, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                .background(Color.white.opacity(0.001))
+                .frame(width: rect.width, height: rect.height)
+                .offset(x: rect.minX, y: rect.minY)
+                .gesture(panGesture(clip: clip, local: local, rect: rect))
+                .onTapGesture(count: 2) {
+                    session.editClip(clip.id, "Reset Crop", coalesce: nil) { c in
+                        if c.transform.zoom.isAnimated { c.transform.zoom.setKeyframe(at: local, value: 1) } else { c.transform.zoom.value = 1 }
+                        if c.transform.panX.isAnimated { c.transform.panX.setKeyframe(at: local, value: 0) } else { c.transform.panX.value = 0 }
+                        if c.transform.panY.isAnimated { c.transform.panY.setKeyframe(at: local, value: 0) } else { c.transform.panY.value = 0 }
+                    }
+                }
+                .help("Drag to pan the picture inside its frame; double-click to show all of it")
+            Text(String(format: "CROP · %.0f%%", zoom * 100))
+                .font(.system(size: 9, weight: .bold)).monospacedDigit()
+                .foregroundStyle(.black)
+                .padding(.horizontal, 5).padding(.vertical, 2)
+                .background(Capsule().fill(Theme.warning))
+                .offset(x: rect.minX + 6, y: rect.minY + 6)
+                .allowsHitTesting(false)
+            Circle()
+                .fill(Theme.warning)
+                .frame(width: 11, height: 11)
+                .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                .offset(x: rect.maxX - 5.5, y: rect.maxY - 5.5)
+                .gesture(zoomGesture(clip: clip, local: local, rect: rect))
+                .help("Drag to zoom into the picture")
+        }
+        .frame(width: frameSize.width, height: frameSize.height, alignment: .topLeading)
+    }
+
+    func panGesture(clip: TimelineClip, local: Seconds, rect: CGRect) -> some Gesture {
+        DragGesture(minimumDistance: 1)
+            .onChanged { value in
+                if dragStart == nil {
+                    dragStart = (clip.transform.panX.value(at: local), clip.transform.panY.value(at: local), clip.transform.zoom.value(at: local))
+                }
+                guard let start = dragStart else { return }
+                // Moving the picture right shows more of its left: the window moves the other way, in source units.
+                let window = clip.transform.crop(at: local).scaled(by: 1 / max(start.scale, 0.05))
+                let nx = start.x - Double(value.translation.width / max(rect.width, 1)) * window.width
+                let ny = start.y - Double(value.translation.height / max(rect.height, 1)) * window.height
+                session.editClip(clip.id, "Pan Crop", coalesce: "pan-\(clip.id)") { c in
+                    if c.transform.panX.isAnimated { c.transform.panX.setKeyframe(at: local, value: nx) } else { c.transform.panX.value = nx }
+                    if c.transform.panY.isAnimated { c.transform.panY.setKeyframe(at: local, value: ny) } else { c.transform.panY.value = ny }
+                }
+            }
+            .onEnded { _ in
+                dragStart = nil
+                session.commitCoalescing()
+            }
+    }
+
+    func zoomGesture(clip: TimelineClip, local: Seconds, rect: CGRect) -> some Gesture {
+        DragGesture(minimumDistance: 1)
+            .onChanged { value in
+                if dragStart == nil {
+                    dragStart = (clip.transform.panX.value(at: local), clip.transform.panY.value(at: local), clip.transform.zoom.value(at: local))
+                }
+                guard let start = dragStart else { return }
+                let diagonal = max(hypot(rect.width, rect.height), 1)
+                let delta = (value.translation.width + value.translation.height) / 2
+                let newZoom = min(8, max(1, start.scale * Double(1 + delta / (diagonal / 2))))
+                session.editClip(clip.id, "Zoom Crop", coalesce: "zoomcrop-\(clip.id)") { c in
+                    if c.transform.zoom.isAnimated { c.transform.zoom.setKeyframe(at: local, value: newZoom) } else { c.transform.zoom.value = newZoom }
+                }
+            }
+            .onEnded { _ in
+                dragStart = nil
+                session.commitCoalescing()
+            }
     }
 
     func layerRect(_ clip: TimelineClip, timeline: Timeline) -> CGRect? {
@@ -818,5 +913,50 @@ struct SpeedEditHUD: View {
         .padding(.horizontal, 12).padding(.vertical, 7)
         .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.7)))
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.accent.opacity(0.5)))
+    }
+}
+
+/// The caption page under the playhead as text fields (#231): retype a word and press Return.
+struct CaptionQuickEdit: View {
+    @ObservedObject var session: ProjectSession
+    let time: Seconds
+    @State private var drafts: [UUID: String] = [:]
+    @State private var page: CaptionPage?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let page {
+                Text("On screen at \(Timecode.short(time))").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                ForEach(Array(page.lines.enumerated()), id: \.offset) { _, line in
+                    HStack(spacing: 4) {
+                        ForEach(line, id: \.id) { word in
+                            TextField("", text: Binding(get: { drafts[word.id] ?? word.text }, set: { drafts[word.id] = $0 }))
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(size: 12, weight: word.isEmphasized ? .bold : .regular))
+                                .frame(width: max(44, CGFloat((drafts[word.id] ?? word.text).count) * 8 + 18))
+                                .onSubmit { commit(word.id) }
+                        }
+                    }
+                }
+                Text("Return saves a word. Timing, emphasis and style stay as they were.").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            } else {
+                Text("No caption on screen here — move the playhead onto a line.").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+            }
+        }
+        .padding(12)
+        .frame(minWidth: 220)
+        .onAppear(perform: load)
+    }
+
+    func load() {
+        guard let timeline = session.activeTimeline, let captions = timeline.captions else { page = nil; return }
+        let words = CaptionLayoutEngine.timelineWords(captions, in: timeline)
+        page = CaptionLayoutEngine.page(at: time, in: CaptionLayoutEngine.pages(words, style: captions.style))
+    }
+
+    func commit(_ id: UUID) {
+        guard let text = drafts[id]?.trimmingCharacters(in: .whitespaces), !text.isEmpty else { return }
+        session.editTimeline("Edit Caption") { $0.captions?.setWordText(id: id, text: text) }
+        load()
     }
 }

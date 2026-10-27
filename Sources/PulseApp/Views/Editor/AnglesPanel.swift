@@ -15,6 +15,33 @@ struct AnglesPanel: View {
         self.playback = session.playback
     }
 
+    /// How eagerly AI Switch cuts (#327), and whether the cuts land on the beat.
+    func switchingControls(group: MulticamGroup) -> some View {
+        let tuning = MulticamEditor.SwitchTuning(sensitivity: app.settings.multicamSensitivity)
+        let beats = session.sessionBeats(group: group)
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text("Switching").font(.pulseMicro).foregroundStyle(Theme.textSecondary)
+                Spacer()
+                Text(String(format: "shots ≥ %.1f s · %.0f dB", tuning.minimumShot, tuning.crosstalkDB)).font(.pulseMicro).foregroundStyle(Theme.textTertiary).monospacedDigit()
+            }
+            HStack(spacing: 6) {
+                Text("Patient").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                Slider(value: $app.settings.multicamSensitivity, in: 0...1).controlSize(.mini)
+                Text("Eager").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            }
+            .help("Patient keeps shots long and only cuts on a clear change of speaker; eager cuts sooner and on smaller differences. Press AI Switch to re-cut (#327).")
+            Toggle(isOn: $app.settings.multicamOnBeat) {
+                Text(beats == nil ? "Cut on the beat (run Detect Beats on an angle first)" : "Cut on the beat").font(.pulseMicro)
+            }
+            .toggleStyle(.checkbox).controlSize(.mini)
+            .disabled(beats == nil)
+            .help("Moves each switch onto the nearest beat of the music (within a third of a second)")
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+    }
+
     /// The multicam clip under the playhead.
     var currentClip: TimelineClip? {
         guard let group = session.activeMulticamGroup, let timeline = session.activeTimeline else { return nil }
@@ -42,6 +69,7 @@ struct AnglesPanel: View {
                     }
                     Text("Click an angle or press its number while playing to cut there. ⌥-click switches the whole clip.")
                         .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                    switchingControls(group: group)
                     gridControls(group: group, clip: clip)
                     ForEach(Array(group.videoAngles.enumerated()), id: \.element.id) { index, angle in
                         angleTile(index: index, angle: angle, group: group, clip: clip, sessionTime: shown)

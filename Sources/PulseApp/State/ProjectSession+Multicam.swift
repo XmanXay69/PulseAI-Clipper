@@ -64,7 +64,7 @@ extension ProjectSession {
             guard let self else { return }
             let (levels, hop) = try await self.loudness(for: group.videoAngles.filter(\.hasAudio), job: job)
             job.detail = "Choosing shots"
-            let cuts = MulticamEditor.autoSwitch(group: group, levels: levels, hop: hop, range: span, gridOnCrosstalk: true)
+            let cuts = self.tunedSwitch(group: group, levels: levels, hop: hop, range: span)
             let timeline = MulticamEditor.timeline(cuts: cuts, group: group, audioAssetID: nil, canvas: canvas, name: name)
             self.edit("AI Multicam Edit") { $0.timelines.append(timeline) }
             self.open(timelineID: timeline.id)
@@ -72,6 +72,28 @@ extension ProjectSession {
             self.app.logActivity(.autoEdit, title: "AI multicam edit", detail: "\(cuts.count) shots from \(group.videoAngles.count) angles")
             self.app.toast("\(cuts.count) shots — cut anywhere with 1–\(min(9, group.videoAngles.count))")
         }
+    }
+
+    /// The AI switch with the sensitivity slider applied (#327) and, when asked, cuts snapped to the
+    /// beat grid of any angle whose beats were detected (Timeline → Detect Beats).
+    func tunedSwitch(group: MulticamGroup, levels: [UUID: [Float]], hop: Seconds, range: TimeRange) -> [MulticamCut] {
+        let tuning = MulticamEditor.SwitchTuning(sensitivity: app.settings.multicamSensitivity)
+        var cuts = MulticamEditor.autoSwitch(group: group, levels: levels, hop: hop, range: range, minimumShot: tuning.minimumShot,
+                                             crosstalkDB: tuning.crosstalkDB, gridOnCrosstalk: true)
+        if app.settings.multicamOnBeat, let beats = sessionBeats(group: group) {
+            cuts = MulticamEditor.snapped(cuts, toBeats: beats, minimumShot: max(0.5, tuning.minimumShot / 2))
+        }
+        return cuts
+    }
+
+    /// Detected beats of any angle, in session time; nil until Detect Beats has run on one.
+    func sessionBeats(group: MulticamGroup) -> [Seconds]? {
+        for angle in group.angles {
+            if let beats = analyses[angle.assetID]?.beats, beats.count >= 8 {
+                return beats.map { angle.sessionTime(atSource: $0) }
+            }
+        }
+        return nil
     }
 
     /// Re-runs AI angle switching over the active multicam timeline's V1 clips.
@@ -86,7 +108,7 @@ extension ProjectSession {
         app.jobs.start("AI angle switching", kind: .autoEdit) { [weak self] job in
             guard let self else { return }
             let (levels, hop) = try await self.loudness(for: group.videoAngles.filter(\.hasAudio), job: job)
-            let cuts = MulticamEditor.autoSwitch(group: group, levels: levels, hop: hop, range: TimeRange(start: start, end: end), gridOnCrosstalk: true)
+            let cuts = self.tunedSwitch(group: group, levels: levels, hop: hop, range: TimeRange(start: start, end: end))
             let rebuilt = MulticamEditor.timeline(cuts: cuts, group: group, audioAssetID: nil, canvas: timeline.canvas, name: timeline.name)
             self.edit("AI Switch Angles") { doc in
                 doc.updateTimeline(id: timelineID) { t in

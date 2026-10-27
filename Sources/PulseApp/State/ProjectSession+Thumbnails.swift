@@ -159,7 +159,7 @@ extension ProjectSession {
         let timelineID = timeline.id
         Task { @MainActor [weak self] in
             guard let self else { return }
-            func stats(_ assetID: UUID) async -> FrameStats? {
+            @MainActor func stats(_ assetID: UUID) async -> FrameStats? {
                 guard let asset = self.document.asset(id: assetID) else { return nil }
                 guard let image = await ThumbnailService.shared.image(for: self.url(for: asset), at: asset.metadata.duration / 2, maxWidth: 160, precise: true) else { return nil }
                 return Self.stats(of: image)

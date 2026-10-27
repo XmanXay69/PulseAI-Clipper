@@ -21,6 +21,10 @@ struct RootView: View {
             }
         }
         .background(Theme.window)
+        .overlay(alignment: .bottomTrailing) {
+            // The edit keeps playing in a corner while you pick clips or media (#196).
+            if let session = app.session, app.section == .aiClips || app.section == .media { MiniViewer(session: session) }
+        }
         .overlay(alignment: .bottom) { ToastView() }
         .overlay(alignment: .top) { RecordingHUD(recorder: app.recording) }
         .overlay {

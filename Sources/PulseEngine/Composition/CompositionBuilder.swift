@@ -20,6 +20,12 @@ public final class BuiltComposition: @unchecked Sendable {
         public var range: TimeRange
         public var settings: AudioSettings
         public var cacheDirectory: URL
+        /// Where on the timeline the clip that needs this render starts (#289), so playback can ask
+        /// for what's under the playhead first.
+        public var timelineStart: Seconds = 0
+
+        /// The timeline span this render covers, assuming the clip plays at normal speed.
+        public var timelineRange: TimeRange { TimeRange(start: timelineStart, end: timelineStart + range.duration) }
     }
 
     init(composition: AVComposition, videoComposition: AVVideoComposition, audioMix: AVAudioMix, duration: Seconds, scene: RenderScene, missingAssetIDs: Set<UUID>) {
@@ -435,7 +441,7 @@ public enum CompositionBuilder {
                     } else {
                         enhancedFile = AudioEnhancer.cachedRender(sourceURL: fileURL, range: renderRange, settings: clip.audio, cacheDirectory: cacheDirectory)
                         if enhancedFile == nil, !pending.contains(where: { $0.sourceURL == fileURL && $0.range == renderRange && $0.settings.enhanceFingerprint == clip.audio.enhanceFingerprint }) {
-                            pending.append(BuiltComposition.EnhanceRequest(sourceURL: fileURL, range: renderRange, settings: clip.audio, cacheDirectory: cacheDirectory))
+                            pending.append(BuiltComposition.EnhanceRequest(sourceURL: fileURL, range: renderRange, settings: clip.audio, cacheDirectory: cacheDirectory, timelineStart: clip.start))
                         }
                     }
                 }

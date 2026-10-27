@@ -152,7 +152,8 @@ public final class PlaybackController: ObservableObject {
                 self.install(built)
                 // …then any processed ("Enhance"/normalized) audio renders in the background and is
                 // swapped in without moving the playhead.
-                let pending = built.pendingEnhancements
+                // What's under the playhead renders first, then what plays next (#289).
+                let pending = PlayheadOrder.sorted(built.pendingEnhancements, around: self.currentTime, range: \.timelineRange)
                 guard !pending.isEmpty else { return }
                 self.isEnhancingAudio = true
                 self.enhanceProgress = 0

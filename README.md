@@ -26,7 +26,9 @@ exports, true-peak readouts, a raw-vs-processed audio preview, per-project setti
 own menu shortcuts, a trim two-up, frame-rate conform, Open with PULSE, a keyboard-only Speed Edit mode, a
 storyboard you can reorder, predicted retention on the ruler, text templates with a live preview, a light
 theme, word-pop text, shape layers, a brand kit that changes per platform, a keyframe lane, a rotation knob
-on the canvas and colour-matched multicam angles ([notes](versions/1.6.2/NOTES.md)).
+on the canvas, colour-matched multicam angles, a crop tool on the canvas, a mini viewer on the AI Clips and
+Media pages, caption editing right on the viewer, a multicam switching sensitivity slider and "edit like my
+last videos" ([notes](versions/1.6.2/NOTES.md)).
 
 **New in 1.6.1:** colour labels on clips with a filter, keyboard caption editing (tab, return, ⌫), a caption
 spell-check, a generated 3-second intro card from the Brand Kit, cuts that land on sentence ends, "Drop"

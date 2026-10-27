@@ -323,6 +323,11 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var brandKit: BrandKit = BrandKit()
     /// Editing styles measured from reference videos, newest first (reusable on any VOD).
     public var referenceStyles: [ReferenceStyle] = []
+    /// The fingerprints of your last exports (#489), newest first — averaged into "my style".
+    public var ownStyleSamples: [ReferenceStyle] = []
+    /// AI multicam switching (#327): 0 = patient, 1 = eager; and whether cuts snap to the music's beats.
+    public var multicamSensitivity: Double = 0.5
+    public var multicamOnBeat: Bool = false
     /// Grades you saved from the inspector (#317).
     public var gradePresets: [GradePreset] = []
     /// What PULSE has done for you so far (#478).
@@ -370,6 +375,19 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public init() {}
 
     /// Keeps a measured style (replacing an older one with the same name), newest first, at most 12.
+    /// Keeps the fingerprint of a finished edit (#489): the last ten exports make up "my style".
+    public mutating func noteOwnEdit(_ style: ReferenceStyle) {
+        ownStyleSamples.insert(style, at: 0)
+        if ownStyleSamples.count > 10 { ownStyleSamples.removeLast(ownStyleSamples.count - 10) }
+    }
+
+    /// The editing style of your own recent exports (#489), or nil before the first one.
+    public var ownStyle: ReferenceStyle? {
+        guard !ownStyleSamples.isEmpty else { return nil }
+        let n = ownStyleSamples.count
+        return ReferenceStyle.average(of: ownStyleSamples, name: n == 1 ? "My last video" : "My last \(n) videos")
+    }
+
     public mutating func rememberStyle(_ style: ReferenceStyle) {
         referenceStyles.removeAll { $0.id == style.id || $0.name == style.name }
         referenceStyles.insert(style, at: 0)
@@ -416,6 +434,9 @@ public struct AppSettings: Codable, Hashable, Sendable {
         safeAreaPlatform = c.decode(SafeAreaPlatform.self, forKey: .safeAreaPlatform, default: d.safeAreaPlatform)
         brandKit = c.decode(BrandKit.self, forKey: .brandKit, default: d.brandKit)
         referenceStyles = c.decode([ReferenceStyle].self, forKey: .referenceStyles, default: d.referenceStyles)
+        ownStyleSamples = c.decode([ReferenceStyle].self, forKey: .ownStyleSamples, default: d.ownStyleSamples)
+        multicamSensitivity = c.decode(Double.self, forKey: .multicamSensitivity, default: d.multicamSensitivity)
+        multicamOnBeat = c.decode(Bool.self, forKey: .multicamOnBeat, default: d.multicamOnBeat)
         gradePresets = c.decode([GradePreset].self, forKey: .gradePresets, default: d.gradePresets)
         stats = c.decode(LifetimeStats.self, forKey: .stats, default: d.stats)
         watchFolder = c.decode(String.self, forKey: .watchFolder, default: d.watchFolder)

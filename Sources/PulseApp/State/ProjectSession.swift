@@ -89,6 +89,8 @@ final class ProjectSession: ObservableObject, Identifiable {
     /// Speed Edit (#500): keyboard-only pass over the recording's moments — N/P move, I/O mark, X makes a short.
     @Published var speedEdit = false
     @Published var speedEditIndex: Int?
+    /// What dragging on the viewer does to the selected layer (#192): move/scale it, or pan and zoom its content.
+    @Published var canvasTool: CanvasTool = .transform
     @Published var focusedCaptionWordID: UUID?
     /// Show only clips with this label; others dim (#177).
     @Published var labelFilter: MarkerColor?
@@ -1768,4 +1770,10 @@ final class ProjectSession: ObservableObject, Identifiable {
             doc.updateTimeline(id: timelineID) { $0.copy = copy }
         }
     }
+}
+
+/// The viewer's direct-manipulation modes (#192).
+enum CanvasTool: String, CaseIterable {
+    case transform
+    case crop
 }

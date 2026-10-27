@@ -166,6 +166,24 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
 - **Help where you are** (#433) — small "?" chips next to loudness, enhance, chroma key and Speed Edit open a
   paragraph on what the thing does.
 
+### Batch 34
+
+- **Crop tool on the canvas** (#192) — the crop button in the viewer's strip turns the selection box into a
+  crop: drag the picture to pan it inside its frame, drag the corner to zoom into it, double-click to show
+  all of it again. Keyframed zoom and pan get a keyframe at the playhead, like the other handles.
+- **Mini viewer** (#196) — on the AI Clips and Media pages the edit keeps playing in a small floating
+  viewer: click to play or pause, drag it anywhere, the arrow opens the editor. View → Mini Viewer hides it.
+- **Edit the caption on screen** (#231) — the text-cursor button in the viewer's strip opens the caption
+  page under the playhead as text fields; retype a word and press Return.
+- **Levelled audio under the playhead first** (#289) — the background enhance renders go in play order
+  from the playhead, not timeline order, so what you're hearing is the first to switch over.
+- **Multicam switching sensitivity** (#327) — a Patient … Eager slider in the Angles panel sets how long
+  shots are and how clear a change of speaker has to be before AI Switch cuts; "Cut on the beat" moves each
+  switch onto the nearest beat once Detect Beats has run on an angle.
+- **Edit like my last videos** (#489) — every export leaves a fingerprint of how it was cut (pace, zooms,
+  captions, music, effects, fades); the Reference sheet offers the average of your last ten as a style to
+  edit the next one the same way. Nothing leaves your Mac.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);

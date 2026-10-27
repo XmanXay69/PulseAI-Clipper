@@ -376,7 +376,17 @@ struct PulseCommands: Commands {
                 }
             }
             OpenViewerWindowButton()
+            MiniViewerToggle()
         }
+    }
+}
+
+/// View → Mini Viewer (#196): the floating viewer on the AI Clips and Media pages.
+struct MiniViewerToggle: View {
+    @AppStorage("viewer.pip") private var enabled = true
+
+    var body: some View {
+        Toggle("Mini Viewer on AI Clips & Media", isOn: $enabled)
     }
 }
 

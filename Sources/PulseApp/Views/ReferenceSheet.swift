@@ -79,6 +79,10 @@ struct ReferenceSheet: View {
                 if let failure = reference.failure {
                     Label(failure, systemImage: "exclamationmark.triangle.fill").font(.pulseCaption).foregroundStyle(Theme.warning)
                 }
+                if let mine = app.settings.ownStyle {
+                    SectionLabel(text: "Your own style")
+                    ownStyleRow(mine, samples: app.settings.ownStyleSamples.count)
+                }
                 if !reference.saved.isEmpty {
                     SectionLabel(text: "Styles you've studied")
                     ForEach(reference.saved) { style in savedRow(style) }
@@ -103,6 +107,24 @@ struct ReferenceSheet: View {
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+    }
+
+    /// "Edit like my last videos" (#489): the average of how your recent exports were cut.
+    func ownStyleRow(_ style: ReferenceStyle, samples: Int) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "person.crop.rectangle").foregroundStyle(Theme.accent).frame(width: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Edit like my last \(samples == 1 ? "video" : "\(samples) videos")").font(.pulseBody).foregroundStyle(Theme.textPrimary)
+                Text("\(style.summary) · measured from your exports, nothing uploaded").font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(1)
+            }
+            Spacer()
+            Button("Use") { reference.current = style }.buttonStyle(.pulse(.secondary, compact: true))
+            Button { app.settings.ownStyleSamples = [] } label: { Image(systemName: "trash") }
+                .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help("Forget what PULSE learned from your exports")
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+        .help("PULSE keeps the fingerprint of your last ten exports — pacing, zooms, captions, music, effects — and can edit the next one the same way (#489)")
     }
 
     // MARK: Step 2 — studying

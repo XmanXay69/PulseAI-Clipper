@@ -181,11 +181,17 @@ final class ExportQueueController: ObservableObject {
                     $0.finishedAt = Date()
                 }
                 if previewJobIDs.remove(job.id) != nil { NSWorkspace.shared.open(url) }
-                // A thumbnail for the finished edit, when asked (#357); previews don't count.
-                else if AppModel.current?.settings.thumbnailAfterExport == true, let session = AppModel.current?.session,
-                        session.document.timeline(id: payload.timeline.id) != nil {
-                    let timelineID = payload.timeline.id
-                    Task { @MainActor in await session.thumbnailAfterExport(timelineID: timelineID) }
+                else {
+                    // Every finished edit teaches "my style" (#489); previews and audio-only files don't count.
+                    if !job.settings.audioOnly, let style = ReferenceStyleAnalyzer.measure(timeline: payload.timeline, assets: Array(payload.assets.values)) {
+                        AppModel.current?.settings.noteOwnEdit(style)
+                    }
+                    // A thumbnail for the finished edit, when asked (#357).
+                    if AppModel.current?.settings.thumbnailAfterExport == true, let session = AppModel.current?.session,
+                       session.document.timeline(id: payload.timeline.id) != nil {
+                        let timelineID = payload.timeline.id
+                        Task { @MainActor in await session.thumbnailAfterExport(timelineID: timelineID) }
+                    }
                 }
             } catch EngineError.cancelled {
                 update(job.id) {
