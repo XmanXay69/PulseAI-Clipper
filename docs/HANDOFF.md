@@ -62,9 +62,14 @@ Key files to know:
 - `Sources/PulseCore/AutoEdit/ShortBuilder.swift` — candidate → finished 9:16 short.
 - `Tests/PulseEngineTests/EngineSmokeTests.swift` — end-to-end: demo media → analysis → clips → short → rendered stills → exported MP4.
 - 1.6.3 (hardening): `ExportPump.transferMultiPass` in `Sources/PulseEngine/Export/ExportEngine.swift` follows the
-  multi-pass pattern (pass description → reset → request → mark pass finished); `YouTubeUploader.resumeOffset`
+  multi-pass pattern (pass description → reset from pass 2 → request → mark pass finished); `YouTubeUploader.resumeOffset`
   recovers an interrupted upload; `DubSynthesizer.speak(_:with:)` is the one-shot continuation around
-  `AVSpeechSynthesizer.write`; `PluginRegistry.DrainedPipe` keeps a plugin's stderr flowing.
+  `AVSpeechSynthesizer.write`; `PluginRegistry.DrainedPipe` keeps a plugin's stderr flowing;
+  `Sources/PulseEngine/Support/ChildProcess.swift` stops whisper.cpp / FFmpeg with their job (task cancellation
+  handler + a one-second poll of the job's cancel flag); `Sources/PulseEngine/Media/RangedDownloader.swift` is the
+  one ranged download (pieces written at their offsets, size limit per caller, byte progress) behind music, B-roll
+  and VOD fetches; `CameraCapture.start/stop` time out (10 s / 20 s); `ScreenCapture` gets its stream delegate
+  through `StreamDelegateProxy`; `ProjectSession.close()` stops the phone review page.
 - 1.6.2 additions: `Sources/PulseEngine/Playback/PlaybackController.swift` takes a `renderScale` (viewer quality,
   #187) and publishes `isStruggling` when media time falls behind the clock; `ProjectSession.playbackQualityOverride`
   is the automatic step-down. `Sources/PulseEngine/System/MemoryPressure.swift` (#377) trims
