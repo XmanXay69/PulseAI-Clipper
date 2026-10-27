@@ -312,7 +312,9 @@ final class ExportPump: @unchecked Sendable {
                 state.pass += 1
                 self.lock.lock(); self._passes = state.pass; self.lock.unlock()
                 state.lastReported = -1
-                output.reset(forReadingTimeRanges: description.sourceTimeRanges)
+                // The first pass reads the reader's own range; a reset is only legal once the previous pass has
+                // been read to its end, which is exactly when every later description arrives.
+                if state.pass > 1 { output.reset(forReadingTimeRanges: description.sourceTimeRanges) }
                 input.requestMediaDataWhenReady(on: queue) {
                     guard !state.finished else { return }
                     while input.isReadyForMoreMediaData {
