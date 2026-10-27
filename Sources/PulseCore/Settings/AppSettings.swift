@@ -78,6 +78,8 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var hookSting: Bool = false
     /// Which library sound to use per job (#105): "hit" and "whoosh" → a sound's name; empty = PULSE's pick.
     public var preferredEffects: [String: String] = [:]
+    /// Stars (1…5) you gave library sounds (#496); they sort the Sounds panel and travel in a shared pack.
+    public var soundRatings: [String: Int] = [:]
     /// A thin bar along the bottom of YouTube edits that fills as the video plays (#92).
     public var longFormProgressBar: Bool = false
     /// Comment-bait or follow card over the last seconds of every short (#71, #76).
@@ -167,6 +169,7 @@ public struct AISettings: Codable, Hashable, Sendable {
         coldOpenShorts = c.decode(Bool.self, forKey: .coldOpenShorts, default: d.coldOpenShorts)
         hookSting = c.decode(Bool.self, forKey: .hookSting, default: d.hookSting)
         preferredEffects = c.decode([String: String].self, forKey: .preferredEffects, default: d.preferredEffects)
+        soundRatings = c.decode([String: Int].self, forKey: .soundRatings, default: d.soundRatings)
         longFormProgressBar = c.decode(Bool.self, forKey: .longFormProgressBar, default: d.longFormProgressBar)
         shortsEndCTA = c.decode(EndCTA.self, forKey: .shortsEndCTA, default: d.shortsEndCTA)
         askExtrasOncePerProject = c.decode(Bool.self, forKey: .askExtrasOncePerProject, default: d.askExtrasOncePerProject)

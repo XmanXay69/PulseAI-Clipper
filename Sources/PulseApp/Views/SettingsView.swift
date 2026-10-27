@@ -590,6 +590,12 @@ struct AIFeatureSettings: View {
             }
             EffectChoiceRow(job: "hit", category: "Impacts", title: "Payoff hit", detail: "Which impact lands on a short's payoff and on replays (#105).")
             EffectChoiceRow(job: "whoosh", category: "Transitions", title: "Whoosh", detail: "Which sweep PULSE uses for the hook, replays and cutaways.")
+            SettingsRow("Share your pack", detail: "Your sound choices and the stars you gave sounds (\(app.settings.ai.soundRatings.count) rated) as one .pulsepack file to pass around (#496); importing one applies its choices and fills in ratings you haven't given.") {
+                HStack(spacing: 6) {
+                    Button("Share Pack…") { SoundPackSharing.share(app: app) }.buttonStyle(.pulse(.ghost, compact: true))
+                    Button("Import Pack…") { SoundPackSharing.importPack(app: app) }.buttonStyle(.pulse(.ghost, compact: true))
+                }
+            }
             SettingsRow("End of every short", detail: app.settings.ai.shortsEndCTA.detail) {
                 Picker("", selection: $app.settings.ai.shortsEndCTA) {
                     ForEach(EndCTA.allCases, id: \.self) { Text($0.displayName).tag($0) }
@@ -1520,5 +1526,38 @@ struct PluginsPane: View {
         } catch {
             app.present(error, title: "Couldn't write the examples")
         }
+    }
+}
+
+
+/// Share / Import a sound pack (#496).
+@MainActor
+enum SoundPackSharing {
+    static func share(app: AppModel) {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: SoundPackManifest.fileExtension) ?? .json]
+        panel.nameFieldStringValue = "My Sounds.\(SoundPackManifest.fileExtension)"
+        panel.message = "A pack holds your hit and whoosh choices and the stars you gave sounds."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let name = url.deletingPathExtension().lastPathComponent
+        do {
+            try SoundPackManifest.current(app.settings.ai, name: name, author: app.settings.ai.socialHandle).data().write(to: url)
+            app.toast("Pack saved — send “\(name)” to a friend")
+        } catch {
+            app.present(error, title: "Couldn't save the pack")
+        }
+    }
+
+    static func importPack(app: AppModel) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: SoundPackManifest.fileExtension) ?? .json, .json]
+        panel.message = "Choose a .pulsepack file."
+        guard panel.runModal() == .OK, let url = panel.url, let data = try? Data(contentsOf: url) else { return }
+        guard let pack = SoundPackManifest.parse(data) else {
+            app.presentMessage(title: "Not a sound pack", message: "Expected a .pulsepack file written by Share Pack.")
+            return
+        }
+        let taken = pack.apply(to: &app.settings.ai)
+        app.toast("“\(pack.name)” applied — \(taken) rating\(taken == 1 ? "" : "s") taken on")
     }
 }

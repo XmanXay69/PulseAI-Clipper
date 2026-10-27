@@ -133,6 +133,7 @@ struct AIClipsView: View {
                 .menuStyle(.borderlessButton)
                 .frame(width: 140)
             AggressivenessControl(session: session)
+            PhoneReviewButton(session: session)
             if session.selectedCandidateIDs.count >= 2 {
                 Button { session.mergeCandidates(session.selectedCandidateIDs) } label: { Label("Merge \(session.selectedCandidateIDs.count) into One Short", systemImage: "rectangle.stack.badge.plus") }
                     .buttonStyle(.pulseSecondary)
@@ -752,5 +753,48 @@ enum AIProviders {
             let base = URL(string: settings.openAIBaseURL) ?? URL(string: "http://localhost:1234/v1")!
             return OpenAICompatibleInsightProvider(apiKey: key, model: settings.cloudModel, baseURL: base, isLocalServer: settings.openAIIsLocalServer)
         }
+    }
+}
+
+
+/// Review on Phone (#494): a QR code to the page PULSE serves on the local network.
+struct PhoneReviewButton: View {
+    @EnvironmentObject var app: AppModel
+    @ObservedObject var session: ProjectSession
+    @State private var open = false
+    @State private var qr: CGImage?
+
+    var body: some View {
+        Button {
+            if session.phoneReviewServer == nil { session.startPhoneReview() }
+            open.toggle()
+        } label: { Label("Phone", systemImage: "iphone.badge.play") }
+            .buttonStyle(.pulse(session.phoneReviewServer == nil ? .ghost : .secondary, compact: true))
+            .help("Review the moments from a phone on the same Wi-Fi: Approve favourites a short, Reject sends it to Maybe later (#494)")
+            .popover(isPresented: $open, arrowEdge: .bottom) {
+                VStack(spacing: 10) {
+                    Text("Review on your phone").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    if let url = session.phoneReviewServer?.url {
+                        if let qr = qr ?? ProjectSession.qrCode(for: url) {
+                            Image(decorative: qr, scale: 1).interpolation(.none).frame(width: 180, height: 180)
+                                .background(Color.white).cornerRadius(8)
+                                .onAppear { self.qr = qr }
+                        }
+                        Text(url.absoluteString).font(.pulseMicro).foregroundStyle(Theme.textPrimary).textSelection(.enabled)
+                        Text("Same Wi-Fi only. The address holds a random key; Stop ends it, closing the project does too.")
+                            .font(.pulseMicro).foregroundStyle(Theme.textTertiary).multilineTextAlignment(.center).frame(width: 220)
+                        HStack {
+                            Button("Copy Link") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(url.absoluteString, forType: .string); app.toast("Link copied") }
+                                .buttonStyle(.pulse(.ghost, compact: true))
+                            Button("Stop") { session.stopPhoneReview(); open = false; qr = nil }
+                                .buttonStyle(.pulse(.secondary, compact: true))
+                        }
+                    } else {
+                        BusyLine("Starting")
+                        Text("No network address yet — join a Wi-Fi network and try again.").font(.pulseMicro).foregroundStyle(Theme.textTertiary).frame(width: 220)
+                    }
+                }
+                .padding(14)
+            }
     }
 }

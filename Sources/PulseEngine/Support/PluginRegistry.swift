@@ -87,11 +87,28 @@ public final class PluginRegistry: @unchecked Sendable {
 
     /// What a signal plugin gets on stdin.
     public struct SignalInput: Codable, Sendable {
-        public struct Word: Codable, Sendable { public var text: String; public var start: Seconds; public var end: Seconds }
+        public struct Word: Codable, Sendable {
+            public var text: String
+            public var start: Seconds
+            public var end: Seconds
+
+            public init(text: String, start: Seconds, end: Seconds) {
+                self.text = text
+                self.start = start
+                self.end = end
+            }
+        }
         public var mediaPath: String
         public var assetName: String
         public var duration: Seconds
         public var transcript: [Word]
+
+        public init(mediaPath: String, assetName: String, duration: Seconds, transcript: [Word]) {
+            self.mediaPath = mediaPath
+            self.assetName = assetName
+            self.duration = duration
+            self.transcript = transcript
+        }
     }
 
     /// Runs a signal plugin and reads its events (any format `GameEventLog` understands). Two minutes at most.

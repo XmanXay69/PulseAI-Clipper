@@ -12,7 +12,10 @@ struct SoundsPanel: View {
     @State private var query = ""
     @ObservedObject private var connectivity = Connectivity.shared
 
-    var results: [LibrarySound] { SoundLibrary.search(query, kind: kind, category: category) }
+    @EnvironmentObject var app: AppModel
+
+    /// Your stars sort the list (#496): favourites first, the ones you'd rather not hear last.
+    var results: [LibrarySound] { SoundLibrary.sorted(SoundLibrary.search(query, kind: kind, category: category), ratings: app.settings.ai.soundRatings) }
     var categories: [String] { kind == .music ? SoundLibrary.musicCategories : SoundLibrary.effectCategories }
 
     var body: some View {
@@ -88,6 +91,8 @@ struct SoundsPanel: View {
                 Text([sound.category, sound.bpm.map { "\($0) BPM" }].compactMap { $0 }.joined(separator: " · "))
                     .font(.pulseMicro).foregroundStyle(sound.kind == .music ? Theme.musicClip : Theme.sfxClip).lineLimit(1)
                 Text(sound.summary).font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(2)
+                RatingStars(rating: Binding(get: { app.settings.ai.soundRatings[sound.id] ?? 0 },
+                                            set: { v in if v == 0 { app.settings.ai.soundRatings[sound.id] = nil } else { app.settings.ai.soundRatings[sound.id] = v } }))
                 if let url = preview.urls[sound.id] {
                     SoundDropStrip(url: url, color: sound.kind == .music ? Theme.musicClip : Theme.sfxClip)
                         .frame(height: 14)
@@ -199,5 +204,25 @@ struct SoundDropStrip: View {
             }
             drop = best.1 > 0.08 ? best.0 : nil
         }
+    }
+}
+
+
+/// Five small stars (#496); tapping the current rating clears it.
+struct RatingStars: View {
+    @Binding var rating: Int
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(1...5, id: \.self) { star in
+                Button { rating = rating == star ? 0 : star } label: {
+                    Image(systemName: star <= rating ? "star.fill" : "star").font(.system(size: 9))
+                        .foregroundStyle(star <= rating ? Theme.warning : Theme.textTertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(star) star\(star == 1 ? "" : "s")")
+            }
+        }
+        .help("Your rating sorts the Sounds panel and travels in a shared pack (Settings → AI Features → Share Pack)")
     }
 }

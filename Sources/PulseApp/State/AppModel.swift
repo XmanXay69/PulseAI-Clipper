@@ -379,6 +379,7 @@ final class AppModel: ObservableObject {
     }
 
     func closeProject() {
+        session?.stopPhoneReview()
         session?.close()
         sessionObserver = nil
         session = nil

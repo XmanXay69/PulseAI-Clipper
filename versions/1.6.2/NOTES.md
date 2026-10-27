@@ -399,6 +399,17 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   (run it from a recording's menu). Settings → Plugins lists them, says why one doesn't load, and writes two
   examples to copy; docs/PLUGINS.md has the format.
 
+### Batch 51
+
+- **Review from your phone** (#494) — AI Clips → Phone: PULSE serves a page on the local network (a QR code
+  and a link with a random key) with a card per moment — thumbnail, title, score — and Approve / Reject /
+  Undo buttons that land straight in the project: Approve favourites the short and teaches your taste, Reject
+  sends it to Maybe later. Stop ends it; closing the project does too.
+- **Sound packs with ratings** (#496) — stars on every sound in the Sounds panel sort it (favourites first,
+  the ones you'd rather not hear last), and Settings → AI Features → Share Pack… writes your hit and whoosh
+  choices plus your stars as one .pulsepack file to hand to another streamer; Import Pack… applies the
+  choices and fills in ratings you haven't given.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
