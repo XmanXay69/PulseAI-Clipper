@@ -347,6 +347,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var batchPausesOnLowBattery: Bool = true
     /// Analyze what the watch folder brings in, straight away (#3).
     public var watchFolderAnalyzes: Bool = true
+    /// Split recordings into files of at most this many gigabytes (#322); 0 = never.
+    public var recordingSplitGB: Double = 0
     /// Hour (0–23) at which the batch runs on what the watch folder gathered that day; nil = never (#461).
     public var nightlyBatchHour: Int?
     /// Stable releases only, or betas too (#454).
@@ -453,6 +455,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
         gradePresets = c.decode([GradePreset].self, forKey: .gradePresets, default: d.gradePresets)
         stats = c.decode(LifetimeStats.self, forKey: .stats, default: d.stats)
         watchFolder = c.decode(String.self, forKey: .watchFolder, default: d.watchFolder)
+        recordingSplitGB = c.decode(Double.self, forKey: .recordingSplitGB, default: d.recordingSplitGB)
         compactTimeline = c.decode(Bool.self, forKey: .compactTimeline, default: d.compactTimeline)
         timelineFollowsPlayhead = c.decode(Bool.self, forKey: .timelineFollowsPlayhead, default: d.timelineFollowsPlayhead)
         batchPausesOnLowBattery = c.decode(Bool.self, forKey: .batchPausesOnLowBattery, default: d.batchPausesOnLowBattery)

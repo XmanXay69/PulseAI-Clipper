@@ -12,6 +12,7 @@ import PackageDescription
 //   PulseApp    – SwiftUI/AppKit desktop application.
 let package = Package(
     name: "Pulse",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "PULSE", targets: ["PulseApp"]),
@@ -26,7 +27,7 @@ let package = Package(
     targets: [
         .target(name: "PulseCore"),
         .target(name: "PulseEngine", dependencies: ["PulseCore", .product(name: "YouTubeKit", package: "YouTubeKit")]),
-        .executableTarget(name: "PulseApp", dependencies: ["PulseCore", "PulseEngine"]),
+        .executableTarget(name: "PulseApp", dependencies: ["PulseCore", "PulseEngine"], resources: [.process("Resources")]),
         .testTarget(name: "PulseCoreTests", dependencies: ["PulseCore"]),
         .testTarget(name: "PulseEngineTests", dependencies: ["PulseEngine", "PulseCore"], exclude: ["Fixtures"]),
     ]

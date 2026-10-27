@@ -57,10 +57,27 @@ public struct RecordingResult: Sendable {
         public var url: URL
         public var role: MediaRole
         public var syncOffset: Seconds
+        /// Set when the file is one part of a recording split under a size limit (#322).
+        public var sequenceGroup: UUID?
+        public var sequenceIndex: Int?
+
+        public init(url: URL, role: MediaRole, syncOffset: Seconds, sequenceGroup: UUID? = nil, sequenceIndex: Int? = nil) {
+            self.url = url
+            self.role = role
+            self.syncOffset = syncOffset
+            self.sequenceGroup = sequenceGroup
+            self.sequenceIndex = sequenceIndex
+        }
     }
     public var files: [File]
     public var duration: Seconds
     public var warnings: [String]
+
+    public init(files: [File], duration: Seconds, warnings: [String]) {
+        self.files = files
+        self.duration = duration
+        self.warnings = warnings
+    }
 }
 
 public enum CaptureError: Error, LocalizedError {

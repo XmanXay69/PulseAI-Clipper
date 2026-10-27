@@ -82,6 +82,15 @@ struct PulseMain: App {
                 .frame(minWidth: 320, minHeight: 400)
         }
         .defaultSize(width: 420, height: 720)
+
+        // Another project beside this one (#468): browse it, drag its files in, copy its timelines.
+        WindowGroup("Project Browser", id: "browser", for: URL.self) { $url in
+            ProjectBrowserWindow(url: url)
+                .environmentObject(app)
+                .preferredColorScheme(app.colorScheme)
+                .frame(minWidth: 420, minHeight: 360)
+        }
+        .defaultSize(width: 560, height: 640)
     }
 }
 
@@ -235,7 +244,7 @@ struct PulseCommands: Commands {
             Button("Check for Updates…") { app.updater.showSheet = true }
             Button("What's New in \(AppModel.shortVersion)…") { app.openWhatsNew() }
             Button("Set Up for My Stream…") { app.showSetupWizard = true }
-            Button("Take the Tour") { app.startTour() }
+            Button(L("Take the Tour")) { app.startTour() }
             Menu("Open Sample Project") {
                 ForEach(DemoMediaGenerator.Genre.allCases, id: \.self) { genre in
                     Button(genre.displayName) { app.openDemoProject(genre: genre) }
@@ -353,7 +362,8 @@ struct PulseCommands: Commands {
             Button("Add Music Drop Marker") { app.session?.addDropMarker() }
                 .help("A marker named “Drop” — the music pulls out for a beat there when you apply drops")
             Button("Apply Music Drops") { app.session?.applyDropMarkers() }
-            Button("Fill Gaps with Room Tone") { app.session?.fillRoomTone() }
+            Button(L("Fill Gaps with Room Tone")) { app.session?.fillRoomTone() }
+            Button(L("Pan Voice Toward the Facecam")) { app.session?.panTowardFacecam() }
                 .help("Short silences between audio clips get the recording's own quietest moment, 6 dB down (#273)")
                 .disabled(app.session?.activeTimeline == nil)
             Button("Pin Emoji to Face…") { app.session.map { PinEmojiPrompt.run(session: $0) } }
@@ -393,6 +403,7 @@ struct PulseCommands: Commands {
                 }
             }
             OpenViewerWindowButton()
+            OpenProjectBrowserButton()
             MiniViewerToggle()
         }
     }

@@ -41,7 +41,8 @@ Just Chatting — detected from the names and the transcript, or pinned in Proje
 picture under every cut when Edit My VOD runs on a podcast WAV or any audio-only recording; a facecam that moves between corners tracked per stretch; a first look at the clips from the
 audio alone before transcription; exports stamped with their project in the Finder comment; vertical reframing that follows the action in gameplay; noise reduction learned from a
 stretch you mark as silence; two-pass encoding; music beds with a measured tempo and a license line, and shelves filled while
-the Mac is idle.
+the Mac is idle; recordings split under a size limit and joined back together; the voice leaning toward the
+facecam; another project in a browser window with drag-and-drop between them; localization scaffolding.
 
 **New in 1.6.1:** colour labels on clips with a filter, keyboard caption editing (tab, return, ⌫), a caption
 spell-check, a generated 3-second intro card from the Brand Kit, cuts that land on sentence ends, "Drop"

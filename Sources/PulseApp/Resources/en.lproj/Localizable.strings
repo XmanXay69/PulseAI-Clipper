@@ -1,0 +1,21 @@
+/* PULSE — base strings (#457). Keys are the English text; a translation keeps the key and changes the value.
+   Copy this folder to <language>.lproj (de.lproj, fr.lproj, ja.lproj…) and translate the right-hand side. */
+
+"Take the Tour" = "Take the Tour";
+"Show Me Around" = "Show Me Around";
+"Keyboard Shortcuts" = "Keyboard Shortcuts";
+"Report a Problem…" = "Report a Problem…";
+"Open a Sample Project" = "Open a Sample Project";
+"Home" = "Home";
+"Record" = "Record";
+"Import" = "Import";
+"AI Clips" = "AI Clips";
+"Editor" = "Editor";
+"Deliver" = "Deliver";
+"Settings…" = "Settings…";
+"Edit My VOD…" = "Edit My VOD…";
+"Find Clips" = "Find Clips";
+"Export…" = "Export…";
+"Pan Voice Toward the Facecam" = "Pan Voice Toward the Facecam";
+"Fill Gaps with Room Tone" = "Fill Gaps with Room Tone";
+"Open Another Project in a Browser Window…" = "Open Another Project in a Browser Window…";

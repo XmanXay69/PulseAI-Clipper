@@ -255,15 +255,22 @@ extension ProjectSession {
                 var asset = try await MediaImporter.makeAsset(for: ImportPlan.Item(url: file.url, kind: kind, role: file.role), cacheRoot: cacheRoot)
                 asset.syncGroupID = group
                 asset.syncOffset = file.syncOffset
+                asset.sequenceGroupID = file.sequenceGroup
+                asset.sequenceIndex = file.sequenceIndex
                 asset.tags.append("recording")
                 asset.markedMoments = markedMoments
                 assets.append(asset)
             }
             let screen = assets.first { $0.role == .gameplay }
+            // Parts of a split recording come back together on one timeline, joins and all (#322).
+            let parts = assets.filter { $0.sequenceGroupID != nil }.sorted { ($0.sequenceIndex ?? 0) < ($1.sequenceIndex ?? 0) }
+            let joined = parts.count > 1 ? SequenceJoiner.timeline(parts: parts) : nil
             self.edit("Import Recording") { doc in
                 doc.media.append(contentsOf: assets)
                 if let screen { doc.primaryAssetID = screen.id } else if doc.primaryAssetID == nil { doc.primaryAssetID = assets.first?.id }
+                if let joined { doc.timelines.append(joined) }
             }
+            if let joined { self.app.toast("Recording split into \(parts.count) parts — joined back together on “\(joined.name)”") }
             self.save()
             self.app.logActivity(.importMedia, title: "Recorded \(Timecode.duration(result.duration))", detail: assets.map(\.name).joined(separator: " · "))
             if !result.warnings.isEmpty {

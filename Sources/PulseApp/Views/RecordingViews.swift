@@ -155,6 +155,14 @@ struct RecordView: View {
                     Text("H.264 (shares anywhere)").tag(VideoCodec.h264)
                 }
                 .pickerStyle(.segmented)
+                Picker("Split files", selection: Binding(get: { app.settings.recordingSplitGB }, set: { app.settings.recordingSplitGB = $0 })) {
+                    Text("Never").tag(0.0)
+                    Text("Every 2 GB").tag(2.0)
+                    Text("Every 4 GB").tag(4.0)
+                    Text("Every 8 GB").tag(8.0)
+                    Text("Every 16 GB").tag(16.0)
+                }
+                .help("A long recording is cut into parts under this size when it stops (no re-encoding) and the parts are joined back together on one timeline, so a single file never outgrows a disk or a sync folder (#322)")
                 ToggleRow(label: "Show cursor", isOn: $recorder.showsCursor)
                 ToggleRow(label: "Hide PULSE from the recording", isOn: $recorder.hidePulse)
                 ToggleRow(label: "3-second countdown", isOn: $recorder.countdown)

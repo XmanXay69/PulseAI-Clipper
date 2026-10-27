@@ -191,7 +191,12 @@ final class RecordingController: ObservableObject {
         let marked = markedMoments
         Task {
             do {
-                let result = try await recorder.stop()
+                var result = try await recorder.stop()
+                // Files over the size limit become parts (#322); they join back up on a timeline on import.
+                if app.settings.recordingSplitGB > 0 {
+                    phase = .finishing
+                    result = try await RecordingSplitter.splitLargeFiles(result, gigabytes: app.settings.recordingSplitGB)
+                }
                 phase = .idle
                 if app.session == nil {
                     app.newProject(name: "Recording \(Date().formatted(date: .abbreviated, time: .shortened))")

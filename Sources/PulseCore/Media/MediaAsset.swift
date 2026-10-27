@@ -180,6 +180,9 @@ public struct MediaAsset: Codable, Hashable, Identifiable, Sendable {
     public var syncOffset: Seconds
     /// Groups recordings of the same session (gameplay + webcam + mic).
     public var syncGroupID: UUID?
+    /// Part of a recording split into files under a size limit (#322): which split, and its place in it.
+    public var sequenceGroupID: UUID? = nil
+    public var sequenceIndex: Int? = nil
     /// Where this asset came from when it is a generated derivative (demo media, rendered audio…).
     public var generatedBy: String?
     /// Moments you marked while recording ("clip it"), in seconds from the start; analysis treats them as sure things.
@@ -233,6 +236,8 @@ public struct MediaAsset: Codable, Hashable, Identifiable, Sendable {
         importedAt = c.decode(Date.self, forKey: .importedAt, default: Date())
         syncOffset = c.decode(Seconds.self, forKey: .syncOffset, default: 0)
         syncGroupID = c.decode(UUID?.self, forKey: .syncGroupID, default: nil)
+        sequenceGroupID = c.decode(UUID?.self, forKey: .sequenceGroupID, default: nil)
+        sequenceIndex = c.decode(Int?.self, forKey: .sequenceIndex, default: nil)
         generatedBy = c.decode(String?.self, forKey: .generatedBy, default: nil)
         markedMoments = c.decode([Seconds].self, forKey: .markedMoments, default: [])
         contentHash = c.decode(String?.self, forKey: .contentHash, default: nil)

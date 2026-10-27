@@ -357,6 +357,23 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   is idle": every ten minutes, with nothing running, no input for three minutes and the Mac plugged in, each
   mood's shelf is topped up so an edit never waits on a download.
 
+### Batch 48
+
+- **Recordings split under a size limit** (#322) — Record → Split files: when a recording stops, any file
+  over the limit (2 / 4 / 8 / 16 GB) is cut into "part N of M" files without re-encoding, the parts are imported
+  as one synced recording and joined back together on a timeline with a marker at every join, so a single
+  file never outgrows a disk or a sync folder.
+- **The voice leans toward the facecam** (#271) — Timeline → Pan Voice Toward the Facecam: the audio linked
+  to each facecam pans a little (at most ±20 %) toward the side of the canvas the facecam sits on; nothing
+  happens in the middle third.
+- **Another project in a browser window** (#468) — Window → Open Another Project in a Browser Window…: its
+  media and timelines beside the one you're editing; drag a file onto the main window to import it, or copy
+  a file or a whole timeline (with the media it uses) into the current project. The other project is never
+  changed.
+- **Localization scaffolding** (#457) — a strings table under `Resources/en.lproj`, an `L("…")` lookup that
+  falls back to the English key, the package set up for more languages and `docs/LOCALIZATION.md` saying how
+  to add one; menu items go through it first.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
