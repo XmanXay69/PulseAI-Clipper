@@ -1,3 +1,4 @@
+import AVFoundation
 import PulseCore
 import PulseEngine
 import SwiftUI
@@ -133,6 +134,15 @@ struct RecordView: View {
                 .font(.pulseCaption)
                 if recorder.cameras.isEmpty {
                     Text("No camera found.").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                }
+                // See yourself before you press record, with a guide for where your face should sit (#324).
+                if let cameraID = recorder.cameraID, recorder.phase == .idle {
+                    CameraPreview(deviceID: cameraID)
+                        .overlay(FaceGuide())
+                        .frame(height: 150)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.radius))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.border))
+                        .help("Line your face up inside the guide — the facecam crop PULSE cuts later is centred on it")
                 }
                 SectionLabel(text: "Video")
                 Picker("Frame rate", selection: $recorder.frameRate) {
@@ -270,5 +280,80 @@ struct RecordingMeter: View {
         }
         .help(levelDB > -1 ? "Clipping — turn the microphone down" : String(format: "%.0f dBFS", levelDB))
         .accessibilityLabel("Audio level")
+    }
+}
+
+/// A live view of the chosen webcam before recording starts (#324).
+struct CameraPreview: NSViewRepresentable {
+    let deviceID: String
+
+    func makeNSView(context: Context) -> CameraPreviewNSView { CameraPreviewNSView() }
+
+    func updateNSView(_ view: CameraPreviewNSView, context: Context) { view.show(deviceID: deviceID) }
+
+    static func dismantleNSView(_ view: CameraPreviewNSView, coordinator: ()) { view.stop() }
+}
+
+final class CameraPreviewNSView: NSView {
+    private let session = AVCaptureSession()
+    private let previewLayer = AVCaptureVideoPreviewLayer()
+    private var currentID: String?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer = CALayer()
+        layer?.backgroundColor = NSColor.black.cgColor
+        previewLayer.session = session
+        previewLayer.videoGravity = .resizeAspectFill
+        layer?.addSublayer(previewLayer)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        previewLayer.frame = bounds
+        CATransaction.commit()
+    }
+
+    func show(deviceID: String) {
+        guard deviceID != currentID else { return }
+        currentID = deviceID
+        session.beginConfiguration()
+        for input in session.inputs { session.removeInput(input) }
+        if let device = AVCaptureDevice(uniqueID: deviceID), let input = try? AVCaptureDeviceInput(device: device), session.canAddInput(input) {
+            session.addInput(input)
+        }
+        session.commitConfiguration()
+        let session = self.session
+        DispatchQueue.global(qos: .userInitiated).async { if !session.isRunning { session.startRunning() } }
+    }
+
+    func stop() {
+        let session = self.session
+        DispatchQueue.global(qos: .userInitiated).async { if session.isRunning { session.stopRunning() } }
+    }
+}
+
+/// An oval where the face should be, plus the eye line a third of the way down.
+struct FaceGuide: View {
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width, h = geo.size.height
+            ZStack {
+                Ellipse()
+                    .strokeBorder(Color.white.opacity(0.7), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                    .frame(width: h * 0.42, height: h * 0.6)
+                    .position(x: w / 2, y: h * 0.47)
+                Rectangle().fill(Color.white.opacity(0.35)).frame(width: w * 0.6, height: 1).position(x: w / 2, y: h * 0.38)
+                Text("Eyes on the line, face in the oval").font(.system(size: 9, weight: .semibold)).foregroundStyle(.white.opacity(0.8))
+                    .padding(.horizontal, 6).padding(.vertical, 2).background(Capsule().fill(.black.opacity(0.45)))
+                    .position(x: w / 2, y: h - 12)
+            }
+        }
+        .allowsHitTesting(false)
     }
 }

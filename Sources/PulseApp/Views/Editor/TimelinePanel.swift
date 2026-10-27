@@ -79,9 +79,9 @@ struct TimelineToolbar: View {
                 IconButton(symbol: tool.symbol, help: "\(tool.rawValue.capitalized) tool (\(tool.shortcut))", isActive: session.tool == tool) { session.tool = tool }
             }
             Divider().frame(height: 16).padding(.horizontal, 4)
-            IconButton(symbol: "scissors.badge.ellipsis", help: "Split at playhead (⌘K)") { session.splitAtPlayhead() }
+            IconButton(symbol: "scissors.badge.ellipsis", help: "Split at playhead", shortcut: app.settings.shortcuts.combo(for: .splitAtPlayhead)) { session.splitAtPlayhead() }
             IconButton(symbol: "delete.left", help: "Ripple delete (⇧⌫)") { session.deleteSelection(ripple: true) }
-            IconButton(symbol: "plus.square.on.square", help: "Duplicate (⌘D)") { session.duplicateSelection() }
+            IconButton(symbol: "plus.square.on.square", help: "Duplicate", shortcut: app.settings.shortcuts.combo(for: .duplicate)) { session.duplicateSelection() }
             IconButton(symbol: session.insertMode ? "arrow.right.to.line" : "rectangle.on.rectangle",
                        help: session.insertMode ? "Insert mode — media you add pushes what follows along (click for overwrite)" : "Overwrite mode — media you add covers what's there (click for insert)",
                        isActive: session.insertMode) { session.insertMode.toggle() }
@@ -490,6 +490,7 @@ struct TrackHeader: View {
                     .padding(12)
                 }
             Spacer(minLength: 2)
+            if track.kind == .audio, !track.clips.isEmpty { TrackMeter(session: session, trackID: track.id) }
             if track.kind == .video {
                 toggle("eye", "eye.slash", on: !track.isHidden, help: "Show/hide") { t in t.isHidden.toggle() }
             } else if track.kind == .audio {

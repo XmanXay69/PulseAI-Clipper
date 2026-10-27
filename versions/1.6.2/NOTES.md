@@ -184,6 +184,22 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   captions, music, effects, fades); the Reference sheet offers the average of your last ten as a style to
   edit the next one the same way. Nothing leaves your Mac.
 
+### Batch 35
+
+- **Meters** (#194, #281) — a mix-bus meter next to the transport with peak hold and a clip light that
+  stays lit until you click it, and a small meter in every audio track's header. They read the cached
+  waveforms through each clip's volume, gain, mute and solo, so they cost nothing while playing.
+- **Voice ◀ ▶ Game** (#267) — when the microphone and the game are on separate tracks, the timeline
+  inspector gets one slider that turns the game down behind your voice (or the other way round), up to 12 dB.
+- **Room tone** (#273) — Timeline → Fill Gaps with Room Tone puts the recording's own quietest moment,
+  6 dB down with short fades, into every short silence between audio clips, so cuts stop dropping to nothing.
+- **Instrumental stems** (#295) — a "Song (Instrumental)" next to "Song" in your media goes under the talking
+  when Edit My VOD picks music.
+- **Shortcuts in every tooltip** (#229, #430) — icon buttons show their key in one format, taken from your
+  own shortcut map, so a remapped Split reads right in its tooltip too.
+- **Face guide** (#324) — the Record sheet shows the chosen webcam live with an oval and an eye line to sit
+  in before you press record.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
@@ -195,7 +211,8 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   (#464); window recording with the window's title is in the recording sources (#332); image overlays take the same
   masks and shadows as any layer (#219); the composition builds off the main thread with cancellation (#379);
   icon buttons share one symbol weight and size (#409); the microphone and the screen's audio record to
-  separate files (#320).
+  separate files (#320); edits during a drag coalesce into one rebuild and undo step, with a 20–100 ms
+  debounce (#380); inspector sections have disclosure arrows, reset icons and a per-section AI badge (#414).
 
 ### Under the hood
 - `ChapterArt` (engine) draws with AppKit on the source frame, so a marker over a cutaway or gap is skipped.

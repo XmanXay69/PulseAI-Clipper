@@ -949,6 +949,11 @@ struct TimelineInspector: View {
                         .buttonStyle(.pulse(.ai, compact: true))
                 }
             }
+            if MixBalance.isAvailable(in: timeline, role: session.audioRole) {
+                InspectorSection("Mix") {
+                    MixBalanceRow(session: session, timeline: timeline)
+                }
+            }
             InspectorSection("Markers", expanded: !timeline.markers.isEmpty) {
                 if timeline.markers.isEmpty {
                     Text("Press M to add a marker at the playhead.").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
@@ -1214,5 +1219,32 @@ struct CheckerboardBackground: View {
                 y += cell
             }
         }
+    }
+}
+
+/// Voice ◀ ▶ Game (#267): one slider when the recording has the microphone and the game on separate tracks.
+struct MixBalanceRow: View {
+    @ObservedObject var session: ProjectSession
+    let timeline: Timeline
+
+    var body: some View {
+        let current = MixBalance.current(in: timeline, role: session.audioRole) ?? 0
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Voice").font(.pulseMicro).foregroundStyle(Theme.textSecondary)
+                Spacer()
+                Text(current == 0 ? "As recorded" : String(format: "%@ %.0f dB", current < 0 ? "Game" : "Voice", -MixBalance.rangeDB * abs(current)))
+                    .font(.pulseMicro).foregroundStyle(Theme.textTertiary).monospacedDigit()
+                Spacer()
+                Text("Game").font(.pulseMicro).foregroundStyle(Theme.textSecondary)
+            }
+            Slider(value: Binding(get: { current }, set: { b in
+                session.editTimeline("Voice / Game Balance", coalesce: "mix-balance") { MixBalance.apply(b, to: &$0, role: session.audioRole) }
+            }), in: -1...1, step: 0.05, onEditingChanged: { editing in if !editing { session.commitCoalescing() } })
+            .controlSize(.small)
+            Text("Turns the game's tracks down behind your voice, or the other way round — nothing else in the mix changes.")
+                .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+        }
+        .onTapGesture(count: 2) { session.editTimeline("Voice / Game Balance") { MixBalance.apply(0, to: &$0, role: session.audioRole) } }
     }
 }

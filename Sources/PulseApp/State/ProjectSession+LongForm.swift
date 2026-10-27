@@ -82,6 +82,8 @@ extension ProjectSession {
                     if prepared.isNew { newAssets.append(prepared.asset) }
                     job.progress = 0.3 + 0.65 * Double(i + 1) / Double(result.musicChapters.count)
                 }
+                // An instrumental version in the library goes under the talking instead of the vocal one (#295).
+                beds = MusicStems.preferringInstrumentals(beds, library: self.document.media)
                 // A bed shorter than its chapter loops at its cleanest seam instead of restarting (#294).
                 var loops: [UUID: LoopPoints.Loop] = [:]
                 for bed in beds where bed.metadata.duration > 8 {

@@ -91,6 +91,9 @@ final class ProjectSession: ObservableObject, Identifiable {
     @Published var speedEditIndex: Int?
     /// What dragging on the viewer does to the selected layer (#192): move/scale it, or pan and zoom its content.
     @Published var canvasTool: CanvasTool = .transform
+    /// Waveform peaks per recording for the meters (#194, #281); not published — the meters read them on the clock.
+    var meterPeaks: [UUID: [Float]] = [:]
+    var meterPeaksLoading: Set<UUID> = []
     @Published var focusedCaptionWordID: UUID?
     /// Show only clips with this label; others dim (#177).
     @Published var labelFilter: MarkerColor?

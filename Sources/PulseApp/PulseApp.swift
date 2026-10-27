@@ -345,6 +345,9 @@ struct PulseCommands: Commands {
             Button("Add Music Drop Marker") { app.session?.addDropMarker() }
                 .help("A marker named “Drop” — the music pulls out for a beat there when you apply drops")
             Button("Apply Music Drops") { app.session?.applyDropMarkers() }
+            Button("Fill Gaps with Room Tone") { app.session?.fillRoomTone() }
+                .help("Short silences between audio clips get the recording's own quietest moment, 6 dB down (#273)")
+                .disabled(app.session?.activeTimeline == nil)
             Button((app.session?.activeTimeline).map { ProgressBar.isPresent($0) } == true ? "Remove Progress Bar" : "Add Progress Bar") { app.session?.toggleProgressBar() }
                 .disabled(app.session?.activeTimeline == nil)
             Divider()

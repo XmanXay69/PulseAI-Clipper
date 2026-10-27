@@ -97,11 +97,19 @@ extension ButtonStyle where Self == PulseButtonStyle {
 struct IconButton: View {
     let symbol: String
     var help: String
+    /// The key that does the same thing (#229, #430), shown after the help in one format: "Split at playhead (⌘K)".
+    var shortcut: KeyCombo?
     var isActive = false
     var size: CGFloat = 26
     let action: () -> Void
     @State private var hovering = false
     @FocusState private var focused: Bool
+
+    /// Help plus the shortcut, so every icon button reads the same way.
+    var fullHelp: String {
+        guard let shortcut, !shortcut.display.isEmpty else { return help }
+        return "\(help) (\(shortcut.display))"
+    }
 
     var body: some View {
         Button(action: action) {
@@ -118,7 +126,7 @@ struct IconButton: View {
         .focused($focused)
         .focusEffectDisabled()
         .onHover { hovering = $0 }
-        .help(help)
+        .help(fullHelp)
         .accessibilityLabel(accessibilityName)
         .accessibilityAddTraits(isActive ? [.isSelected] : [])
     }

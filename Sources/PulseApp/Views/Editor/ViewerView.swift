@@ -583,7 +583,9 @@ struct TransportBar: View {
             IconButton(symbol: "forward.frame.fill", help: "Next frame (→)") { playback.step(frames: 1); app.tick() }
             IconButton(symbol: "forward.end.fill", help: "Go to end (End)") { playback.goToEnd() }
             IconButton(symbol: "repeat", help: "Loop", isActive: playback.loopEnabled && playback.loopRange == nil) { playback.loopRange = nil; playback.loopEnabled.toggle() }
-            IconButton(symbol: "repeat.1", help: "Loop in → out (⌥L)", isActive: playback.loopEnabled && playback.loopRange != nil) { session.toggleLoopInOut() }
+            IconButton(symbol: "repeat.1", help: "Loop in → out", shortcut: app.settings.shortcuts.combo(for: .loopInOut),
+                       isActive: playback.loopEnabled && playback.loopRange != nil) { session.toggleLoopInOut() }
+            MasterMeter(session: session, playback: playback).padding(.leading, 4)
             if let speed = shuttleReadout {
                 TagChip(text: speed, color: Theme.accent, symbol: playback.playbackRate < 0 ? "backward.fill" : "forward.fill")
                     .help("Shuttle speed — J/L to go faster, K to stop")
