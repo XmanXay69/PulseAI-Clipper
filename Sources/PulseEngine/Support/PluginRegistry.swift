@@ -124,8 +124,12 @@ public final class PluginRegistry: @unchecked Sendable {
         process.standardError = stderr
         let payload = try JSONEncoder().encode(input)
         try process.run()
-        stdin.fileHandleForWriting.write(payload)
-        try? stdin.fileHandleForWriting.close()
+        // The transcript can run to megabytes: feed it on its own thread while stdout is drained, or a plugin
+        // that prints before it reads would wedge both pipes.
+        DispatchQueue.global(qos: .utility).async {
+            stdin.fileHandleForWriting.write(payload)
+            try? stdin.fileHandleForWriting.close()
+        }
         let output: Data = try await withThrowingTaskGroup(of: Data.self) { group in
             group.addTask {
                 let data = stdout.fileHandleForReading.readDataToEndOfFile()

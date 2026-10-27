@@ -160,6 +160,7 @@ public enum YouTubeUploader {
         defer { try? handle.close() }
         var offset: Int64 = 0
         var last: Data = Data()
+        var resends = 0
         while offset < size {
             if isCancelled() { throw EngineError.cancelled }
             try handle.seek(toOffset: UInt64(offset))
@@ -178,11 +179,13 @@ public enum YouTubeUploader {
                 last = data
                 offset = size
             case 308:
-                // "Range: bytes=0-N" says what landed.
+                // "Range: bytes=0-N" says what landed; no Range means nothing did, so the same piece goes again.
                 if let range = r.value(forHTTPHeaderField: "Range"), let dash = range.lastIndex(of: "-"), let n = Int64(range[range.index(after: dash)...]) {
                     offset = n + 1
+                    resends = 0
                 } else {
-                    offset = end + 1
+                    resends += 1
+                    if resends > 3 { throw PublishError.uploadFailed("YouTube kept refusing the same piece of the file") }
                 }
             case 401:
                 throw PublishError.denied("the sign-in expired — sign in again in Settings → Publishing")
