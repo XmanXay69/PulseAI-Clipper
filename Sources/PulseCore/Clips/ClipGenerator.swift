@@ -66,11 +66,14 @@ public struct ClipGenerationInput: Sendable {
     public var chat: ChatLog?
     /// Banners read off the screen (wins, kills, deaths).
     public var hud: [HUDEvent] = []
+    /// Which signals matter for this game (#34); nil scores every game the same way.
+    public var game: GameProfile?
 
     public init(assetID: UUID, duration: Seconds, audio: AudioFeatureSeries?, transcript: Transcript?, visual: VisualFeatureSeries?, profile: ContentProfile = .unknown,
-                chat: ChatLog? = nil, hud: [HUDEvent] = []) {
+                chat: ChatLog? = nil, hud: [HUDEvent] = [], game: GameProfile? = nil) {
         self.chat = chat
         self.hud = hud
+        self.game = game
         self.assetID = assetID
         self.duration = duration
         self.audio = audio
@@ -79,9 +82,9 @@ public struct ClipGenerationInput: Sendable {
         self.profile = profile
     }
 
-    public init(analysis: MediaAnalysis) {
+    public init(analysis: MediaAnalysis, game: GameProfile? = nil) {
         self.init(assetID: analysis.assetID, duration: analysis.duration, audio: analysis.audio, transcript: analysis.transcript, visual: analysis.visual, profile: analysis.profile,
-                  chat: analysis.chat, hud: analysis.hudEvents ?? [])
+                  chat: analysis.chat, hud: analysis.hudEvents ?? [], game: game)
     }
 }
 
@@ -99,7 +102,8 @@ public struct ClipGenerator: Sendable {
         self.input = input
         self.settings = settings
         self.signals = EngagementModel.compute(duration: input.duration, audio: input.audio, transcript: input.transcript, visual: input.visual, chat: input.chat,
-                                               hud: input.hud, gameplay: input.profile == .gameplay || input.profile == .gameplayWithFacecam)
+                                               hud: input.hud, gameplay: input.profile == .gameplay || input.profile == .gameplayWithFacecam,
+                                               weights: input.game?.weights ?? .neutral)
         self.sentences = input.transcript?.sentences() ?? []
         self.excitementP95 = max(SeriesMath.percentile(signals.excitement, 0.95), 0.05)
         self.excitementP99 = max(SeriesMath.percentile(signals.excitement, 0.99), 0.08)

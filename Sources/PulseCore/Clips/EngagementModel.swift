@@ -116,13 +116,17 @@ public enum EngagementModel {
     }
 
     /// All the signals of an analysis (including an imported chat replay).
-    public static func compute(analysis: MediaAnalysis, step: Seconds = 0.5) -> EngagementSignals {
+    public static func compute(analysis: MediaAnalysis, step: Seconds = 0.5, game: GameProfile? = nil) -> EngagementSignals {
         compute(duration: analysis.duration, audio: analysis.audio, transcript: analysis.transcript, visual: analysis.visual, chat: analysis.chat,
-                hud: analysis.hudEvents ?? [], step: step, gameplay: analysis.profile == .gameplay || analysis.profile == .gameplayWithFacecam)
+                hud: analysis.hudEvents ?? [], step: step, gameplay: analysis.profile == .gameplay || analysis.profile == .gameplayWithFacecam,
+                weights: game?.weights ?? .neutral)
     }
 
+    /// `weights` is the per-game profile (#34): each signal's share is scaled and the total is re-normalized so
+    /// the curve keeps the same range whatever the game.
     public static func compute(duration: Seconds, audio: AudioFeatureSeries?, transcript: Transcript?, visual: VisualFeatureSeries?,
-                               chat: ChatLog? = nil, hud: [HUDEvent] = [], step: Seconds = 0.5, gameplay: Bool = false) -> EngagementSignals {
+                               chat: ChatLog? = nil, hud: [HUDEvent] = [], step: Seconds = 0.5, gameplay: Bool = false,
+                               weights: GameProfile.Weights = .neutral) -> EngagementSignals {
         let n = max(1, Int((duration / step).rounded(.up)))
         // The streamer's own laugh counts for more than a guest's (#28): the voice with the most words.
         let dominantSpeaker = transcript.flatMap { EngagementModel.dominantSpeaker($0.words) }
@@ -222,6 +226,14 @@ public enum EngagementModel {
         // Game banners: the game itself saying a moment happened ("VICTORY ROYALE", "DOUBLE KILL", "YOU DIED").
         let hudSignal = hud.isEmpty ? [] : HUDCues.signal(events: hud, duration: duration, step: step)
 
+        // Gameplay: the action on screen (fights, kills, chaos) matters as much as the voice.
+        let base: [Float] = gameplay ? [0.22, 0.14, 0.08, 0.08, 0.16, 0.12, 0.16, 0.04] : [0.26, 0.16, 0.08, 0.12, 0.2, 0.14, 0.08, 0.04]
+        let w = weights
+        let scaled: [Float] = [base[0] * w.loudness, base[1] * w.surprise, base[2] * w.flux, base[3] * w.speechRate,
+                               base[4] * w.keywords, base[5] * w.laughter, base[6] * w.motion, base[7] * w.cuts]
+        let weightedTotal = scaled.reduce(0, +)
+        let renorm: Float = weightedTotal > 0.01 ? base.reduce(0, +) / weightedTotal : 1
+        let coef = scaled.map { $0 * renorm }
         var excitement = [Float](repeating: 0, count: n)
         for i in 0..<n {
             let l = loudness[i].clamped(0, 4) / 4
@@ -231,12 +243,9 @@ public enum EngagementModel {
             let k = Swift.min(keywords[i] / 2.5, 1)
             let la = Swift.min(laughter[i], 1)
             let m = motion[i].clamped(0, 3) / 3
-            excitement[i] = gameplay
-                // Gameplay: the action on screen (fights, kills, chaos) matters as much as the voice.
-                ? 0.22 * l + 0.14 * s + 0.08 * f + 0.08 * r + 0.16 * k + 0.12 * la + 0.16 * m + 0.04 * cuts[i]
-                : 0.26 * l + 0.16 * s + 0.08 * f + 0.12 * r + 0.2 * k + 0.14 * la + 0.08 * m + 0.04 * cuts[i]
-            if i < chatActivity.count { excitement[i] = excitement[i] * 0.75 + chatActivity[i] * 0.45 }
-            if i < hudSignal.count { excitement[i] = Swift.min(excitement[i] + hudSignal[i] * 0.45, 1.2) }
+            excitement[i] = coef[0] * l + coef[1] * s + coef[2] * f + coef[3] * r + coef[4] * k + coef[5] * la + coef[6] * m + coef[7] * cuts[i]
+            if i < chatActivity.count { excitement[i] = excitement[i] * 0.75 + chatActivity[i] * 0.45 * w.chat }
+            if i < hudSignal.count { excitement[i] = Swift.min(excitement[i] + hudSignal[i] * 0.45 * w.hud, 1.2) }
         }
         // Screams (#29): a sudden loud burst while a voice is going. Game explosions are loud too, but nobody is
         // talking through them and their spectrum jumps far more than a voice can.

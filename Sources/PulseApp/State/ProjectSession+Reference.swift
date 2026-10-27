@@ -34,8 +34,9 @@ extension ProjectSession {
                 job.detail = "Finding clips"
                 let settings = self.app.settings.ai.generationSettings
                 let taste = self.app.settings.ai.taste
+                let input = self.clipInput(for: analysis)
                 let fresh = await Task.detached(priority: .userInitiated) {
-                    ClipGenerator(input: ClipGenerationInput(analysis: analysis), settings: settings).generate().applyingTaste(taste)
+                    ClipGenerator(input: input, settings: settings).generate().applyingTaste(taste)
                 }.value
                 self.edit("Generate AI Clips") { $0.candidates += fresh }
                 pool = fresh

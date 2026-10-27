@@ -1018,10 +1018,11 @@ final class ProjectSession: ObservableObject, Identifiable {
         let settings = override ?? app.settings.ai.generationSettings
         app.jobs.start("Finding clips", kind: .clipGeneration) { [weak self] job in
             guard let self else { return }
-            job.detail = "Scoring moments"
+            let input = self.clipInput(for: analysis)
+            job.detail = input.game.map { "Scoring moments (\($0.name))" } ?? "Scoring moments"
             let taste = self.app.settings.ai.taste
             let candidates = await Task.detached(priority: .userInitiated) {
-                ClipGenerator(input: ClipGenerationInput(analysis: analysis), settings: settings).generate()
+                ClipGenerator(input: input, settings: settings).generate()
                     .applyingTaste(taste).sorted { $0.potential > $1.potential }
             }.value
             self.edit("Generate AI Clips") { doc in
@@ -1031,8 +1032,9 @@ final class ProjectSession: ObservableObject, Identifiable {
                 doc.candidates = kept + fresh
                 doc.generation = settings
             }
-            self.app.logActivity(.clipGeneration, title: "\(candidates.count) potential clips found", detail: self.document.asset(id: assetID)?.name ?? "")
-            self.app.toast("\(candidates.count) potential clips found")
+            let scoredAs = input.game.map { " · scored as \($0.name)" } ?? ""
+            self.app.logActivity(.clipGeneration, title: "\(candidates.count) potential clips found", detail: (self.document.asset(id: assetID)?.name ?? "") + scoredAs)
+            self.app.toast("\(candidates.count) potential clips found\(scoredAs)")
             self.app.section = .aiClips
         }
     }
@@ -1387,7 +1389,7 @@ final class ProjectSession: ObservableObject, Identifiable {
 
     func reshapeCandidate(_ id: UUID, targetDuration: Seconds?, regenerate: Bool) {
         guard let candidate = document.candidates.first(where: { $0.id == id }), let analysis = analyses[candidate.assetID] else { return }
-        let generator = ClipGenerator(input: ClipGenerationInput(analysis: analysis), settings: app.settings.ai.generationSettings)
+        let generator = ClipGenerator(input: clipInput(for: analysis), settings: app.settings.ai.generationSettings)
         let reshaped = generator.reshape(candidate, targetDuration: targetDuration, generation: regenerate ? candidate.generation + 1 : nil)
         edit(regenerate ? "Regenerate Clip" : (targetDuration ?? 0) < candidate.duration ? "Shorten Clip" : "Extend Clip") { doc in
             guard let i = doc.candidates.firstIndex(where: { $0.id == id }) else { return }
@@ -1491,7 +1493,7 @@ final class ProjectSession: ObservableObject, Identifiable {
     /// Creates an AI clip + short from a transcript selection ("Create clip from sentence").
     func createClip(fromSource range: TimeRange, assetID: UUID) {
         guard let analysis = analyses[assetID] else { return }
-        let generator = ClipGenerator(input: ClipGenerationInput(analysis: analysis), settings: app.settings.ai.generationSettings)
+        let generator = ClipGenerator(input: clipInput(for: analysis), settings: app.settings.ai.generationSettings)
         let candidate = generator.candidate(for: range)
         edit("Create Clip from Transcript") { doc in doc.candidates.append(candidate) }
         createShort(from: candidate.id)

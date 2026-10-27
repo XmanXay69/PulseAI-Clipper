@@ -12,6 +12,14 @@ struct ProjectSettingsSheet: View {
                 set: { value in session.edit("Project Settings") { $0.overrides = value } })
     }
 
+    /// The game the names and transcript point at (#34), shown next to "Detect".
+    var detectedGameName: String {
+        let analysis = session.document.primaryAsset.flatMap { session.analyses[$0.id] }
+        return session.detectedGameProfile(for: analysis)?.name ?? "general"
+    }
+
+    var pinnedGame: GameProfile? { session.document.overrides.gameProfileID.flatMap(GameProfile.profile(id:)) }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             SheetHeader("Project Settings", symbol: "slider.horizontal.below.square.filled.and.square", tint: Theme.accent,
@@ -44,6 +52,14 @@ struct ProjectSettingsSheet: View {
                     .labelsHidden().frame(width: 260)
                 }
                 GridRow {
+                    Text("Game profile").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    Picker("", selection: Binding(get: { overrides.wrappedValue.gameProfileID ?? "" }, set: { overrides.wrappedValue.gameProfileID = $0.isEmpty ? nil : $0 })) {
+                        Text("Detect (\(detectedGameName))").tag("")
+                        ForEach(GameProfile.builtIn) { Text($0.name).tag($0.id) }
+                    }
+                    .labelsHidden().frame(width: 260)
+                }
+                GridRow {
                     Text("Caption look").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
                     Picker("", selection: Binding(get: { overrides.wrappedValue.captionPresetName ?? "" }, set: { overrides.wrappedValue.captionPresetName = $0.isEmpty ? nil : $0 })) {
                         Text("Follow Settings (\(app.settings.ai.captionPresetName.isEmpty ? "TikTok" : app.settings.ai.captionPresetName))").tag("")
@@ -51,6 +67,9 @@ struct ProjectSettingsSheet: View {
                     }
                     .labelsHidden().frame(width: 260)
                 }
+            }
+            if let profile = pinnedGame {
+                Text("\(profile.name): \(profile.summary)").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
             }
             Text(session.document.overrides.isEmpty ? "Nothing pinned — this project follows Settings everywhere."
                  : "\(session.document.overrides.count) setting\(session.document.overrides.count == 1 ? "" : "s") pinned for this project.")

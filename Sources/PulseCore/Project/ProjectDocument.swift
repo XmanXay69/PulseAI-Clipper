@@ -276,16 +276,22 @@ public struct ProjectOverrides: Codable, Hashable, Sendable {
     public var safeAreaPlatform: SafeAreaPlatform?
     public var loudnessTarget: Double?
     public var captionPresetName: String?
+    /// The game profile the clip scorer uses (#34); nil detects it from the names and the transcript.
+    public var gameProfileID: String?
 
-    public init(exportPresetID: String? = nil, safeAreaPlatform: SafeAreaPlatform? = nil, loudnessTarget: Double? = nil, captionPresetName: String? = nil) {
+    public init(exportPresetID: String? = nil, safeAreaPlatform: SafeAreaPlatform? = nil, loudnessTarget: Double? = nil, captionPresetName: String? = nil,
+                gameProfileID: String? = nil) {
         self.exportPresetID = exportPresetID
         self.safeAreaPlatform = safeAreaPlatform
         self.loudnessTarget = loudnessTarget
         self.captionPresetName = captionPresetName
+        self.gameProfileID = gameProfileID
     }
 
-    public var isEmpty: Bool { exportPresetID == nil && safeAreaPlatform == nil && loudnessTarget == nil && captionPresetName == nil }
+    public var isEmpty: Bool { count == 0 }
 
     /// How many settings this project pins.
-    public var count: Int { [exportPresetID != nil, safeAreaPlatform != nil, loudnessTarget != nil, captionPresetName != nil].filter { $0 }.count }
+    public var count: Int {
+        [exportPresetID != nil, safeAreaPlatform != nil, loudnessTarget != nil, captionPresetName != nil, gameProfileID != nil].filter { $0 }.count
+    }
 }

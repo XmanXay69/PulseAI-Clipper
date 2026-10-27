@@ -60,6 +60,17 @@ extension ProjectSession {
                                      segments: segments, hookPayoff: hookPayoff)
             }.value
             job.progress = 0.3
+            // 2b. A podcast WAV or any audio-only recording gets a drawn waveform under every cut (#9).
+            if !asset.metadata.hasVideo, asset.kind != .image {
+                if job.state != .running { return }
+                job.detail = "Drawing the waveform picture"
+                if let visual = try await self.audiogramAsset(for: asset, job: job) {
+                    if !self.document.media.contains(where: { $0.id == visual.id }) { newAssets.append(visual) }
+                    let placed = AudiogramPlacer.place(&result.timeline, audioAssetID: asset.id, visualAssetID: visual.id)
+                    if placed > 0 { result.report += " · waveform picture under \(placed) cut\(placed == 1 ? "" : "s")" }
+                }
+                job.progress = 0.3
+            }
             // 3. Music: one composed bed per chapter, changing style as the video goes on.
             if options.music, !result.musicChapters.isEmpty {
                 let tags = Array(result.segments.flatMap(\.tags).prefix(6))

@@ -307,6 +307,20 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
 - **Spacing grid and type scale** (#401) — `Theme.Spacing` (4 to 32 pt) and the 10/11/12/13/15/22/28 type
   scale are named constants for every new view.
 
+### Batch 44
+
+- **Per-game profiles** (#34) — the clip scorer knows that a shooter's best moments are on screen (kills,
+  banners, chaos), a sandbox or Just Chatting stream's are in the voice, and a horror game's are the jump
+  scares. Eight built-in profiles (Shooter, Horror, Sports, Racing, Fighting, Strategy / MOBA, Sandbox / Cozy,
+  Just Chatting) scale each signal's share and the total is re-normalized so scores stay comparable. The game
+  is detected from the project and file names, or from a game named at least twice in the transcript; File →
+  Project Settings → Game profile pins one. The clips toast and the activity log say which profile scored the
+  recording, and your taste profile still learns on top.
+- **Audio-only recordings in Edit My VOD** (#9) — a podcast WAV or any recording without a picture gets a drawn
+  waveform video: bars that move with the voice, the recording's name and a progress line, rendered once into
+  the cache and placed under every cut of the edit, linked to its audio and cut like any camera. Running the
+  edit again reuses the picture.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
