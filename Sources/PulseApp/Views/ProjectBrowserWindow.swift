@@ -102,7 +102,7 @@ struct ProjectBrowserWindow: View {
         var copied = timeline
         copied.id = UUID()
         copied.name = timeline.name + " (from \(other.name))"
-        let needed = other.media.filter { timeline.assetIDs.contains($0.id) && !session.document.media.contains(where: { $0.id == timeline.id }) }
+        let needed = other.media.filter { a in timeline.assetIDs.contains(a.id) && !session.document.media.contains { $0.id == a.id } }
         session.edit("Copy Timeline from \(other.name)") { doc in
             doc.media.append(contentsOf: needed.filter { a in !doc.media.contains { $0.id == a.id } })
             doc.timelines.append(copied)
