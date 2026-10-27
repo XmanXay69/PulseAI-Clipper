@@ -354,6 +354,12 @@ struct PulseCommands: Commands {
             Button("Fill Gaps with Room Tone") { app.session?.fillRoomTone() }
                 .help("Short silences between audio clips get the recording's own quietest moment, 6 dB down (#273)")
                 .disabled(app.session?.activeTimeline == nil)
+            Button("Pin Emoji to Face…") { app.session.map { PinEmojiPrompt.run(session: $0) } }
+                .help("An emoji or sticker that follows the biggest face through the selected clip (#81)")
+                .disabled(app.session?.selectedClipIDs.isEmpty ?? true)
+            Button(app.session?.isRecordingVoiceOver == true ? "Stop Voice-Over" : "Record Voice-Over") { app.session?.toggleVoiceOver() }
+                .help("The microphone to a new audio clip from the playhead (or the in point) until you stop (#331)")
+                .disabled(app.session?.activeTimeline == nil)
             Button((app.session?.activeTimeline).map { ProgressBar.isPresent($0) } == true ? "Remove Progress Bar" : "Add Progress Bar") { app.session?.toggleProgressBar() }
                 .disabled(app.session?.activeTimeline == nil)
             Divider()
@@ -473,5 +479,24 @@ final class KeyboardShortcutMonitor {
         case "-": session.pixelsPerSecond = max(session.pixelsPerSecond / 1.3, 2); return true
         default: return false
         }
+    }
+}
+
+/// Asks which emoji or word to pin to the face (#81).
+@MainActor
+enum PinEmojiPrompt {
+    static func run(session: ProjectSession) {
+        let alert = NSAlert()
+        alert.messageText = "Pin to the face"
+        alert.informativeText = "An emoji or a short word that follows the biggest face through the selected clip."
+        let field = NSTextField(string: "😂")
+        field.frame = NSRect(x: 0, y: 0, width: 220, height: 24)
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Pin")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let text = field.stringValue.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return }
+        session.pinEmojiToFace(text)
     }
 }

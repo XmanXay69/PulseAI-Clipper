@@ -629,3 +629,24 @@ final class CameraCapture: NSObject, AVCaptureFileOutputRecordingDelegate, @unch
         if finishedOK { stop?.resume() } else { stop?.resume(throwing: CaptureError.writerFailed(error?.localizedDescription ?? "unknown")) }
     }
 }
+
+// MARK: - Voice-over (#331)
+
+/// Records the microphone on its own to an .m4a — a voice-over for a stretch of the timeline.
+public final class VoiceOverRecorder: @unchecked Sendable {
+    private let capture: CameraCapture
+    public let url: URL
+
+    public init(microphoneID: String?, url: URL) throws {
+        self.url = url
+        capture = try CameraCapture(cameraID: nil, microphoneID: microphoneID, url: url)
+    }
+
+    public func start() async throws { try await capture.start() }
+
+    /// Stops and returns the file and how long it ran.
+    public func stop() async throws -> (url: URL, duration: Seconds) {
+        let result = try await capture.stop()
+        return (result.url, result.duration)
+    }
+}

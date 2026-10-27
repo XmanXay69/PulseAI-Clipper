@@ -247,6 +247,21 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
 - **Bars, not spinners** (#412) — checking for updates, installing, finding screens, grabbing frames,
   rebuilding the viewer and rewriting copy show a sweeping bar with words instead of a lone spinner.
 
+### Batch 39
+
+- **OBS multi-track recordings** (#11) — a recording with several audio tracks lands as one lane per
+  track: Mix, Mic, Game, Music (and Chat, Alerts), each linked to the picture; the mix starts muted so
+  nothing plays twice. Each clip remembers which track it plays.
+- **A sticker that follows the face** (#81) — Timeline → Pin Emoji to Face… puts an emoji or a word over
+  the selected clip that follows the biggest face, just above the head, through the crop and the zooms;
+  the keyframes are on the sticker, so you can nudge them.
+- **Voice-over** (#331) — Timeline → Record Voice-Over records the microphone from the playhead (or the in
+  point) until Stop, then places it on its own lane with music ducked under it.
+- **B-roll three at a time** (#134) — the online cutaways of Edit My VOD download in parallel and are
+  placed in order once they land.
+- **Caption pages cached** (#260) — a page's rendered picture is kept between word changes, so a
+  20-minute captioned edit scrubs and plays without laying the text out every frame.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);

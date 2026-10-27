@@ -65,6 +65,38 @@ public enum TextRenderer {
         var alpha: CGFloat
     }
 
+    /// Rendered caption pages by their exact look (#260): between word changes every frame of a page draws
+    /// the same picture, so the cache serves it instead of laying the text out again.
+    private final class RenderedBox { let value: Rendered; init(_ value: Rendered) { self.value = value } }
+    private static let pageCache: NSCache<NSString, RenderedBox> = {
+        let cache = NSCache<NSString, RenderedBox>()
+        cache.countLimit = 96
+        return cache
+    }()
+
+    static func cacheKey(lines: [[Run]], style: TextStyle, pointSize: CGFloat, maxWidth: CGFloat?) -> NSString {
+        var h = Hasher()
+        h.combine(style)
+        h.combine(Double(pointSize))
+        h.combine(maxWidth.map(Double.init) ?? -1)
+        for line in lines {
+            h.combine(line.count)
+            for run in line {
+                h.combine(run.text); h.combine(run.color); h.combine(Double(run.scale)); h.combine(run.boxColor); h.combine(Double(run.alpha))
+            }
+        }
+        return NSString(string: String(h.finalize()))
+    }
+
+    /// `draw` through the page cache.
+    static func cachedDraw(lines: [[Run]], style: TextStyle, pointSize: CGFloat, maxWidth: CGFloat?) -> Rendered? {
+        let key = cacheKey(lines: lines, style: style, pointSize: pointSize, maxWidth: maxWidth)
+        if let hit = pageCache.object(forKey: key) { return hit.value }
+        guard let rendered = draw(lines: lines, style: style, pointSize: pointSize, maxWidth: maxWidth) else { return nil }
+        pageCache.setObject(RenderedBox(rendered), forKey: key)
+        return rendered
+    }
+
     /// Draws lines of runs centered/aligned, with stroke, shadow, optional background plate and per-word boxes.
     static func draw(lines: [[Run]], style: TextStyle, pointSize: CGFloat, maxWidth: CGFloat?) -> Rendered? {
         let baseFont = font(for: style, pointSize: pointSize)
@@ -283,10 +315,10 @@ public enum TextRenderer {
             lines.append(runs)
         }
         let pointSize = CGFloat(style.text.fontSize * renderScale)
-        guard var rendered = draw(lines: lines, style: style.text, pointSize: pointSize, maxWidth: nil) else { return nil }
+        guard var rendered = cachedDraw(lines: lines, style: style.text, pointSize: pointSize, maxWidth: nil) else { return nil }
         if let maxWidth, maxWidth > 10, rendered.size.width > maxWidth {
             let fitted = max(pointSize * 0.55, pointSize * maxWidth / rendered.size.width)
-            if let smaller = draw(lines: lines, style: style.text, pointSize: fitted, maxWidth: nil) { rendered = smaller }
+            if let smaller = cachedDraw(lines: lines, style: style.text, pointSize: fitted, maxWidth: nil) { rendered = smaller }
         }
         // Page-level entrance animation.
         let age = max(0, t - page.range.start) * speed

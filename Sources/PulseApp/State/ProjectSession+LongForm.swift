@@ -208,6 +208,7 @@ extension ProjectSession {
         // mood ("fail", "hype", "laugh"…), else any clip not used yet in this edit.
         let own = ownBrollClips()
         var ownUsed = Set<String>()
+        var online: [(Int, BrollPlacer.Moment)] = []
         for (i, moment) in moments.enumerated() {
             if job.state != .running { break }
             job.detail = "Finding B-roll \(i + 1) of \(moments.count)"
@@ -226,23 +227,49 @@ extension ProjectSession {
                 }
                 continue
             }
-            guard let found = await OnlineMusicLibrary.shared.brollClip(query: moment.query, avoiding: used, progress: { status in
-                Task { @MainActor in job.detail = status }
-            }) else { continue }
-            used.insert(found.clip.videoID)
-            if let existing = (document.media + placements.map { $0.asset }).first(where: { $0.path == found.url.path }) {
-                placements.append((existing, moment.time))
-                clips.append(found.clip)
-                continue
+            online.append((i, moment))
+        }
+        // Online cutaways download three at a time (#134) instead of one after another; the results are
+        // placed in moment order once they land, and a clip found twice is used once.
+        if !online.isEmpty, job.state == .running {
+            let avoid = used
+            let total = online.count
+            let found: [Int: (clip: OnlineTrack, url: URL)] = await withTaskGroup(of: (Int, (clip: OnlineTrack, url: URL)?).self) { group in
+                var results: [Int: (clip: OnlineTrack, url: URL)] = [:]
+                var next = 0
+                func launch() {
+                    guard next < online.count else { return }
+                    let (index, moment) = online[next]
+                    next += 1
+                    group.addTask { (index, await OnlineMusicLibrary.shared.brollClip(query: moment.query, avoiding: avoid, progress: nil)) }
+                }
+                for _ in 0..<min(3, online.count) { launch() }
+                var done = 0
+                for await (index, result) in group {
+                    done += 1
+                    job.detail = "Finding B-roll \(done) of \(total)"
+                    if let result { results[index] = result }
+                    launch()
+                }
+                return results
             }
-            let plan = ImportPlan.make(urls: [found.url], existingPaths: [])
-            guard let item = plan.items.first, var asset = try? await MediaImporter.makeAsset(for: item, cacheRoot: app.cacheFolder) else { continue }
-            asset.name = found.clip.title
-            asset.role = .graphic
-            asset.tags.append("b-roll")
-            asset.tags.append("creative-commons")
-            placements.append((asset, moment.time))
-            clips.append(found.clip)
+            for (index, moment) in online {
+                guard let hit = found[index], !used.contains(hit.clip.videoID) else { continue }
+                used.insert(hit.clip.videoID)
+                if let existing = (document.media + placements.map { $0.asset }).first(where: { $0.path == hit.url.path }) {
+                    placements.append((existing, moment.time))
+                    clips.append(hit.clip)
+                    continue
+                }
+                let plan = ImportPlan.make(urls: [hit.url], existingPaths: [])
+                guard let item = plan.items.first, var asset = try? await MediaImporter.makeAsset(for: item, cacheRoot: app.cacheFolder) else { continue }
+                asset.name = hit.clip.title
+                asset.role = .graphic
+                asset.tags.append("b-roll")
+                asset.tags.append("creative-commons")
+                placements.append((asset, moment.time))
+                clips.append(hit.clip)
+            }
         }
         PulseLog.info("B-roll: \(placements.count) of \(moments.count) cutaways found")
         if !clips.isEmpty {

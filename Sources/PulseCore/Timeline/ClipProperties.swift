@@ -632,6 +632,9 @@ public struct AudioSettings: Codable, Hashable, Sendable {
     public var humRemoval: Bool = false
     /// Tame harsh "s" and "sh" sounds (split-band de-esser) (#264).
     public var deEss: Bool = false
+    /// Which of the file's audio tracks this clip plays (#11): nil / 0 = the first. OBS writes the mix,
+    /// the mic, the game and the music as separate tracks of one recording.
+    public var sourceTrack: Int? = nil
     /// Mute or bleep the swear words (`censorRanges`, in source time) as part of the enhance render.
     public var censor: CensorAudio = .off
     public var censorRanges: [TimeRange] = []
@@ -693,6 +696,7 @@ public struct AudioSettings: Codable, Hashable, Sendable {
         duckRelease = c.decode(Seconds.self, forKey: .duckRelease, default: 0.4).clamped(0.05, 3)
         fadeShape = c.decode(FadeShape.self, forKey: .fadeShape, default: .linear)
         preservePitch = c.decode(Bool.self, forKey: .preservePitch, default: true)
+        sourceTrack = c.decode(Int?.self, forKey: .sourceTrack, default: nil)
     }
 
     /// True when swear words are muted or bleeped in this clip.

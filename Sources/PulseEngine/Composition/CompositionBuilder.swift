@@ -419,7 +419,10 @@ public enum CompositionBuilder {
                 guard case .media(let assetID) = clip.content, let asset = assets[assetID] else { continue }
                 guard let fileURL = url(for: asset) else { missing.insert(assetID); continue }
                 let av = avAsset(fileURL)
-                guard let source = try await av.loadTracks(withMediaType: .audio).first else { continue }
+                // Multi-track recordings (#11): the clip names which of the file's audio tracks it plays.
+                let audioTracks = try await av.loadTracks(withMediaType: .audio)
+                let wanted = clip.audio.sourceTrack ?? 0
+                guard let source = (wanted < audioTracks.count ? audioTracks[wanted] : audioTracks.first) else { continue }
                 if compTrack == nil {
                     compTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
                 }
@@ -435,7 +438,8 @@ public enum CompositionBuilder {
                 let renderRange = spans[clip.id] ?? TimeRange(start: clip.sourceIn, end: clip.sourceOut + (tail?.sourceLength ?? 0))
                 let offset = max(0, clip.sourceIn - renderRange.start)
                 var enhancedFile: URL?
-                if clip.audio.needsEnhanceRender, let cacheDirectory = options.enhanceCacheDirectory {
+                // The enhance chain reads a file's first track; other OBS tracks play as recorded.
+                if clip.audio.needsEnhanceRender, (clip.audio.sourceTrack ?? 0) == 0, let cacheDirectory = options.enhanceCacheDirectory {
                     if options.renderEnhancements {
                         enhancedFile = try? await AudioEnhancer.shared.render(sourceURL: fileURL, range: renderRange, settings: clip.audio, cacheDirectory: cacheDirectory)
                     } else {

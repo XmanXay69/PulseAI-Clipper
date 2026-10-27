@@ -96,6 +96,10 @@ final class ProjectSession: ObservableObject, Identifiable {
     var meterPeaksLoading: Set<UUID> = []
     /// Render-load spans of the active timeline for the ruler (#183).
     var renderLoadCache: (key: String, spans: [RenderLoad.Span])?
+    /// A voice-over being recorded (#331) and where on the timeline it started.
+    var voiceOverRecorder: VoiceOverRecorder?
+    var voiceOverStart: Seconds = 0
+    @Published var isRecordingVoiceOver = false
     /// Integrated loudness of the active timeline (#262), computed off the main thread when the edit changes.
     var integratedLoudness: (key: String, value: Double?)?
     var integratedLoudnessPending: String?
@@ -1682,7 +1686,21 @@ final class ProjectSession: ObservableObject, Identifiable {
                 video.transform.fit = .fill
                 try t.insert(video, onTrack: vt, mode: mode)
             }
-            if asset.metadata.hasAudio || asset.kind == .audio {
+            if asset.kind == .video, asset.metadata.audioTrackCount >= 2 {
+                // An OBS-style recording (#11): one lane per audio track — mix, mic, game, music — with the
+                // mix muted so nothing plays twice. Each lane is linked to the picture.
+                let range = TimeRange(start: start, duration: duration)
+                for lane in OBSTracks.lanes(count: asset.metadata.audioTrackCount) {
+                    let at = t.freeTrack(kind: .audio, for: range)
+                    var audio = TimelineClip(name: "\(lane.name) · \(asset.name)", content: .media(assetID: asset.id), start: start, sourceDuration: duration,
+                                             linkGroup: group, role: lane.role)
+                    audio.audio.sourceTrack = lane.index
+                    audio.audio.isMuted = lane.startsMuted
+                    if lane.role == .music { audio.audio.duckUnderDialogue = true }
+                    try t.insert(audio, onTrack: at, mode: mode)
+                    if let ti = t.tracks.firstIndex(where: { $0.id == at }), t.tracks[ti].clips.count == 1 { t.tracks[ti].name = lane.name }
+                }
+            } else if asset.metadata.hasAudio || asset.kind == .audio {
                 let range = TimeRange(start: start, duration: duration)
                 let at = t.freeTrack(kind: .audio, for: range)
                 var audio = TimelineClip(name: asset.name, content: .media(assetID: asset.id), start: start, sourceDuration: duration,

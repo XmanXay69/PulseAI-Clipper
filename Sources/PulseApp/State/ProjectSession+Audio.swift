@@ -94,3 +94,91 @@ extension ProjectSession {
         return integratedLoudness?.value
     }
 }
+
+extension ProjectSession {
+    /// Timeline → Pin Emoji to Face… (#81): a text layer that follows the biggest face through the selected clip.
+    func pinEmojiToFace(_ text: String) {
+        guard let timeline = activeTimeline, let id = selectedClipIDs.first, let clip = timeline.clip(id: id),
+              let assetID = clip.assetID else {
+            app.toast("Select a video clip first")
+            return
+        }
+        guard let faces = analyses[assetID]?.visual?.faces, !faces.isEmpty else {
+            app.toast("Analyze the recording first — the sticker follows the faces it finds")
+            return
+        }
+        guard let sticker = FaceFollower.pinned(text, to: clip, faces: faces) else {
+            app.toast("No face in that stretch to pin to")
+            return
+        }
+        editTimeline("Pin \(text) to Face") { t in
+            let track = t.freeTrack(kind: .text, for: sticker.timelineRange)
+            try t.insert(sticker, onTrack: track, mode: .overwrite)
+        }
+        app.toast("\(text) follows the face — keyframes are on the sticker's position")
+    }
+
+    /// Timeline → Record Voice-Over (#331): the microphone to a new audio clip from the playhead until Stop.
+    func toggleVoiceOver() {
+        if isRecordingVoiceOver { stopVoiceOver(); return }
+        guard activeTimeline != nil else { return }
+        let folder = PulseDirectories.cache("VoiceOver", root: app.cacheFolder)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appendingPathComponent("Voice-over \(Int(Date().timeIntervalSince1970)).m4a")
+        do {
+            let recorder = try VoiceOverRecorder(microphoneID: app.recording.microphoneID, url: url)
+            voiceOverRecorder = recorder
+            voiceOverStart = inPoint ?? playhead
+            isRecordingVoiceOver = true
+            playback.pause()
+            Task { @MainActor [weak self] in
+                do {
+                    try await recorder.start()
+                    self?.app.toast("Recording voice-over — Timeline → Stop Voice-Over when you're done")
+                } catch {
+                    self?.isRecordingVoiceOver = false
+                    self?.voiceOverRecorder = nil
+                    self?.app.presentMessage(title: "Couldn't record", message: error.localizedDescription)
+                }
+            }
+        } catch {
+            app.presentMessage(title: "Couldn't record", message: error.localizedDescription)
+        }
+    }
+
+    func stopVoiceOver() {
+        guard let recorder = voiceOverRecorder else { return }
+        isRecordingVoiceOver = false
+        voiceOverRecorder = nil
+        let start = voiceOverStart
+        let cacheRoot = app.cacheFolder
+        app.jobs.start("Placing voice-over", kind: .importMedia) { [weak self] job in
+            guard let self else { return }
+            let (url, duration) = try await recorder.stop()
+            guard duration > 0.2 else { self.app.toast("That voice-over was too short to keep"); return }
+            var asset = try await MediaImporter.makeAsset(for: ImportPlan.Item(url: url, kind: .audio, role: .microphone), cacheRoot: cacheRoot)
+            asset.name = "Voice-over \(Timecode.short(start))"
+            asset.tags.append("voice-over")
+            self.registerMediaIdentities([asset])
+            let placed = asset
+            self.edit("Record Voice-Over") { doc in
+                doc.media.append(placed)
+                guard let tid = self.selectedTimelineID else { return }
+                doc.updateTimeline(id: tid) { t in
+                    let range = TimeRange(start: start, duration: duration)
+                    let track = t.freeTrack(kind: .audio, for: range)
+                    var clip = TimelineClip(name: placed.name, content: .media(assetID: placed.id), start: start, sourceDuration: duration, role: .microphone)
+                    clip.audio.normalize = true
+                    try? t.insert(clip, onTrack: track, mode: .overwrite)
+                    // Music under the voice-over ducks like it does under the main dialogue.
+                    for ti in t.tracks.indices {
+                        for ci in t.tracks[ti].clips.indices where t.tracks[ti].clips[ci].role == .music && t.tracks[ti].clips[ci].timelineRange.overlaps(range) {
+                            t.tracks[ti].clips[ci].audio.duckUnderDialogue = true
+                        }
+                    }
+                }
+            }
+            self.app.toast("Voice-over placed at \(Timecode.short(start)) (\(Timecode.short(duration)))")
+        }
+    }
+}
