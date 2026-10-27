@@ -49,3 +49,14 @@ extension ProjectSession {
         clip.role ?? clip.assetID.flatMap { document.asset(id: $0)?.role }
     }
 }
+
+extension ProjectSession {
+    /// Render load spans for the ruler (#183), recomputed only when the timeline changes.
+    func renderLoad(for timeline: Timeline) -> [RenderLoad.Span] {
+        let key = "\(timeline.id)-\(timeline.modifiedAt.timeIntervalSinceReferenceDate)-\(timeline.allClips.count)"
+        if let cached = renderLoadCache, cached.key == key { return cached.spans }
+        let spans = RenderLoad.merged(RenderLoad.profile(timeline))
+        renderLoadCache = (key, spans)
+        return spans
+    }
+}

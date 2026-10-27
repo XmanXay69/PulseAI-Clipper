@@ -332,11 +332,13 @@ struct CaptionStylePanel: View {
                             if keepY { t.captions?.style.positionY = y }
                         }
                     } label: {
-                        CaptionPresetSwatch(style: preset, selected: captions?.style.presetName == preset.presetName)
+                        CaptionPresetSwatch(style: preset, selected: captions?.style.presetName == preset.presetName, animated: galleryHovering)
                     }
                     .buttonStyle(.plain)
                 }
             }
+            .onHover { galleryHovering = $0 }
+            .help("Rest the mouse here and every preset plays its highlight (#233)")
         }
         .padding(12)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
@@ -356,6 +358,8 @@ struct CaptionStylePanel: View {
 struct CaptionPresetSwatch: View {
     let style: CaptionStyle
     let selected: Bool
+    /// Plays the highlight through the words (#233) — on while the mouse is over the gallery.
+    var animated = false
 
     /// The preset's own typeface, small.
     var swatchFont: Font {
@@ -364,17 +368,30 @@ struct CaptionPresetSwatch: View {
         return .system(size: 13, weight: fontWeight, design: name.contains("Rounded") ? .rounded : (name == "New York" ? .serif : .default))
     }
 
+    static let words = ["so", "good", "right"]
+
     var body: some View {
+        TimelineView(.periodic(from: .now, by: animated ? 0.45 : 3600)) { context in
+            let active = animated ? Int(context.date.timeIntervalSinceReferenceDate / 0.45) % Self.words.count : 1
+            swatch(active: active)
+        }
+    }
+
+    func swatch(active: Int) -> some View {
         VStack(spacing: 4) {
             ZStack {
                 LinearGradient(colors: [Color(hex: 0x2A2F45), Color(hex: 0x151722)], startPoint: .top, endPoint: .bottom)
                 HStack(spacing: 3) {
-                    Text(style.text.textCase.apply("so"))
-                        .foregroundStyle(Color(style.text.color))
-                    Text(style.text.textCase.apply("good"))
-                        .foregroundStyle(Color(style.highlightMode == .none ? style.text.color : style.highlightColor))
-                        .padding(.horizontal, style.highlightMode == .box ? 3 : 0)
-                        .background(RoundedRectangle(cornerRadius: 2).fill(style.highlightMode == .box ? Color(style.highlightBoxColor) : .clear))
+                    ForEach(Array(Self.words.enumerated()), id: \.offset) { index, word in
+                        let on = index == active && style.highlightMode != .none
+                        let scaled = on && (style.highlightMode == .scale || style.highlightMode == .colorAndScale)
+                        Text(style.text.textCase.apply(word))
+                            .foregroundStyle(Color(on && style.highlightMode != .scale ? style.highlightColor : style.text.color))
+                            .padding(.horizontal, style.highlightMode == .box ? 3 : 0)
+                            .background(RoundedRectangle(cornerRadius: 2).fill(on && style.highlightMode == .box ? Color(style.highlightBoxColor) : .clear))
+                            .scaleEffect(scaled ? 1.18 : 1)
+                            .animation(animated ? Theme.motion(.spring(response: 0.25, dampingFraction: 0.6)) : nil, value: active)
+                    }
                 }
                 .font(swatchFont)
                 .italic(style.text.italic)

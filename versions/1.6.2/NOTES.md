@@ -200,6 +200,21 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
 - **Face guide** (#324) — the Record sheet shows the chosen webcam live with an oval and an eye line to sit
   in before you press record.
 
+### Batch 36
+
+- **Ask PULSE** (#498) — a speech-bubble button on the timeline toolbar takes plain English: "cut the first
+  10 seconds", "make the hook punchier", "tighten the pauses", "make it 20 % shorter", "captions like
+  TikTok", "turn the music down", "fewer zooms", "add a progress bar", "speed up 1.5×", "fill the gaps with
+  room tone", "undo". Each request becomes one ordinary undo step. It's rules, not a model — nothing is
+  uploaded and nothing needs downloading.
+- **Render load on the ruler** (#183) — a gauge button draws a thin bar along the ruler: green where a frame
+  is cheap, red where chroma keys, blurs, glows and stacked layers may stutter at full viewer quality.
+- **Caption gallery that moves** (#233) — rest the mouse over the caption presets and every swatch plays its
+  highlight through three words, scale and box included.
+- **Game + Cam multicam** (#328) — a multicam session with a gameplay angle offers a picture-in-picture
+  edit: the game stays full-frame and whoever is talking sits small in a rounded, bordered corner, switching
+  with the AI cuts.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
@@ -212,7 +227,9 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   masks and shadows as any layer (#219); the composition builds off the main thread with cancellation (#379);
   icon buttons share one symbol weight and size (#409); the microphone and the screen's audio record to
   separate files (#320); edits during a drag coalesce into one rebuild and undo step, with a 20–100 ms
-  debounce (#380); inspector sections have disclosure arrows, reset icons and a per-section AI badge (#414).
+  debounce (#380); inspector sections have disclosure arrows, reset icons and a per-section AI badge (#414);
+  the canvas can fill the bars around a 16:9 source with a blurred copy of the same frame (#79, Canvas →
+  Blur fill).
 
 ### Under the hood
 - `ChapterArt` (engine) draws with AppKit on the source frame, so a marker over a cutaway or gap is skipped.

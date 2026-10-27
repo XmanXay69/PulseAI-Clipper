@@ -28,8 +28,9 @@ storyboard you can reorder, predicted retention on the ruler, text templates wit
 theme, word-pop text, shape layers, a brand kit that changes per platform, a keyframe lane, a rotation knob
 on the canvas, colour-matched multicam angles, a crop tool on the canvas, a mini viewer on the AI Clips and
 Media pages, caption editing right on the viewer, a multicam switching sensitivity slider, "edit like my
-last videos", level meters with peak hold, a voice-vs-game balance slider, room tone between cuts and a
-face guide before you record ([notes](versions/1.6.2/NOTES.md)).
+last videos", level meters with peak hold, a voice-vs-game balance slider, room tone between cuts, a face
+guide before you record, an "Ask PULSE" box that turns plain English into edits, a render-load bar on the
+ruler, an animated caption gallery and a game-plus-cam multicam style ([notes](versions/1.6.2/NOTES.md)).
 
 **New in 1.6.1:** colour labels on clips with a filter, keyboard caption editing (tab, return, ⌫), a caption
 spell-check, a generated 3-second intro card from the Brand Kit, cuts that land on sentence ends, "Drop"

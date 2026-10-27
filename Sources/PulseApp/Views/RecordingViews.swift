@@ -250,6 +250,11 @@ struct MulticamSessionCard: View {
                 Button { session.createMulticamEdit(groupID: group.id, auto: true) } label: { Label("AI Multicam", systemImage: "sparkles") }
                     .buttonStyle(.pulse(.ai, compact: true))
                     .help("Cuts to whoever is talking (each camera's own mic), wide shot when nobody or everybody talks")
+                if group.videoAngles.contains(where: { $0.role == .gameplay || !$0.hasAudio }) {
+                    Button { session.createMulticamEdit(groupID: group.id, auto: true, pip: true) } label: { Label("Game + Cam", systemImage: "pip") }
+                        .buttonStyle(.pulse(.secondary, compact: true))
+                        .help("The game stays full-frame and whoever is talking sits small in the corner (#328)")
+                }
                 Button { session.createMulticamEdit(groupID: group.id, auto: false) } label: { Label("Switch Manually", systemImage: "video") }
                     .buttonStyle(.pulse(.secondary, compact: true))
                     .help("Opens an editable multicam timeline — press 1–9 while playing to cut live")

@@ -72,6 +72,8 @@ struct TimelineToolbar: View {
     @State private var showReport = false
     @AppStorage("timeline.energyStrip") private var showEnergy = true
     @AppStorage("timeline.retentionStrip") private var showRetention = false
+    @AppStorage("timeline.renderLoadStrip") private var showRenderLoad = false
+    @State private var showAssistant = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -122,6 +124,9 @@ struct TimelineToolbar: View {
             IconButton(symbol: "rectangle.compress.vertical", help: "Magnetic timeline — deleting closes gaps", isActive: app.settings.magneticTimeline) { app.settings.magneticTimeline.toggle() }
             IconButton(symbol: "waveform.path.ecg", help: "Excitement strip on the ruler — where the energy is", isActive: showEnergy) { showEnergy.toggle() }
             IconButton(symbol: "chart.line.downtrend.xyaxis", help: "Predicted retention on the ruler — where viewers are likely to leave (#490)", isActive: showRetention) { showRetention.toggle() }
+            IconButton(symbol: "gauge.with.dots.needle.67percent", help: "Render load on the ruler — green plays easily, red may stutter at full quality (#183)", isActive: showRenderLoad) { showRenderLoad.toggle() }
+            IconButton(symbol: "text.bubble", help: "Ask PULSE — type what to change: “cut the intro”, “tighten the pauses”, “captions like TikTok” (#498)", isActive: showAssistant) { showAssistant.toggle() }
+                .popover(isPresented: $showAssistant, arrowEdge: .bottom) { AssistantPopover(session: session).frame(width: 360) }
             IconButton(symbol: "bolt.fill", help: "Speed Edit (⌃⇧E) — N / P through the moments, X makes a short, D dismisses, ↩ exports in → out (#500)", isActive: session.speedEdit) { session.toggleSpeedEdit() }
             Spacer()
             if let timeline = session.activeTimeline {
@@ -813,6 +818,7 @@ struct TimelineRuler: View {
     let width: CGFloat
     @AppStorage("timeline.energyStrip") private var showEnergy = true
     @AppStorage("timeline.retentionStrip") private var showRetention = false
+    @AppStorage("timeline.renderLoadStrip") private var showRenderLoad = false
 
     var body: some View {
         Canvas { ctx, size in
@@ -882,6 +888,15 @@ struct TimelineRuler: View {
                     path.closeSubpath()
                     ctx.fill(path, with: .linearGradient(Gradient(colors: [Theme.accent.opacity(0.75), Theme.ai.opacity(0.35)]),
                                                          startPoint: CGPoint(x: 0, y: bottom - h), endPoint: CGPoint(x: 0, y: bottom)))
+                }
+            }
+            // Render load (#183): a thin bar along the bottom — green where the frame is cheap, red where it's heavy.
+            if showRenderLoad {
+                for span in session.renderLoad(for: timeline) {
+                    let x0 = CGFloat(span.range.start) * pps, x1 = CGFloat(span.range.end) * pps
+                    guard x1 > 0, x0 < size.width else { continue }
+                    ctx.fill(Path(CGRect(x: max(x0, 0), y: size.height - 3, width: min(x1, size.width) - max(x0, 0), height: 3)),
+                             with: .color(span.isHeavy ? Theme.danger.opacity(0.9) : Theme.success.opacity(0.55)))
                 }
             }
             // Predicted retention (#490): a falling line along the ruler's top — red where it drops fastest.
@@ -1634,5 +1649,61 @@ struct KeyframeLane: View {
                 }
             }
         }
+    }
+}
+
+/// "Ask PULSE" (#498): type what to change; each line is one ordinary, undoable edit.
+struct AssistantPopover: View {
+    @ObservedObject var session: ProjectSession
+    @State private var text = ""
+    @State private var log: [(you: String, pulse: String)] = []
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "text.bubble").foregroundStyle(Theme.ai)
+                Text("Ask PULSE").font(.pulseHeadline).foregroundStyle(Theme.textPrimary)
+                Spacer()
+                Text("rules only · nothing uploaded").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            }
+            if log.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Try one of these:").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                    ForEach(EditorAssistant.examples.prefix(6), id: \.self) { example in
+                        Button { run(example) } label: { Text("“\(example)”").font(.pulseCaption).foregroundStyle(Theme.accent) }.buttonStyle(.plain)
+                    }
+                }
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array(log.enumerated()), id: \.offset) { _, line in
+                            Text(line.you).font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                            Text(line.pulse).font(.pulseBody).foregroundStyle(Theme.textPrimary).fixedSize(horizontal: false, vertical: true)
+                                .padding(8).background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+                        }
+                    }
+                }
+                .frame(maxHeight: 220)
+            }
+            HStack(spacing: 6) {
+                TextField("cut the first 10 seconds…", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($focused)
+                    .onSubmit { run(text) }
+                Button("Do it") { run(text) }.buttonStyle(.pulse(.ai, compact: true)).disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            Text("Every change is one undo step (⌘Z).").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+        }
+        .padding(14)
+        .onAppear { focused = true }
+    }
+
+    func run(_ request: String) {
+        let trimmed = request.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let reply = session.runAssistant(trimmed)
+        log.append((trimmed, reply))
+        text = ""
     }
 }

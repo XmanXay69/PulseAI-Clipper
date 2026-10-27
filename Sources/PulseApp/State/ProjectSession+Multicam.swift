@@ -41,8 +41,9 @@ extension ProjectSession {
 
     var activeMulticamGroup: MulticamGroup? { multicamGroup(for: activeTimeline) }
 
-    /// Builds a switched edit of a multicam session. `auto` follows whoever is talking.
-    func createMulticamEdit(groupID: UUID, auto: Bool) {
+    /// Builds a switched edit of a multicam session. `auto` follows whoever is talking; `pip` keeps the
+    /// game full-frame with the talking camera small in a corner (#328).
+    func createMulticamEdit(groupID: UUID, auto: Bool, pip: Bool = false) {
         guard let group = multicamGroups.first(where: { $0.id == groupID }) else {
             app.presentMessage(title: "Not a multicam session", message: MulticamError.noVideoAngles.localizedDescription)
             return
@@ -50,10 +51,14 @@ extension ProjectSession {
         let span = group.commonVideoRange ?? group.sessionRange
         let firstAngle = group.videoAngles.first!
         let canvas: CanvasSettings = firstAngle.size.height > firstAngle.size.width ? .vertical1080 : .landscape1080
-        let name = auto ? "AI Multicam Edit" : "Multicam Edit"
+        let name = (auto ? "AI Multicam Edit" : "Multicam Edit") + (pip ? " (PiP)" : "")
+        func build(_ cuts: [MulticamCut], canvas: CanvasSettings) -> Timeline {
+            pip ? MulticamEditor.pipTimeline(cuts: cuts, group: group, audioAssetID: nil, canvas: canvas, name: name)
+                : MulticamEditor.timeline(cuts: cuts, group: group, audioAssetID: nil, canvas: canvas, name: name)
+        }
         if !auto {
-            let timeline = MulticamEditor.timeline(cuts: [MulticamCut(range: span, assetID: firstAngle.assetID)], group: group,
-                                                   audioAssetID: nil, canvas: canvas, name: name)
+            let cam = pip ? (group.videoAngles.first { $0.hasAudio } ?? firstAngle) : firstAngle
+            let timeline = build([MulticamCut(range: span, assetID: cam.assetID)], canvas: canvas)
             edit("Create Multicam Edit") { $0.timelines.append(timeline) }
             open(timelineID: timeline.id)
             leftTab = .angles
@@ -65,7 +70,7 @@ extension ProjectSession {
             let (levels, hop) = try await self.loudness(for: group.videoAngles.filter(\.hasAudio), job: job)
             job.detail = "Choosing shots"
             let cuts = self.tunedSwitch(group: group, levels: levels, hop: hop, range: span)
-            let timeline = MulticamEditor.timeline(cuts: cuts, group: group, audioAssetID: nil, canvas: canvas, name: name)
+            let timeline = build(cuts, canvas: canvas)
             self.edit("AI Multicam Edit") { $0.timelines.append(timeline) }
             self.open(timelineID: timeline.id)
             self.leftTab = .angles

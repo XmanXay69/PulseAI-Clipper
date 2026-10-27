@@ -94,6 +94,8 @@ final class ProjectSession: ObservableObject, Identifiable {
     /// Waveform peaks per recording for the meters (#194, #281); not published — the meters read them on the clock.
     var meterPeaks: [UUID: [Float]] = [:]
     var meterPeaksLoading: Set<UUID> = []
+    /// Render-load spans of the active timeline for the ruler (#183).
+    var renderLoadCache: (key: String, spans: [RenderLoad.Span])?
     @Published var focusedCaptionWordID: UUID?
     /// Show only clips with this label; others dim (#177).
     @Published var labelFilter: MarkerColor?
