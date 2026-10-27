@@ -978,6 +978,9 @@ final class ProjectSession: ObservableObject, Identifiable {
                 if !marked.isEmpty {
                     analysis.hudEvents = (analysis.hudEvents ?? []) + marked.map { HUDEvent(time: $0, kind: .marked, text: "CLIP IT") }
                 }
+                // Exact timestamps from the game's API and the live meter (#488, #481).
+                let seeded = self.document.asset(id: assetID)?.gameEvents ?? []
+                if !seeded.isEmpty { analysis.hudEvents = GameEventLog.merge(analysis.hudEvents ?? [], adding: seeded) }
                 self.setAnalysis(analysis)
                 self.edit("Analyze Video") { doc in
                     doc.updateAsset(id: assetID) { $0.preparation.analysisState = .complete }

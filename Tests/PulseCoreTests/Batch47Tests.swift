@@ -28,7 +28,11 @@ final class Batch47Tests: XCTestCase {
     func testBPMFromABeatGrid() {
         let grid = (0..<40).map { Double($0) * 0.5 }   // 120 BPM
         XCTAssertEqual(MusicPicker.bpm(fromBeats: grid) ?? 0, 120, accuracy: 0.01)
-        let swung = (0..<40).map { Double($0) * 0.6 + ($0 % 2 == 0 ? 0.03 : 0) }   // ≈100 BPM with a wobble
+        var swung: [Double] = []   // ≈100 BPM with a wobble
+        for i in 0..<40 {
+            let wobble: Double = i % 2 == 0 ? 0.03 : 0
+            swung.append(Double(i) * 0.6 + wobble)
+        }
         XCTAssertEqual(MusicPicker.bpm(fromBeats: swung) ?? 0, 100, accuracy: 6)
         XCTAssertNil(MusicPicker.bpm(fromBeats: [0, 1, 2]), "too few beats")
         XCTAssertNil(MusicPicker.bpm(fromBeats: [0, 5, 10, 15, 20]), "12 BPM is not a tempo")

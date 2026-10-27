@@ -243,7 +243,7 @@ extension ProjectSession {
     // MARK: Recordings
 
     /// Imports the files of a PULSE recording as one synchronized session and analyzes it.
-    func importRecording(_ result: RecordingResult, analyzeAfter: Bool, markedMoments: [Seconds] = []) {
+    func importRecording(_ result: RecordingResult, analyzeAfter: Bool, markedMoments: [Seconds] = [], gameEvents: [HUDEvent] = []) {
         let cacheRoot = app.cacheFolder
         app.jobs.start("Importing recording", kind: .importMedia) { [weak self] job in
             guard let self else { return }
@@ -259,6 +259,8 @@ extension ProjectSession {
                 asset.sequenceIndex = file.sequenceIndex
                 asset.tags.append("recording")
                 asset.markedMoments = markedMoments
+                // Live moments and game-API events ride along onto the main picture (#481, #488).
+                if file.role == .gameplay || (file.role == .camera && !result.files.contains { $0.role == .gameplay }) { asset.gameEvents = gameEvents }
                 assets.append(asset)
             }
             let screen = assets.first { $0.role == .gameplay }

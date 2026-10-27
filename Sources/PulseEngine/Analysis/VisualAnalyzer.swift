@@ -69,16 +69,17 @@ public final class VisualAnalyzer: @unchecked Sendable {
                 var diff: Float = 0
                 // Where the change is (#56): the centroid of the frame difference, for action-following reframes.
                 var sumX: Float = 0, sumY: Float = 0
+                let gw = Self.gridWidth, gh = Self.gridHeight
                 for k in grid.indices {
                     let d = abs(grid[k] - prev[k])
                     diff += d
-                    sumX += d * Float(k % gridWidth)
-                    sumY += d * Float(k / gridWidth)
+                    sumX += d * Float(k % gw)
+                    sumY += d * Float(k / gw)
                 }
                 motion.append(diff / Float(grid.count))
                 if diff > 0.02 * Float(grid.count) * 0.05 {
-                    actionX.append((sumX / diff + 0.5) / Float(gridWidth))
-                    actionY.append((sumY / diff + 0.5) / Float(gridHeight))
+                    actionX.append((sumX / diff + 0.5) / Float(gw))
+                    actionY.append((sumY / diff + 0.5) / Float(gh))
                 } else {
                     actionX.append(actionX.last ?? 0.5)
                     actionY.append(actionY.last ?? 0.5)

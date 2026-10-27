@@ -42,7 +42,8 @@ picture under every cut when Edit My VOD runs on a podcast WAV or any audio-only
 audio alone before transcription; exports stamped with their project in the Finder comment; vertical reframing that follows the action in gameplay; noise reduction learned from a
 stretch you mark as silence; two-pass encoding; music beds with a measured tempo and a license line, and shelves filled while
 the Mac is idle; recordings split under a size limit and joined back together; the voice leaning toward the
-facecam; another project in a browser window with drag-and-drop between them; localization scaffolding.
+facecam; another project in a browser window with drag-and-drop between them; localization scaffolding; moments found by the live meter while recording; exact game timestamps from Riot's Live Client
+Data API or an imported event log.
 
 **New in 1.6.1:** colour labels on clips with a filter, keyboard caption editing (tab, return, ⌫), a caption
 spell-check, a generated 3-second intro card from the Brand Kit, cuts that land on sentence ends, "Drop"

@@ -187,6 +187,9 @@ public struct MediaAsset: Codable, Hashable, Identifiable, Sendable {
     public var generatedBy: String?
     /// Moments you marked while recording ("clip it"), in seconds from the start; analysis treats them as sure things.
     public var markedMoments: [Seconds] = []
+    /// Exact moments from the game's own API or the live meter (#488, #481), on the recording's clock; the
+    /// analysis takes them as banners.
+    public var gameEvents: [HUDEvent] = []
     /// Fingerprint of the file's content so the same recording under two names is caught (#5).
     public var contentHash: String?
     /// How sure the last sync was (#325): 1 for timecode, the audio match's score otherwise.
@@ -240,6 +243,7 @@ public struct MediaAsset: Codable, Hashable, Identifiable, Sendable {
         sequenceIndex = c.decode(Int?.self, forKey: .sequenceIndex, default: nil)
         generatedBy = c.decode(String?.self, forKey: .generatedBy, default: nil)
         markedMoments = c.decode([Seconds].self, forKey: .markedMoments, default: [])
+        gameEvents = c.decode([HUDEvent].self, forKey: .gameEvents, default: [])
         contentHash = c.decode(String?.self, forKey: .contentHash, default: nil)
         syncConfidence = c.decode(Double?.self, forKey: .syncConfidence, default: nil)
         isTrashed = c.decode(Bool.self, forKey: .isTrashed, default: false)

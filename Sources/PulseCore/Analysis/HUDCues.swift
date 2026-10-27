@@ -8,10 +8,13 @@ public struct HUDEvent: Codable, Hashable, Sendable, Identifiable {
         case marked
         /// A loading / BRB / starting-soon card: dead time, not a moment (weight 0).
         case idleScreen
+        /// Found by the live meter while recording (#481): the voice jumped well above its usual level.
+        case live
 
         public var displayName: String {
             switch self {
             case .marked: return "Marked"
+            case .live: return "Live moment"
             case .idleScreen: return "Idle screen"
             case .win: return "Win"
             case .loss: return "Loss"
@@ -28,6 +31,7 @@ public struct HUDEvent: Codable, Hashable, Sendable, Identifiable {
         public var symbolName: String {
             switch self {
             case .marked: return "flag.fill"
+            case .live: return "waveform.badge.exclamationmark"
             case .idleScreen: return "pause.rectangle"
             case .win: return "trophy"
             case .loss: return "xmark.octagon"
@@ -51,6 +55,7 @@ public struct HUDEvent: Codable, Hashable, Sendable, Identifiable {
             case .loss: return 0.6
             case .objective: return 0.55
             case .levelUp: return 0.5
+            case .live: return 0.5
             case .death: return 0.45
             case .kill: return 0.4
             }
@@ -59,7 +64,7 @@ public struct HUDEvent: Codable, Hashable, Sendable, Identifiable {
         /// The clip tag a short built around this banner gets.
         public var tag: ClipTag {
             switch self {
-            case .win, .multiKill, .clutch, .achievement, .levelUp, .objective, .marked: return .hype
+            case .win, .multiKill, .clutch, .achievement, .levelUp, .objective, .marked, .live: return .hype
             case .loss, .death: return .fail
             case .kill, .idleScreen: return .gaming
             }

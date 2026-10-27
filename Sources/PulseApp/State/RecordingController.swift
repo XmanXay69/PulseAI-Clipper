@@ -37,6 +37,13 @@ final class RecordingController: ObservableObject {
     @Published var analyzeAfter = true
     /// Moments marked with "clip it" (⇧⌘M, or the HUD button) since recording started, in seconds.
     @Published private(set) var markedMoments: [TimeInterval] = []
+    /// Moments the live meter found on its own (#481): the voice jumping well above its usual level.
+    @Published private(set) var liveMoments: [LiveMoment] = []
+    private var liveDetector = LiveMomentDetector()
+    /// Poll League / TFT's Live Client Data API for kills and objectives while recording (#488).
+    @Published var riotEvents = false
+    @Published private(set) var gameEvents: [HUDEvent] = []
+    private var riotTask: Task<Void, Never>?
 
     private let recorder = SessionRecorder()
     private var ticker: Task<Void, Never>?
@@ -111,6 +118,9 @@ final class RecordingController: ObservableObject {
                 phase = .recording
                 elapsed = 0
                 markedMoments = []
+                liveMoments = []
+                gameEvents = []
+                liveDetector = LiveMomentDetector()
                 installClipItHotkey()
                 ticker = Task { [weak self] in
                     while !Task.isCancelled {
@@ -118,8 +128,13 @@ final class RecordingController: ObservableObject {
                         guard let self else { return }
                         self.elapsed = self.recorder.elapsed
                         self.audioLevelDB = self.recorder.audioLevelDB
+                        // The live meter proposes moments as they happen (#481).
+                        if self.phase == .recording, let moment = self.liveDetector.feed(levelDB: self.audioLevelDB, at: self.elapsed) {
+                            self.liveMoments.append(moment)
+                        }
                     }
                 }
+                if riotEvents { startRiotPolling() }
             } catch {
                 phase = .idle
                 app.present(error, title: "Couldn't start recording")
@@ -130,6 +145,24 @@ final class RecordingController: ObservableObject {
     func cancelCountdown() {
         countdownTask?.cancel()
         phase = .idle
+    }
+
+    /// Kills, objectives and the result straight from the game client while it runs (#488).
+    private func startRiotPolling() {
+        riotTask?.cancel()
+        let client = RiotLiveClient()
+        riotTask = Task { [weak self] in
+            var announced = false
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                guard let self, self.phase == .recording || self.phase == .paused else { continue }
+                let fresh = await client.poll(elapsed: self.recorder.elapsed)
+                if !fresh.isEmpty {
+                    self.gameEvents.append(contentsOf: fresh)
+                    if !announced { announced = true; PulseLog.info("Riot live events: game found, stamping events on the recording") }
+                }
+            }
+        }
     }
 
     var isCapturing: Bool { phase == .recording || phase == .paused }
@@ -187,8 +220,10 @@ final class RecordingController: ObservableObject {
         guard isCapturing else { return }
         phase = .finishing
         ticker?.cancel()
+        riotTask?.cancel()
         removeClipItHotkey()
         let marked = markedMoments
+        let seeded = GameEventLog.merge(gameEvents, adding: LiveMomentDetector.events(from: liveMoments))
         Task {
             do {
                 var result = try await recorder.stop()
@@ -201,9 +236,12 @@ final class RecordingController: ObservableObject {
                 if app.session == nil {
                     app.newProject(name: "Recording \(Date().formatted(date: .abbreviated, time: .shortened))")
                 }
-                app.session?.importRecording(result, analyzeAfter: analyzeAfter, markedMoments: marked)
-                app.toast(marked.isEmpty ? "Recording saved — \(Timecode.duration(result.duration))"
-                          : "Recording saved — \(Timecode.duration(result.duration)), \(marked.count) moment\(marked.count == 1 ? "" : "s") marked")
+                app.session?.importRecording(result, analyzeAfter: analyzeAfter, markedMoments: marked, gameEvents: seeded)
+                var note = "Recording saved — \(Timecode.duration(result.duration))"
+                if !marked.isEmpty { note += ", \(marked.count) moment\(marked.count == 1 ? "" : "s") marked" }
+                if !liveMoments.isEmpty { note += ", \(liveMoments.count) live moment\(liveMoments.count == 1 ? "" : "s")" }
+                if !gameEvents.isEmpty { note += ", \(gameEvents.count) game event\(gameEvents.count == 1 ? "" : "s")" }
+                app.toast(note)
             } catch {
                 phase = .idle
                 app.present(error, title: "The recording couldn't be saved")

@@ -331,6 +331,7 @@ struct ImportedAssetRow: View {
                 Button("Analyze") { session.analyze(assetID: asset.id) }
                 Button("Import Transcript (SRT/VTT)…") { pickTranscript() }
                 Button("Import Chat Replay (Twitch / YouTube)…") { pickChat() }
+                Button("Import Game Events (Riot log, CSV, JSON)…") { pickGameEvents() }
                 if session.analyses[asset.id]?.chat != nil {
                     Menu("Chat Replay") {
                         Button("Chat 5 s Earlier") { session.shiftChat(by: -5, assetID: asset.id) }
@@ -382,6 +383,14 @@ struct ImportedAssetRow: View {
         panel.message = "Choose a chat replay: TwitchDownloader JSON, chat-downloader JSON/CSV, YouTube .live_chat.json, or a text log."
         panel.allowedContentTypes = ["json", "csv", "txt", "log"].compactMap { UTType(filenameExtension: $0) }
         if panel.runModal() == .OK, let url = panel.url { session.importChat(url, for: asset.id) }
+    }
+
+    /// Exact timestamps from the game's own API (#488).
+    func pickGameEvents() {
+        let panel = NSOpenPanel()
+        panel.message = "Choose a game event log: Riot Live Client Data JSON (eventdata), a CSV with time,kind,text lines, or a JSON list of {time, kind, text}."
+        panel.allowedContentTypes = ["json", "csv", "txt", "log"].compactMap { UTType(filenameExtension: $0) }
+        if panel.runModal() == .OK, let url = panel.url { session.importGameEvents(url, for: asset.id) }
     }
 
     func pickTranscript() {

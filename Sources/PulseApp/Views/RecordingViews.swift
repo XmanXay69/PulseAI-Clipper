@@ -168,6 +168,8 @@ struct RecordView: View {
                 ToggleRow(label: "3-second countdown", isOn: $recorder.countdown)
                 SectionLabel(text: "After recording")
                 ToggleRow(label: "Analyze & find clips automatically", isOn: $recorder.analyzeAfter)
+                ToggleRow(label: "Riot live events (League / TFT)", isOn: $recorder.riotEvents,
+                          help: "Polls the game client's Live Client Data API on this Mac while recording, so every kill, objective and the result lands on the recording to the frame (#488)")
                 Text("Stop from the red bar at the top of PULSE or with ⇧⌘R.")
                     .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
             }
@@ -209,6 +211,11 @@ struct RecordingHUD: View {
                 .keyboardShortcut("m", modifiers: [.command, .shift])
                 .disabled(paused)
                 .help("Mark this moment — the AI treats it as a sure thing (⇧⌘M)")
+                if !recorder.liveMoments.isEmpty || !recorder.gameEvents.isEmpty {
+                    Label("\(recorder.liveMoments.count + recorder.gameEvents.count)", systemImage: "waveform.badge.exclamationmark")
+                        .font(.pulseCaption).foregroundStyle(Theme.ai)
+                        .help("Moments found while recording (#481): the voice jumping above its usual level, plus events from the game — they seed the clip search")
+                }
                 Button { recorder.togglePause() } label: {
                     Label(paused ? "Resume" : "Pause", systemImage: paused ? "record.circle" : "pause.fill")
                 }

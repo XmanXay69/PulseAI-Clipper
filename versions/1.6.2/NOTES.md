@@ -374,6 +374,17 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   falls back to the English key, the package set up for more languages and `docs/LOCALIZATION.md` saying how
   to add one; menu items go through it first.
 
+### Batch 49
+
+- **Moments found while recording** (#481) — the live meter watches the voice as you record: a burst well
+  above its usual level that holds for a beat becomes a live moment, counted on the HUD next to Clip it; when
+  the recording stops they seed the clip search like banners, so the first look proposes them straight away.
+- **Exact timestamps from the game** (#488) — Record → "Riot live events (League / TFT)" polls the game
+  client's Live Client Data API on this Mac while recording and stamps every kill, multi-kill, objective, ace
+  and the result on the recording to the frame; Import Game Events… (on a recording's menu) reads a Riot
+  event log, a CSV of time,kind,text lines or a JSON list from any other tool, asks where the game's 0:00 sits
+  in the recording, and merges them with what the screen reader saw.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);
