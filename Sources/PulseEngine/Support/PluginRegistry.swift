@@ -125,11 +125,13 @@ public final class PluginRegistry: @unchecked Sendable {
         let payload = try JSONEncoder().encode(input)
         try process.run()
         // The transcript can run to megabytes: feed it on its own thread while stdout is drained, or a plugin
-        // that prints before it reads would wedge both pipes.
+        // that prints before it reads would wedge both pipes. stderr is drained the same way, so a plugin that
+        // logs a lot can't fill that pipe and stall either.
         DispatchQueue.global(qos: .utility).async {
             stdin.fileHandleForWriting.write(payload)
             try? stdin.fileHandleForWriting.close()
         }
+        let errors = DrainedPipe(stderr)
         let output: Data = try await withThrowingTaskGroup(of: Data.self) { group in
             group.addTask {
                 let data = stdout.fileHandleForReading.readDataToEndOfFile()
@@ -146,9 +148,32 @@ public final class PluginRegistry: @unchecked Sendable {
             return first
         }
         guard process.terminationStatus == 0 else {
-            let message = String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-            throw EngineError.exportFailed(message.isEmpty ? "the plugin exited with status \(process.terminationStatus)" : message)
+            let message = errors.text.trimmingCharacters(in: .whitespacesAndNewlines).suffix(2000)
+            throw EngineError.exportFailed(message.isEmpty ? "the plugin exited with status \(process.terminationStatus)" : String(message))
         }
-        return GameEventLog.parse(data: output)?.events ?? []
+        let events = GameEventLog.parse(data: output)?.events ?? []
+        if events.isEmpty, !output.isEmpty, GameEventLog.parse(data: output) == nil {
+            PulseLog.warning("Signal plugin “\(plugin.manifest.name)” printed something that isn't an event log: \(String(decoding: output.prefix(200), as: UTF8.self))")
+        }
+        return events
+    }
+
+    /// Reads a pipe to its end on a background thread; `text` waits for the end.
+    private final class DrainedPipe: @unchecked Sendable {
+        private let group = DispatchGroup()
+        private var data = Data()
+
+        init(_ pipe: Pipe) {
+            group.enter()
+            DispatchQueue.global(qos: .utility).async { [self] in
+                data = pipe.fileHandleForReading.readDataToEndOfFile()
+                group.leave()
+            }
+        }
+
+        var text: String {
+            _ = group.wait(timeout: .now() + 5)
+            return String(decoding: data, as: UTF8.self)
+        }
     }
 }

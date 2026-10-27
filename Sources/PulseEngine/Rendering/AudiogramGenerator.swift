@@ -80,7 +80,12 @@ public enum AudiogramGenerator {
                 }
             }
             CVPixelBufferUnlockBaseAddress(buffer, [])
-            adaptor.append(buffer, withPresentationTime: CMTime(value: CMTimeValue(frame), timescale: fps))
+            guard adaptor.append(buffer, withPresentationTime: CMTime(value: CMTimeValue(frame), timescale: fps)) else {
+                input.markAsFinished()
+                writer.cancelWriting()
+                try? FileManager.default.removeItem(at: url)
+                throw EngineError.exportFailed(writer.error?.localizedDescription ?? "the waveform video's encoder refused frame \(frame + 1)")
+            }
             if frame % 48 == 0 { progress(Double(frame) / Double(frames)) }
         }
         input.markAsFinished()

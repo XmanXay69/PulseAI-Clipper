@@ -35,6 +35,18 @@ public enum DubSynthesizer {
             let frames = AVAudioFrameCount((time - cursor) * format.sampleRate)
             guard frames > 0, let silence = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames) else { return }
             silence.frameLength = frames
+            // A fresh buffer's memory isn't promised to be zero. Interleaved audio is one plane holding every
+            // channel; planar audio is one plane per channel.
+            let channels = Int(format.channelCount)
+            let planes = format.isInterleaved ? 1 : channels
+            let perPlane = Int(frames) * (format.isInterleaved ? channels : 1)
+            if let data = silence.floatChannelData {
+                for c in 0..<planes { data[c].update(repeating: 0, count: perPlane) }
+            } else if let data = silence.int16ChannelData {
+                for c in 0..<planes { data[c].update(repeating: 0, count: perPlane) }
+            } else if let data = silence.int32ChannelData {
+                for c in 0..<planes { data[c].update(repeating: 0, count: perPlane) }
+            }
             try file.write(from: silence)
             cursor = time
         }
@@ -44,17 +56,7 @@ public enum DubSynthesizer {
             let utterance = AVSpeechUtterance(string: line.text)
             utterance.voice = voice
             utterance.rate = Float(DubPlanner.rate(wordCount: line.wordCount, seconds: line.duration))
-            let buffers: [AVAudioPCMBuffer] = await withCheckedContinuation { continuation in
-                var collected: [AVAudioPCMBuffer] = []
-                synthesizer.write(utterance) { buffer in
-                    guard let pcm = buffer as? AVAudioPCMBuffer else { return }
-                    if pcm.frameLength == 0 {
-                        continuation.resume(returning: collected)
-                    } else {
-                        collected.append(pcm)
-                    }
-                }
-            }
+            let buffers = await Self.speak(utterance, with: synthesizer)
             guard let firstBuffer = buffers.first else { continue }
             if file == nil {
                 format = firstBuffer.format
@@ -70,5 +72,43 @@ public enum DubSynthesizer {
         }
         try writeSilence(until: duration)
         guard file != nil else { throw EngineError.exportFailed("the voice produced no audio") }
+    }
+
+    /// The PCM buffers for one utterance. The synthesizer ends every utterance with an empty buffer; the
+    /// continuation resumes on the first of those and ignores anything after it, and a voice that never
+    /// finishes is given up on after a minute rather than hanging the job.
+    static func speak(_ utterance: AVSpeechUtterance, with synthesizer: AVSpeechSynthesizer) async -> [AVAudioPCMBuffer] {
+        final class Box: @unchecked Sendable {
+            let lock = NSLock()
+            var collected: [AVAudioPCMBuffer] = []
+            var continuation: CheckedContinuation<[AVAudioPCMBuffer], Never>?
+            var isPending: Bool { lock.lock(); defer { lock.unlock() }; return continuation != nil }
+            func finish() {
+                lock.lock()
+                let c = continuation
+                continuation = nil
+                let result = collected
+                lock.unlock()
+                c?.resume(returning: result)
+            }
+        }
+        let box = Box()
+        return await withCheckedContinuation { continuation in
+            box.continuation = continuation
+            synthesizer.write(utterance) { buffer in
+                guard let pcm = buffer as? AVAudioPCMBuffer else { return }
+                if pcm.frameLength == 0 {
+                    box.finish()
+                } else {
+                    box.lock.lock(); box.collected.append(pcm); box.lock.unlock()
+                }
+            }
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 60) {
+                if box.isPending {
+                    synthesizer.stopSpeaking(at: .immediate)
+                    box.finish()
+                }
+            }
+        }
     }
 }

@@ -13,7 +13,7 @@ Intel and `macos-15` jobs are the ones that usually finish, and one green job is
 
 ## Versions
 
-`VERSION` holds the current version (1.6.2). Release notes per version live in `versions/<version>/NOTES.md`
+`VERSION` holds the current version (1.6.3). Release notes per version live in `versions/<version>/NOTES.md`
 (the Release workflow prepends them to the GitHub Release); `versions/README.md` explains how to cut a new one.
 
 ## Download (the easy way)
@@ -61,6 +61,10 @@ Key files to know:
 - `Sources/PulseEngine/Composition/CompositionBuilder.swift` + `Rendering/FrameRenderer.swift` — how a timeline becomes pixels (same path for playback and export).
 - `Sources/PulseCore/AutoEdit/ShortBuilder.swift` — candidate → finished 9:16 short.
 - `Tests/PulseEngineTests/EngineSmokeTests.swift` — end-to-end: demo media → analysis → clips → short → rendered stills → exported MP4.
+- 1.6.3 (hardening): `ExportPump.transferMultiPass` in `Sources/PulseEngine/Export/ExportEngine.swift` follows the
+  multi-pass pattern (pass description → reset → request → mark pass finished); `YouTubeUploader.resumeOffset`
+  recovers an interrupted upload; `DubSynthesizer.speak(_:with:)` is the one-shot continuation around
+  `AVSpeechSynthesizer.write`; `PluginRegistry.DrainedPipe` keeps a plugin's stderr flowing.
 - 1.6.2 additions: `Sources/PulseEngine/Playback/PlaybackController.swift` takes a `renderScale` (viewer quality,
   #187) and publishes `isStruggling` when media time falls behind the clock; `ProjectSession.playbackQualityOverride`
   is the automatic step-down. `Sources/PulseEngine/System/MemoryPressure.swift` (#377) trims
@@ -367,4 +371,6 @@ prompt), cloud AI providers with live keys.
 4. `docs/ROADMAP-500.md` is done: 499 of the 500 items are cited by number in `versions/1.6.x/NOTES.md` and in
    the batch commits (as of 1.6.2); #484 (voice clone) is deliberately not built — see "Not built, on purpose"
    in `versions/1.6.2/NOTES.md`. The next phase is tuning with real recordings: each roadmap feature shipped
-   with unit tests and a compile on CI, not with hours of real VODs behind it.
+   with unit tests and a compile on CI, not with hours of real VODs behind it. 1.6.3 began that pass on the
+   engine side (`versions/1.6.3/NOTES.md`): the framework-driven code of batches 44–52 re-read against the
+   APIs' contracts and fixed where it would have stalled or hung.

@@ -37,8 +37,9 @@ public enum YouTubeUploader {
         let state = PhoneReview.token()
         let listener = try NWListener(using: .tcp, on: .any)
         let queue = DispatchQueue(label: "app.pulse.oauth")
+        let box = ContinuationBox()
         let code: String = try await withCheckedThrowingContinuation { continuation in
-            let box = ContinuationBox(continuation)
+            box.continuation = continuation
             listener.stateUpdateHandler = { s in
                 switch s {
                 case .ready:
@@ -74,34 +75,33 @@ public enum YouTubeUploader {
             box.listener = listener
         }
         listener.cancel()
-        guard let redirectURI = await redirectURIBox.take() else { throw PublishError.signInFailed("no redirect address") }
+        guard let redirectURI = box.redirectURI else { throw PublishError.signInFailed("no redirect address") }
         let body = YouTubeOAuth.tokenRequestBody(clientID: clientID, clientSecret: clientSecret, code: code, redirectURI: redirectURI, verifier: verifier)
         return try await exchange(body)
     }
 
-    /// Where the sign-in's redirect address is parked between the listener and the token request.
-    private static let redirectURIBox = RedirectBox()
-
-    private actor RedirectBox {
-        var value: String?
-        func set(_ v: String) { value = v }
-        func take() -> String? { let v = value; value = nil; return v }
-    }
-
+    /// The sign-in's continuation (resumed once, from whichever of the browser, a listener failure or the
+    /// timeout comes first) and the redirect address the browser was sent to.
     private final class ContinuationBox: @unchecked Sendable {
-        private var continuation: CheckedContinuation<String, Error>?
+        private var _continuation: CheckedContinuation<String, Error>?
+        private var _redirectURI: String?
         private let lock = NSLock()
         var listener: NWListener?
-        var redirectURI: String? {
-            didSet { if let redirectURI { Task { await YouTubeUploader.redirectURIBox.set(redirectURI) } } }
+
+        var continuation: CheckedContinuation<String, Error>? {
+            get { lock.lock(); defer { lock.unlock() }; return _continuation }
+            set { lock.lock(); _continuation = newValue; lock.unlock() }
         }
 
-        init(_ c: CheckedContinuation<String, Error>) { continuation = c }
+        var redirectURI: String? {
+            get { lock.lock(); defer { lock.unlock() }; return _redirectURI }
+            set { lock.lock(); _redirectURI = newValue; lock.unlock() }
+        }
 
         func finish(_ result: Result<String, Error>) {
             lock.lock()
-            let c = continuation
-            continuation = nil
+            let c = _continuation
+            _continuation = nil
             lock.unlock()
             guard let c else { return }
             switch result {
@@ -161,6 +161,7 @@ public enum YouTubeUploader {
         var offset: Int64 = 0
         var last: Data = Data()
         var resends = 0
+        var recoveries = 0
         while offset < size {
             if isCancelled() { throw EngineError.cancelled }
             try handle.seek(toOffset: UInt64(offset))
@@ -172,15 +173,25 @@ public enum YouTubeUploader {
             put.setValue("video/*", forHTTPHeaderField: "Content-Type")
             put.setValue("bytes \(offset)-\(end)/\(size)", forHTTPHeaderField: "Content-Range")
             put.timeoutInterval = 300
-            let (data, response) = try await URLSession.shared.upload(for: put, from: chunk)
-            guard let r = response as? HTTPURLResponse else { throw PublishError.uploadFailed("no reply") }
+            let data: Data, r: HTTPURLResponse
+            do {
+                let (d, response) = try await URLSession.shared.upload(for: put, from: chunk)
+                guard let http = response as? HTTPURLResponse else { throw PublishError.uploadFailed("no reply") }
+                (data, r) = (d, http)
+            } catch let error as URLError where recoveries < 5 {
+                // The connection dropped mid-piece: ask where the upload got to and carry on from there.
+                recoveries += 1
+                try await Task.sleep(nanoseconds: UInt64(recoveries) * 2_000_000_000)
+                offset = try await resumeOffset(session: session, size: size, fallback: offset, reason: error.localizedDescription)
+                continue
+            }
             switch r.statusCode {
             case 200, 201:
                 last = data
                 offset = size
             case 308:
                 // "Range: bytes=0-N" says what landed; no Range means nothing did, so the same piece goes again.
-                if let range = r.value(forHTTPHeaderField: "Range"), let dash = range.lastIndex(of: "-"), let n = Int64(range[range.index(after: dash)...]) {
+                if let n = Self.lastByte(in: r) {
                     offset = n + 1
                     resends = 0
                 } else {
@@ -189,6 +200,11 @@ public enum YouTubeUploader {
                 }
             case 401:
                 throw PublishError.denied("the sign-in expired — sign in again in Settings → Publishing")
+            case 500...504 where recoveries < 5:
+                // Google asks for exactly this: wait, query the upload's status, resume from what landed.
+                recoveries += 1
+                try await Task.sleep(nanoseconds: UInt64(recoveries) * 2_000_000_000)
+                offset = try await resumeOffset(session: session, size: size, fallback: offset, reason: Self.message(from: data, status: r.statusCode))
             default:
                 throw PublishError.uploadFailed(Self.message(from: data, status: r.statusCode))
             }
@@ -198,6 +214,29 @@ public enum YouTubeUploader {
             throw PublishError.uploadFailed("YouTube didn't return a video id")
         }
         return id
+    }
+
+    /// The upload's next byte after an interruption: an empty PUT with "bytes */size" makes YouTube answer with
+    /// what it holds (308 + Range), or 200/201 when the whole file already landed. `fallback` when it says nothing.
+    static func resumeOffset(session: URL, size: Int64, fallback: Int64, reason: String) async throws -> Int64 {
+        var query = URLRequest(url: session)
+        query.httpMethod = "PUT"
+        query.setValue("bytes */\(size)", forHTTPHeaderField: "Content-Range")
+        query.timeoutInterval = 60
+        let (data, response) = try await URLSession.shared.upload(for: query, from: Data())
+        guard let r = response as? HTTPURLResponse else { throw PublishError.uploadFailed(reason) }
+        switch r.statusCode {
+        case 200, 201: return size
+        case 308: return Self.lastByte(in: r).map { $0 + 1 } ?? 0
+        case 404, 410: throw PublishError.uploadFailed("the upload expired (\(reason)) — start it again")
+        default: throw PublishError.uploadFailed(Self.message(from: data, status: r.statusCode))
+        }
+    }
+
+    /// N from "Range: bytes=0-N", nil when the header is missing or malformed.
+    static func lastByte(in response: HTTPURLResponse) -> Int64? {
+        guard let range = response.value(forHTTPHeaderField: "Range"), let dash = range.lastIndex(of: "-") else { return nil }
+        return Int64(range[range.index(after: dash)...].trimmingCharacters(in: .whitespaces))
     }
 
     static func message(from data: Data, status: Int) -> String {

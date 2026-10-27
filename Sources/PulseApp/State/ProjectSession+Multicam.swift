@@ -264,15 +264,22 @@ extension ProjectSession {
                 assets.append(asset)
             }
             let screen = assets.first { $0.role == .gameplay }
-            // Parts of a split recording come back together on one timeline, joins and all (#322).
-            let parts = assets.filter { $0.sequenceGroupID != nil }.sorted { ($0.sequenceIndex ?? 0) < ($1.sequenceIndex ?? 0) }
-            let joined = parts.count > 1 ? SequenceJoiner.timeline(parts: parts) : nil
+            // Parts of a split recording come back together on one timeline, joins and all (#322) — one timeline
+            // per split file, since the screen and the camera are cut at their own sizes.
+            let groups = Dictionary(grouping: assets.filter { $0.sequenceGroupID != nil }, by: { $0.sequenceGroupID! })
+            let joinedTimelines: [Timeline] = groups.values
+                .map { $0.sorted { ($0.sequenceIndex ?? 0) < ($1.sequenceIndex ?? 0) } }
+                .filter { $0.count > 1 }
+                .sorted { ($0.first?.role == .gameplay ? 0 : 1, $0.first?.name ?? "") < ($1.first?.role == .gameplay ? 0 : 1, $1.first?.name ?? "") }
+                .compactMap { SequenceJoiner.timeline(parts: $0) }
+            let joined = joinedTimelines.first
+            let partCount = groups.values.map(\.count).max() ?? 0
             self.edit("Import Recording") { doc in
                 doc.media.append(contentsOf: assets)
                 if let screen { doc.primaryAssetID = screen.id } else if doc.primaryAssetID == nil { doc.primaryAssetID = assets.first?.id }
-                if let joined { doc.timelines.append(joined) }
+                doc.timelines.append(contentsOf: joinedTimelines)
             }
-            if let joined { self.app.toast("Recording split into \(parts.count) parts — joined back together on “\(joined.name)”") }
+            if let joined { self.app.toast("Recording split into \(partCount) parts — joined back together on “\(joined.name)”") }
             self.save()
             self.app.logActivity(.importMedia, title: "Recorded \(Timecode.duration(result.duration))", detail: assets.map(\.name).joined(separator: " · "))
             if !result.warnings.isEmpty {

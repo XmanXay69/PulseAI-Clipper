@@ -287,59 +287,71 @@ final class ExportPump: @unchecked Sendable {
         var finished = false
         var lastReported = -1.0
         var pass = 0
+        var lastDescription: AVAssetWriterInputPassDescription?
     }
 
-    /// Two-pass encoding (#343): pass 1 reads everything; each later pass re-reads the stretches the encoder
-    /// names in its pass description, until it asks for no more. Progress runs 0…½ in pass 1 and ½…1 after.
+    /// Two-pass encoding (#343), the way AVFoundation's multi-pass API is meant to be driven: every pass begins
+    /// with a pass description naming the stretches to read; the reader output is reset to them and media is
+    /// requested for that pass alone. When the pass runs dry the input is told, and the next description (or
+    /// nil, meaning done) arrives on the same queue. Progress runs 0…½ in pass 1 and ½…1 after.
     private func transferMultiPass(from output: AVAssetReaderOutput, to input: AVAssetWriterInput) async {
         let queue = DispatchQueue(label: "app.pulse.export.video")
         let state = TransferState()
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            func finish() {
+                guard !state.finished else { return }
+                state.finished = true
+                output.markConfigurationAsFinal()
+                input.markAsFinished()
+                continuation.resume()
+            }
+            func beginPass(_ description: AVAssetWriterInputPassDescription) {
+                // The same description can be announced twice (once on registration, once on change): one request per pass.
+                guard state.lastDescription !== description else { return }
+                state.lastDescription = description
+                state.pass += 1
+                self.lock.lock(); self._passes = state.pass; self.lock.unlock()
+                state.lastReported = -1
+                output.reset(forReadingTimeRanges: description.sourceTimeRanges)
+                input.requestMediaDataWhenReady(on: queue) {
+                    guard !state.finished else { return }
+                    while input.isReadyForMoreMediaData {
+                        if self.isCancelled() || self.cancelled {
+                            self.markCancelled()
+                            finish()
+                            return
+                        }
+                        guard let sample = output.copyNextSampleBuffer() else {
+                            // This pass is done; the next pass description decides whether another follows.
+                            input.markCurrentPassAsFinished()
+                            return
+                        }
+                        let t = CMSampleBufferGetPresentationTimeStamp(sample).secondsValue
+                        let within = self.duration > 0 ? min(max(0, t - self.start) / self.duration, 0.999) : 0
+                        let p = state.pass <= 1 ? within * 0.5 : 0.5 + within * 0.5
+                        if p - state.lastReported >= 0.005 {
+                            state.lastReported = p
+                            self.progress(p)
+                        }
+                        if !input.append(sample) {
+                            finish()
+                            return
+                        }
+                    }
+                }
+            }
             input.respondToEachPassDescription(on: queue) {
                 guard !state.finished else { return }
                 if let description = input.currentPassDescription {
-                    state.pass += 1
-                    self.lock.lock(); self._passes = state.pass; self.lock.unlock()
-                    state.lastReported = -1
-                    if state.pass > 1 { output.reset(forReadingTimeRanges: description.sourceTimeRanges) }
+                    beginPass(description)
                 } else {
-                    state.finished = true
-                    output.markConfigurationAsFinal()
-                    input.markAsFinished()
-                    continuation.resume()
+                    finish()
                 }
             }
-            input.requestMediaDataWhenReady(on: queue) {
-                guard !state.finished else { return }
-                while input.isReadyForMoreMediaData {
-                    if self.isCancelled() || self.cancelled {
-                        self.markCancelled()
-                        state.finished = true
-                        output.markConfigurationAsFinal()
-                        input.markAsFinished()
-                        continuation.resume()
-                        return
-                    }
-                    guard let sample = output.copyNextSampleBuffer() else {
-                        // This pass is done; the pass-description block decides whether another follows.
-                        input.markCurrentPassAsFinished()
-                        return
-                    }
-                    let t = CMSampleBufferGetPresentationTimeStamp(sample).secondsValue
-                    let within = self.duration > 0 ? min(max(0, t - self.start) / self.duration, 0.999) : 0
-                    let p = state.pass <= 1 ? within * 0.5 : 0.5 + within * 0.5
-                    if p - state.lastReported >= 0.005 {
-                        state.lastReported = p
-                        self.progress(p)
-                    }
-                    if !input.append(sample) {
-                        state.finished = true
-                        output.markConfigurationAsFinal()
-                        input.markAsFinished()
-                        continuation.resume()
-                        return
-                    }
-                }
+            // Writing has already started, so the first pass may be waiting before the block above was registered.
+            queue.async {
+                guard !state.finished, state.pass == 0 else { return }
+                if let description = input.currentPassDescription { beginPass(description) }
             }
         }
     }
@@ -360,6 +372,8 @@ final class ExportPump: @unchecked Sendable {
                     }
                     guard let sample = output.copyNextSampleBuffer() else {
                         state.finished = true
+                        // A seekable output (two-pass asked for, encoder declined) still has to be told reading is over.
+                        if output.supportsRandomAccess { output.markConfigurationAsFinal() }
                         input.markAsFinished()
                         continuation.resume()
                         return

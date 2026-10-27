@@ -9,10 +9,15 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
 
 ## Download
 
-**[⬇ Download PULSE 1.6.2](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
-(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.6.2/NOTES.md)
+**[⬇ Download PULSE 1.6.3](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
+(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.6.3/NOTES.md)
 
 Already installed? PULSE shows an **Update** button when a new version is out — no need to download again.
+
+**New in 1.6.3:** a hardening pass over the last batches — two-pass export drives the encoder's passes the way
+AVFoundation expects, YouTube uploads resume after a dropped connection or a server error, dubbing can't hang on
+a silent voice, signal plugins can't stall on a full log pipe, and split recordings join file by file
+([notes](versions/1.6.3/NOTES.md)).
 
 **New in 1.6.2:** chapter art (a picture per chapter marker for the description), a sortable list view in the
 media panel, a GPU self-test that switches to safe mode by itself, the shuttle speed on the transport bar,
