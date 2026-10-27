@@ -35,6 +35,11 @@ any of it meets a real recording.
   writing gives up after 20 seconds, keeping the screen file and reporting the camera file as the problem.
 - **Restoring an archive is a job** with "Unpacking" and "Relinking media" steps, instead of freezing the window
   while a multi-gigabyte zip unpacks.
+- **VOD downloads by link** (#1, #467) failed for anything over 60 MB with "Unexpected file size" — the music
+  library's size guard — and held the whole file in memory. The ranged download now writes each 1 MiB piece
+  straight into the file at its offset, allows up to 12 GB for a VOD (60 MB stays the limit for music and
+  B-roll clips), checks the disk has room first, reports "Downloading — 42% of 1.3 GB" in the job, and a
+  cancelled job stops every request and removes the partial file.
 
 ### Under the hood
 - `ExportPump.transferMultiPass` keeps the last pass description it started, so a description announced twice
@@ -46,3 +51,5 @@ any of it meets a real recording.
 - `ChildProcess` (engine) wraps a `Process` with `terminate()` for a task's cancellation handler and `watch(_:)`
   for a job's cancel flag; `WhisperCppTranscriber.isCancelled` is set by the analysis pipeline, and `FFmpeg.run`
   uses the task handler.
+- `RangedDownloader` (engine) is the one ranged download: `OnlineMusicLibrary.rangedDownload` (60 MiB) and
+  `downloadLarge` (12 GiB, with byte progress) call it.

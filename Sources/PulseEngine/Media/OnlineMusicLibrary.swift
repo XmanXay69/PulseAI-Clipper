@@ -152,49 +152,14 @@ public actor OnlineMusicLibrary {
         return track
     }
 
-    /// Parallel 1 MiB ranged requests (a single connection is throttled to ~1 MB/s).
+    /// Music and B-roll clips: a few minutes of audio or a short clip, never more than 60 MiB.
     func rangedDownload(_ url: URL, to destination: URL) async throws {
-        var probe = URLRequest(url: url)
-        probe.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
-        probe.setValue("bytes=0-0", forHTTPHeaderField: "Range")
-        let (_, probeResponse) = try await session.data(for: probe)
-        guard let http = probeResponse as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-            throw EngineError.readerFailed("Download refused")
-        }
-        var total: Int64 = 0
-        if let range = http.value(forHTTPHeaderField: "Content-Range"), let last = range.split(separator: "/").last { total = Int64(last) ?? 0 }
-        guard total > 0, total < 60 << 20 else { throw EngineError.readerFailed("Unexpected file size") }
-        let chunk: Int64 = 1 << 20
-        let ranges = stride(from: Int64(0), to: total, by: Int(chunk)).map { ($0, min($0 + chunk, total) - 1) }
-        let session = self.session
-        let parts = try await withThrowingTaskGroup(of: (Int64, Data).self) { group -> [(Int64, Data)] in
-            var collected: [(Int64, Data)] = []
-            for (i, r) in ranges.enumerated() {
-                if i >= 4, let done = try await group.next() { collected.append(done) }
-                group.addTask {
-                    var request = URLRequest(url: url)
-                    request.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
-                    request.setValue("bytes=\(r.0)-\(r.1)", forHTTPHeaderField: "Range")
-                    for attempt in 0..<3 {
-                        if let reply = try? await session.data(for: request),
-                           (reply.1 as? HTTPURLResponse).map({ (200...299).contains($0.statusCode) }) == true,
-                           Int64(reply.0.count) == r.1 - r.0 + 1 {
-                            return (r.0, reply.0)
-                        }
-                        try await Task.sleep(nanoseconds: UInt64(attempt + 1) * 500_000_000)
-                    }
-                    throw EngineError.readerFailed("Download interrupted")
-                }
-            }
-            for try await done in group { collected.append(done) }
-            return collected
-        }
-        var file = Data(capacity: Int(total))
-        for (_, data) in parts.sorted(by: { $0.0 < $1.0 }) { file.append(data) }
-        let temp = destination.appendingPathExtension("part")
-        try file.write(to: temp, options: .atomic)
-        try? FileManager.default.removeItem(at: destination)
-        try FileManager.default.moveItem(at: temp, to: destination)
+        try await RangedDownloader.download(url, to: destination, session: session, userAgent: Self.userAgent, maxBytes: 60 << 20)
+    }
+
+    /// A whole VOD (#1, #467): hours of 720p, written straight to disk as it arrives.
+    func downloadLarge(_ url: URL, to destination: URL, progress: (@Sendable (Int64, Int64) -> Void)? = nil) async throws {
+        try await RangedDownloader.download(url, to: destination, session: session, userAgent: Self.userAgent, maxBytes: 12 << 30, progress: progress)
     }
 
     private func save() {
