@@ -385,6 +385,20 @@ Batch 23 from the 500-item roadmap (`docs/ROADMAP-500.md`), on top of [1.6.1](..
   event log, a CSV of time,kind,text lines or a JSON list from any other tool, asks where the game's 0:00 sits
   in the recording, and merges them with what the screen reader saw.
 
+### Batch 50
+
+- **Dub into a second language** (#486) — Captions → Language → Dub into Spanish (any translated language):
+  the translated captions are spoken by the system voice for that language, line by line at their times, on a
+  copy of the timeline named "… — Spanish dub" with the captions switched and the original voice 18 dB under
+  the dub; export it for the second-language channel. Needs a voice installed under Accessibility → Spoken
+  Content; Enhanced and Premium voices sound best.
+- **Plugins** (#495) — a folder in Application Support/PULSE/Plugins with a plugin.json is a plugin: an
+  *effect* names a chain of Core Image filters (from a safe list) with sliders that show in the Inspector and
+  animate like any parameter, and sits in the Effects menus under the built-ins; a *signal* names a command
+  that gets the recording's path, length and transcript on stdin and prints events that score like banners
+  (run it from a recording's menu). Settings → Plugins lists them, says why one doesn't load, and writes two
+  examples to copy; docs/PLUGINS.md has the format.
+
 #### Already there, now on the list
 - Chat bursts count toward every moment's score once a chat replay is attached (#26); the media grid and the
   timeline are virtualized (#386); when whisper.cpp isn't there, Apple's on-device speech takes over (#400);

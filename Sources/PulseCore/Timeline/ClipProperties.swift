@@ -450,9 +450,12 @@ public enum EffectKind: String, Codable, CaseIterable, Sendable {
     case zoomPulse
     case motionBlur
     case blackAndWhite
+    /// An effect plugin's filter chain (#495); `EffectInstance.pluginID` says which.
+    case plugin
 
     public var displayName: String {
         switch self {
+        case .plugin: return "Plugin"
         case .gaussianBlur: return "Blur"
         case .sharpen: return "Sharpen"
         case .glow: return "Glow"
@@ -478,6 +481,7 @@ public enum EffectKind: String, Codable, CaseIterable, Sendable {
         case .zoomPulse: return "plus.magnifyingglass"
         case .motionBlur: return "wind"
         case .blackAndWhite: return "circle.lefthalf.filled"
+        case .plugin: return "puzzlepiece.extension"
         }
     }
 
@@ -494,8 +498,12 @@ public enum EffectKind: String, Codable, CaseIterable, Sendable {
         case .zoomPulse: return ["amount": 0.08, "frequency": 2]
         case .motionBlur: return ["radius": 14, "angle": 0]
         case .blackAndWhite: return ["intensity": 1]
+        case .plugin: return [:]
         }
     }
+
+    /// The built-in effects (the menus list these; plugins come from the registry).
+    public static var builtIn: [EffectKind] { allCases.filter { $0 != .plugin } }
 }
 
 public struct EffectInstance: Codable, Hashable, Identifiable, Sendable {
@@ -504,6 +512,9 @@ public struct EffectInstance: Codable, Hashable, Identifiable, Sendable {
     public var isEnabled: Bool
     public var parameters: [String: AnimatedDouble]
     public var aiGenerated: Bool
+    /// The plugin behind a `.plugin` effect (#495) and its name as last seen, so a missing plugin still reads.
+    public var pluginID: String? = nil
+    public var pluginName: String? = nil
 
     public init(id: UUID = UUID(), kind: EffectKind, isEnabled: Bool = true, aiGenerated: Bool = false) {
         self.id = id
@@ -513,8 +524,27 @@ public struct EffectInstance: Codable, Hashable, Identifiable, Sendable {
         self.parameters = kind.defaultParameters.mapValues { AnimatedDouble($0) }
     }
 
+    /// An instance of an effect plugin with its sliders at their defaults.
+    public init(plugin: PluginManifest, id: UUID = UUID()) {
+        self.id = id
+        self.kind = .plugin
+        self.isEnabled = true
+        self.aiGenerated = false
+        self.pluginID = plugin.id
+        self.pluginName = plugin.name
+        self.parameters = plugin.defaultParameters.mapValues { AnimatedDouble($0) }
+    }
+
+    /// "Blur", or the plugin's name.
+    public var displayName: String { kind == .plugin ? (pluginName ?? "Plugin") : kind.displayName }
+
     public func parameter(_ name: String, at t: Seconds) -> Double {
         parameters[name]?.value(at: t) ?? kind.defaultParameters[name] ?? 0
+    }
+
+    /// Every slider value at `t`, for a plugin's filter chain.
+    public func parameterValues(at t: Seconds) -> [String: Double] {
+        parameters.mapValues { $0.value(at: t) }
     }
 }
 

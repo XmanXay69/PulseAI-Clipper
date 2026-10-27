@@ -326,6 +326,11 @@ struct CaptionStylePanel: View {
                             } label: { Label("Translate…", systemImage: "character.book.closed") }
                             .menuStyle(.borderlessButton).fixedSize()
                             .help("Translates the captions sentence by sentence through the AI provider in Settings → AI and keeps both languages (#248)")
+                            if let code = session.activeTimeline?.captionLanguage, code != "original", session.activeTimeline?.captionTranslations[code] != nil {
+                                Button { session.dubCaptions(language: code) } label: { Label("Dub into \(CaptionTranslator.name(for: code))", systemImage: "waveform.and.mic") }
+                                    .buttonStyle(.pulse(.secondary, compact: true))
+                                    .help("Speaks the \(CaptionTranslator.name(for: code)) captions with the system voice on a copy of this timeline, the original voice lowered under it — a second-language channel version (#486)")
+                            }
                             Text("The original stays; timing follows the speech. Needs Claude, OpenAI or a local OpenAI-compatible server.")
                                 .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
                         }

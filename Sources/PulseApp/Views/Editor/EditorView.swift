@@ -379,7 +379,7 @@ struct EffectsPanel: View {
             VStack(alignment: .leading, spacing: 12) {
                 SectionLabel(text: "Effects")
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 6)], spacing: 6) {
-                    ForEach(EffectKind.allCases, id: \.self) { kind in
+                    ForEach(EffectKind.builtIn, id: \.self) { kind in
                         Button { apply(kind) } label: {
                             VStack(spacing: 4) {
                                 Image(systemName: kind.symbolName).font(.system(size: 15))

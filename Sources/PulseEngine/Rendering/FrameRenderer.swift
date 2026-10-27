@@ -593,6 +593,21 @@ public final class FrameRenderer: @unchecked Sendable {
             return f.outputImage?.cropped(to: extent) ?? input
         case .shake, .zoomPulse:
             return input
+        case .plugin:
+            // An effect plugin's filter chain (#495): allowed Core Image filters with numeric inputs only.
+            guard let id = effect.pluginID, let manifest = PluginRegistry.shared.manifest(id: id), let steps = manifest.filters else { return input }
+            let values = effect.parameterValues(at: local)
+            var image = input
+            for step in steps where PluginLoader.allowedFilters.contains(step.filter) {
+                guard let filter = CIFilter(name: step.filter) else { continue }
+                filter.setValue(image.clampedToExtent(), forKey: kCIInputImageKey)
+                let inputs = Set(filter.inputKeys)
+                for (key, value) in PluginLoader.resolve(step, values: values, manifest: manifest) where inputs.contains(key) {
+                    filter.setValue(NSNumber(value: value), forKey: key)
+                }
+                if let out = filter.outputImage { image = out.cropped(to: extent) }
+            }
+            return image
         }
     }
 

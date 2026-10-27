@@ -332,6 +332,14 @@ struct ImportedAssetRow: View {
                 Button("Import Transcript (SRT/VTT)…") { pickTranscript() }
                 Button("Import Chat Replay (Twitch / YouTube)…") { pickChat() }
                 Button("Import Game Events (Riot log, CSV, JSON)…") { pickGameEvents() }
+                let signals = PluginRegistry.shared.signals
+                if !signals.isEmpty {
+                    Menu("Run Signal Plugin") {
+                        ForEach(signals) { plugin in
+                            Button(plugin.manifest.name) { session.runSignalPlugin(plugin, assetID: asset.id) }
+                        }
+                    }
+                }
                 if session.analyses[asset.id]?.chat != nil {
                     Menu("Chat Replay") {
                         Button("Chat 5 s Earlier") { session.shiftChat(by: -5, assetID: asset.id) }

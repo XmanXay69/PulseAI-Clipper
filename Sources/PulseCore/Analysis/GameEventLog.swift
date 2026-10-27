@@ -38,7 +38,7 @@ public enum GameEventLog {
     }
 
     /// Riot: {"EventID":3,"EventName":"ChampionKill","EventTime":312.4,"KillerName":"…","VictimName":"…"}
-    static func riotEvent(_ e: [String: Any]) -> HUDEvent? {
+    public static func riotEvent(_ e: [String: Any]) -> HUDEvent? {
         guard let name = e["EventName"] as? String, let time = (e["EventTime"] as? NSNumber)?.doubleValue else { return nil }
         let killer = (e["KillerName"] as? String) ?? ""
         let victim = (e["VictimName"] as? String) ?? ""
@@ -60,7 +60,7 @@ public enum GameEventLog {
     }
 
     /// {"time": 312.4, "kind": "kill", "text": "…"} — `time` may also be "5:12" or "1:05:12".
-    static func genericEvent(_ e: [String: Any]) -> HUDEvent? {
+    public static func genericEvent(_ e: [String: Any]) -> HUDEvent? {
         let time: Seconds?
         if let n = e["time"] as? NSNumber { time = n.doubleValue } else if let s = e["time"] as? String { time = seconds(from: s) } else { time = nil }
         guard let time, let kindName = (e["kind"] as? String)?.lowercased(), let kind = kind(named: kindName) else { return nil }

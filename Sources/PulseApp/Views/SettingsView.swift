@@ -5,7 +5,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, aiProcessing, aiFeatures, brandKit, performance, transcription, files, proxies, shortcuts, statistics, diagnostics, privacy
+    case general, aiProcessing, aiFeatures, brandKit, performance, transcription, files, proxies, shortcuts, plugins, statistics, diagnostics, privacy
 
     var id: String { rawValue }
 
@@ -23,6 +23,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .statistics: return "Statistics"
         case .diagnostics: return "Diagnostics"
         case .privacy: return "Privacy"
+        case .plugins: return "Plugins"
         }
     }
 
@@ -41,6 +42,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .statistics: return "stats hours saved shorts built exports"
         case .diagnostics: return "log report problem dependencies gpu encoder"
         case .privacy: return "data network telemetry offline"
+        case .plugins: return "plugin effects signals extensions custom filters"
         }
     }
 
@@ -58,6 +60,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .statistics: return "chart.bar"
         case .diagnostics: return "stethoscope"
         case .privacy: return "hand.raised"
+        case .plugins: return "puzzlepiece.extension"
         }
     }
 }
@@ -124,6 +127,7 @@ struct SettingsView: View {
                     case .statistics: StatisticsPane()
                     case .diagnostics: DiagnosticsPane()
                     case .privacy: PrivacyPane()
+                    case .plugins: PluginsPane()
                     }
                 }
                 .padding(24)
@@ -1452,6 +1456,69 @@ struct BrandVariantRow: View {
                 }
                 .labelsHidden().frame(width: 100)
             }
+        }
+    }
+}
+
+
+/// Settings → Plugins (#495): what's in the plugins folder, whether each loads, and the examples to copy.
+struct PluginsPane: View {
+    @EnvironmentObject var app: AppModel
+    @State private var plugins: [PluginRegistry.Loaded] = PluginRegistry.shared.all
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("A plugin is a folder in the Plugins folder with a plugin.json: an effect names a chain of Core Image filters with sliders, a signal names a command that reads the recording's transcript and prints events that score like banners. See docs/PLUGINS.md.")
+                .font(.pulseCaption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 8) {
+                Button { NSWorkspace.shared.open(PluginRegistry.folder) } label: { Label("Open Plugins Folder", systemImage: "folder") }
+                    .buttonStyle(.pulse(.secondary, compact: true))
+                Button { reload() } label: { Label("Reload", systemImage: "arrow.clockwise") }
+                    .buttonStyle(.pulse(.ghost, compact: true))
+                Button { writeExamples() } label: { Label("Write Example Plugins", systemImage: "doc.badge.plus") }
+                    .buttonStyle(.pulse(.ghost, compact: true))
+                    .help("Writes a Warm Glow effect and an Every Five Minutes signal into the folder as a starting point")
+            }
+            if plugins.isEmpty {
+                Text("No plugins yet.").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            }
+            ForEach(plugins) { plugin in
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Image(systemName: plugin.manifest.symbolName).foregroundStyle(plugin.isUsable ? Theme.accent : Theme.warning)
+                        Text(plugin.manifest.name).font(.pulseBody)
+                        Text("\(plugin.manifest.kind.rawValue) · v\(plugin.manifest.version)" + (plugin.manifest.author.map { " · \($0)" } ?? ""))
+                            .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                        Spacer()
+                        Text(plugin.folder.lastPathComponent).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                    }
+                    if let description = plugin.manifest.description, !description.isEmpty {
+                        Text(description).font(.pulseMicro).foregroundStyle(Theme.textSecondary)
+                    }
+                    ForEach(plugin.problems, id: \.self) { problem in
+                        Label(problem, systemImage: "exclamationmark.triangle").font(.pulseMicro).foregroundStyle(Theme.warning)
+                    }
+                }
+                .padding(8)
+                .background(RoundedRectangle(cornerRadius: 6).fill(Theme.well))
+            }
+            Spacer()
+        }
+        .padding(16)
+    }
+
+    func reload() {
+        PluginRegistry.shared.reload()
+        plugins = PluginRegistry.shared.all
+    }
+
+    func writeExamples() {
+        do {
+            try PluginRegistry.shared.writeExamples()
+            plugins = PluginRegistry.shared.all
+            app.toast("Example plugins written — edit them in the Plugins folder")
+        } catch {
+            app.present(error, title: "Couldn't write the examples")
         }
     }
 }

@@ -808,8 +808,15 @@ struct EffectsInspector: View {
     var body: some View {
         InspectorSection("Effects", expanded: !clip.effects.isEmpty, trailing: AnyView(
             Menu {
-                ForEach(EffectKind.allCases, id: \.self) { kind in
+                ForEach(EffectKind.builtIn, id: \.self) { kind in
                     Button { add(kind) } label: { Label(kind.displayName, systemImage: kind.symbolName) }
+                }
+                let plugins = PluginRegistry.shared.effects
+                if !plugins.isEmpty {
+                    Divider()
+                    ForEach(plugins) { plugin in
+                        Button { add(plugin: plugin) } label: { Label(plugin.name, systemImage: plugin.symbolName) }
+                    }
                 }
             } label: { Image(systemName: "plus") }
                 .menuStyle(.borderlessButton).frame(width: 24)
@@ -821,7 +828,11 @@ struct EffectsInspector: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Image(systemName: effect.kind.symbolName).foregroundStyle(Theme.textSecondary)
-                        Text(effect.kind.displayName).font(.pulseCaption).foregroundStyle(Theme.textPrimary)
+                        Text(effect.displayName).font(.pulseCaption).foregroundStyle(Theme.textPrimary)
+                        if effect.kind == .plugin, effect.pluginID.flatMap({ PluginRegistry.shared.manifest(id: $0) }) == nil {
+                            Text("plugin missing").font(.pulseMicro).foregroundStyle(Theme.warning)
+                                .help("This effect's plugin isn't in the Plugins folder; the clip renders without it")
+                        }
                         if effect.aiGenerated { AIBadge() }
                         Spacer()
                         Toggle("", isOn: Binding(get: { effect.isEnabled }, set: { on in update(effect.id) { $0.isEnabled = on } }))
@@ -830,15 +841,32 @@ struct EffectsInspector: View {
                             .buttonStyle(.plain).foregroundStyle(Theme.textTertiary)
                     }
                     ForEach(effect.parameters.keys.sorted(), id: \.self) { name in
-                        LabeledSlider(label: name.capitalized, value: Binding(get: { effect.parameters[name]?.value ?? 0 }, set: { v in
+                        LabeledSlider(label: label(for: name, in: effect), value: Binding(get: { effect.parameters[name]?.value ?? 0 }, set: { v in
                             update(effect.id) { $0.parameters[name] = AnimatedDouble(v) }
-                        }), range: range(for: name), format: "%.2f", onEditingChanged: { if !$0 { session.commitCoalescing() } })
+                        }), range: range(for: name, in: effect), format: "%.2f", onEditingChanged: { if !$0 { session.commitCoalescing() } })
                     }
                 }
                 .padding(8)
                 .background(RoundedRectangle(cornerRadius: 4).fill(Theme.well))
             }
         }
+    }
+
+    /// A plugin's slider keeps the name and range its manifest declares (#495).
+    func label(for parameter: String, in effect: EffectInstance) -> String {
+        if effect.kind == .plugin, let id = effect.pluginID, let p = PluginRegistry.shared.manifest(id: id)?.parameters?.first(where: { $0.key == parameter }) { return p.name }
+        return parameter.capitalized
+    }
+
+    func range(for parameter: String, in effect: EffectInstance) -> ClosedRange<Double> {
+        if effect.kind == .plugin, let id = effect.pluginID, let p = PluginRegistry.shared.manifest(id: id)?.parameters?.first(where: { $0.key == parameter }), p.min < p.max {
+            return p.min...p.max
+        }
+        return range(for: parameter)
+    }
+
+    func add(plugin: PluginManifest) {
+        session.editClip(clip.id, "Add \(plugin.name)") { $0.effects.append(EffectInstance(plugin: plugin)) }
     }
 
     func range(for parameter: String) -> ClosedRange<Double> {
