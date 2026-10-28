@@ -73,7 +73,9 @@ Key files to know:
   handler + a one-second poll of the job's cancel flag); `Sources/PulseEngine/Media/RangedDownloader.swift` is the
   one ranged download (pieces written at their offsets, size limit per caller, byte progress) behind music, B-roll
   and VOD fetches; `CameraCapture.start/stop` time out (10 s / 20 s); `ScreenCapture` gets its stream delegate
-  through `StreamDelegateProxy`; `ProjectSession.close()` stops the phone review page.
+  through `StreamDelegateProxy`; `ProjectSession.close()` stops the phone review page. The UI moved to a flat, restrained design system in
+  `Sources/PulseApp/Design/Theme.swift` + `Components.swift` (tokens first, then chrome in `RootView.swift`, the editor in
+  `Views/Editor/`, Home); the old gradient/glow helpers are kept as no-ops so nothing else had to change.
 - 1.6.2 additions: `Sources/PulseEngine/Playback/PlaybackController.swift` takes a `renderScale` (viewer quality,
   #187) and publishes `isStruggling` when media time falls behind the clock; `ProjectSession.playbackQualityOverride`
   is the automatic step-down. `Sources/PulseEngine/System/MemoryPressure.swift` (#377) trims

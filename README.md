@@ -18,7 +18,9 @@ Already installed? PULSE shows an **Update** button when a new version is out �
 AVFoundation expects, YouTube uploads resume after a dropped connection or a server error, dubbing can't hang on
 a silent voice, signal plugins can't stall on a full log pipe, split recordings join file by file, cancelling an
 analysis actually stops whisper.cpp, a camera that never answers can't hang a recording, and a VOD by link downloads
-whole (the 60 MB limit was the music library's) ([notes](versions/1.6.3/NOTES.md)).
+whole (the 60 MB limit was the music library's). The whole app also moves to a restrained, professional design
+system — charcoal surfaces, hairline borders, flat controls, one accent, a compact title bar and page bar, a calmer
+timeline — with every feature where it was ([notes](versions/1.6.3/NOTES.md)).
 
 **New in 1.6.2:** chapter art (a picture per chapter marker for the description), a sortable list view in the
 media panel, a GPU self-test that switches to safe mode by itself, the shuttle speed on the transport bar,

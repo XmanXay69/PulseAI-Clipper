@@ -4,6 +4,27 @@ A hardening pass on top of [1.6.2](../1.6.2/NOTES.md): the roadmap is complete, 
 the engine code the last batches shipped and makes each piece behave the way the frameworks expect, before
 any of it meets a real recording.
 
+### Design
+A restrained, professional look across the whole app, in the spirit of a grading and editing suite rather than a
+dashboard — the same features, the same workflows, quieter surfaces.
+- **One design system.** Deep charcoal surfaces (never pure black; the viewer well is the darkest), hairline
+  borders and tonal steps instead of shadows, corner radii of 3–8 pt, flat fills with no gradients or glows, one
+  accent for primary actions, selected tools and the playhead, the AI violet only as a marker on what the AI made,
+  and semantic colours only for warnings, errors and success. Muted track colours keep a dense timeline calm.
+- **Chrome.** A 40 pt title bar reads "Project / Page" with the save state beside the name, a compact search
+  field, the background-task and system indicators and an outlined version badge. The rail marks the current
+  section with a 2 pt accent bar. The page bar along the bottom is a flat tab strip — Media · AI Clips · Edit ·
+  Captions · Deliver — with a 2 pt indicator over the current page.
+- **Editor.** The workspace bar holds the editor's own layouts (Editing, Color, Audio); AI Clips, Captions and
+  Export are pages of their own, so they no longer repeat there (View → Workspace still lists every preset). The
+  viewer sits on a darker well with a thin frame; the transport is flat with the timecode in the primary text
+  colour and an accent-filled play button only while playing. Timeline clips are flat tiles with a plain label,
+  a hairline in the clip's colour and a white border when selected; the playhead is a 1 pt line with no glow;
+  the toolbar and track headers sit on the panel colour.
+- **Pages.** Home is a plain panel with a headline, the two starting points and a grid of compact action rows
+  with monochrome icons — no gradient hero, no lifted cards. Project cards, clip cards, media tiles and the drop
+  zone follow the same tokens. Preset swatches have a flat backdrop.
+
 ### Fixes
 - **Two-pass export** (#343) now drives AVFoundation's multi-pass API the way it is documented: every pass
   starts from the encoder's pass description, the reader is reset to the stretches it names, media is
@@ -56,3 +77,7 @@ any of it meets a real recording.
   uses the task handler.
 - `RangedDownloader` (engine) is the one ranged download: `OnlineMusicLibrary.rangedDownload` (60 MiB) and
   `downloadLarge` (12 GiB, with byte progress) call it.
+- `Sources/PulseApp/Design/Theme.swift` is the design system: surfaces, borders, text, accents, track colours,
+  radii, the type scale. `accentGradient`, `aiGradient` and `edgeHighlight` remain as flat no-ops so older call
+  sites compile; `elevation(1)` draws nothing, `elevation(2)` a soft popover shadow. `PulseButtonStyle` is flat;
+  `WorkspaceBar.editorPresets` lists the layouts the bar shows.
