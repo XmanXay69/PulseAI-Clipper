@@ -18,11 +18,14 @@ jobs:
     name: Build & Test (${{ matrix.os }})
     # Hosted macOS runners are scarce at times; queue the same job on several images (Apple silicon and Intel
     # pools are separate) and take whichever starts. Each image compiles the whole package, so one green job is
-    # a full verification.
+    # a full verification. macos-14 is no longer in the list: GitHub's pool for that image has all but dried up
+    # (in the last dozen runs it got a machine once and was cancelled after a 15-minute wait every other time),
+    # and each cancelled job marked the whole run as failed. The app still runs on macOS 14 — that is the
+    # deployment target in Package.swift, which every image enforces when it compiles.
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, macos-15, macos-26, macos-15-intel]
+        os: [macos-15, macos-26, macos-15-intel]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     steps:

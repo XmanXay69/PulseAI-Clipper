@@ -7,7 +7,9 @@
 **Branch:** `claude/exciting-bardeen-df149p`
 **Build:** Swift Package (`Package.swift`, tools 5.10, Swift 5 language mode), macOS 14+ (Apple Silicon first,
 works on macOS 15 and 26). CI compiles, tests and screenshots the app on GitHub Actions runners
-(`.github/workflows/ci.yml`, matrix `macos-14`, `macos-15`, `macos-26`, `macos-15-intel`) because the cloud dev
+(`.github/workflows/ci.yml`, matrix `macos-15`, `macos-26`, `macos-15-intel`; `macos-14` was dropped in 1.6.3 because
+GitHub's pool for that image stopped handing out machines and every 15-minute no-runner cancellation marked the run
+failed — the macOS 14 deployment target is still enforced by every image) because the cloud dev
 box used to write it is Linux. Apple-silicon runners are often queued or cancelled for lack of capacity; the
 Intel and `macos-15` jobs are the ones that usually finish, and one green job is enough to trust a push.
 
@@ -124,7 +126,7 @@ Key files to know:
       synced sessions, Angles panel, live 1–9 cuts, AI active-speaker switching, grid layouts (2-up, 3-up, 2×2, featured)
 - [x] Phase 9 — compound clips (nest/open/break apart, rendered and exported) and local speaker diarization
 
-### What CI actually verifies on every push (macOS 14 / 15 / 26 / 15-intel runners)
+### What CI actually verifies on every push (macOS 15 / 26 / 15-intel runners)
 
 - 366 unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
   captions, layouts, export settings, audio DSP, the fuzzed timeline invariants, and one `BatchNTests.swift`
