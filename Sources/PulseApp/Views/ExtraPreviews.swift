@@ -9,7 +9,7 @@ struct ExtraPreview: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Color(hex: 0x2A2F45), Color(hex: 0x151722)], startPoint: .top, endPoint: .bottom)
+            Color(hex: 0x1C1F2A)
             content
         }
         .frame(width: 88, height: 50)

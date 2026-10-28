@@ -310,8 +310,8 @@ struct MediaTile: View {
             .foregroundStyle(Theme.textTertiary)
         }
         .padding(8)
-        .background(RoundedRectangle(cornerRadius: 8).fill(selected ? Theme.control : Theme.panelRaised))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(selected ? Theme.accent : Theme.border))
+        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(selected ? Theme.control : Theme.panelRaised))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(selected ? Theme.accent : Theme.border))
     }
 }
 
@@ -363,14 +363,14 @@ struct TemplateCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ZStack {
-                LinearGradient(colors: [Color(hex: 0x1D2233), Color(hex: 0x0F1118)], startPoint: .top, endPoint: .bottom)
+                Color(hex: 0x171A24)
                 HStack(spacing: 14) {
                     Image(systemName: template.layout.symbolName).font(.system(size: 26)).foregroundStyle(Theme.textSecondary)
                     CaptionPresetSwatch(style: template.captionStyle, selected: false).frame(width: 110)
                 }
             }
             .frame(height: 110)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLarge))
             HStack {
                 Text(template.name).font(.pulseHeadline).foregroundStyle(Theme.textPrimary)
                 Spacer()

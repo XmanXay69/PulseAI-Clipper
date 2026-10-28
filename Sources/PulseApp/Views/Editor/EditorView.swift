@@ -99,22 +99,26 @@ struct PanelWidths {
 struct WorkspaceBar: View {
     @EnvironmentObject var app: AppModel
 
+    /// The editor's own layouts. AI Clips, Captions and Export are pages of their own on the page bar (and in
+    /// View → Workspace), so they don't repeat here.
+    static let editorPresets: [WorkspacePreset] = [.editing, .color, .audio]
+
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(WorkspacePreset.allCases, id: \.self) { preset in
+            SectionLabel(text: "Layout").padding(.trailing, 4)
+            ForEach(Self.editorPresets, id: \.self) { preset in
+                let selected = app.settings.currentWorkspace == preset
                 Button {
                     app.settings.currentWorkspace = preset
-                    if preset == .aiClips { app.section = .aiClips }
-                    if preset == .captions { app.section = .captions }
-                    if preset == .export { app.section = .exports }
                 } label: {
                     Text(preset.displayName)
-                        .font(.system(size: 11, weight: app.settings.currentWorkspace == preset ? .semibold : .regular))
-                        .padding(.horizontal, 10).padding(.vertical, 4)
-                        .foregroundStyle(app.settings.currentWorkspace == preset ? Theme.textPrimary : Theme.textTertiary)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(app.settings.currentWorkspace == preset ? Theme.control : .clear))
+                        .font(.system(size: 11, weight: selected ? .semibold : .medium))
+                        .padding(.horizontal, 9).padding(.vertical, 3)
+                        .foregroundStyle(selected ? Theme.textPrimary : Theme.textTertiary)
+                        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(selected ? Theme.control : .clear))
                 }
                 .buttonStyle(.plain)
+                .help(preset == .editing ? "Media, viewer, inspector and timeline" : (preset == .color ? "A wider inspector for grading" : "A taller timeline for the mix"))
             }
             Spacer()
             let layout = app.settings.layout(for: app.settings.currentWorkspace)
@@ -125,8 +129,8 @@ struct WorkspaceBar: View {
                 app.settings.workspaces[app.settings.currentWorkspace.rawValue] = nil
             }
         }
-        .padding(.horizontal, 8)
-        .frame(height: 30)
+        .padding(.horizontal, 10)
+        .frame(height: 28)
         .background(Theme.panel)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
     }
@@ -202,7 +206,8 @@ struct LeftPanel: View {
             }
             .animation(Theme.motion(.easeOut(duration: 0.12)), value: hoveredTab)
             .animation(Theme.motion(.easeOut(duration: 0.12)), value: session.leftTab)
-            .padding(4)
+            .padding(.horizontal, 6).padding(.vertical, 3)
+            .frame(height: 30)
             .background(Theme.panel)
             .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
             switch session.leftTab {

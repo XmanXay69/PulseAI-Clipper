@@ -270,7 +270,7 @@ struct ClipCandidateCard: View {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(alignment: .top) {
                     Text(candidate.title)
-                        .font(.system(size: 13, weight: .heavy))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(2)
                     Spacer(minLength: 4)
@@ -350,13 +350,10 @@ struct ClipCandidateCard: View {
             }
             .padding(10)
         }
-        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(Theme.panelRaised))
+        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(hovering && !isSelected ? Theme.control.opacity(0.4) : Theme.panelRaised))
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLarge))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(isSelected ? Theme.ai : (hovering ? Theme.borderStrong : Theme.border), lineWidth: isSelected ? 2 : 1))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(Theme.edgeHighlight, lineWidth: 1))
-        .shadow(color: isSelected ? Theme.ai.opacity(0.25) : .black.opacity(hovering ? 0.35 : 0.22), radius: hovering ? 16 : 8, y: hovering ? 8 : 3)
-        .offset(y: hovering ? -2 : 0)
-        .animation(Theme.motion(.easeOut(duration: 0.14)), value: hovering)
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(isSelected ? Theme.accent : (hovering ? Theme.borderStrong : Theme.border), lineWidth: isSelected ? 1.5 : 1))
+        .animation(Theme.motion(.easeOut(duration: 0.12)), value: hovering)
         .onHover { hovering = $0 }
         .contextMenu {
             Button("Open in Editor") { session.createShort(from: candidate.id) }

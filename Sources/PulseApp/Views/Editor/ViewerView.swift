@@ -147,8 +147,8 @@ struct ViewerView: View {
                         }
                     }
                     .frame(width: frameSize.width, height: frameSize.height)
-                    .overlay(Rectangle().strokeBorder(Theme.borderStrong, lineWidth: 1))
-                    .shadow(color: .black.opacity(0.5), radius: 20)
+                    .overlay(Rectangle().strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.35), radius: 10, y: 2)
                     .frame(width: max(geo.size.width, frameSize.width + 32), height: max(geo.size.height, frameSize.height + 32))
                 }
                 .background(Theme.well)
@@ -239,8 +239,8 @@ struct ViewerView: View {
                 .help("Safe-area guides for TikTok, Shorts and Reels")
             IconButton(symbol: "arrow.up.left.and.arrow.down.right", help: "Full screen") { toggleFullscreen() }
         }
-        .padding(.horizontal, 12)
-        .frame(height: 34)
+        .padding(.horizontal, 10)
+        .frame(height: 30)
         .background(Theme.panel)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
     }
@@ -556,8 +556,8 @@ struct TransportBar: View {
                     .onSubmit { commitTimecode() }
                     .onExitCommand { editingTimecode = false }
                     .padding(.horizontal, 8)
-                    .frame(minWidth: 120, maxWidth: 136, alignment: .leading)
-                    .frame(height: 26)
+                    .frame(minWidth: 112, maxWidth: 128, alignment: .leading)
+                    .frame(height: 24)
                     .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.well))
                     .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.accent))
                     .onAppear { timecodeFocused = true }
@@ -565,11 +565,11 @@ struct TransportBar: View {
                 ClockObserving(clock: playback.clock) {
                     Text(Timecode.display(playback.currentTime, fps: playback.frameRate, style: app.settings.timecodeStyle))
                         .font(.pulseTimecode)
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.textPrimary)
                         .fixedSize()
                         .padding(.horizontal, 8)
-                        .frame(minWidth: 120, maxWidth: 136, alignment: .leading)
-                        .frame(height: 26)
+                        .frame(minWidth: 112, maxWidth: 128, alignment: .leading)
+                        .frame(height: 24)
                         .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.well))
                         .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.border))
                         .contentShape(Rectangle())
@@ -582,14 +582,10 @@ struct TransportBar: View {
             IconButton(symbol: "backward.frame.fill", help: "Previous frame (←)") { playback.step(frames: -1); app.tick() }
             Button { playback.togglePlayPause() } label: {
                 Image(systemName: playback.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 44, height: 30)
-                    .background(
-                        RoundedRectangle(cornerRadius: Theme.radius)
-                            .fill(playback.isPlaying ? AnyShapeStyle(Theme.accentGradient) : AnyShapeStyle(Theme.control))
-                    )
-                    .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.edgeHighlight, lineWidth: 1))
-                    .shadow(color: playback.isPlaying ? Theme.accent.opacity(0.35) : .clear, radius: 8, y: 2)
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 40, height: 26)
+                    .background(RoundedRectangle(cornerRadius: Theme.radius).fill(playback.isPlaying ? Theme.accent : Theme.control))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(playback.isPlaying ? .clear : Theme.borderStrong.opacity(0.7)))
                     .foregroundStyle(playback.isPlaying ? Color.white : Theme.textPrimary)
             }
             .buttonStyle(.plain)
@@ -618,8 +614,8 @@ struct TransportBar: View {
             }
             .frame(minWidth: 90, maxWidth: 220, alignment: .trailing)
         }
-        .padding(.horizontal, 12)
-        .frame(height: 40)
+        .padding(.horizontal, 10)
+        .frame(height: 36)
         .background(Theme.panel)
         .overlay(alignment: .top) { Rectangle().fill(Theme.divider).frame(height: 1) }
     }

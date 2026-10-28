@@ -147,9 +147,9 @@ struct TimelineToolbar: View {
             Image(systemName: "plus.magnifyingglass").font(.system(size: 10)).foregroundStyle(Theme.textTertiary)
             IconButton(symbol: "arrow.left.and.right.square", help: "Zoom to fit") { zoomToFit() }
         }
-        .padding(.horizontal, 10)
-        .frame(height: 34)
-        .background(Theme.panelRaised)
+        .padding(.horizontal, 8)
+        .frame(height: 32)
+        .background(Theme.panel)
         .onAppear {
             TimelineMetrics.compact = app.settings.compactTimeline || (session.activeTimeline?.allClips.count ?? 0) > 300
             TimelineMetrics.heightScale = CGFloat(app.settings.trackHeight.scale)
@@ -522,7 +522,7 @@ struct TrackHeader: View {
         .frame(height: TimelineMetrics.laneHeight(track.kind))
         .background(Theme.panelRaised)
         .overlay(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 1.5).fill(labelColor.opacity(track.isHidden || track.isMuted ? 0.3 : 0.9)).frame(width: 3).padding(.vertical, 6)
+            Rectangle().fill(labelColor.opacity(track.isHidden || track.isMuted ? 0.3 : 0.85)).frame(width: 3)
         }
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
         .contextMenu {
@@ -769,8 +769,7 @@ struct PlayheadLine: View {
     var body: some View {
         Rectangle()
             .fill(Theme.accent)
-            .frame(width: 1.5)
-            .shadow(color: Theme.accent.opacity(0.7), radius: 3)
+            .frame(width: 1)
             .offset(x: CGFloat(clock.time) * pps)
             .allowsHitTesting(false)
     }
@@ -807,9 +806,8 @@ struct PlayheadHead: View {
             head.addLine(to: CGPoint(x: -6, y: 12))
             head.closeSubpath()
         }
-        .fill(Theme.accentGradient)
+        .fill(Theme.accent)
         .frame(width: 12, height: 20)
-        .shadow(color: Theme.accent.opacity(0.6), radius: 4, y: 1)
         .offset(x: CGFloat(clock.time) * pps - 6)
         .allowsHitTesting(false)
     }
@@ -1057,11 +1055,10 @@ struct TimelineClipView: View, Equatable {
         let x = CGFloat(clip.start) * pps + moveOffset.width + trimLeading
         let w = max(CGFloat(clip.duration) * pps - trimLeading + trimTrailing, 3)
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 5)
-                .fill(LinearGradient(colors: [color.opacity(clip.isEnabled ? 0.44 : 0.14), color.opacity(clip.isEnabled ? 0.22 : 0.08)],
-                                     startPoint: .top, endPoint: .bottom))
+            RoundedRectangle(cornerRadius: Theme.radiusSmall)
+                .fill(color.opacity(clip.isEnabled ? 0.3 : 0.1))
             clipContent(width: w)
-                .clipShape(RoundedRectangle(cornerRadius: 5))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusSmall))
             if isSelected, KeyframeLane.hasKeyframes(clip) {
                 KeyframeLane(session: session, playback: playback, clip: clip, pps: pps)
                     .frame(width: w, height: 12)
@@ -1071,23 +1068,21 @@ struct TimelineClipView: View, Equatable {
             HStack(spacing: 4) {
                 if clip.aiGenerated { Image(systemName: "sparkles").font(.system(size: 8, weight: .bold)).foregroundStyle(Theme.ai) }
                 if clip.linkGroup != nil { Image(systemName: "link").font(.system(size: 7, weight: .bold)).foregroundStyle(.white.opacity(0.55)) }
-                Text(label).font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.94)).lineLimit(1)
+                Text(label).font(.system(size: 10, weight: .medium)).foregroundStyle(.white.opacity(0.94)).lineLimit(1)
                 if clip.speed != 1 { Text(String(format: "%.2g×", clip.speed)).font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.warning) }
             }
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .background(Capsule().fill(.black.opacity(0.42)))
-            .padding(3)
+            .background(RoundedRectangle(cornerRadius: 2).fill(.black.opacity(0.45)))
+            .padding(2)
             if isSelected { keyframeMarks(width: w) }
             transitionMarks(width: w)
             if let labelColor = clip.labelColor {
-                UnevenRoundedRectangle(topLeadingRadius: 5, bottomLeadingRadius: 5, bottomTrailingRadius: 0, topTrailingRadius: 0)
-                    .fill(Color(labelColor.rgba)).frame(width: 4)
+                UnevenRoundedRectangle(topLeadingRadius: Theme.radiusSmall, bottomLeadingRadius: Theme.radiusSmall, bottomTrailingRadius: 0, topTrailingRadius: 0)
+                    .fill(Color(labelColor.rgba)).frame(width: 3)
             }
-            RoundedRectangle(cornerRadius: 5)
-                .strokeBorder(LinearGradient(colors: [.white.opacity(0.2), .clear], startPoint: .top, endPoint: .bottom), lineWidth: 1)
-            RoundedRectangle(cornerRadius: 5)
-                .strokeBorder(isSelected ? Color.white : (hovering ? color : color.opacity(0.75)), lineWidth: isSelected ? 1.5 : 1)
+            RoundedRectangle(cornerRadius: Theme.radiusSmall)
+                .strokeBorder(isSelected ? Color.white.opacity(0.95) : (hovering ? color.opacity(0.9) : color.opacity(0.55)), lineWidth: isSelected ? 1.5 : 1)
             // Trim handles.
             if !trackLocked {
                 trimHandle(leading: true).frame(width: 7, height: height).offset(x: 0)
@@ -1095,7 +1090,7 @@ struct TimelineClipView: View, Equatable {
             }
         }
         .frame(width: w, height: height)
-        .shadow(color: clipShadow, radius: 6, y: moveOffset == .zero ? 0 : 4)
+        .shadow(color: clipShadow, radius: moveOffset == .zero ? 0 : 8, y: moveOffset == .zero ? 0 : 4)
         .offset(x: x, y: 3 + moveOffset.height)
         .zIndex(moveOffset == .zero ? 0 : 10)
         .onHover { hovering = $0 }
@@ -1114,10 +1109,9 @@ struct TimelineClipView: View, Equatable {
         .help(helpText)
     }
 
-    /// A soft white glow when selected; a drop shadow while being dragged.
+    /// A drop shadow only while the clip is being dragged; selection is the white border.
     var clipShadow: Color {
-        if isSelected { return Color.white.opacity(0.22) }
-        return moveOffset == .zero ? Color.clear : Color.black.opacity(0.5)
+        moveOffset == .zero ? Color.clear : Color.black.opacity(0.5)
     }
 
     var label: String {
@@ -1158,12 +1152,12 @@ struct TimelineClipView: View, Equatable {
                 }
             }
         case .text:
-            LinearGradient(colors: [color.opacity(0.5), color.opacity(0.25)], startPoint: .top, endPoint: .bottom)
+            color.opacity(0.35)
         case .solid(let c):
             Color(c)
         case .compound:
             ZStack(alignment: .leading) {
-                LinearGradient(colors: [color.opacity(0.55), color.opacity(0.3)], startPoint: .top, endPoint: .bottom)
+                color.opacity(0.4)
                 if hovering, width > 150 {
                     // Open inside / flatten, right on the clip (#166).
                     HStack(spacing: 4) {
@@ -1441,7 +1435,7 @@ struct WaveformStrip: View {
                 let h = max(1, CGFloat(min(1, Double(sqrt(v)) * gain)) * size.height * 0.95)
                 path.addRect(CGRect(x: x, y: mid - h / 2, width: max(1, size.width / CGFloat(buckets) - 0.5), height: h))
             }
-            ctx.fill(path, with: .color(color.opacity(0.9)))
+            ctx.fill(path, with: .color(color.opacity(0.8)))
         }
         .task(id: url) { peaks = await WaveformService.shared.peaks(for: url) }
     }

@@ -156,8 +156,8 @@ struct DropZone: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(RoundedRectangle(cornerRadius: 14).fill(targeted ? Theme.accentSoft : Theme.panelRaised))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(targeted ? Theme.accent : Theme.borderStrong, style: StrokeStyle(lineWidth: 1.5, dash: [7, 5])))
+        .background(RoundedRectangle(cornerRadius: Theme.radiusXL).fill(targeted ? Theme.accentSoft : Theme.panelRaised))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusXL).strokeBorder(targeted ? Theme.accent : Theme.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [6, 5])))
         .onDrop(of: [.fileURL], isTargeted: $targeted) { providers in
             loadURLs(from: providers) { onDrop($0) }
             return true

@@ -140,17 +140,17 @@ struct Sidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 8) {
-                Image(nsImage: AppIcon.render(size: 64)).resizable().frame(width: 26, height: 26)
+                Image(nsImage: AppIcon.render(size: 64)).resizable().frame(width: 22, height: 22)
                 if !collapsed {
-                    Text("PULSE").font(.system(size: 15, weight: .heavy)).tracking(2).foregroundStyle(Theme.accentGradient)
+                    Text("PULSE").font(.system(size: 13, weight: .bold)).tracking(1.5).foregroundStyle(Theme.textPrimary)
                     Text(AppModel.shortVersion).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
                         .help("PULSE \(AppModel.versionString)")
                     Spacer()
                 }
             }
-            .padding(.horizontal, collapsed ? 13 : 14)
-            .padding(.top, 34)
-            .padding(.bottom, 14)
+            .padding(.horizontal, collapsed ? 15 : 16)
+            .padding(.top, 36)
+            .padding(.bottom, 12)
 
             ForEach(Array(Self.groups.enumerated()), id: \.offset) { index, group in
                 if let title = group.title, !collapsed {
@@ -242,10 +242,10 @@ struct SidebarItem: View {
                 }
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 7)
+            .padding(.vertical, 6)
             .background(RoundedRectangle(cornerRadius: Theme.radius).fill(isSelected ? Theme.control : (hovering ? Theme.control.opacity(0.5) : .clear)))
             .overlay(alignment: .leading) {
-                if isSelected { Capsule().fill(Theme.accentGradient).frame(width: 3, height: 16).offset(x: -3) }
+                if isSelected { RoundedRectangle(cornerRadius: 1).fill(Theme.accent).frame(width: 2, height: 14).offset(x: -4) }
             }
             .padding(.horizontal, 6)
             .contentShape(Rectangle())
@@ -275,28 +275,26 @@ struct PageBar: View {
     var body: some View {
         HStack(spacing: 0) {
             Button { app.section = .home } label: {
-                Image(systemName: "house").font(.system(size: 13)).foregroundStyle(Theme.textTertiary).frame(width: 40, height: 40)
+                Image(systemName: "house").font(.system(size: 12)).foregroundStyle(Theme.textTertiary).frame(width: 40, height: 36)
             }
             .buttonStyle(.plain)
             .help("Home")
             Spacer(minLength: 8)
-            HStack(spacing: 2) {
+            // The pages of the workflow, left to right, the way a post-production suite lays them out.
+            HStack(spacing: 0) {
                 ForEach(Self.pages, id: \.0) { page in
                     PageBarItem(section: page.0, title: page.1, symbol: page.2)
                 }
             }
-            .padding(3)
-            .background(Capsule().fill(Theme.well))
-            .overlay(Capsule().strokeBorder(Theme.border))
             Spacer(minLength: 8)
             Button { app.showLongFormSheet = true } label: {
                 Label("Edit My VOD", systemImage: "film.stack")
             }
             .buttonStyle(.pulse(.ai, compact: true))
-            .padding(.trailing, 12)
+            .padding(.trailing, 10)
             .help("Turn the whole stream into a 10–20 minute YouTube video")
         }
-        .frame(height: 46)
+        .frame(height: 36)
         .background(Theme.panel)
         .overlay(alignment: .top) { Rectangle().fill(Theme.divider).frame(height: 1) }
     }
@@ -314,14 +312,15 @@ struct PageBarItem: View {
     var body: some View {
         Button { app.section = section } label: {
             HStack(spacing: 6) {
-                Image(systemName: symbol).font(.system(size: 12, weight: .semibold))
-                Text(title).font(.system(size: 11, weight: .semibold))
+                Image(systemName: symbol).font(.system(size: 11, weight: .medium))
+                Text(title).font(.system(size: 11, weight: selected ? .semibold : .medium))
             }
-            .foregroundStyle(selected ? Theme.accent : (hovering ? Theme.textPrimary : Theme.textSecondary))
-            .padding(.horizontal, 12)
-            .frame(height: 28)
-            .background(Capsule().fill(selected ? Theme.accentSoft : (hovering ? Theme.control : .clear)))
-            .contentShape(Capsule())
+            .foregroundStyle(selected ? Theme.textPrimary : (hovering ? Theme.textPrimary : Theme.textSecondary))
+            .padding(.horizontal, 14)
+            .frame(height: 36)
+            .background(Rectangle().fill(hovering && !selected ? Theme.control.opacity(0.5) : .clear))
+            .overlay(alignment: .top) { Rectangle().fill(selected ? Theme.accent : .clear).frame(height: 2) }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
@@ -335,33 +334,33 @@ struct TopBar: View {
     @EnvironmentObject var app: AppModel
 
     var body: some View {
-        HStack(spacing: 12) {
-            HStack(spacing: 7) {
+        HStack(spacing: 10) {
+            HStack(spacing: 6) {
                 if let session = app.session {
-                    Text(session.document.name).font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.textSecondary).lineLimit(1)
-                    Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.textTertiary)
+                    Text(session.document.name).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                    SaveStateBadge(session: session)
+                    Text("/").font(.system(size: 12)).foregroundStyle(Theme.textTertiary)
                 }
-                Text(app.section.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                if let session = app.session {
-                    SaveStateBadge(session: session).padding(.leading, 4)
-                }
+                Text(app.section.title).font(.system(size: 12.5, weight: app.session == nil ? .semibold : .regular))
+                    .foregroundStyle(app.session == nil ? Theme.textPrimary : Theme.textSecondary)
             }
             Spacer()
             Button { app.showGlobalSearch = true } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass")
-                    Text("Search projects, clips, transcript…").lineLimit(1)
+                    Image(systemName: "magnifyingglass").font(.system(size: 10, weight: .medium))
+                    Text("Search").lineLimit(1)
                     Spacer()
                     Text("⌘F").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
                 }
                 .font(.pulseCaption)
                 .foregroundStyle(Theme.textTertiary)
-                .padding(.horizontal, 10)
-                .frame(width: 280, height: 26)
+                .padding(.horizontal, 8)
+                .frame(width: 200, height: 24)
                 .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.well))
                 .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.border))
             }
             .buttonStyle(.plain)
+            .help("Search projects, clips and the transcript; also the command palette")
             JobsIndicator(jobs: app.jobs)
             SystemStatusIndicator()
             if app.session != nil {
@@ -370,9 +369,9 @@ struct TopBar: View {
             }
             VersionBadge()
         }
-        .padding(.leading, 16)
-        .padding(.trailing, 14)
-        .frame(height: 50)
+        .padding(.leading, 14)
+        .padding(.trailing, 12)
+        .frame(height: 40)
         .background(Theme.panel)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
     }
@@ -388,13 +387,13 @@ struct VersionBadge: View {
         Button { app.updater.showSheet = true } label: {
             HStack(spacing: 4) {
                 if update != nil { Image(systemName: "arrow.down.circle.fill").font(.system(size: 10)) }
-                Text(update.map { "Update to \($0.version.description)" } ?? (AppModel.shortVersion == "dev" ? "dev build" : "v\(AppModel.shortVersion)"))
-                    .font(.system(size: update != nil ? 11 : 10, weight: update != nil ? .bold : .semibold, design: .rounded)).monospacedDigit()
+                Text(update.map { "Update to \($0.version.description)" } ?? (AppModel.shortVersion == "dev" ? "dev" : "v\(AppModel.shortVersion)"))
+                    .font(.system(size: 10, weight: update != nil ? .semibold : .medium)).monospacedDigit()
             }
-            .padding(.horizontal, update != nil ? 4 : 0).padding(.vertical, update != nil ? 2 : 0)
-            .foregroundStyle(update != nil ? Color.white : Theme.textSecondary)
-            .padding(.horizontal, 7).padding(.vertical, 3)
-            .background(Capsule().fill(update != nil ? Theme.accent : Theme.control))
+            .foregroundStyle(update != nil ? Color.white : Theme.textTertiary)
+            .padding(.horizontal, 7).frame(height: 22)
+            .background(RoundedRectangle(cornerRadius: Theme.radius).fill(update != nil ? Theme.accent : .clear))
+            .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(update != nil ? .clear : Theme.border))
         }
         .buttonStyle(.plain)
         .help(update != nil ? "A new version of PULSE is ready — click to see what's new and install" : "PULSE \(AppModel.versionString) — click to check for updates")
@@ -434,11 +433,11 @@ struct SystemStatusIndicator: View {
         let online = Connectivity.shared.isOnline
         Button { showPopover.toggle() } label: {
             HStack(spacing: 5) {
-                Circle().fill(attention ? Theme.warning : Theme.success).frame(width: 7, height: 7)
-                Text(location == .local ? "LOCAL" : "CLOUD").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                Circle().fill(attention ? Theme.warning : Theme.success).frame(width: 6, height: 6)
+                Text(location == .local ? "LOCAL" : "CLOUD").font(.system(size: 9, weight: .semibold)).tracking(0.5).foregroundStyle(Theme.textTertiary)
             }
-            .padding(.horizontal, 8).frame(height: 24)
-            .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.control))
+            .padding(.horizontal, 8).frame(height: 22)
+            .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.control.opacity(0.6)))
         }
         .buttonStyle(.plain)
         .help(attention ? "Something needs a look — click for details" : "Everything's normal — click for details")
@@ -488,8 +487,8 @@ struct JobsIndicator: View {
                 }
             }
             .padding(.horizontal, 8)
-            .frame(height: 26)
-            .background(RoundedRectangle(cornerRadius: Theme.radius).fill(running.isEmpty ? .clear : Theme.control))
+            .frame(height: 24)
+            .background(RoundedRectangle(cornerRadius: Theme.radius).fill(running.isEmpty ? .clear : Theme.control.opacity(0.6)))
         }
         .buttonStyle(.plain)
         .help("Background tasks")
@@ -580,10 +579,9 @@ struct ToastView: View {
                 }
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(Capsule().fill(Theme.elevated))
-            .overlay(Capsule().strokeBorder(Theme.borderStrong))
-            .overlay(Capsule().strokeBorder(Theme.edgeHighlight, lineWidth: 1))
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(Theme.elevated))
+            .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(Theme.borderStrong))
             .elevation(2)
             .padding(.bottom, app.session != nil ? 62 : 24) // clear of the page bar
             .transition(.move(edge: .bottom).combined(with: .opacity))

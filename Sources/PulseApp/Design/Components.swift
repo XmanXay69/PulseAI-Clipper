@@ -24,37 +24,16 @@ struct PulseButtonStyle: ButtonStyle {
 
         var body: some View {
             configuration.label
-                .font(.system(size: compact ? 11 : 12, weight: .semibold))
-                .padding(.horizontal, compact ? 9 : 13)
-                .padding(.vertical, compact ? 4 : 6)
+                .font(.system(size: compact ? 11 : 12, weight: filled ? .semibold : .medium))
+                .padding(.horizontal, compact ? 8 : 12)
+                .padding(.vertical, compact ? 3.5 : 5)
                 .foregroundStyle(foreground)
-                .background(fillShape)
+                .background(RoundedRectangle(cornerRadius: Theme.radius).fill(background))
                 .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(border, lineWidth: 1))
-                .overlay(RoundedRectangle(cornerRadius: Theme.radius)
-                    .strokeBorder(LinearGradient(colors: [.white.opacity(filled ? 0.22 : 0.07), .clear], startPoint: .top, endPoint: .bottom), lineWidth: 1))
-                .shadow(color: glow, radius: hovering ? 10 : 6, y: 3)
-                .scaleEffect(configuration.isPressed ? 0.97 : 1)
-                .opacity(isEnabled ? 1 : 0.4)
+                .opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.4)
                 .contentShape(Rectangle())
                 .onHover { hovering = $0 }
-                .animation(Theme.motion(.easeOut(duration: 0.12)), value: hovering)
-                .animation(Theme.motion(.easeOut(duration: 0.08)), value: configuration.isPressed)
-        }
-
-        @ViewBuilder var fillShape: some View {
-            switch kind {
-            case .primary: RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.accentGradient).opacity(hovering ? 1 : 0.92)
-            case .ai: RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.aiGradient).opacity(hovering ? 1 : 0.92)
-            default: RoundedRectangle(cornerRadius: Theme.radius).fill(background)
-            }
-        }
-
-        var glow: Color {
-            switch kind {
-            case .primary: return Theme.accent.opacity(hovering ? 0.38 : 0.22)
-            case .ai: return Theme.ai.opacity(hovering ? 0.38 : 0.22)
-            default: return .clear
-            }
+                .animation(Theme.motion(.easeOut(duration: 0.1)), value: hovering)
         }
 
         var foreground: Color {
@@ -67,9 +46,9 @@ struct PulseButtonStyle: ButtonStyle {
 
         var background: Color {
             switch kind {
-            case .primary: return hovering ? Theme.accent.opacity(0.9) : Theme.accent
-            case .ai: return hovering ? Theme.ai.opacity(0.9) : Theme.ai
-            case .destructive: return hovering ? Theme.danger.opacity(0.9) : Theme.danger.opacity(0.85)
+            case .primary: return hovering ? Theme.accent.opacity(0.86) : Theme.accent
+            case .ai: return hovering ? Theme.ai.opacity(0.86) : Theme.ai
+            case .destructive: return hovering ? Theme.danger.opacity(0.78) : Theme.danger.opacity(0.88)
             case .secondary: return hovering ? Theme.controlHover : Theme.control
             case .ghost: return hovering ? Theme.control : .clear
             }
@@ -77,7 +56,7 @@ struct PulseButtonStyle: ButtonStyle {
 
         var border: Color {
             switch kind {
-            case .secondary: return Theme.border
+            case .secondary: return Theme.borderStrong.opacity(0.7)
             default: return .clear
             }
         }
@@ -118,6 +97,7 @@ struct IconButton: View {
                 .frame(width: size, height: size)
                 .foregroundStyle(isActive ? Theme.accent : (hovering ? Theme.textPrimary : Theme.textSecondary))
                 .background(RoundedRectangle(cornerRadius: Theme.radiusSmall).fill(isActive ? Theme.accentSoft : (hovering ? Theme.control : .clear)))
+                .overlay(RoundedRectangle(cornerRadius: Theme.radiusSmall).strokeBorder(isActive ? Theme.accent.opacity(0.35) : .clear))
                 // Keyboard focus ring in the accent colour (#408), in place of the system's blue one.
                 .overlay(RoundedRectangle(cornerRadius: Theme.radiusSmall).strokeBorder(Theme.accent, lineWidth: focused ? 1.5 : 0))
         }
@@ -164,8 +144,9 @@ struct SheetHeader<Extra: View>: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: symbol).font(.system(size: 20, weight: .semibold)).foregroundStyle(tint)
-                .frame(width: 44, height: 44).background(RoundedRectangle(cornerRadius: 10).fill(tint.opacity(0.14)))
+            Image(systemName: symbol).font(.system(size: 18, weight: .medium)).foregroundStyle(tint)
+                .frame(width: 40, height: 40).background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(tint.opacity(0.12)))
+                .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(tint.opacity(0.2)))
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.pulseTitle).foregroundStyle(Theme.textPrimary)
                 if let subtitle {
@@ -203,14 +184,14 @@ struct PanelHeader<Trailing: View>: View {
             trailing()
         }
         .padding(.horizontal, 12)
-        .frame(height: subtitle == nil ? 34 : 42)
+        .frame(height: subtitle == nil ? 30 : 40)
         .background(Theme.panel)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
     }
 }
 
 struct Card<Content: View>: View {
-    var padding: CGFloat = 14
+    var padding: CGFloat = 12
     @ViewBuilder var content: () -> Content
 
     var body: some View {
@@ -229,14 +210,14 @@ struct EmptyStateView: View {
     var action: (() -> Void)?
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             Image(systemName: symbol)
-                .font(.system(size: 26, weight: .medium))
-                .foregroundStyle(Theme.textSecondary)
-                .frame(width: 64, height: 64)
-                .background(Circle().fill(Theme.control))
-                .overlay(Circle().strokeBorder(LinearGradient(colors: [Theme.accent.opacity(0.6), Theme.ai.opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1))
-            Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                .font(.system(size: 22, weight: .regular))
+                .foregroundStyle(Theme.textTertiary)
+                .frame(width: 52, height: 52)
+                .background(RoundedRectangle(cornerRadius: Theme.radiusXL).fill(Theme.panelRaised))
+                .overlay(RoundedRectangle(cornerRadius: Theme.radiusXL).strokeBorder(Theme.border))
+            Text(title).font(.pulseSubtitle).foregroundStyle(Theme.textPrimary)
             Text(message).font(.pulseBody).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center).frame(maxWidth: 360)
             if let actionTitle, let action {
                 Button(actionTitle, action: action).buttonStyle(.pulsePrimary).padding(.top, 4)

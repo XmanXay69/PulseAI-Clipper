@@ -415,7 +415,7 @@ struct CaptionPresetSwatch: View {
     func swatch(active: Int) -> some View {
         VStack(spacing: 4) {
             ZStack {
-                LinearGradient(colors: [Color(hex: 0x2A2F45), Color(hex: 0x151722)], startPoint: .top, endPoint: .bottom)
+                Color(hex: 0x1C1F2A)
                 HStack(spacing: 3) {
                     ForEach(Array(Self.words.enumerated()), id: \.offset) { index, word in
                         let on = index == active && style.highlightMode != .none

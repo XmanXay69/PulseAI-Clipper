@@ -8,20 +8,20 @@ struct HomeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 20) {
                 heroBanner
                 if showTips { tipOfTheDay }
                 quickActions
-                HStack(alignment: .top, spacing: 18) {
+                HStack(alignment: .top, spacing: 16) {
                     recentProjects.frame(maxWidth: .infinity)
-                    VStack(spacing: 18) {
+                    VStack(spacing: 16) {
                         activityCard
                         storageCard
                     }
-                    .frame(width: 330)
+                    .frame(width: 320)
                 }
             }
-            .padding(24)
+            .padding(20)
         }
         .onAppear {
             app.refreshProjects()
@@ -30,38 +30,26 @@ struct HomeView: View {
         }
     }
 
-    /// The welcome: headline, the two things people come here to do, on a softly lit surface.
+    /// The welcome: a headline and the two things people come here to do, on a plain panel.
     var heroBanner: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 14) {
             hero
             startHere
         }
-        .padding(22)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: Theme.radiusXL).fill(Theme.panelRaised)
-                RoundedRectangle(cornerRadius: Theme.radiusXL)
-                    .fill(RadialGradient(colors: [Theme.accent.opacity(0.2), .clear], center: .topLeading, startRadius: 0, endRadius: 560))
-                RoundedRectangle(cornerRadius: Theme.radiusXL)
-                    .fill(RadialGradient(colors: [Theme.ai.opacity(0.2), .clear], center: .bottomTrailing, startRadius: 0, endRadius: 620))
-            }
-        )
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusXL).strokeBorder(Theme.border))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusXL).strokeBorder(Theme.edgeHighlight, lineWidth: 1))
-        .elevation(3)
+        .padding(18)
+        .raisedSurface(cornerRadius: Theme.radiusXL)
     }
 
     var hero: some View {
         HStack(alignment: .center, spacing: 18) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("Turn long streams into shorts and YouTube videos.")
-                    .font(.pulseDisplay)
-                    .tracking(-0.3)
+                    .font(.pulseTitle)
                     .foregroundStyle(Theme.textPrimary)
                 Text("Drop in a VOD, podcast or gameplay recording. PULSE finds the moments and builds the edit — vertical shorts or a full YouTube video — and you stay in full control.")
-                    .font(.system(size: 13))
+                    .font(.pulseBody)
                     .foregroundStyle(Theme.textSecondary)
-                    .frame(maxWidth: 560, alignment: .leading)
+                    .frame(maxWidth: 600, alignment: .leading)
             }
             Spacer()
             HStack(spacing: 6) {
@@ -99,14 +87,13 @@ struct HomeView: View {
             Spacer()
             Button("Don't show tips") { showTips = false }.buttonStyle(.pulse(.ghost, compact: true))
         }
-        .padding(.horizontal, 14).padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(Theme.panelRaised))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(Theme.border))
+        .padding(.horizontal, 12).padding(.vertical, 7)
+        .raisedSurface()
     }
 
     var quickActions: some View {
-        // Wraps onto a second row in narrower windows instead of squeezing the tiles.
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 12)], spacing: 12) {
+        // Wraps onto further rows in narrower windows instead of squeezing the tiles.
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 8)], spacing: 8) {
             QuickActionTile(symbol: "plus.rectangle.on.folder", title: "New Project", subtitle: "Start from scratch", color: Theme.accent) {
                 app.showNewProjectSheet = true
             }
@@ -241,38 +228,34 @@ struct StartCard: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(alignment: .top, spacing: 16) {
+            HStack(alignment: .top, spacing: 14) {
                 Image(systemName: symbol)
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(.system(size: 20, weight: .medium))
                     .foregroundStyle(color)
-                    .frame(width: 54, height: 54)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(color.opacity(0.15)))
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(title).font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.textPrimary)
-                    Text(subtitle).font(.system(size: 12)).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+                    .frame(width: 44, height: 44)
+                    .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(color.opacity(0.1)))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(color.opacity(0.25)))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).font(.pulseSubtitle).foregroundStyle(Theme.textPrimary)
+                    Text(subtitle).font(.pulseCaption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 4) {
-                        Text(step).font(.system(size: 12, weight: .semibold))
-                        Image(systemName: "arrow.right").font(.system(size: 10, weight: .bold))
+                        Text(step).font(.system(size: 11, weight: .semibold))
+                        Image(systemName: "arrow.right").font(.system(size: 9, weight: .bold))
                     }
                     .foregroundStyle(color)
                     .padding(.top, 2)
                 }
                 Spacer(minLength: 0)
             }
-            .padding(18)
+            .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 14).fill(LinearGradient(colors: [color.opacity(hovering ? 0.2 : 0.12), Theme.panel.opacity(0.85)],
-                                                                                startPoint: .topLeading, endPoint: .bottomTrailing)))
-            .overlay(RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(LinearGradient(colors: [color.opacity(hovering ? 0.9 : 0.55), color.opacity(0.1)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                              lineWidth: 1))
-            .shadow(color: color.opacity(hovering ? 0.28 : 0.12), radius: hovering ? 18 : 10, y: 6)
-            .offset(y: hovering ? -2 : 0)
+            .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(hovering ? Theme.control.opacity(0.6) : Theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(hovering ? Theme.borderStrong : Theme.border))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .animation(Theme.motion(.easeOut(duration: 0.14)), value: hovering)
+        .animation(Theme.motion(.easeOut(duration: 0.12)), value: hovering)
     }
 }
 
@@ -286,29 +269,26 @@ struct QuickActionTile: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
                 Image(systemName: symbol)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(color)
-                    .frame(width: 36, height: 36)
-                    .background(RoundedRectangle(cornerRadius: 9).fill(LinearGradient(colors: [color.opacity(0.3), color.opacity(0.08)],
-                                                                                        startPoint: .topLeading, endPoint: .bottomTrailing)))
-                    .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(color.opacity(0.25)))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                    Text(subtitle).font(.pulseCaption).foregroundStyle(Theme.textTertiary).lineLimit(1)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(hovering ? color : Theme.textSecondary)
+                    .frame(width: 30, height: 30)
+                    .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.control.opacity(0.7)))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                    Text(subtitle).font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(1)
                 }
+                Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
-            .raisedSurface(fill: hovering ? Theme.elevated : Theme.panelRaised, border: hovering ? color.opacity(0.5) : Theme.border)
-            .elevation(hovering ? 2 : 1)
-            .offset(y: hovering ? -2 : 0)
+            .padding(.horizontal, 10).padding(.vertical, 9)
+            .raisedSurface(fill: hovering ? Theme.control.opacity(0.5) : Theme.panelRaised, border: hovering ? Theme.borderStrong : Theme.border)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .animation(Theme.motion(.easeOut(duration: 0.14)), value: hovering)
+        .animation(Theme.motion(.easeOut(duration: 0.12)), value: hovering)
     }
 }
 
@@ -330,7 +310,7 @@ struct ProjectCard: View {
                         Image(systemName: "film").font(.system(size: 22)).foregroundStyle(Theme.textTertiary)
                     }
                 }
-                .frame(height: 124)
+                .frame(height: 112)
                 .clipped()
                 HStack(spacing: 4) {
                     if project.isFavorite { Image(systemName: "star.fill").foregroundStyle(Theme.warning) }
@@ -362,12 +342,9 @@ struct ProjectCard: View {
             }
             .padding(10)
         }
-        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(Theme.panelRaised))
+        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(hovering ? Theme.control.opacity(0.5) : Theme.panelRaised))
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLarge))
         .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(hovering ? Theme.borderStrong : Theme.border))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(Theme.edgeHighlight, lineWidth: 1))
-        .elevation(hovering ? 2 : 1)
-        .scaleEffect(hovering ? 1.01 : 1)
         .animation(Theme.motion(.easeOut(duration: 0.12)), value: hovering)
         .onHover { hovering = $0 }
         .onTapGesture { app.openProject(project) }

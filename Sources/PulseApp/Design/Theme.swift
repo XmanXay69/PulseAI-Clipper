@@ -2,61 +2,63 @@ import AppKit
 import PulseCore
 import SwiftUI
 
-/// PULSE design tokens. Dark, dense, professional — subtle borders, compact controls,
-/// a single energetic accent ("pulse") plus a violet reserved for AI features.
+/// PULSE design tokens. Deep charcoal surfaces, hairline borders, one accent, flat controls — the restraint of a
+/// professional grading and editing suite. Every view reads these at draw time, so a theme change repaints on the
+/// next pass. Gradients, glows and lifted shadows are deliberately absent from filled controls and cards.
 enum Theme {
-    /// Light theme on (#424). Set from Settings → General → Appearance (or macOS when matching it); views
-    /// read the surface, border and text colours below at draw time, so a change repaints on the next pass.
+    /// Light theme on (#424). Set from Settings → General → Appearance (or macOS when matching it).
     nonisolated(unsafe) static var isLight = false
 
-    // Surfaces (darkest → lightest): neutral graphite, like a pro grading/editing suite; a cool paper white
-    // in the light theme.
-    static var window: Color { isLight ? Color(hex: 0xEDEDF0) : Color(hex: 0x151517) }
-    static var panel: Color { isLight ? Color(hex: 0xF6F6F8) : Color(hex: 0x1C1C1F) }
-    static var panelRaised: Color { isLight ? Color(hex: 0xFFFFFF) : Color(hex: 0x232327) }
-    static var control: Color { isLight ? Color(hex: 0xE6E6EA) : Color(hex: 0x2C2C31) }
-    static var controlHover: Color { isLight ? Color(hex: 0xDCDCE2) : Color(hex: 0x36363C) }
-    static var well: Color { isLight ? Color(hex: 0xE2E2E6) : Color(hex: 0x101012) }
+    // Surfaces, darkest → lightest. Never pure black: the viewer well is the darkest, then the window, then panels.
+    static var window: Color { isLight ? Color(hex: 0xE9E9EC) : Color(hex: 0x121214) }
+    static var panel: Color { isLight ? Color(hex: 0xF3F3F5) : Color(hex: 0x19191C) }
+    static var panelRaised: Color { isLight ? Color(hex: 0xFAFAFB) : Color(hex: 0x1F1F23) }
+    static var control: Color { isLight ? Color(hex: 0xE2E2E6) : Color(hex: 0x2A2A2F) }
+    static var controlHover: Color { isLight ? Color(hex: 0xD8D8DE) : Color(hex: 0x34343A) }
+    static var well: Color { isLight ? Color(hex: 0xDDDDE2) : Color(hex: 0x0C0C0E) }
+    /// Floating surfaces (popovers, menus, toasts).
+    static var elevated: Color { isLight ? Color(hex: 0xFFFFFF) : Color(hex: 0x242428) }
 
-    static var border: Color { isLight ? Color.black.opacity(0.09) : Color.white.opacity(0.07) }
-    static var borderStrong: Color { isLight ? Color.black.opacity(0.18) : Color.white.opacity(0.13) }
-    static var divider: Color { isLight ? Color.black.opacity(0.07) : Color.white.opacity(0.05) }
+    static var border: Color { isLight ? Color.black.opacity(0.10) : Color.white.opacity(0.08) }
+    static var borderStrong: Color { isLight ? Color.black.opacity(0.20) : Color.white.opacity(0.15) }
+    static var divider: Color { isLight ? Color.black.opacity(0.08) : Color.white.opacity(0.06) }
 
     // Text.
     static var textPrimary: Color { isLight ? Color.black.opacity(0.88) : Color.white.opacity(0.92) }
-    static var textSecondary: Color { isLight ? Color.black.opacity(0.6) : Color.white.opacity(0.62) }
-    static var textTertiary: Color { isLight ? Color.black.opacity(0.4) : Color.white.opacity(0.38) }
+    static var textSecondary: Color { isLight ? Color.black.opacity(0.58) : Color.white.opacity(0.60) }
+    static var textTertiary: Color { isLight ? Color.black.opacity(0.40) : Color.white.opacity(0.38) }
 
-    // Accents. The accent follows Settings → General → Appearance (#425); the AI violet never changes.
+    // Accents. The accent follows Settings → General → Appearance (#425); the AI violet marks what the AI made.
     nonisolated(unsafe) static var accentChoice: AccentChoice = .pulse
     static var accent: Color { Color(hex: accentChoice.hex) }
     static var accentSoft: Color { Color(hex: accentChoice.hex).opacity(0.16) }
-    static let ai = Color(hex: 0x8C6CFF)              // AI violet
-    static let aiSoft = Color(hex: 0x8C6CFF).opacity(0.16)
-    static let success = Color(hex: 0x3DDC97)
-    static let warning = Color(hex: 0xFFB020)
-    static let danger = Color(hex: 0xFF5A5F)
-    static let info = Color(hex: 0x35C8FF)
+    static let ai = Color(hex: 0x8C7BE0)
+    static let aiSoft = Color(hex: 0x8C7BE0).opacity(0.16)
+    static let success = Color(hex: 0x4CC38A)
+    static let warning = Color(hex: 0xE8A33D)
+    static let danger = Color(hex: 0xE5484D)
+    static let info = Color(hex: 0x4FA8D8)
 
-    // Track colors.
-    static let videoClip = Color(hex: 0x3A6FF7)
-    static let webcamClip = Color(hex: 0x19A38A)
-    static let audioClip = Color(hex: 0x2FA86A)
-    static let musicClip = Color(hex: 0xD08B2E)
-    static let sfxClip = Color(hex: 0xC4508C)
-    static let textClip = Color(hex: 0x9B6BFF)
-    static let compoundClip = Color(hex: 0xC2873A)
+    // Track colours: muted, so a dense timeline stays calm.
+    static let videoClip = Color(hex: 0x4F7FD0)
+    static let webcamClip = Color(hex: 0x2E9C8A)
+    static let audioClip = Color(hex: 0x3F9E6C)
+    static let musicClip = Color(hex: 0xC48A3C)
+    static let sfxClip = Color(hex: 0xB25C8E)
+    static let textClip = Color(hex: 0x8E74D8)
+    static let compoundClip = Color(hex: 0xB7843F)
 
-    /// Stable, distinct color per speaker.
+    /// Stable, distinct colour per speaker.
     static func speakerColor(_ id: Int) -> Color {
-        let palette: [UInt32] = [0x35C8FF, 0xFFB020, 0x3DDC97, 0xFF6FA8, 0xB08CFF, 0xFF8A3D]
+        let palette: [UInt32] = [0x4FA8D8, 0xE8A33D, 0x4CC38A, 0xE27BA6, 0xA48CF0, 0xEC8A4D]
         return Color(hex: palette[abs(id) % palette.count])
     }
 
-    static let radiusSmall: CGFloat = 4
-    static let radius: CGFloat = 6
-    static let radiusLarge: CGFloat = 10
-    static let radiusXL: CGFloat = 16
+    // Corner radii: desktop software, not cards. Panels and tiles stay close to square.
+    static let radiusSmall: CGFloat = 3
+    static let radius: CGFloat = 4
+    static let radiusLarge: CGFloat = 6
+    static let radiusXL: CGFloat = 8
 
     /// The 4-pt spacing grid (#401): every padding and gap is one of these.
     enum Spacing {
@@ -69,17 +71,14 @@ enum Theme {
         static let xxxl: CGFloat = 32
     }
 
-    /// A lifted surface (popovers, hovered cards).
-    static var elevated: Color { isLight ? Color(hex: 0xFFFFFF) : Color(hex: 0x27272C) }
-
-    // Gradients: the accent and the AI violet get a little warmth/cool so filled controls read as lit.
+    // Kept for call sites that fill with a "gradient": both are flat now, so a filled control is one colour.
     static var accentGradient: LinearGradient {
-        LinearGradient(colors: [Color(hex: accentChoice.hex), Color(hex: accentChoice.gradientEndHex)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(colors: [Color(hex: accentChoice.hex), Color(hex: accentChoice.hex)], startPoint: .top, endPoint: .bottom)
     }
-    static let aiGradient = LinearGradient(colors: [Color(hex: 0x8C6CFF), Color(hex: 0x5E9BFF)], startPoint: .topLeading, endPoint: .bottomTrailing)
-    /// The 1 px light catch along the top edge of raised surfaces.
+    static let aiGradient = LinearGradient(colors: [Color(hex: 0x8C7BE0), Color(hex: 0x8C7BE0)], startPoint: .top, endPoint: .bottom)
+    /// No light catch on raised surfaces any more; overlays that draw it draw nothing.
     static var edgeHighlight: LinearGradient {
-        LinearGradient(colors: [Color.white.opacity(isLight ? 0.8 : 0.09), Color.white.opacity(0)], startPoint: .top, endPoint: .center)
+        LinearGradient(colors: [Color.clear, Color.clear], startPoint: .top, endPoint: .bottom)
     }
 
     static func potentialColor(_ potential: Int) -> Color {
@@ -94,7 +93,7 @@ enum Theme {
     static func clipColor(for clip: TimelineClip, track: Track) -> Color {
         switch clip.content {
         case .text: return textClip
-        case .solid: return Color(hex: 0x555A66)
+        case .solid: return Color(hex: 0x5A5F6B)
         case .compound: return compoundClip
         case .media:
             switch clip.role {
@@ -130,32 +129,32 @@ extension Color {
 }
 
 extension View {
-    /// Elevation shadows: 1 = cards, 2 = popovers/hovered cards, 3 = sheets and the hero.
+    /// Depth only where something floats: 1 = nothing (cards sit flat in their panel), 2 = popovers and dragged
+    /// items, 3 = sheets.
     func elevation(_ level: Int) -> some View {
-        let radius: CGFloat = level <= 1 ? 8 : (level == 2 ? 16 : 28)
-        let y: CGFloat = level <= 1 ? 3 : (level == 2 ? 6 : 12)
-        return shadow(color: .black.opacity(level <= 1 ? 0.22 : (level == 2 ? 0.32 : 0.45)), radius: radius, y: y)
+        let radius: CGFloat = level <= 1 ? 0 : (level == 2 ? 12 : 24)
+        let y: CGFloat = level <= 1 ? 0 : (level == 2 ? 4 : 10)
+        return shadow(color: .black.opacity(level <= 1 ? 0 : (level == 2 ? 0.28 : 0.4)), radius: radius, y: y)
     }
 
-    /// A raised, bordered surface with the top-edge light catch (cards, tiles, popovers).
+    /// A surface a tone lighter than its panel with a hairline border — tiles, cards, popovers.
     func raisedSurface(cornerRadius: CGFloat = Theme.radiusLarge, fill: Color = Theme.panelRaised, border: Color = Theme.border) -> some View {
         background(RoundedRectangle(cornerRadius: cornerRadius).fill(fill))
             .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(border))
-            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Theme.edgeHighlight, lineWidth: 1))
     }
 }
 
 extension Font {
-    static let pulseDisplay = Font.system(size: 28, weight: .bold)
-    static let pulseTitle = Font.system(size: 22, weight: .semibold)
-    /// The type scale (#401): 10 micro · 11 caption · 12 body · 13 headline · 15 subtitle · 22 title · 28 display.
-    static let pulseSubtitle = Font.system(size: 15, weight: .semibold)
-    static let pulseHeadline = Font.system(size: 13, weight: .semibold)
+    /// The type scale (#401): 10 micro · 11 caption · 12 body · 12.5 headline · 14 subtitle · 18 title · 24 display.
+    static let pulseDisplay = Font.system(size: 24, weight: .semibold)
+    static let pulseTitle = Font.system(size: 18, weight: .semibold)
+    static let pulseSubtitle = Font.system(size: 14, weight: .semibold)
+    static let pulseHeadline = Font.system(size: 12.5, weight: .semibold)
     static let pulseBody = Font.system(size: 12)
     static let pulseCaption = Font.system(size: 11)
     static let pulseMicro = Font.system(size: 10, weight: .medium)
     static let pulseMono = Font.system(size: 11, design: .monospaced).monospacedDigit()
-    static let pulseTimecode = Font.system(size: 15, weight: .medium, design: .monospaced).monospacedDigit()
+    static let pulseTimecode = Font.system(size: 14, weight: .medium, design: .monospaced).monospacedDigit()
 }
 
 /// Section label style used in panels ("TRANSFORM", "CROP").
@@ -164,7 +163,7 @@ struct SectionLabel: View {
     var body: some View {
         Text(text.uppercased())
             .font(.system(size: 10, weight: .semibold))
-            .tracking(0.8)
+            .tracking(0.7)
             .foregroundStyle(Theme.textTertiary)
     }
 }
