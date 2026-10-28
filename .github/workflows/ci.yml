@@ -16,16 +16,20 @@ concurrency:
 jobs:
   build-and-test:
     name: Build & Test (${{ matrix.os }})
-    # Hosted macOS runners are scarce at times; queue the same job on several images (Apple silicon and Intel
-    # pools are separate) and take whichever starts. Each image compiles the whole package, so one green job is
-    # a full verification. macos-14 is no longer in the list: GitHub's pool for that image has all but dried up
-    # (in the last dozen runs it got a machine once and was cancelled after a 15-minute wait every other time),
-    # and each cancelled job marked the whole run as failed. The app still runs on macOS 14 — that is the
-    # deployment target in Package.swift, which every image enforces when it compiles.
+    # A [release] commit is empty — the Release workflow compiles and smoke-tests the same tree — so CI stays out
+    # of its way: GitHub hands this account one Apple-silicon macOS machine at a time, and a job that waits
+    # more than 15 minutes for one is cancelled and marks its run failed.
+    if: ${{ !contains(github.event.head_commit.message, '[release]') }}
+    # One job per runner pool, no more: Apple silicon (macos-26, Xcode 26 / Swift 6.2) and Intel (macos-15-intel,
+    # Xcode 16 / Swift 6.0) run side by side because the pools are separate. A third macOS job queued at the
+    # same time sat behind the first and was cancelled after the 15-minute wait (macos-14 got a machine once in
+    # a dozen runs, macos-15 the same once the oldest image was dropped), and every such cancellation showed up
+    # as a failed run. The app still runs on macOS 14: that deployment target is in Package.swift and both
+    # images enforce it when they compile.
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, macos-26, macos-15-intel]
+        os: [macos-26, macos-15-intel]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     steps:
