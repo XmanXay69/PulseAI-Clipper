@@ -28,7 +28,8 @@ permissions:
 jobs:
   dmg:
     name: Build PULSE.dmg
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release]') }}
+    # Only a commit whose subject starts with the tag releases; a commit that merely mentions it in its body does not.
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, '[release]') }}
     runs-on: macos-15
     timeout-minutes: 60
     env:

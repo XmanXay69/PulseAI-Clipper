@@ -16,10 +16,10 @@ concurrency:
 jobs:
   build-and-test:
     name: Build & Test (${{ matrix.os }})
-    # A [release] commit is empty — the Release workflow compiles and smoke-tests the same tree — so CI stays out
-    # of its way: GitHub hands this account one Apple-silicon macOS machine at a time, and a job that waits
+    # A release commit (subject starting with the tag) is empty — the Release workflow compiles and smoke-tests
+    # the same tree — so CI stays out of its way: GitHub hands this account one Apple-silicon macOS machine at a time, and a job that waits
     # more than 15 minutes for one is cancelled and marks its run failed.
-    if: ${{ !contains(github.event.head_commit.message, '[release]') }}
+    if: ${{ !startsWith(github.event.head_commit.message, '[release]') }}
     # One job per runner pool, no more: Apple silicon (macos-26, Xcode 26 / Swift 6.2) and Intel (macos-15-intel,
     # Xcode 16 / Swift 6.0) run side by side because the pools are separate. A third macOS job queued at the
     # same time sat behind the first and was cancelled after the 15-minute wait (macos-14 got a machine once in
