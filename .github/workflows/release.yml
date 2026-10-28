@@ -3,7 +3,7 @@ name: Release
 # Builds the downloadable PULSE.dmg (universal app, whisper.cpp + English model built in), checks the
 # disk image the way a user would use it, and publishes it as a GitHub Release.
 #
-# Runs on commits whose message contains [release], or by hand (Actions → Release → Run workflow).
+# Runs on commits whose subject starts with [release], or by hand (Actions → Release → Run workflow).
 # The latest release is always at:
 #   https://github.com/<owner>/<repo>/releases/latest/download/PULSE.dmg
 #

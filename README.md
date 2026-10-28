@@ -181,7 +181,7 @@ generates a 75-second gameplay + facecam clip locally and runs the whole pipelin
 
 ### Releases
 
-Put `[release]` in a commit message (or run **Actions → Release** by hand) and the Release workflow builds a
+Start a commit's subject with `[release]` (or run **Actions → Release** by hand) and the Release workflow builds a
 universal `PULSE.app` with whisper.cpp and the English base model inside, packages `PULSE.dmg`, checks the
 disk image (signature, both architectures, a real transcription from inside the image) and publishes it as
 the latest GitHub Release. The version comes from the `VERSION` file.

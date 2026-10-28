@@ -9,7 +9,8 @@
 works on macOS 15 and 26). CI compiles, tests and screenshots the app on GitHub Actions runners
 (`.github/workflows/ci.yml`, matrix `macos-26` + `macos-15-intel`, one job per runner pool: GitHub hands this account
 one Apple-silicon macOS machine at a time and cancels a job that waits more than 15 minutes, which showed as a failed
-run, so the Apple-silicon images were cut to one and CI skips the empty `[release]` commits the Release workflow
+run, so the Apple-silicon images were cut to one and CI skips the empty release commits (subject starting with
+`[release]`) the Release workflow
 builds itself — the macOS 14 deployment target is still enforced by both images) because the cloud dev
 box used to write it is Linux. Apple-silicon runners are often queued or cancelled for lack of capacity; the
 Intel and `macos-15` jobs are the ones that usually finish, and one green job is enough to trust a push.
@@ -21,7 +22,7 @@ Intel and `macos-15` jobs are the ones that usually finish, and one green job is
 
 ## Download (the easy way)
 
-`PULSE.dmg` is published by `.github/workflows/release.yml` on commits containing `[release]` (or a manual
+`PULSE.dmg` is published by `.github/workflows/release.yml` on commits whose subject starts with `[release]` (or a manual
 run) as the latest GitHub Release: https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg
 — universal (arm64 + x86_64), with a static whisper.cpp (`scripts/build-whisper.sh`, Metal embedded,
 system libraries only) in `Contents/MacOS/whisper-cli` and `ggml-base.en.bin` in `Contents/Resources`.
