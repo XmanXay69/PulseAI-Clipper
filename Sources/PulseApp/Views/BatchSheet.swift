@@ -131,13 +131,20 @@ struct BatchSheet: View {
                 }
             }
             .toggleStyle(.switch).controlSize(.small).tint(Theme.ai)
-            if batch.options.makeYouTubeEdit, !app.settings.referenceStyles.isEmpty {
+            if batch.options.makeYouTubeEdit {
                 Picker("Style", selection: $batch.options.styleID) {
                     Text("PULSE's own").tag(UUID?.none)
-                    ForEach(app.settings.referenceStyles) { Text("Like “\($0.name)”").tag(UUID?.some($0.id)) }
+                    Section("Editing styles") {
+                        ForEach(EditorPlaybook.all.filter { !$0.style.isShortForm }) { Text($0.name).tag(UUID?.some($0.style.id)) }
+                    }
+                    if !app.settings.referenceStyles.isEmpty {
+                        Section("Studied") {
+                            ForEach(app.settings.referenceStyles) { Text("Like “\($0.name)”").tag(UUID?.some($0.id)) }
+                        }
+                    }
                 }
                 .font(.pulseCaption)
-                .help("Edit each YouTube video like a reference you studied (Edit Like a Reference)")
+                .help("Edit each YouTube video in one of the built-in editing styles, or like a reference you studied (Edit Like a Reference)")
             }
             if batch.options.makeYouTubeEdit {
                 let e = app.settings.ai.editExtras

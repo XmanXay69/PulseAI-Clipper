@@ -124,8 +124,10 @@ public enum EditCoach {
             : ["Hook": 0.18, "Energy": 0.2, "Payoff": 0.1, "Pacing": 0.22, "Ending": 0.05, "Length": 0.1, "Polish": 0.15]
     }
 
+    /// `rules` are the pacing rules the edit is held to: a playbook's when the edit was built in its style,
+    /// else the standard ones for the format.
     public static func review(_ timeline: Timeline, analysis: MediaAnalysis?, signals precomputed: EngagementSignals? = nil,
-                              calibration: CoachCalibration? = nil) -> EditReview {
+                              calibration: CoachCalibration? = nil, rules: PacingRules? = nil) -> EditReview {
         let format = EditFormat.of(timeline)
         let duration = timeline.duration
         let program = Program(timeline: timeline, assetID: analysis?.assetID ?? timeline.origin?.assetID)
@@ -319,6 +321,9 @@ public enum EditCoach {
         }
         let raw = factors.reduce(0) { $0 + (weights[$1.name] ?? 0) * $1.value }
         let score = Int((pow(raw.clamped(0, 1), 0.85) * 100).rounded()).clamped(1, 99)
+        // What an editor would say about the pacing itself: held shots, sections, effects, caption length.
+        suggestions += PlaybookCoach.suggestions(for: timeline, format: format, rules: rules ?? .standard(for: format),
+                                                 profile: analysis?.profile ?? .unknown, existing: Set(suggestions.map(\.id)))
         suggestions.sort { $0.severity != $1.severity ? $0.severity > $1.severity : $0.id < $1.id }
         return EditReview(prediction: PerformancePrediction(score: score, factors: factors, format: format, calibratedOn: calibratedOn), suggestions: suggestions)
     }

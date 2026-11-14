@@ -104,22 +104,13 @@ struct WorkspaceBar: View {
     static let editorPresets: [WorkspacePreset] = [.editing, .color, .audio]
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 4) {
             SectionLabel(text: "Layout").padding(.trailing, 4)
-            ForEach(Self.editorPresets, id: \.self) { preset in
-                let selected = app.settings.currentWorkspace == preset
-                Button {
-                    app.settings.currentWorkspace = preset
-                } label: {
-                    Text(preset.displayName)
-                        .font(.system(size: 11, weight: selected ? .semibold : .medium))
-                        .padding(.horizontal, 9).padding(.vertical, 3)
-                        .foregroundStyle(selected ? Theme.textPrimary : Theme.textTertiary)
-                        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(selected ? Theme.control : .clear))
-                }
-                .buttonStyle(.plain)
-                .help(preset == .editing ? "Media, viewer, inspector and timeline" : (preset == .color ? "A wider inspector for grading" : "A taller timeline for the mix"))
-            }
+            PulseSegmented(selection: $app.settings.currentWorkspace, segments: Self.editorPresets.map { preset in
+                PulseSegment(preset, preset.displayName,
+                             help: preset == .editing ? "Media, viewer, inspector and timeline" : (preset == .color ? "A wider inspector for grading" : "A taller timeline for the mix"))
+            }, compact: true)
+            .frame(width: 210)
             Spacer()
             let layout = app.settings.layout(for: app.settings.currentWorkspace)
             IconButton(symbol: "sidebar.left", help: "Toggle left panel", isActive: layout.showLeftPanel) { toggle(\.showLeftPanel) }
@@ -130,7 +121,7 @@ struct WorkspaceBar: View {
             }
         }
         .padding(.horizontal, 10)
-        .frame(height: 28)
+        .frame(height: 34)
         .background(Theme.panel)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
     }
@@ -192,8 +183,8 @@ struct LeftPanel: View {
                         }
                         .padding(.horizontal, labelled ? 8 : 7)
                         .padding(.vertical, 6)
-                        .foregroundStyle(selected ? Theme.accent : (labelled ? Theme.textPrimary : Theme.textTertiary))
-                        .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(selected ? Theme.control : .clear))
+                        .foregroundStyle(selected ? Theme.accent : (labelled ? Theme.textPrimary : Theme.textSecondary))
+                        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(selected ? Theme.control : .clear))
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -207,7 +198,7 @@ struct LeftPanel: View {
             .animation(Theme.motion(.easeOut(duration: 0.12)), value: hoveredTab)
             .animation(Theme.motion(.easeOut(duration: 0.12)), value: session.leftTab)
             .padding(.horizontal, 6).padding(.vertical, 3)
-            .frame(height: 30)
+            .frame(height: 34)
             .background(Theme.panel)
             .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
             switch session.leftTab {

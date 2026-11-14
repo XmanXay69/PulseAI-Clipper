@@ -697,6 +697,8 @@ public enum LongFormEditor {
         let outroAt = timeline.tracks[0].clips.first { $0.name == "End Screen" }?.start
         timeline.notes = chapterList(timeline.markers.filter { $0.color == .blue }, hasHook: hookRange != nil, outroAt: outroAt)
         timeline.targetDuration = options.targetLength(forSource: analysis.duration)
+        // Cut in one of the built-in editing styles: remember which, so the coach judges it by that style's rules.
+        timeline.editStyle = options.style.flatMap { tuning in EditorPlaybook.all.first { $0.name == tuning.name }?.id }
         timeline.copy = YouTubeCopy.generate(segments: segments, transcript: analysis.transcript, hookPayoff: hookMoment, chapters: timeline.notes,
                                              seed: Int(analysis.duration))
         timeline.modifiedAt = Date()

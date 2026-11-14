@@ -4,7 +4,8 @@ import PulseEngine
 import SwiftUI
 
 enum TimelineMetrics {
-    static let headerWidth: CGFloat = 172
+    /// Wide enough for "A1 Microphone" beside the meter and the mute, solo and lock buttons.
+    static let headerWidth: CGFloat = 188
     static let rulerHeight: CGFloat = 26
     /// Tighter rows for long timelines (#182): set from Settings, or on its own past 300 clips.
     nonisolated(unsafe) static var compact = false

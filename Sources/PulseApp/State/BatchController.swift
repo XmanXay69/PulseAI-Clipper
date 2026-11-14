@@ -228,7 +228,8 @@ final class BatchController: ObservableObject {
             // cut", which needs you).
             var extras = app.settings.ai.editExtras
             extras.approveCut = false
-            if let style = app.settings.referenceStyles.first(where: { $0.id == options.styleID }) {
+            if let style = app.settings.referenceStyles.first(where: { $0.id == options.styleID })
+                ?? EditorPlaybook.all.map(\.style).first(where: { $0.id == options.styleID }) {
                 app.noteReferenceStyleUsed(style.id)
                 var answers = ReferenceAnswers.recommended(for: style)
                 if answers.length == .shorts { answers.length = .youtube }

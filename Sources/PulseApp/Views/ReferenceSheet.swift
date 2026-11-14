@@ -43,15 +43,56 @@ struct ReferenceSheet: View {
 
     var header: some View {
         SheetHeader("Edit Like a Reference", symbol: "wand.and.stars",
-                    subtitle: reference.current.map { "Studied “\($0.name)” — answer a few questions, then PULSE edits your VOD the same way." }
-                        ?? "Show PULSE a video whose editing you love. It studies the cuts, zooms, captions, music and effects, then edits your VOD that way.")
+                    subtitle: reference.current.map { style in
+                        EditorPlaybook.playbook(for: style) != nil
+                            ? "“\(style.name)” — answer a few questions, then PULSE edits your VOD in this style."
+                            : "Studied “\(style.name)” — answer a few questions, then PULSE edits your VOD the same way."
+                    } ?? "Pick a style editors cut in, or show PULSE a video whose editing you love. It edits your VOD that way.")
     }
 
     // MARK: Step 1 — pick a reference
 
+    /// The style most recordings like the open one are cut in.
+    var suggestedPlaybook: EditorPlaybook? {
+        guard let session = app.session, let asset = session.document.primaryAsset, let analysis = session.analyses[asset.id] else { return nil }
+        return EditorPlaybook.suggested(for: analysis.profile)
+    }
+
+    /// One built-in editing style: what it feels like, what it's for, and what the edit will do.
+    func playbookCard(_ playbook: EditorPlaybook) -> some View {
+        Button { reference.current = playbook.style } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Image(systemName: playbook.symbol).font(.system(size: 13)).foregroundStyle(Theme.accent).frame(width: 18)
+                    Text(playbook.name).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                    Spacer(minLength: 4)
+                    if suggestedPlaybook == playbook { TagChip(text: "Suggested", color: Theme.accent) }
+                }
+                Text(playbook.tagline).font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
+                Text(playbook.bestFor).font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(1)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
+            .raisedSurface(cornerRadius: Theme.radiusLarge)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(playbook.recipe.joined(separator: " · "))
+    }
+
     var picker: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionLabel(text: "Editing styles")
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                        ForEach(EditorPlaybook.all) { playbook in playbookCard(playbook) }
+                    }
+                    Text("How working editors cut, written down as settings: pacing, zooms, captions, music and effects. Nothing is uploaded.")
+                        .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                }
+                SectionLabel(text: "Or study a video you love")
                 VStack(spacing: 10) {
                     Image(systemName: "film.stack").font(.system(size: 30)).foregroundStyle(dropTargeted ? Theme.accent : Theme.textTertiary)
                     Text("Drop a reference video here").font(.pulseHeadline).foregroundStyle(Theme.textPrimary)
@@ -140,7 +181,21 @@ struct ReferenceSheet: View {
     func questions(_ style: ReferenceStyle) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                SectionLabel(text: "How “\(style.name)” is edited")
+                if let playbook = EditorPlaybook.playbook(for: style) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        SectionLabel(text: "How this style cuts")
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(playbook.principles, id: \.self) { principle in
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(principle.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                                    Text(principle.detail).font(.system(size: 12)).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                        }
+                        .card(padding: 14)
+                    }
+                }
+                SectionLabel(text: EditorPlaybook.playbook(for: style) != nil ? "What the edit will do" : "How “\(style.name)” is edited")
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
                     ForEach(style.traits, id: \.self) { trait in
                         HStack(alignment: .top, spacing: 8) {
@@ -249,7 +304,9 @@ struct ReferenceSheet: View {
 
     func lengthTitle(_ length: ReferenceAnswers.Length, _ style: ReferenceStyle) -> String {
         switch length {
-        case .likeReference: return "About as long as the reference (~\(Timecode.short(style.duration)))"
+        case .likeReference:
+            return EditorPlaybook.playbook(for: style) != nil ? "This style's usual length (~\(Timecode.short(style.duration)))"
+                : "About as long as the reference (~\(Timecode.short(style.duration)))"
         case .youtube: return "A 10–20 minute YouTube video"
         case .medium: return "5–8 minutes"
         case .short: return "Under 3 minutes"
@@ -285,7 +342,7 @@ struct ReferenceSheet: View {
     var footer: some View {
         HStack(spacing: 10) {
             if reference.current != nil, !reference.isStudying {
-                Button { reference.current = nil } label: { Label("Different Reference", systemImage: "arrow.uturn.backward") }
+                Button { reference.current = nil } label: { Label("Different style", systemImage: "arrow.uturn.backward") }
                     .buttonStyle(.pulse(.ghost, compact: true))
             }
             if app.session?.document.primaryAsset == nil, reference.current != nil {
