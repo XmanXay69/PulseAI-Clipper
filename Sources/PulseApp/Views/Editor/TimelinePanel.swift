@@ -123,6 +123,8 @@ struct TimelineToolbar: View {
             Divider().frame(height: 16).padding(.horizontal, 4)
             IconButton(symbol: "arrow.right.and.line.vertical.and.arrow.left", help: "Snapping (S)", isActive: app.settings.snapping) { app.settings.snapping.toggle() }
             IconButton(symbol: "rectangle.compress.vertical", help: "Magnetic timeline — deleting closes gaps", isActive: app.settings.magneticTimeline) { app.settings.magneticTimeline.toggle() }
+            IconButton(symbol: "arrow.left.and.right.square", help: "Trim while it loops (#661): plays two seconds either side of the cut nearest the playhead, over and over. J and L move the cut a frame (⇧ for five); K or Esc stops.", isActive: session.trimLoop != nil) { session.toggleTrimLoop() }
+            IconButton(symbol: "dial.medium", help: "Dialogue-first mix (#761): places game sound, music and effects under the voice so speech always wins, and lists what it changed") { session.mixDialogueFirst() }
             IconButton(symbol: "waveform.path.ecg", help: "Excitement strip on the ruler — where the energy is", isActive: showEnergy) { showEnergy.toggle() }
             IconButton(symbol: "chart.line.downtrend.xyaxis", help: "Retention on the ruler: the predicted curve where viewers are likely to leave (#490), and in the accent colour the video's real curve once you import it (Timeline → Import Retention Graph…)", isActive: showRetention) { showRetention.toggle() }
             IconButton(symbol: "gauge.with.dots.needle.67percent", help: "Render load on the ruler — green plays easily, red may stutter at full quality (#183)", isActive: showRenderLoad) { showRenderLoad.toggle() }

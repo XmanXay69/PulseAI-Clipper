@@ -90,6 +90,29 @@ This file grows as each one lands; the numbers are the list's.
   never counted: every video loses viewers fastest there. A video is counted once however often its graph
   is imported, and Forget clears the profile.
 
+### Finishing an edit faster
+- **Dialogue-first mix (#761).** Timeline → Dialogue-First Mix, or the dial in the timeline toolbar, takes
+  the voice as the reference and places everything else under it: game sound 10 dB below and set to drop
+  another 9 while someone talks, music 20 dB below and set to drop another 6, sound effects no louder than
+  4 dB under the voice. A voice far from a normal speaking level is brought to it first, and voice clips
+  that differ from each other are evened out. It then lists what it changed in words ("Music down 14 dB to
+  sit 20 dB under the voice and set to drop another 6 dB while someone talks"). It only moves clip gain and
+  switches ducking on; the sound itself is untouched and one undo puts every level back. Levels come from
+  each recording's analysis, or its waveform for library music and effects; a sound it can't measure is
+  left alone, and a recording with no separate microphone is treated as the voice, since its game sound
+  can't be separated.
+- **Rebuild one pass (#1101).** Timeline → Rebuild with Edit My VOD's Settings redoes just the zooms, the
+  pop-ups, the sound effects, the caption look or the tease of a YouTube edit, with whatever Edit My VOD is
+  set to now. Pick another editing style there, then rebuild only the zooms: the cut, your trims, your own
+  text and the other passes stay. New items are placed by where they sit in the recording, not on the
+  timeline, so an edit you trimmed or reordered by hand still gets them in the right places, and nothing is
+  placed on a moment you cut. Zooms and text you made yourself are never removed. One undo step.
+- **Trim while it loops (#661).** With the playhead near a cut, the new timeline toolbar button (or
+  Timeline → Trim the Nearest Cut While It Loops) plays two seconds either side of that cut over and over.
+  J and L move the cut one frame earlier or later, five with Shift; the comma and full-stop keys do the
+  same. Picture and sound move together, the edit keeps its length, and the cut stops where a clip or the
+  recording runs out. K, Esc or Return stops and says how far the cut moved. All the presses are one undo.
+
 ### Checked
 - Core tests for both (default style per kind, your own pick per kind, old settings read as off; the edit
   retention curve; two trials and a verdict) pass on Linux. macOS results are filled in at release.
@@ -108,6 +131,11 @@ This file grows as each one lands; the numbers are the list's.
 - Core tests for retention (YouTube Studio's table and other shapes of it read, junk refused; the steepest
   fall found and blamed on what was on screen; the coach's leak advice and a stale graph; a channel profile
   learned across videos, counted once each, tightening only the rule it supports) pass on Linux.
+- Core tests for the mix (music and effects brought under the voice; a quiet voice raised and the rest
+  following; game sound under a separate mic; nothing guessed; levels from an analysis or a waveform), the
+  rebuild (only the zooms change; a new zoom lands on the same instant of the recording after a hand trim;
+  each pass on its own; your own text kept) and the looping trim (the nearest cut; a frame a press with
+  picture and sound together; stopping where a clip or the recording ends) pass on Linux.
 - Not checked: the predicted retention against real audience retention. It is a rule of thumb. The loop
   and the opening lines have run on synthetic clips and the generated sample, not on real shorts. The story
   reading is keyword and position based: it has been tested on scripted transcripts, not on real streams,
@@ -116,4 +144,6 @@ This file grows as each one lands; the numbers are the list's.
   The face reader's Vision pass compiles and runs on CI, but the sample's facecam is a drawing, so it has
   not read a real face anywhere yet. The retention importer was written from YouTube Studio's documented
   export (a position column and an absolute-retention column) and tested on tables shaped like it: no real
-  export file was available here, so try one and say if it is refused.
+  export file was available here, so try one and say if it is refused. Trim while it loops has not been played by anyone: the cut
+  arithmetic is tested, but how the loop feels while the picture rebuilds after each press is unknown until
+  it is tried on a Mac. The mix's target levels are common practice, not measured on your streams.

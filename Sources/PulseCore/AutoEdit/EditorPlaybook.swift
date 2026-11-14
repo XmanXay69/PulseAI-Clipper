@@ -385,6 +385,17 @@ public enum PlaybookCoach {
         return arrivals
     }
 
+    /// How many zoom-ins one clip has (`aiOnly`: only the ones PULSE made).
+    public static func zoomArrivals(of clip: TimelineClip, aiOnly: Bool = false) -> Int {
+        var count = 0
+        for property in [clip.transform.zoom, clip.transform.scale] {
+            for (a, b) in zip(property.keyframes, property.keyframes.dropFirst()) where b.value > a.value + 1e-3 {
+                if !aiOnly || (a.aiGenerated && b.aiGenerated) { count += 1 }
+            }
+        }
+        return count
+    }
+
     /// Times a long video marks a new section: a chapter marker, a new music bed, a transition, a layout change.
     public static func resets(in timeline: Timeline) -> [Seconds] {
         var times = timeline.markers.map(\.time) + timeline.layoutChanges.map(\.time)

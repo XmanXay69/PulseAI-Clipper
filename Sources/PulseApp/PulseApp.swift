@@ -266,6 +266,16 @@ struct PulseCommands: Commands {
                 .disabled(app.session?.activeTimeline == nil)
             Button("Preview the Loop") { app.session?.previewLoop() }
                 .disabled(app.session?.activeTimeline == nil)
+            Button(app.session?.trimLoop == nil ? "Trim the Nearest Cut While It Loops" : "Stop Trimming") { app.session?.toggleTrimLoop() }
+                .disabled(app.session?.activeTimeline == nil)
+            Button("Dialogue-First Mix") { app.session?.mixDialogueFirst() }
+                .disabled(app.session?.activeTimeline == nil)
+            Menu("Rebuild with Edit My VOD's Settings") {
+                ForEach(EditPass.allCases, id: \.self) { pass in
+                    Button(pass.displayName) { app.session?.rebuild(pass) }
+                }
+            }
+            .disabled(app.session?.activeTimeline == nil)
             Divider()
             Button("Split at Playhead") { app.session?.splitAtPlayhead() }.keyboardShortcut(app.shortcut(.splitAtPlayhead))
             Button("Split All Tracks at Playhead") { app.session?.splitAllAtPlayhead() }.keyboardShortcut(app.shortcut(.splitAllTracks))
@@ -477,6 +487,17 @@ final class KeyboardShortcutMonitor {
             }
         }
         guard let chars = event.charactersIgnoringModifiers?.lowercased() else { return false }
+        // Trimming a cut while it loops (#661): J and L move the cut a frame (five with ⇧), K, Esc or Return stops.
+        if session.trimLoop != nil {
+            if event.keyCode == 53 || event.keyCode == 36 || event.keyCode == 76 { session.stopTrimLoop(); return true }
+            let step = modifiers.contains(.shift) ? 5 : 1
+            switch chars {
+            case "j", ",", "<": session.nudgeTrimLoop(frames: -step); return true
+            case "l", ".", ">": session.nudgeTrimLoop(frames: step); return true
+            case "k": session.stopTrimLoop(); return true
+            default: break
+            }
+        }
         // 1–9 cut to multicam angle N at the playhead (works while playing).
         if modifiers.isEmpty, let digit = Int(chars), (1...9).contains(digit), session.activeMulticamGroup != nil {
             session.cutToAngle(digit - 1)

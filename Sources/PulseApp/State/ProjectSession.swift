@@ -55,6 +55,11 @@ final class ProjectSession: ObservableObject, Identifiable {
     var lastLongFormOptions: LongFormOptions?
     /// The loop preview in progress (#541), so a second press restarts it and a new one cancels the old.
     var loopPreview: Task<Void, Never>?
+    /// The cut being trimmed while the edit loops around it (#661); nil when not trimming.
+    @Published var trimLoop: TrimLoop.Cut?
+    /// Where that cut was when the trim started, and how looping was set before it.
+    var trimLoopStart: Seconds = 0
+    var trimLoopRestore: (Bool, TimeRange?)?
     /// Excitement over source time per asset (for the strip on the timeline ruler), computed once on demand.
     @Published private(set) var energySignals: [UUID: EngagementSignals] = [:]
     private var energyRequests: Set<UUID> = []
