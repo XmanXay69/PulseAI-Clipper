@@ -285,7 +285,8 @@ public enum StudyFinder {
                              "preset", "template", "giveaway", "photo edit", "photo editing", "lightroom", "photoshop", "picsart", "thumbnail",
                              "wedding", "stinger", "overlay", "streamlabs", " obs", "capture card", "input delay", "edit binds", "piece control",
                              "edit faster on", "editing faster on", "fast editor", "gacha", "instagram app", "insta stories", "masking", "sky replacement",
-                             "videography", "text animation", "motion blur", "viral 3d", "alight motion", "script research", "shake edit"]
+                             "videography", "text animation", "motion blur", "viral 3d", "alight motion", "script research", "shake edit",
+                             " ff ", "viral shorts", "shorts like", "edit shorts", "instagram reel", "trending reel", "reels video", "@"]
     /// Titles in another language: PULSE transcribes in the language set in Settings, and a mismatch is noise.
     static let otherLanguageWords = ["hindi", "kaise", "kare ", "karen", "banaye", "banate", "sikhe", "seekhe", "telugu", "tamil", "urdu", "bangla",
                                      "malayalam", "kannada", "marathi", "español", "como editar", "cara edit", "indonesia", "português", "türkçe"]

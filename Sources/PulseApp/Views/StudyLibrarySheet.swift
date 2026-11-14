@@ -51,14 +51,13 @@ struct StudyLibrarySheet: View {
 
     // MARK: Genres
 
+    /// Every genre in view at once: four to a row, like the genre buttons in Edit My VOD.
     var genreBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(VideoGenre.allCases, id: \.self) { item in genreButton(item) }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
+            ForEach(VideoGenre.allCases, id: \.self) { item in genreButton(item) }
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
     }
 
     func genreButton(_ item: VideoGenre) -> some View {
@@ -68,11 +67,13 @@ struct StudyLibrarySheet: View {
         return Button { genre = item } label: {
             HStack(spacing: 6) {
                 Image(systemName: item.symbol).font(.system(size: 11))
-                Text(item.displayName).font(.pulseCaption)
+                Text(item.displayName).font(.pulseCaption).lineLimit(1)
+                Spacer(minLength: 2)
                 Text("\(done)/\(total)").font(.pulseMicro).foregroundStyle(selected ? Theme.textSecondary : Theme.textTertiary)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
+            .frame(maxWidth: .infinity)
             .foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
             .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(selected ? Theme.accent.opacity(0.18) : Theme.panelRaised))
             .contentShape(Rectangle())
@@ -104,7 +105,7 @@ struct StudyLibrarySheet: View {
     @ViewBuilder var learnedCard: some View {
         if let learned = library.library.knowledge(for: genre) {
             VStack(alignment: .leading, spacing: 8) {
-                SectionLabel(text: "What the \(genre.displayName.lowercased()) videos agree on")
+                SectionLabel(text: "What the videos in “\(genre.displayName)” agree on")
                 VStack(alignment: .leading, spacing: 10) {
                     if !learned.summary.isEmpty {
                         Text(learned.summary).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
@@ -233,7 +234,7 @@ struct StudyLibrarySheet: View {
             Button("Find More") { library.findTop(for: genre) }
                 .buttonStyle(.pulse(.secondary, compact: true))
                 .disabled(library.isBusy)
-                .help("Searches YouTube from this Mac for the most-watched videos that teach editing \(genre.displayName.lowercased()) videos, up to \(StudyLibrary.perGenre) in all")
+                .help("Searches YouTube from this Mac for the most-watched videos that teach this kind of editing, until “\(genre.displayName)” holds \(StudyLibrary.perGenre)")
             Spacer(minLength: 8)
             Button("Close") { app.showStudyLibrary = false }.buttonStyle(.pulseSecondary)
             if library.isStudying {

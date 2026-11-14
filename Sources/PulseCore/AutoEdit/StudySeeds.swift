@@ -43,11 +43,9 @@ streamHighlights	jMcSzKhH390	10911	253	EposVox	How to edit stream highlights WIT
 streamHighlights	PM7OijUCS7U	10608	202	HunterTheHill	How To Edit Stream VOD into YouTube Shorts (Clips) in Davinci Resolve
 gamingVideo	sLgHqZSe2o0	6071408	872	Learn By Leo	How to edit SO good your viewers get addicted to your videos
 gamingVideo	ae_tzdPGyis	4375165	679	RADAL	how to edit gaming videos
-gamingVideo	p24gkLDwQ6o	2354608	556	GAMING BOY	How to edit like 😈 zoro ff in CapCut | How to edit viral shorts in CapCut | @zoroffxx
 gamingVideo	hhhSRaTP_mI	2324273	1397	CreaView	How to Edit Gaming Videos Like Pro on Mobile in 2026 (Basic to Advanced Full Tutorial)
 gamingVideo	H1LdSmObFhg	2010793	398	finzar	How to Edit Gaming Subtitles (Premiere Pro)
 gamingVideo	lYj7Mouw-dc	1553486	835	Finzar	How to Edit a Gaming Video (For Beginners)
-gamingVideo	D_x6ndzeig0	1540398	971	GAMING BOY	How to edit shorts like @1410gaming in capcut 🤯| colour grading like @1410gaming
 gamingVideo	hDS4tr0KpK8	1476532	594	RADAL	how to edit gaming videos like a god
 gamingVideo	GqNuZv-GxJk	1367410	395	Vijay Dhanbadi	How to Edit Comedy Videos | How to Add Memes and Sound Effects to Comedy Videos
 gamingVideo	2mjhvGD5mU0	1187196	396	BM Tech	How To Edit Gameplay Video On Kinemaster With FaceCam | kinemaster Gaming Video Editing Tutorial
@@ -139,6 +137,8 @@ gamingVideo	wkUi5J9mrnA	17863	316	Premium Rise	How to Edit Gaming Videos on Mobi
 gamingVideo	WZGwhZZb8d8	17231	1443	Michael Feyrer Jr.	How To Edit Gaming Videos Like a Pro Using CapCut Desktop PC & Mac
 gamingVideo	Szgri3rvT4g	15368	559	Jewel The Jet	Giants Editor Tutorial | How To Fix Error Game Installation Path Error FS19 FS22 | Tutorial
 gamingVideo	sNTajsNrQWk	14260	1056	LAS Curry	How to Edit Gaming Videos in DaVinci Resolve (Step-by-Step)
+gamingVideo	Eal6WXe9uog	13948	3421	Niko	How to Edit VIRAL Fortnite Videos in 2025
+gamingVideo	0HpK0n7AmaE	13820	444	AceRoblox and AceRoblox 2	How to edit Roblox videos on CapCut part 2! (Part 2)
 gamingVideo	eEVxr6lzQSc		596	Finzar	How To Edit Super Smooth Transitions in Premiere Pro!
 gamingVideo	L4da128D6Xc		187	Storezar	How to Edit The BEST Sound Effects For Beginners
 challenge	t5Z-Q1bg1tU	3029915	674	Kallaway	How To Become A Master Storyteller
@@ -146,16 +146,13 @@ challenge	iWQQgZh9EyE	2317808	817	Film Riot	Visual Storytelling 101
 challenge	F0d89mlFa1U	2007136	1838	DecodingYT	8 Editing Techniques to Make VIRAL YouTube Videos
 challenge	QR8LxximqWI	1853753	351	HillierSmith	5 MORE Editing Mistakes YouTubers Do That I Hate...
 challenge	D5RkABUQfkM	1383063	545	NSB Pictures	The Art of Storytelling: a complete guide - NSB Pictures
-challenge	X9N0TcL8otg	1216892	578	NSB Pictures	Editing Viral Tech Reels like @TechBurner Finally i Got the Secret!
 challenge	grzBWXN0oxI	1155930	1613	Exal.Visuals	How to Make VIRAL EDITS on Capcut | Full Tutorial ✨
 challenge	5He0fCy5f0w	1103850	626	Little Ingredient	How I film & edit YouTube video with my iPhone
 challenge	hY4pybwOUq0	1086880	411	vidIQ	4 Editing Secrets Small Channels Learn Too Late
 challenge	IjMVme1aDWg	930231	685	byl	How I Edit Documentary Video LIKE Johnny Harris in Capcut (Part 1)
 challenge	MJHpo7pOaLg	869895	688	Zeven 7	How to Make Viral Minimal Reel Edits in CapCut
 challenge	ciAywjey0cY	800261	1327	Isaac	How I Actually Edit Viral Videos
-challenge	jAvNgpcdD5k	772383	1785	Joseph | Video Editing	How to Edit Viral Instagram Reels using ONLY Premiere Pro! (Beginner’s Guide)
 challenge	J0ydlAqg6_8	758777	564	Tim Runia	The ONLY 7 Cuts You Need To Tell Any Story
-challenge	-R1gIj2nUlg	635391	397	FINEST EDIT ACADEMY	How to EDIT YouTube Videos Like @MrBeast in Capcut
 challenge	Zm7J3KqqXPk	586303	503	Herman Huang	How to Edit ANY Video Like You've Done it 1,000 Times
 challenge	R8yEvQ0lx-s	577913	338	Film Booth	How To Edit YouTube Videos 10x Faster! - Productivity Hacks
 challenge	nZrPVUzYHKE	543483	468	Motion Array Tutorials	How To Edit A Documentary Like Johnny Harris
@@ -171,7 +168,6 @@ challenge	Zf2jQm8xA_I	353083	843	Technical Sky	Edit your YouTube Videos Professi
 challenge	AV4UnrHznR8	304636	1100	Think Media	How to Edit a YouTube Video in 2026 (Start to Finish)
 challenge	rJKzlE7aMBw	297962	484	finzar	How To Edit Like Mr Beast (YouTube Cheat Sheet)
 challenge	g9xoKm5DEeU	250693	1257	Joseph | Video Editing	How to Edit VIRAL Talking Head Videos Using ONLY Claude! (New Minimal Style)
-challenge	s8KnpQxrcRo	230660	2306	Money Groot	How to Actually Edit Shorts That Go Viral Every Time
 challenge	BEOGncyhwNo	224010	500	TaZerrr	How to Edit on Capcut so You ALWAYS Go Viral
 challenge	rp6cTMARWkA	218322	2869	Content Creators	Edit PRO Youtube Videos in DaVinci Resolve | In Depth Tutorial
 challenge	7F0Qb4RCr6s	198754	533	Abhay PS Rajawat	the only 5 Storytelling Tips you Need as a Video Editor
@@ -237,7 +233,6 @@ vlog	NTGWV64knXA	189777	813	HillierSmith	HOW TO MAKE A DAVID DOBRIK VLOG - Video
 vlog	mPcGxk0tDJc	178392	1527	Lost LeBlanc	How To Make a TRAVEL VIDEO - 5 Steps to BETTER Editing
 vlog	ZZmxSU8vriI	175862	1744	Vanessa Lau	How to Film + Edit Voiceover Vlogs | day in the life, gear, filming bts, editing + more!
 vlog	Yp3tjKqcWCQ	173505	926	Minoli Disanayaka	How I film & edit my videos මම vlogs කරන විදිහ aesthetic vlog tutorial for beginners #vloggingtips
-vlog	x-EOuT2VZ9Y	167202	396	Adobe Video	@withlovelinh's Guide to Editing Vlogs | Become the Premiere Pro | Adobe Video
 vlog	skawgTWY8hM	133518	482	Lila	how to edit vlogs
 vlog	R8o3yH3LGgk	124474	356	Esha's attic	How I Vlog With JUST My Phone (FACELESS) 🎧🖇️ + Editing Tips
 vlog	xKX0cOo1r6M	119972	1571	Content Creators	How To Edit Viral Travel Tik Toks & Reels using CapCut
@@ -248,7 +243,6 @@ vlog	-knzYbKyBf4	53060	899	Evan Lindy	How to edit Vlogs LIKE A PRO!
 vlog	EA9riVpKvHg	49847	2902	Joey Edits	how to edit vlogs for Youtube in Capcut PC - Beginner Tutorial
 vlog	60I2AkoMqKI	49557	1319	Laura Jane Illustrations	Vlogging tips for beginners ✨ How I plan, film + edit DITL vlogs
 vlog	dcA6CWXAKpQ	40393	1589	Modern Millie	How to Film + Edit Vlog-Style YouTube Videos (everything beginners need to know)
-vlog	hhOppy8u-Ys	37002	722	ASIF OMAR	NEW TRENDING TRAVEL REELS VIDEO EDITING TUTORIAL | SCHOOL & COLLAGE TRAVEL REELS VIDEO EDITING
 vlog	GGlgqSbzA8c	36265	925	Pascal Basel	Travel Video Editing: 5 Techniques for Cinematic Vlogs
 vlog	BXatSHBAz1Q	35346	998	dyidyi	how to edit aesthetic day in my life silent vlog in capcut in 2025 ― beginner friendly and tips
 vlog	miML2hkmO1o	33928	1840	Mohnish Doultani	How I Edit Cinematic Travel Videos | My Editing Workflow and Tips

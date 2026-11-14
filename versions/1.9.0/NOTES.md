@@ -47,8 +47,8 @@
   the download when it is done. Nothing has to be downloaded by hand first.
 - **Study Library** (File menu, and a button in Edit Like a Reference and under the genre in Edit My
   VOD) holds, for each of the seven genres, the most-watched videos that teach editing that kind of
-  video. PULSE ships with 467 of them: Gaming video 100,
-  Cinematic 100, Montage 82, Challenge or story 69, Vlog 49, Commentary or podcast 49, Stream
+  video. PULSE ships with 461 of them: Gaming video 100,
+  Cinematic 100, Montage 82, Challenge or story 65, Commentary or podcast 49, Vlog 47, Stream
   highlights 18. Each row shows the channel, the views and the length, and opens on YouTube.
 - **"Study" works through a genre one video at a time**: fetch it from YouTube, measure it on this Mac,
   have the language model read what was said and list the rules it teaches, keep those, delete the
@@ -67,7 +67,7 @@
     passed a title filter (about cutting, teaching something, naming the genre, in English, at least
     10,000 views, three minutes to an hour). It is not a ranking of everything on YouTube, and for
     some genres there are not a hundred such videos, which is why those lists are shorter: editing a
-    stream into a video has few popular tutorials. 42 of the 467 are the videos already watched for
+    stream into a video has few popular tutorials. 42 of the 461 are the videos already watched for
     this version's styles. A title filter lets some off-topic videos through, and some with English
     titles are spoken in another language; a rule only one video teaches is dropped at the merge.
   - A video takes a few minutes: the download, transcription and a pass over the frames. A genre of a

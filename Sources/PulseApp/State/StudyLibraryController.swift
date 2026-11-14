@@ -50,7 +50,7 @@ final class StudyLibraryController: ObservableObject {
         guard !isBusy else { return }
         isFinding = true
         problem = nil
-        status = "Searching YouTube for \(genre.displayName.lowercased()) editing videos"
+        status = "Searching YouTube for videos that teach editing: \(genre.displayName)"
         Task { [weak self] in
             var results: [VideoSearchResult] = []
             var refused = 0
@@ -206,7 +206,7 @@ final class StudyLibraryController: ObservableObject {
             // Merge what each touched genre's videos teach, unless the run was stopped by hand or by the model.
             if self.problem == nil, !job.isCancelledCheck() {
                 for genre in touched {
-                    self.status = "Merging what the \(genre.displayName.lowercased()) videos teach"
+                    self.status = "Merging what the videos in “\(genre.displayName)” teach"
                     job.detail = self.status
                     _ = await self.mergeNow(genre, provider: provider)
                 }
@@ -270,23 +270,23 @@ final class StudyLibraryController: ObservableObject {
         problem = nil
         guard let provider = studyProvider(for: "Merging what the videos teach") else { return }
         guard let brief = GenreStudy.brief(genre: genre, library: library, budget: provider.location == .local ? 60_000 : 500_000) else {
-            app.toast("Study some \(genre.displayName.lowercased()) videos first")
+            app.toast("Study some of the videos in “\(genre.displayName)” first")
             return
         }
         if provider.location == .cloud && app.settings.ai.processingPolicy != .allowCloud {
             let alert = NSAlert()
             alert.messageText = "Send the rules from \(brief.entries.count) video\(brief.entries.count == 1 ? "" : "s") to \(provider.displayName)?"
-            alert.informativeText = "\(brief.ruleCount) rules that were drawn from the \(genre.displayName.lowercased()) videos are sent, about \(brief.wordCount.formatted()) words, to be merged into the ones they agree on. Nothing of yours is sent."
+            alert.informativeText = "\(brief.ruleCount) rules that were drawn from the videos in “\(genre.displayName)” are sent, about \(brief.wordCount.formatted()) words, to be merged into the ones they agree on. Nothing of yours is sent."
             alert.addButton(withTitle: "Send")
             alert.addButton(withTitle: "Cancel")
             guard alert.runModal() == .alertFirstButtonReturn else { return }
         }
         isMerging = true
-        status = "Merging what the \(genre.displayName.lowercased()) videos teach"
+        status = "Merging what the videos in “\(genre.displayName)” teach"
         Task { [weak self] in
             guard let self else { return }
             if let learned = await self.mergeNow(genre, provider: provider) {
-                app.toast("\(learned.rules.count) rule\(learned.rules.count == 1 ? "" : "s") from \(learned.videoCount) \(genre.displayName.lowercased()) video\(learned.videoCount == 1 ? "" : "s")")
+                app.toast("\(learned.rules.count) rule\(learned.rules.count == 1 ? "" : "s") from \(learned.videoCount) video\(learned.videoCount == 1 ? "" : "s") in “\(genre.displayName)”")
             }
             self.isMerging = false
             self.status = ""
