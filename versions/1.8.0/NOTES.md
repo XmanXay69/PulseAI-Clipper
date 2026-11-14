@@ -1,7 +1,8 @@
-## PULSE 1.8.0 (in progress)
+## PULSE 1.8.0
 
-The first twenty items of [the 800 ideas](../../docs/IDEAS-800.md), built in the order that list gives.
-This file grows as each one lands; the numbers are the list's.
+The first twenty items of [the 800 ideas](../../docs/IDEAS-800.md), the ones that list says to build first.
+The numbers are the list's. A lot here is new judgement written as rules of thumb, and most of it has only
+run on generated samples: the "Checked" section at the end says exactly what has and has not been tried.
 
 ### Editing styles everywhere
 - **A style for each kind of recording (#626).** Settings → AI Features → Editing style has one switch:
@@ -189,8 +190,12 @@ This file grows as each one lands; the numbers are the list's.
   un-notarized build would have published notes saying it opened with no warning.
 
 ### Checked
+- On the commit this release is built from, CI ran 574 tests on Apple silicon (macOS 26) and the same suite on
+  Intel (macOS 15) with no failures, walked through every page of the app, and found the viewer's four reference
+  frames unchanged.
 - Core tests for both (default style per kind, your own pick per kind, old settings read as off; the edit
-  retention curve; two trials and a verdict) pass on Linux. macOS results are filled in at release.
+  retention curve; two trials and a verdict) pass on Linux and on both Mac runners, as do all the core tests
+  listed below.
 - Core tests for the loop (a hanging ending beats a trail-off; questions and returns to the opening; never
   through a word, before the payoff or too early; the coach's offer), the opening lines (five kinds, all
   different, short enough, true to the clip; one line on the short at a time) and reading-speed pages

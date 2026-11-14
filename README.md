@@ -9,10 +9,22 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
 
 ## Download
 
-**[⬇ Download PULSE 1.7.0](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
-(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.7.0/NOTES.md)
+**[⬇ Download PULSE 1.8.0](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
+(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.8.0/NOTES.md)
 
 Already installed? PULSE shows an **Update** button when a new version is out — no need to download again.
+
+**New in 1.8.0:** the first twenty of [the 800 ideas](docs/IDEAS-800.md). For shorts: an ending that loops back
+to the opening, five opening lines true to the clip, caption pages split at reading speed. For long videos: an
+editing style chosen for each kind of recording, two styles compared side by side before one is built, the kept
+moments read as a story, a tease that points at a real later moment, and a language model (Claude, or one running
+on your Mac) that reads the whole transcript and plans the edit for you to approve. Around the edit: music in the
+recording flagged before export, the face on camera read as a reaction signal, a video's real retention graph on
+its timeline and what your audience leaves during, a dialogue-first mix, one pass of an edit rebuilt on its own, a
+cut trimmed frame by frame while it loops. Around the work: three clips from a long recording's first ten minutes
+while the rest is analyzed, a week of posts planned across platforms, and a reviewer's timecoded comments back on
+the timeline as markers. Much of this rests on rules of thumb that have only run on generated samples; the notes
+say exactly what has and has not been tried ([notes](versions/1.8.0/NOTES.md)).
 
 **New in 1.7.0:** PULSE takes on the look of [BulkBoard](https://github.com/XmanXay69/bulkboard) — graphite
 surfaces, one blue accent, soft 12-pt cards, a page header on every page, a rounded sidebar, quiet tags and the
@@ -20,7 +32,7 @@ app's own segmented control — with every feature where it was. And the auto-ed
 (Retention cut, Story first, Clean commentary, Punchy short, Smooth and cinematic, On the beat), written down
 from what working editors teach: pick one in Edit My VOD or Edit Like a Reference and PULSE cuts your VOD that way, and the
 coach now flags held shots, missing sections, piled-up sound effects and caption pages too long to read
-([notes](versions/1.7.0/NOTES.md)). Next: [800 more ideas](docs/IDEAS-800.md).
+([notes](versions/1.7.0/NOTES.md)).
 
 **New in 1.6.3:** a hardening pass over the last batches — two-pass export drives the encoder's passes the way
 AVFoundation expects, YouTube uploads resume after a dropped connection or a server error, dubbing can't hang on
@@ -104,8 +116,8 @@ in), speaker detection, the music and sound effects library, and export.
 ## Screenshots
 
 These come straight from CI (`PULSE --ui-snapshots` on a GitHub macOS runner, with a generated sample
-stream). The runner can't capture the live video layer, so viewers look black in the app shots; the frame
-the viewer actually shows is rendered separately below.
+stream). A window capture can't see the live video layer, so the walk-through renders the viewer's frame itself,
+checks it, and draws it into the capture where the player shows it ([how](docs/VIEWER-FRAMES.md)).
 
 | Home | Edit My VOD |
 |---|---|
@@ -116,6 +128,8 @@ the viewer actually shows is rendered separately below.
 | ![Editor](docs/screenshots/editor.jpg) | ![Captions](docs/screenshots/captions.jpg) |
 | **Editing styles** | **Exports** |
 | ![Editing styles](docs/screenshots/editing-styles.jpg) | ![Exports](docs/screenshots/exports.jpg) |
+| **Posting plan** | **Compare two styles** |
+| ![Posting plan](docs/screenshots/posting-plan.jpg) | ![Compare two styles](docs/screenshots/style-compare.jpg) |
 | **Light theme: Home** | **Light theme: Media** |
 | ![Home in the light theme](docs/screenshots/home-light.jpg) | ![Media in the light theme](docs/screenshots/media-light.jpg) |
 

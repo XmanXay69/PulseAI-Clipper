@@ -17,7 +17,7 @@ Intel and `macos-15` jobs are the ones that usually finish, and one green job is
 
 ## Versions
 
-`VERSION` holds the current version (1.7.0). Release notes per version live in `versions/<version>/NOTES.md`
+`VERSION` holds the current version (1.8.0). Release notes per version live in `versions/<version>/NOTES.md`
 (the Release workflow prepends them to the GitHub Release); `versions/README.md` explains how to cut a new one.
 
 ## Download (the easy way)
@@ -66,8 +66,7 @@ Key files to know:
 - `Sources/PulseEngine/Composition/CompositionBuilder.swift` + `Rendering/FrameRenderer.swift` — how a timeline becomes pixels (same path for playback and export).
 - `Sources/PulseCore/AutoEdit/ShortBuilder.swift` — candidate → finished 9:16 short.
 - `Tests/PulseEngineTests/EngineSmokeTests.swift` — end-to-end: demo media → analysis → clips → short → rendered stills → exported MP4.
-- 1.8.0 (in progress, not released: the "top twenty" of `docs/IDEAS-800.md`, all built; `VERSION` and the README
-  still say 1.7.0 until a `[release]` commit). Where each lives, all with tests in `Tests/PulseCoreTests`:
+- 1.8.0 (the "top twenty" of `docs/IDEAS-800.md`). Where each lives, all with tests in `Tests/PulseCoreTests`:
   default style per kind of recording and the two-style compare (`AISettings.defaultPlaybook`,
   `AutoEdit/StyleComparison.swift`, `Views/StyleCompareSheet.swift`); the loop, the five opening lines and
   reading-speed caption pages (`AutoEdit/LoopBuilder.swift`, `Clips/HookWriter.swift`, `Captions/CaptionLayout.swift`);
