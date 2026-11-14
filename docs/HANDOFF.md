@@ -74,7 +74,8 @@ Key files to know:
   refuses video pages from cloud addresses**, so in a cloud session it finds videos but cannot open them. Do not
   work round that (scraped transcripts were tried once and correctly refused). It works on the owner's Mac, or
   with a `GEMINI_API_KEY` (Google watches the link itself). Until one of those happens the genre rules rest on
-  written articles only; `versions/1.9.0/NOTES.md` says so and lists the videos that were meant to be watched.
+  written articles only; `versions/1.9.0/NOTES.md` says so, and `docs/EDITING-STUDY.md` is the study written out as
+  a job for a session on the owner's Mac (the video list, what to extract, which files to update).
 - 1.8.0 (the "top twenty" of `docs/IDEAS-800.md`). Where each lives, all with tests in `Tests/PulseCoreTests`:
   default style per kind of recording and the two-style compare (`AISettings.defaultPlaybook`,
   `AutoEdit/StyleComparison.swift`, `Views/StyleCompareSheet.swift`); the loop, the five opening lines and

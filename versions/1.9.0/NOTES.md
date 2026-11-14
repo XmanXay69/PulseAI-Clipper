@@ -43,8 +43,10 @@
   written down from that reading. They have not been measured on real videos and have only run on the
   generated sample.
 - **Two ways to get the real thing**, either of which lets the styles be redone from the videos
-  themselves: run `/watch` on your own Mac, where YouTube lets you in; or give the skill a free Gemini
-  key, and Google's model watches the YouTube link directly without a download.
+  themselves: run `/watch` in a Claude Code session on your own Mac, where YouTube lets you in; or give
+  the skill a free Gemini key, and Google's model watches the YouTube link directly without a download.
+  [docs/EDITING-STUDY.md](../../docs/EDITING-STUDY.md) is the whole job written out, with the list of
+  videos, so on the Mac it is one sentence to paste. A cloud session cannot reach the Mac or its browser.
 
 ### Checked
 - Core tests for the genres (seven genres, each with its own long-form style and at least two sources;
