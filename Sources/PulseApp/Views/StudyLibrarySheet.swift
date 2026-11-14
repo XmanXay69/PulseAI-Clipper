@@ -67,11 +67,11 @@ struct StudyLibrarySheet: View {
         return Button { genre = item } label: {
             HStack(spacing: 6) {
                 Image(systemName: item.symbol).font(.system(size: 11))
-                Text(item.displayName).font(.pulseCaption).lineLimit(1)
+                Text(item.displayName).font(.pulseCaption).lineLimit(1).minimumScaleFactor(0.8)
                 Spacer(minLength: 2)
                 Text("\(done)/\(total)").font(.pulseMicro).foregroundStyle(selected ? Theme.textSecondary : Theme.textTertiary)
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity)
             .foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
