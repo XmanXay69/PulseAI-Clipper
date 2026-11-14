@@ -630,6 +630,9 @@ struct AIFeatureSettings: View {
             SettingsRow("Read game banners", detail: "During analysis of gameplay, reads VICTORY, ELIMINATED, DOUBLE KILL, YOU DIED and the like off the screen so wins and deaths score as moments (about a minute per hour of video).") {
                 Toggle("", isOn: $app.settings.ai.hudCues).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
             }
+            SettingsRow("Read reactions on camera", detail: "During analysis, reads the face in the facecam (or filling the frame) about once a second: a dropped jaw, a grin or wide eyes count as a reaction even when nobody makes a sound. Shapes only, measured on this Mac; nobody is identified and no picture is kept. Adds a minute or two per hour of video.") {
+                Toggle("", isOn: $app.settings.ai.faceReactions).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
+            }
             SettingsRow("AI sound effects", detail: "Uses sound effects you import into the project.") {
                 Toggle("", isOn: $app.settings.ai.aiSoundEffects).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
             }

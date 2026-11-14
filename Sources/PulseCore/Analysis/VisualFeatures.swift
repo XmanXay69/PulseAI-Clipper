@@ -273,6 +273,8 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
     public var beats: [Seconds]?
     /// Where the facecam sat over the recording when it moved (#46); nil or empty = `webcam` everywhere.
     public var webcamSegments: [WebcamSegment]?
+    /// What the face on camera was doing (#501); nil when there was no face to read or the reader was off.
+    public var expressions: ExpressionSeries?
 
     /// The facecam estimate for a moment of the source (#46): the segment holding `time`, else the overall one.
     public func webcam(at time: Seconds) -> WebcamEstimate? {

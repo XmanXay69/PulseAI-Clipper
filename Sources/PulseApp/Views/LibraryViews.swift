@@ -634,6 +634,33 @@ struct ExportsView: View {
         var verdict: LoudnessVerdict
     }
 
+    /// Music in the recording's own sound (#521), said here because this is the last stop before it is posted.
+    @ViewBuilder
+    var musicWarning: some View {
+        if let session = app.session, let timeline = session.activeTimeline {
+            let music = MusicRisk.flags(in: timeline, analysis: session.analysis(for: timeline))
+            if !music.isEmpty {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "music.note.list").font(.system(size: 14, weight: .medium)).foregroundStyle(Theme.warning)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Music in the recording at \(MusicRisk.describe(music))").font(.pulseHeadline).foregroundStyle(Theme.textPrimary)
+                        Text("It sounds like a track playing in the recording itself. A copyrighted track can get a video claimed, muted or blocked. This is a rule of thumb from rhythm and steadiness, not a song match: listen before you decide.")
+                            .font(.pulseCaption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 8)
+                    Button("Silence It") { session.silenceMusicInRecording() }
+                        .buttonStyle(.pulse(.secondary, compact: true))
+                        .fixedSize()
+                        .help("Silences the recording's own sound over those stretches; the picture, the captions and PULSE's own music stay. Undo brings it back.")
+                }
+                .padding(12)
+                .insetRow()
+                .padding(.horizontal, Theme.Spacing.xxl)
+                .padding(.bottom, Theme.Spacing.l)
+            }
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             PageHeader("Exports", subtitle: headerSubtitle) {
@@ -652,6 +679,7 @@ struct ExportsView: View {
             .padding(.horizontal, Theme.Spacing.xxl)
             .padding(.top, 4)
             .padding(.bottom, Theme.Spacing.l)
+            musicWarning
             columns
         }
         .onAppear {

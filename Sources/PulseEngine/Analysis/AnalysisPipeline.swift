@@ -323,10 +323,34 @@ public struct AnalysisPipeline: Sendable {
             completed += hudWeight   // not gameplay: nothing to read
         }
 
+        // 5. The face on camera (#501): reactions nobody voiced. Only where a face is known to be: a facecam
+        // overlay, or a person filling the frame.
+        var expressions: ExpressionSeries?
+        if options.ai.faceReactions, options.detectFaces, hasVideo, profile == .gameplayWithFacecam || profile == .talkingHead {
+            stageStart = Date()
+            let base = completed
+            let overall = profile == .gameplayWithFacecam ? webcam?.region : nil
+            let moved = profile == .gameplayWithFacecam ? (webcamSegments ?? []) : []
+            do {
+                expressions = try await FaceExpressionAnalyzer.analyze(
+                    url: url, duration: meta.duration,
+                    regionAt: { time in moved.first { $0.range.contains(time) }?.estimate.region ?? overall },
+                    progress: { p in report("Reading reactions on camera", p.fraction, base, 0) }, isCancelled: isCancelled)
+                if expressions != nil { processing["faces"] = .local }
+                PulseLog.info(String(format: "Reactions on camera: %@ in %.0f s", expressions.map { "a face on \(Int(($0.coverage * 100).rounded())) % of frames" } ?? "no face to read",
+                                     Date().timeIntervalSince(stageStart)))
+            } catch EngineError.cancelled {
+                throw EngineError.cancelled
+            } catch {
+                warnings.append("Reading reactions on camera failed: \(error.localizedDescription)")
+            }
+        }
+
         var analysis = MediaAnalysis(assetID: asset.id, duration: meta.duration, audio: audioFeatures, visual: visual,
                                      transcript: transcript, webcam: webcam, profile: profile, processing: processing)
         analysis.hudEvents = hudEvents
         analysis.webcamSegments = webcamSegments
+        analysis.expressions = expressions
         progress(EngineProgress(stage: "Done", fraction: 1))
         checkpoint.clear()
         return Output(analysis: analysis, warnings: warnings, stageSeconds: stageSeconds, resumedStages: resumed)

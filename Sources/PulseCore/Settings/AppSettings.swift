@@ -59,6 +59,8 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var brollFolder: String = ""
     /// Read the game's banners (wins, kills, deaths) off the screen during analysis of gameplay.
     public var hudCues: Bool = true
+    /// Read the face on camera during analysis (#501): a silent jaw-drop or a grin counts as a reaction.
+    public var faceReactions: Bool = true
     /// What AI-built edits do to the audio under swear words (the caption filter masks the text).
     public var censorAudio: CensorAudio = .off
     /// Game names, usernames and catchphrases speech-to-text should get right (#43).
@@ -164,6 +166,7 @@ public struct AISettings: Codable, Hashable, Sendable {
         extraProfanity = c.decode([String].self, forKey: .extraProfanity, default: d.extraProfanity)
         brollFolder = c.decode(String.self, forKey: .brollFolder, default: d.brollFolder)
         hudCues = c.decode(Bool.self, forKey: .hudCues, default: d.hudCues)
+        faceReactions = c.decode(Bool.self, forKey: .faceReactions, default: d.faceReactions)
         censorAudio = c.decode(CensorAudio.self, forKey: .censorAudio, default: d.censorAudio)
         customVocabulary = c.decode([String].self, forKey: .customVocabulary, default: d.customVocabulary)
         favoriteTrackIDs = c.decode([String].self, forKey: .favoriteTrackIDs, default: d.favoriteTrackIDs)

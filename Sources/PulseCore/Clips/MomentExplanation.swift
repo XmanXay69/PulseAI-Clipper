@@ -39,6 +39,8 @@ public struct MomentExplanation: Hashable, Sendable {
         add("Surprise", surprise, "a sudden jump in volume", "a sudden spike")
         let scream = s.shouts.count == s.count ? Double(s.max(s.shouts, in: near)) : 0
         add("Scream", scream, "a scream or shout while talking", "a scream")
+        let face = s.expression.count == s.count ? Double(s.max(s.expression, in: near)) : 0   // empty when no face was read
+        add("Face", face, "a reaction on the face on camera", face >= 0.7 ? "a big reaction on camera" : "a reaction on camera")
         let keywords = Double(s.sum(s.keywords, in: range)) / 2.5
         add("Hype words", keywords, "words like insane, no way, let's go", "hype words")
         let motion = Double(s.max(s.motion, in: near)) / 3

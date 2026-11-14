@@ -52,6 +52,17 @@ extension ProjectSession {
         }
     }
 
+    /// Silences the recording's own sound where it sounds like a music track (#521), in the open edit. The
+    /// picture, captions and everything PULSE added stay; one undo step brings the sound back.
+    func silenceMusicInRecording() {
+        guard let timeline = activeTimeline, let analysis = analysis(for: timeline) else { return }
+        let flags = MusicRisk.flags(in: timeline, analysis: analysis)
+        guard !flags.isEmpty else { return }
+        editTimeline("Silence Music in the Recording") { edit in _ = MusicRisk.mute(flags, in: &edit, assetID: analysis.assetID) }
+        app.toast("Silenced the recording at \(MusicRisk.describe(flags))", undo: true)
+        app.logActivity(.autoEdit, title: "Silenced music in the recording", detail: "\(timeline.name) · \(MusicRisk.describe(flags))")
+    }
+
     func applyCoachFix(_ suggestion: EditSuggestion) {
         guard let timeline = activeTimeline else { return }
         var only = EntertainmentOptions()
@@ -91,6 +102,9 @@ extension ProjectSession {
             return
         case .removeTease:
             editTimeline("Remove Tease") { OpenLoopBuilder.remove(from: &$0) }
+        case .muteMusic:
+            silenceMusicInRecording()
+            return
         case .none:
             return
         }

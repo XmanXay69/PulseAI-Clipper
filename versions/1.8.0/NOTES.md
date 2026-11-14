@@ -55,6 +55,23 @@ This file grows as each one lands; the numbers are the list's.
   says "The tease isn't paid off" with a one-click removal. A long edit with no tease gets a "Give them
   something to stay for" tip that plants one. PULSE only ever promises a moment that is really in the edit.
 
+### Finding more, risking less
+- **Music in the recording (#521).** PULSE now hears when the recording itself has a music track playing:
+  a steady level with a regular beat held for a quarter of a minute or more, including a track running
+  under talking. Where an edit uses such a stretch the coach says "Music in the recording" with the times,
+  and Exports shows the same warning before anything is posted. **Silence It** mutes the recording's own
+  sound over those stretches with a short fade each side; the picture, the captions and PULSE's own music
+  stay, and one undo brings it back. It is a rule of thumb from rhythm and steadiness, not a song match:
+  it does not know what the track is, it can miss quiet music under loud game sound, and it can flag a
+  rhythmic game soundtrack. Short jingles under fifteen seconds are left alone.
+- **Reactions on camera (#501).** During analysis PULSE reads the face in the facecam, or filling the frame
+  on a talking-head recording, about once a second: how open the mouth is, how wide, how open the eyes,
+  how high the brows. A change well past that person's own resting face counts as a reaction beside the
+  sound, so a silent jaw-drop or a grin can make a moment, and "why this was picked" says "a reaction on
+  camera". Shapes only, measured on this Mac with Apple's face landmarks: nobody is identified and no
+  picture is kept. Settings → AI Features → "Read reactions on camera" turns it off. It adds a minute or
+  two per hour of video, and recordings analyzed before this need analyzing again to get it.
+
 ### Checked
 - Core tests for both (default style per kind, your own pick per kind, old settings read as off; the edit
   retention curve; two trials and a verdict) pass on Linux. macOS results are filled in at release.
@@ -66,8 +83,14 @@ This file grows as each one lands; the numbers are the list's.
 - Core tests for the story (a challenge stream read beat by beat; a goal said late told first; what is
   missing named; no transcript) and the tease (planted for a moment that really lands late; a cut moment
   caught and the coach's fix; offered on a long edit, never on a short) pass on Linux.
+- Core tests for the music detector (a track found; talking, steady noise and silence not; other tempos;
+  music under talking; a jingle ignored; an edit flagged where it uses the music; silencing only that) and
+  the face signal (the four measures follow the face; a reaction stands out from that person's rest; a
+  silent reaction lifts its moment and is named) pass on Linux, on synthetic sound and synthetic landmarks.
 - Not checked: the predicted retention against real audience retention. It is a rule of thumb. The loop
   and the opening lines have run on synthetic clips and the generated sample, not on real shorts. The story
   reading is keyword and position based: it has been tested on scripted transcripts, not on real streams,
   and it reads English only. The generated sample is too short for a tease, so the tease has only run in
-  tests.
+  tests. The music detector has never heard a real recording: its thresholds come from synthetic signals.
+  The face reader's Vision pass compiles and runs on CI, but the sample's facecam is a drawing, so it has
+  not read a real face anywhere yet.

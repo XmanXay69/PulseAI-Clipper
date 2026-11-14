@@ -88,6 +88,8 @@ public struct EditSuggestion: Hashable, Identifiable, Sendable {
         case plantTease
         /// Take a tease off whose moment is no longer in the edit.
         case removeTease
+        /// Silence the recording's own sound where it is music-like (#521).
+        case muteMusic
         case none
 
         public var buttonTitle: String? {
@@ -102,6 +104,7 @@ public struct EditSuggestion: Hashable, Identifiable, Sendable {
             case .coldOpen: return "Add Hook"
             case .plantTease: return "Plant Tease"
             case .removeTease: return "Remove Tease"
+            case .muteMusic: return "Silence It"
             case .none: return nil
             }
         }
@@ -334,6 +337,14 @@ public enum EditCoach {
             suggestions.append(EditSuggestion(id: "loop", title: "Make it loop",
                                               detail: "End \(String(format: "%.1f", loop.trim)) s earlier and it cuts straight back to the opening: \(loop.reason). A short that loops without a seam gets watched again.",
                                               severity: .tip, fix: .trimEnd(loop.trim), symbol: "repeat"))
+        }
+        // Music in the recording's own sound (#521): said before it costs the video a claim.
+        let music = MusicRisk.flags(in: timeline, analysis: analysis)
+        if !music.isEmpty {
+            let total = music.reduce(0) { $0 + $1.range.duration }
+            suggestions.append(EditSuggestion(id: "music-risk", title: "Music in the recording (\(Timecode.duration(total)))",
+                                              detail: "\(MusicRisk.describe(music)) sound\(music.count == 1 ? "s" : "") like a music track playing in the recording itself. A copyrighted track can get a video claimed, muted or blocked. Silencing those stretches keeps the picture and the captions; cutting them is the other way out. A rule of thumb from rhythm and steadiness, not a song match.",
+                                              severity: music.contains { $0.confidence >= 0.75 } ? .recommended : .tip, fix: .muteMusic, symbol: "music.note.list"))
         }
         // A tease is a promise (#582): say so when a later cut broke it, and offer one when a long video has none.
         let unpaid = OpenLoopBuilder.unpaid(in: timeline)

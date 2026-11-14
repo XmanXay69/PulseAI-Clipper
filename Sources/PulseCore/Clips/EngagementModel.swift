@@ -67,6 +67,8 @@ public struct EngagementSignals: Sendable {
     public var hud: [Float] = []
     /// Screams and shouts in the voice (#29): a loud burst while someone is talking, not a game explosion.
     public var shouts: [Float] = []
+    /// Reactions on the face on camera (#501), 0…1: an open mouth, a grin, wide eyes. Empty when no face was read.
+    public var expression: [Float] = []
 
     public func index(at time: Seconds) -> Int {
         Int((time / step).rounded(.down)).clamped(0, Swift.max(count - 1, 0))
@@ -119,14 +121,14 @@ public enum EngagementModel {
     public static func compute(analysis: MediaAnalysis, step: Seconds = 0.5, game: GameProfile? = nil) -> EngagementSignals {
         compute(duration: analysis.duration, audio: analysis.audio, transcript: analysis.transcript, visual: analysis.visual, chat: analysis.chat,
                 hud: analysis.hudEvents ?? [], step: step, gameplay: analysis.profile == .gameplay || analysis.profile == .gameplayWithFacecam,
-                weights: game?.weights ?? .neutral)
+                weights: game?.weights ?? .neutral, expressions: analysis.expressions)
     }
 
     /// `weights` is the per-game profile (#34): each signal's share is scaled and the total is re-normalized so
     /// the curve keeps the same range whatever the game.
     public static func compute(duration: Seconds, audio: AudioFeatureSeries?, transcript: Transcript?, visual: VisualFeatureSeries?,
                                chat: ChatLog? = nil, hud: [HUDEvent] = [], step: Seconds = 0.5, gameplay: Bool = false,
-                               weights: GameProfile.Weights = .neutral) -> EngagementSignals {
+                               weights: GameProfile.Weights = .neutral, expressions: ExpressionSeries? = nil) -> EngagementSignals {
         let n = max(1, Int((duration / step).rounded(.up)))
         // The streamer's own laugh counts for more than a guest's (#28): the voice with the most words.
         let dominantSpeaker = transcript.flatMap { EngagementModel.dominantSpeaker($0.words) }
@@ -254,12 +256,19 @@ public enum EngagementModel {
             shouts[i] = Swift.min(1, (loudness[i] - 1.8) / 2 + 0.5)
             excitement[i] = Swift.min(excitement[i] + shouts[i] * 0.12, 1.2)
         }
+        // The face on camera (#501): a reaction nobody voiced still counts. It adds to what the sound found and
+        // can lift a quiet moment on its own, but never as far as a moment that was both seen and heard.
+        let expression = FaceExpressionMath.signal(expressions, duration: duration, step: step)
+        for i in 0..<Swift.min(n, expression.count) where expression[i] > 0 {
+            excitement[i] = Swift.min(excitement[i] + expression[i] * 0.22, 1.2)
+        }
         excitement = SeriesMath.smooth(excitement, sigma: 1.5 / step)
 
         var signals = EngagementSignals(step: step, count: n, loudness: loudness, surprise: surprise, speechRate: speechRate,
                                         keywords: keywords, laughter: laughter, questions: questions, profanity: profanity,
                                         motion: motion, cuts: cuts, speech: speech, excitement: excitement, chat: chatActivity, hud: hudSignal)
         signals.shouts = shouts
+        signals.expression = expression
         return signals
     }
 
