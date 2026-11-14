@@ -116,8 +116,8 @@ the viewer actually shows is rendered separately below.
 | ![Editor](docs/screenshots/editor.jpg) | ![Captions](docs/screenshots/captions.jpg) |
 | **Editing styles** | **Exports** |
 | ![Editing styles](docs/screenshots/editing-styles.jpg) | ![Exports](docs/screenshots/exports.jpg) |
-| **Multicam** | **Light theme** |
-| ![Multicam](docs/screenshots/multicam.jpg) | ![Home in the light theme](docs/screenshots/home-light.jpg) |
+| **Light theme: Home** | **Light theme: Media** |
+| ![Home in the light theme](docs/screenshots/home-light.jpg) | ![Media in the light theme](docs/screenshots/media-light.jpg) |
 
 | Rendered short (split screen + TikTok Sans captions) | Layout morph: split screen → circle facecam (before / mid / after) |
 |---|---|

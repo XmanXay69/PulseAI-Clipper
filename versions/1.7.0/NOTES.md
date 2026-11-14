@@ -103,12 +103,16 @@ endorsement by the people named.
   with the twenty to do first at the top.
 
 ### Checked
-- Compiled and tested on GitHub's macOS 26 (Apple silicon) and macOS 15 (Intel) runners: 507 tests, of
-  which 486 are core tests (eleven new for the styles and the coach, four for keeping blocking reads off
-  Swift's background threads) and 21 run the engine end to end.
-- Every page and sheet screenshotted on CI in the new look and reviewed; the README's screenshots are from
-  that run.
-- The light theme is screenshotted on CI for Home, AI Clips, the editor, Exports and Settings; sheets now
-  follow the app's theme instead of always opening dark.
-- Not checked: the look on a real display at window sizes other than CI's 1440 × 900, the remaining pages
-  in the light theme, and the styles on real recordings.
+- Compiled and tested on GitHub's macOS 26 (Apple silicon) and macOS 15 (Intel) runners: 507 tests, no
+  failures. 486 are core tests (eleven new for the styles and the coach, four for keeping blocking reads off
+  Swift's background threads) and 21 run the engine end to end. On the Apple silicon runner the two engine
+  tests that need the system voice were skipped because its voice made no sound; both ran and passed on Intel.
+- Every page and sheet screenshotted on CI in the dark theme and reviewed. In the light theme: all ten pages,
+  plus Edit My VOD, the editing styles sheet, search and onboarding. The README's screenshots are from that
+  run. Sheets follow the app's theme instead of always opening dark.
+- The freeze: the walk-through opens Media with eleven audio files and reports a waveform for all eleven
+  within two seconds; before the fix it never got past that page.
+- Not checked: the look on a real display at window sizes other than CI's 1440 × 900; the other sheets in the
+  light theme (record, batch, thumbnails, publish); the styles on real recordings; the freeze fix on a real
+  Mac with a large library. The Intel runner has no graphics device, so the walk-through and its screenshots
+  come from Apple silicon only.
