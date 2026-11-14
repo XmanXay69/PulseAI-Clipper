@@ -114,6 +114,10 @@ the viewer actually shows is rendered separately below.
 | ![YouTube edit with the coach](docs/screenshots/youtube-edit.jpg) | ![AI clips](docs/screenshots/ai-clips.jpg) |
 | **Editor** | **Captions** |
 | ![Editor](docs/screenshots/editor.jpg) | ![Captions](docs/screenshots/captions.jpg) |
+| **Editing styles** | **Exports** |
+| ![Editing styles](docs/screenshots/editing-styles.jpg) | ![Exports](docs/screenshots/exports.jpg) |
+| **Multicam** | **Light theme** |
+| ![Multicam](docs/screenshots/multicam.jpg) | ![Home in the light theme](docs/screenshots/home-light.jpg) |
 
 | Rendered short (split screen + TikTok Sans captions) | Layout morph: split screen → circle facecam (before / mid / after) |
 |---|---|

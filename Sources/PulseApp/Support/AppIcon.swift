@@ -431,12 +431,38 @@ enum UISnapshotter {
             app.settings.appearance = .light
             app.applyAppearance()
             let lightPages: [(String, SidebarSection)] = [("22-light-home", .home), ("23-light-aiClips", .aiClips), ("24-light-editor", .editor),
-                                                          ("25-light-exports", .exports), ("26-light-settings", .settings)]
+                                                          ("25-light-exports", .exports), ("26-light-settings", .settings),
+                                                          ("27-light-projects", .projects), ("28-light-import", .importMedia),
+                                                          ("29-light-captions", .captions), ("30-light-media", .media),
+                                                          ("31-light-templates", .templates)]
             for (name, section) in lightPages {
                 app.section = section
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
                 capture(app: app, name: name, to: directory)
             }
+            // The sheets people meet first, in the light theme too.
+            app.section = .aiClips
+            app.showLongFormSheet = true
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            capture(app: app, name: "32-light-longform-sheet", to: directory)
+            app.showLongFormSheet = false
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            app.reference.current = nil
+            app.showReferenceSheet = true
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            capture(app: app, name: "33-light-reference-pick", to: directory)
+            app.showReferenceSheet = false
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            app.showGlobalSearch = true
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            capture(app: app, name: "34-light-search", to: directory)
+            app.showGlobalSearch = false
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            app.showOnboarding = true
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            capture(app: app, name: "35-light-onboarding", to: directory)
+            app.showOnboarding = false
+            try? await Task.sleep(nanoseconds: 600_000_000)
             app.settings.appearance = chosen
             app.applyAppearance()
             NSApp.terminate(nil)

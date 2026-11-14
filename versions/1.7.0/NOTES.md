@@ -65,7 +65,10 @@ cinematic** and **On the beat** (montages).
 Read for this release and summarised in our own words; none of it is copied, and none of it is an
 endorsement by the people named.
 - Finzar, [The Real Secret to PRO Level Editing](https://finzar.substack.com/p/the-real-secret-to-pro-level-editing):
-  smoothness first; graphics that ease on, zooms that glide, transitions that don't start abruptly.
+  smoothness first; graphics that ease on, zooms that glide, transitions that don't start abruptly. His
+  [course outline](https://school.storezar.com/p/how-to-edit-using-premiere-pro-from-beginner-to-professional)
+  names the same building blocks the styles are made of: keyframed zooms, subtitles, sound effects,
+  background music and the voice. Only his written material was read; his videos were not watched.
 - Vidpros on Mario Joos, [retention editing](https://vidpros.com/retention-editing-what-you-can-learn-from-mario-joos/):
   hook, then steadily arriving new information, then a payoff; pace is new information, not cut rate.
 - AIR Media-Tech, [cutting patterns that keep viewers past minute 8](https://air.io/en/youtube-hacks/advanced-retention-editing-cutting-patterns-that-keep-viewers-past-minute-8):
