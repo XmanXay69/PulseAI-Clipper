@@ -123,8 +123,8 @@ This file grows as each one lands; the numbers are the list's.
   it replaces any you haven't opened or favourited. Shorter recordings are analyzed in one go, as before,
   and if the copy or the quick pass fails nothing is shown and the full pass carries on.
 - **Posting plan (#906).** Exports → Posting plan lays a week of posts out from what is in the project:
-  every short and long edit, and (if you leave it ticked) the favourite and 70-plus clip cards that aren't
-  shorts yet, marked "Build first". The rules are the plain ones. The strongest short goes first. One short
+  every edit (a wide one is a video for YouTube, a tall or square one a short) and, if you leave it
+  ticked, the favourite and 70-plus clip cards that aren't shorts yet, marked "Build first". The rules are the plain ones. The strongest short goes first. One short
   a day, or two or three if you ask, each on every short-form platform you tick, at that platform's time.
   Fewer shorts than days are spread across the week. Two clips of the same moment are never both posted:
   the weaker one is listed under "Not this week" with the reason. With a long video in the plan, the best
@@ -143,6 +143,50 @@ This file grows as each one lands; the numbers are the list's.
   comments twice adds nothing. If the edit has changed length since it was sent, or the comments were
   written on another edit, PULSE says so and places them by time anyway. This is a file you send, not a
   hosted link: PULSE runs no server, nothing is uploaded, and the page loads nothing from the internet.
+
+### A model that plans, a viewer that is checked, a release that can be signed
+- **A language model plans the edit (#1281).** In Edit My VOD's storyboard, **Plan with a Language Model**
+  sends the recording's transcript to the model you set up in Settings → AI Processing (Claude, or any
+  OpenAI-compatible server, including one running on this Mac) and gets back a structure: the line the
+  video opens on, the stretches it keeps and in what order, what is dropped inside them, and one sentence
+  of reasoning for each. PULSE's own picker hears loudness, laughter and pace; it cannot know that a quiet
+  sentence at minute four is what makes minute forty funny. A model that reads the words can. Its plan
+  replaces the list in the storyboard, with its reason under each stretch, and you approve, untick, trim
+  or reorder it like any other. The same editor then builds it. **Back to PULSE's Plan** discards it.
+  - Only text is sent: the words with timecodes, an energy mark per line and the scores of the moments
+    PULSE found. Video and audio never leave the Mac. A hosted provider is asked about first, with the
+    word count, unless Settings says cloud providers may be used without asking; with Always Local it is
+    refused. The request is billed by your provider to your own key.
+  - The model answers in line numbers, and nothing it says is trusted as it stands. Line numbers outside
+    the transcript are pulled in, a stretch kept twice is kept once, a stretch cut down to nothing is
+    dropped, a plan far over the length you asked for loses its asides, and an opening line that isn't in
+    the plan is replaced. Every one of those changes is listed above the storyboard in words.
+  - A transcript too long for one request is never cut silently: the quietest talk away from every picked
+    moment is left out, the gaps are marked in what the model reads, and you are told how much before it
+    is sent and again with the plan.
+  - With Claude the reply is streamed and bound to a schema, with adaptive thinking at high effort and the
+    server-side refusal fallback. Without a model set up, nothing changes: PULSE's own plan is what you get.
+- **The viewer's real frame, judged in CI (#1021).** The screenshots CI takes are drawn by the views, and
+  the viewer's picture is drawn by the player, so in every capture the viewer was a black box: a release
+  could have shipped a viewer that rendered nothing and no screenshot would have shown it. The
+  walk-through now renders the frame itself, with the composition the viewer and the export use. A frame
+  that is black, one flat colour or the wrong shape fails the run. Each frame is also reduced to a 16 by
+  16 grid of colours and compared with a kept reference: a small difference (a caption gone) is a warning
+  on the run, a large one (the facecam gone, the layout moved, colours swapped) fails it. And the frame
+  is drawn into the window's screenshot where the player shows it, so the captures look like the app.
+  [docs/VIEWER-FRAMES.md](../../docs/VIEWER-FRAMES.md) says how to accept a picture that changed on purpose.
+- **Signing and notarization, ready for your Apple account (#866).** The first-launch warning goes away
+  only with an Apple Developer account (US$99 a year) and five secrets that only its owner can create, so
+  this one cannot be finished from here. What is done is everything around it:
+  [docs/SIGNING.md](../../docs/SIGNING.md) is the step-by-step; **Actions → Check signing setup** tries the
+  secrets in about a minute without building or publishing anything, and says in plain words what is
+  wrong (a missing secret, a wrong password, the wrong kind of certificate, an expired one, another
+  team's, a sign-in Apple refuses); a release runs the same check first, so a half-finished setup stops
+  it in its first minute instead of after half an hour. With the secrets in place the app and the disk
+  image are both notarized and stapled (the app too, so it opens offline after being dragged out),
+  Apple's reasons are printed if it says no, the release stops unless Gatekeeper accepts the result on
+  the build machine, and the release notes drop the first-launch steps. Before this, a signed but
+  un-notarized build would have published notes saying it opened with no warning.
 
 ### Checked
 - Core tests for both (default style per kind, your own pick per kind, old settings read as off; the edit
@@ -174,6 +218,19 @@ This file grows as each one lands; the numbers are the list's.
   waits; your own times; text and calendar-file export) and review comments (timecodes however they were
   typed; what isn't a timecode left alone; the page's own file; markers added once; a changed or different
   edit said; a page that an edit's name cannot break and that loads nothing) pass on Linux.
+- Core tests for the edit planner (the brief as numbered lines with times, energy and the picker's
+  moments; a transcript too long to send marking every second it leaves out; a good answer becoming
+  sections in the model's order with its cuts and its opening; a bad answer repaired with every repair
+  said; a plan far over length losing its asides; sloppy JSON read and an empty plan refused; the request
+  asking Claude for a streamed, schema-bound plan at high effort with nothing the newest models reject; a
+  streamed reply collected, a mid-reply fallback handled, a refusal and a cut-off reply reported) and the
+  frame check (black and flat frames fail; the wrong shape fails; a change graded by its size; the
+  reference file read back) pass on Linux. The signing check's tests of the five values' shapes were run
+  by hand here: none set, some set, wrong shapes, not a .p12, right shapes.
+- On CI (Apple silicon), the walk-through rendered five viewer frames, judged all five as real pictures of
+  the right shape, drew four into their window captures, and wrote the reference now kept in
+  `.github/viewer-frames.json`; the posting plan laid the sample's pieces out and its sheet was captured;
+  three review comments went onto a copy of the sample edit as markers, one of them past its end.
 - Not checked: the predicted retention against real audience retention. It is a rule of thumb. The loop
   and the opening lines have run on synthetic clips and the generated sample, not on real shorts. The story
   reading is keyword and position based: it has been tested on scripted transcripts, not on real streams,
@@ -191,4 +248,12 @@ This file grows as each one lands; the numbers are the list's.
   has been checked as text (it is well formed, escapes the edit's name and loads nothing) but has not been
   opened in a browser here: playing, pausing on typing, copying and saving are untested until someone
   tries them, and a browser that blocks local files from playing will show the "choose the video" box
-  instead. The posting plan's default times of day are conventions, not data.
+  instead. The posting plan's default times of day are conventions, not data. **The edit planner has never
+  talked to a model.** There is no API key here, so no request has been sent: what is tested is the brief,
+  the request's shape against the provider's documentation, the reading of replies written by hand in the
+  documented format, and the checks on the answer. Whether a model's plans are better than PULSE's own is
+  exactly what has not been measured; try it on a stream you know well and judge. The streaming code runs
+  only on macOS and has compiled there, no more. Signing, notarizing, stapling and the Gatekeeper checks
+  have not run with real credentials (there are none): expect the first signed release to need a look at
+  its log. The frame check sees one frame per capture on Apple silicon only; the Intel runner has no GPU
+  and stops before the editor.

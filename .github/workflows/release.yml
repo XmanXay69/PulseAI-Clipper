@@ -11,7 +11,10 @@ name: Release
 #   MACOS_CERT_P12           base64 of a "Developer ID Application" certificate exported as .p12
 #   MACOS_CERT_PASSWORD      its export password
 #   NOTARY_APPLE_ID, NOTARY_PASSWORD (app-specific password), NOTARY_TEAM_ID
-# Without them the app is ad-hoc signed and macOS asks once before the first launch.
+# With all five, the app and the disk image are signed, notarized and stapled, and the release fails if
+# Gatekeeper would not accept them. With none, the app is ad-hoc signed and macOS asks once before the
+# first launch. With only some, the release stops at the start and says which are missing.
+# docs/SIGNING.md is the step-by-step; Actions → Check signing setup tries the secrets without releasing.
 
 on:
   push:
@@ -47,6 +50,16 @@ jobs:
           grep -q "versions/$v/NOTES.md" README.md || { echo "::error::README.md doesn't link versions/$v/NOTES.md"; exit 1; }
           grep -q "| \*\*$v\*\* |" versions/README.md || { echo "::error::versions/README.md has no row for $v"; exit 1; }
 
+      # Before the long builds: a half-finished or wrong signing setup stops the release here, in a minute.
+      - name: Check signing setup
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+        run: ./scripts/check-signing.sh --import
+
       - name: Cache whisper.cpp build
         uses: actions/cache@v4
         with:
@@ -72,26 +85,20 @@ jobs:
           fi
           ls -la build/models
 
-      - name: Import signing certificate (optional)
-        env:
-          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
-          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
-        run: |
-          if [ -z "$MACOS_CERT_P12" ]; then echo "No certificate secret — ad-hoc signing"; exit 0; fi
-          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
-          security create-keychain -p ci "$KEYCHAIN"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN"
-          security unlock-keychain -p ci "$KEYCHAIN"
-          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
-          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -s -k ci "$KEYCHAIN" >/dev/null
-          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
-          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" | grep 'Developer ID Application' | head -1 | sed -E 's/.*"(.*)"/\1/')"
-          echo "SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
-          echo "Signing as: $IDENTITY"
-
       - name: Build PULSE.app (universal)
         run: ./scripts/build-app.sh
+
+      # The app gets its own ticket, so it opens with no warning after it is dragged out of the disk image,
+      # on a Mac that is offline too. The disk image is notarized and stapled as well, in the next step.
+      - name: Notarize PULSE.app
+        if: ${{ env.PULSE_NOTARIZE == '1' }}
+        env:
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+        run: |
+          ditto -c -k --keepParent build/PULSE.app "$RUNNER_TEMP/PULSE-notary.zip"
+          ./scripts/notarize.sh "$RUNNER_TEMP/PULSE-notary.zip" build/PULSE.app
 
       - name: Make PULSE.dmg
         env:
@@ -115,8 +122,18 @@ jobs:
           ls -la "$APP/Contents/Resources"
           # The YouTube downloader's resources must ship inside the app (Bundle.module looks in Resources).
           test -d "$APP/Contents/Resources/YouTubeKit_YouTubeKit.bundle" && echo "YouTubeKit resources present"
-          echo "Gatekeeper assessment (expected to be rejected unless notarized):"
-          spctl --assess --type execute --verbose "$APP" 2>&1 || true
+          if [ "${PULSE_NOTARIZE:-0}" = 1 ]; then
+            # Signed and notarized: Gatekeeper has to accept the disk image and the app, or the release stops.
+            echo "Gatekeeper, as a first launch would meet it:"
+            xcrun stapler validate build/PULSE.dmg
+            xcrun stapler validate "$APP"
+            spctl --assess --type open --context context:primary-signature --verbose=2 build/PULSE.dmg
+            spctl --assess --type execute --verbose=2 "$APP"
+            codesign -dv --verbose=4 "$APP" 2>&1 | grep -E "^(Authority|TeamIdentifier|Timestamp|CodeDirectory)" || true
+          else
+            echo "Gatekeeper assessment (rejected, as expected: this build is not notarized):"
+            spctl --assess --type execute --verbose "$APP" 2>&1 || true
+          fi
           # The app binary runs from the image (renders its icon set and exits).
           "$APP/Contents/MacOS/PULSE" --render-icon "$RUNNER_TEMP/icon-check" && ls "$RUNNER_TEMP/icon-check" | head -3
           if arch -x86_64 /usr/bin/true 2>/dev/null; then
@@ -175,7 +192,8 @@ jobs:
           if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then TAG="v$VERSION-build.$BUILD"; else TAG="v$VERSION"; fi
           SHORT="$(git rev-parse --short HEAD)"
           SHA256="$(cut -d' ' -f1 build/PULSE.dmg.sha256)"
-          if [ -n "${SIGN_IDENTITY:-}" ]; then SIGNED=yes; else SIGNED=no; fi
+          # Only a notarized build opens with no warning; a signed one that isn't still needs the first-launch steps.
+          if [ "${PULSE_NOTARIZE:-0}" = 1 ]; then SIGNED=yes; else SIGNED=no; fi
           {
             if [ -f "versions/$VERSION/NOTES.md" ]; then cat "versions/$VERSION/NOTES.md"; echo; fi
             echo "## Install"

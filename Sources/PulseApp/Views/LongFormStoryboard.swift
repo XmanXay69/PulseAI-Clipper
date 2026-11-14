@@ -46,6 +46,147 @@ struct LongFormStoryboard: View {
         app.toast(reordered ? "Arranged as a story: the goal first, the result last" : "Already in story order")
     }
 
+    /// Asks the language model set up in Settings to plan the video (#1281): it reads the whole transcript with
+    /// the signals and answers with where the video opens, which stretches it keeps and in what order, and
+    /// what is dropped inside them. Its plan replaces the list here, to be approved or changed like any other;
+    /// the same editor then builds it.
+    func planWithModel() {
+        guard !planning, let asset, let analysis = session.analyses[asset.id], let current = ownPlan ?? plan else { return }
+        guard let provider = AIProviders.editPlanProvider(settings: app.settings.ai) else {
+            app.presentMessage(title: "No language model is set up",
+                               message: "A model that reads the whole transcript can plan the video: which stretches to keep, in what order, and where it opens. Choose Claude, or a model running on this Mac, in Settings → AI Processing. Until then, the plan below is PULSE's own.")
+            return
+        }
+        if provider.location == .cloud && app.settings.ai.processingPolicy == .alwaysLocal {
+            app.presentMessage(title: "Cloud AI is off", message: AIProviderError.cloudNotPermitted.localizedDescription)
+            return
+        }
+        let signals = session.signals(for: asset.id)
+        // A model on this Mac usually reads far less in one go than a hosted one.
+        let budget = provider.location == .local ? 120_000 : 600_000
+        guard let brief = EditPlanner.brief(analysis: analysis, options: options, picks: current.moments, excitement: signals?.excitement ?? [],
+                                            step: signals?.step ?? 1, budget: budget) else {
+            app.presentMessage(title: "There are no words to plan from",
+                               message: "The model plans from what was said, and this recording has no transcript. Transcribe it first, or build from PULSE's own plan.")
+            return
+        }
+        if provider.location == .cloud && app.settings.ai.processingPolicy != .allowCloud {
+            // The whole transcript is a bigger thing to send than one clip's words: say what goes, unless
+            // Settings says cloud providers may be used without asking.
+            let alert = NSAlert()
+            alert.messageText = "Send this recording's transcript to \(provider.displayName)?"
+            var text = "About \(brief.wordCount.formatted()) words are sent: what was said, with timecodes, an energy mark per line and the scores of \(brief.picks.count) moments PULSE found. Video and audio never leave your Mac. Your provider bills this request to your own key."
+            if brief.leftOut > 1 {
+                text += " The transcript is longer than one request holds, so \(Timecode.duration(brief.leftOut)) of the quietest talk is left out, and the model cannot consider it."
+            }
+            alert.informativeText = text
+            alert.addButton(withTitle: "Send")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
+        planning = true
+        Task {
+            defer { planning = false }
+            do {
+                let draft = try await provider.planEdit(brief: brief)
+                let answer = EditPlanner.resolve(draft, brief: brief)
+                guard !answer.sections.isEmpty else {
+                    app.presentMessage(title: "The model's plan kept nothing",
+                                       message: "Nothing in its answer was a usable stretch of the recording. PULSE's own plan is unchanged." + (answer.notes.isEmpty ? "" : "\n\n" + answer.notes.joined(separator: "\n")))
+                    return
+                }
+                adopt(answer, picks: brief.picks, over: current)
+                app.logActivity(.autoEdit, title: "Edit planned by \(answer.writtenBy)",
+                                detail: "\(answer.sections.count) sections · \(Timecode.short(answer.keptLength)) kept", location: provider.location)
+            } catch {
+                app.present(error, title: "The model couldn't plan this edit")
+            }
+        }
+    }
+
+    /// Shows the model's plan in the storyboard: its stretches first, in its order and switched on; then the
+    /// moments PULSE found that it did not use, switched off, in case you want one back.
+    func adopt(_ answer: EditPlan, picks: [EditBrief.Pick], over current: LongFormPlan) {
+        if ownPlan == nil {
+            ownPlan = current
+            ownSelection = selected
+            ownHook = hook
+        }
+        let moments = answer.segments(picks: picks)
+        var reasons: [UUID: String] = [:]
+        for moment in moments {
+            guard let section = answer.sections.first(where: { $0.ranges.contains(moment.range) }) else { continue }
+            let parts = [section.why] + section.cutNotes.map { "Dropped \($0)" }
+            reasons[moment.id] = parts.filter { !$0.isEmpty }.joined(separator: " ")
+        }
+        var next = current
+        next.moments = moments + current.moments.filter { own in !moments.contains { $0.range.overlaps(own.range) } }
+        next.selected = Set(moments.map(\.id))
+        next.hook = answer.hookPayoff.flatMap { at in moments.first { $0.range.contains(at) }?.id }
+        next.hookCandidates = next.hook.map { [$0] } ?? []
+        plan = next
+        selected = next.selected
+        hook = next.hook
+        trims = [:]
+        lengthScale = 1
+        // The model's order and its cuts are the plan: the build keeps them as they are.
+        reordered = true
+        modelPlan = answer
+        modelReasons = reasons
+        readStory()
+    }
+
+    /// Back to the plan PULSE made itself.
+    func restoreOwnPlan() {
+        guard let own = ownPlan else { return }
+        plan = own
+        selected = ownSelection
+        hook = ownHook
+        trims = [:]
+        reordered = false
+        modelPlan = nil
+        modelReasons = [:]
+        ownPlan = nil
+        readStory()
+    }
+
+    /// The row under the header that offers the model's plan, or says what it planned.
+    @ViewBuilder
+    var modelPlanRow: some View {
+        if let modelPlan {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 8) {
+                    TagChip(text: "Planned by \(modelPlan.writtenBy)", color: Theme.ai, symbol: "sparkles")
+                    Text(modelPlan.summary.isEmpty ? "\(modelPlan.sections.count) sections, \(Timecode.short(modelPlan.keptLength)) kept" : modelPlan.summary)
+                        .font(.pulseCaption).foregroundStyle(Theme.textPrimary).lineLimit(2)
+                    Spacer(minLength: 8)
+                    Button("Back to PULSE's Plan") { restoreOwnPlan() }
+                        .buttonStyle(.pulse(.secondary, compact: true)).fixedSize()
+                        .help("Puts back the moments PULSE picked itself. The model's plan is discarded.")
+                }
+                if !modelPlan.hookWhy.isEmpty {
+                    Text("Opens on: \(modelPlan.hookWhy)").font(.pulseMicro).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                }
+                ForEach(modelPlan.notes, id: \.self) { note in
+                    Text(note).font(.pulseMicro).foregroundStyle(Theme.warning).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.top, 6)
+            .help("A language model read the transcript and wrote this structure (#1281). PULSE checked every line it named; what it changed is listed. You approve it here like any plan.")
+        } else {
+            HStack(spacing: 8) {
+                Button { planWithModel() } label: { Label(planning ? "Reading the transcript…" : "Plan with a Language Model", systemImage: "text.book.closed") }
+                    .buttonStyle(.pulse(.ai, compact: true)).fixedSize().disabled(planning)
+                if planning { ProgressView().controlSize(.small) }
+                Text(planning ? "This can take a few minutes for a long recording. The list below is unchanged until it answers."
+                              : "It reads everything that was said and proposes the structure: the opening, the stretches to keep, their order. You approve it here.")
+                    .font(.pulseMicro).foregroundStyle(Theme.textTertiary).lineLimit(2)
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 6)
+        }
+    }
+
     /// The main recording's words, for chapter names (#86).
     var words: [TranscriptWord] { session.document.primaryAsset.flatMap { session.analyses[$0.id]?.transcript?.words } ?? [] }
     @State private var focusedMoment: UUID?
@@ -105,6 +246,14 @@ struct LongFormStoryboard: View {
         app.toast("Added a moment at \(Timecode.short(t))")
     }
     @State private var hook: UUID?
+    /// A language model's plan for this video (#1281), when one was asked for; its reason for each stretch;
+    /// and PULSE's own plan as it stood, to go back to.
+    @State private var modelPlan: EditPlan?
+    @State private var modelReasons: [UUID: String] = [:]
+    @State private var planning = false
+    @State private var ownPlan: LongFormPlan?
+    @State private var ownSelection: Set<UUID> = []
+    @State private var ownHook: UUID?
     @State private var lengthScale = 1.0
     @State private var ratings: [UUID: Bool] = [:]
     /// Edges you moved, by moment.
@@ -230,6 +379,7 @@ struct LongFormStoryboard: View {
                     .padding(.top, 4)
                     .help("How the video will read, chapter by chapter (#86): split at the biggest jumps in the stream")
                 }
+                modelPlanRow
                 if let arc, !arc.placements.isEmpty {
                     HStack(spacing: 8) {
                         Text("Story").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
@@ -298,6 +448,10 @@ struct LongFormStoryboard: View {
                     .font(.system(size: 13, weight: .semibold)).foregroundStyle(on ? Theme.textPrimary : Theme.textTertiary).lineLimit(1)
                 Text("\(Timecode.short(r.start)) → \(Timecode.short(r.end)) in the stream\(trims[moment.id] != nil ? " · trimmed" : "")")
                     .font(.pulseMicro).foregroundStyle(trims[moment.id] != nil ? Theme.ai : Theme.textTertiary)
+                if let why = modelReasons[moment.id], !why.isEmpty {
+                    // The model's reason for keeping this stretch, to agree or disagree with (#1281).
+                    Text(why).font(.pulseMicro).foregroundStyle(Theme.textSecondary).lineLimit(2).help(why)
+                }
                 HStack(spacing: 4) {
                     if on, let placement = arc?.placements.first(where: { $0.momentID == moment.id }) {
                         TagChip(text: placement.beat.displayName, symbol: placement.beat.symbolName)

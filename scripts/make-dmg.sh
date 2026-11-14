@@ -5,7 +5,8 @@
 #
 # Optional (for a disk image macOS opens with no warning at all — needs an Apple Developer account):
 #   SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"   signs the DMG
-#   NOTARY_APPLE_ID, NOTARY_PASSWORD (app-specific), NOTARY_TEAM_ID  notarizes and staples it
+#   NOTARY_APPLE_ID, NOTARY_PASSWORD (app-specific), NOTARY_TEAM_ID  notarizes and staples it (scripts/notarize.sh)
+# docs/SIGNING.md is the step-by-step for getting those.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -91,10 +92,10 @@ if [ -n "${SIGN_IDENTITY:-}" ] && [ "$SIGN_IDENTITY" != "-" ]; then
   echo "▸ Signing disk image"
   codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG"
 fi
-if [ -n "${NOTARY_APPLE_ID:-}" ] && [ -n "${NOTARY_PASSWORD:-}" ] && [ -n "${NOTARY_TEAM_ID:-}" ]; then
-  echo "▸ Notarizing (a few minutes)"
-  xcrun notarytool submit "$DMG" --apple-id "$NOTARY_APPLE_ID" --password "$NOTARY_PASSWORD" --team-id "$NOTARY_TEAM_ID" --wait
-  xcrun stapler staple "$DMG"
+# Notarizing needs a Developer ID signature: an ad-hoc signed image is refused, so it isn't sent.
+if [ -n "${SIGN_IDENTITY:-}" ] && [ "$SIGN_IDENTITY" != "-" ] \
+   && [ -n "${NOTARY_APPLE_ID:-}" ] && [ -n "${NOTARY_PASSWORD:-}" ] && [ -n "${NOTARY_TEAM_ID:-}" ]; then
+  "$ROOT/scripts/notarize.sh" "$DMG"
 fi
 
 hdiutil verify -quiet "$DMG"

@@ -1,0 +1,28 @@
+name: Check signing setup
+
+# Tries the five signing secrets without building or releasing anything: the certificate opens, is a
+# Developer ID Application certificate, is in date and belongs to the team, and Apple's notary service
+# accepts the sign-in. Run it after adding or changing a secret (Actions → Check signing setup → Run
+# workflow). It takes about a minute and publishes nothing. docs/SIGNING.md is the step-by-step.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check the certificate and the notary sign-in
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check signing setup
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+        run: ./scripts/check-signing.sh

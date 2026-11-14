@@ -8,7 +8,7 @@ for the least work.
 
 ## Where to start
 
-If only twenty get built, these are the ones. Built so far (see the [1.8.0 notes](../versions/1.8.0/NOTES.md)): 626, 627, 541, 542, 721, 581, 582, 521, 501, 936, 937, 761, 1101, 661, 1061, 906, 1181.
+If only twenty get built, these are the ones. Built so far (see the [1.8.0 notes](../versions/1.8.0/NOTES.md)): 626, 627, 541, 542, 721, 581, 582, 521, 501, 936, 937, 761, 1101, 661, 1061, 906, 1181, 1281, 1021 and 866 (866 as far as it can go without an Apple Developer account: see [SIGNING.md](SIGNING.md)). That is all twenty.
 
 | # | What | Why first |
 |---|---|---|

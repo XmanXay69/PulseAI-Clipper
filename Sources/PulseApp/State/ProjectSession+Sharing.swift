@@ -6,13 +6,14 @@ import UniformTypeIdentifiers
 extension ProjectSession {
     // MARK: Posting plan (#906)
 
-    /// What there is to post: every edit in the project (long video or short, by the rule the coach and the
-    /// export presets use), and, when asked, the clip cards worth turning into shorts that haven't been yet.
+    /// What there is to post: every edit in the project, and, when asked, the clip cards worth turning into
+    /// shorts that haven't been yet. A wide edit is a video for YouTube whatever its length (it isn't going on
+    /// a vertical feed), as is anything the coach judges as long-form; a tall or square one is a short.
     func postingItems(includeCards: Bool) -> [PostingItem] {
         var items: [PostingItem] = []
         for timeline in document.timelines where timeline.duration > 1 {
             let card = document.candidates.first { $0.timelineID == timeline.id }
-            let isLong = EditFormat.of(timeline) == .longForm
+            let isLong = EditFormat.of(timeline) == .longForm || timeline.canvas.aspect > 1.2
             var assetID = card?.assetID
             if assetID == nil {
                 for clip in timeline.allClips {

@@ -201,11 +201,12 @@ universal `PULSE.app` with whisper.cpp and the English base model inside, packag
 disk image (signature, both architectures, a real transcription from inside the image) and publishes it as
 the latest GitHub Release. The version comes from the `VERSION` file.
 
-**Signing and notarization (removes the first-launch warning):** join the Apple Developer Program, create a
-*Developer ID Application* certificate, export it as a `.p12`, and add these repository secrets
-(Settings → Secrets and variables → Actions): `MACOS_CERT_P12` (base64 of the .p12), `MACOS_CERT_PASSWORD`,
-`NOTARY_APPLE_ID`, `NOTARY_PASSWORD` (an app-specific password) and `NOTARY_TEAM_ID`. The next release is
-then signed, notarized and stapled, and opens with no warning.
+**Signing and notarization (removes the first-launch warning):** this needs an Apple Developer account
+(US$99 a year) and five repository secrets that only its owner can make. [docs/SIGNING.md](docs/SIGNING.md)
+is the step-by-step. **Actions → Check signing setup** tries the secrets without releasing anything, and
+the release itself stops in its first minute if the setup is half done. With the secrets in place a release
+is signed, notarized and stapled (the app and the disk image), checked against Gatekeeper, and opens with
+no warning.
 
 ### Transcription
 

@@ -360,6 +360,24 @@ enum UISnapshotter {
                         let report = ReviewComments.apply(notes, to: &copy)
                         FileHandle.standardError.write(Data("UI-REVIEW page \(page.count) bytes; \(report.summary) Markers \(markersBefore) → \(copy.markers.count)\n".utf8))
                     }
+                    // The edit planner (#1281) without a model: the brief built from the sample's real analysis, and an
+                    // answer that names lines past the end resolved into stretches the editor can build.
+                    if let asset = session.document.primaryAsset, let analysis = session.analyses[asset.id] {
+                        let signals = session.signals(for: asset.id)
+                        let own = LongFormEditor.planMoments(analysis: analysis, options: options)
+                        if let brief = EditPlanner.brief(analysis: analysis, options: options, picks: own.moments,
+                                                         excitement: signals?.excitement ?? [], step: signals?.step ?? 1) {
+                            let count = brief.lines.count, half = max(1, count / 2)
+                            let draft = EditPlanDraft(summary: "CI", hookLine: half, sections: [
+                                .init(title: "First half", role: "setup", fromLine: 1, toLine: half, payoffLine: half),
+                                .init(title: "Past the end", role: "payoff", fromLine: half, toLine: count + 50, payoffLine: count),
+                            ])
+                            let answer = EditPlanner.resolve(draft, brief: brief)
+                            FileHandle.standardError.write(Data("UI-PLANNER brief of \(count) lines, \(brief.wordCount) words, \(brief.picks.count) picks, \(brief.text.count) characters; a test answer resolved to \(answer.sections.count) sections keeping \(Timecode.short(answer.keptLength)) with \(answer.notes.count) notes\n".utf8))
+                        } else {
+                            FileHandle.standardError.write(Data("UI-PLANNER the sample has no transcript to plan from\n".utf8))
+                        }
+                    }
                 }
             }
             // The extras question, the "Approve the cut" review, then an edit with the extras on.
