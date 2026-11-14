@@ -20,36 +20,62 @@
   it in effects (Gaming video), hide the join where a pause was cut out of one shot (Commentary), give
   the shot that matters more time than seems necessary (Cinematic), hold back before the drop (Montage).
 - **Where each genre's rules come from** is one click away under the buttons: its principles, the
-  articles they were read from, and a plain sentence saying how they were arrived at.
+  articles they were read from and the videos that were watched for them (marked "Watched:"), and a plain
+  sentence saying what the watching did and did not settle for that genre.
 
 ### What "studied" means here, honestly
-- The request was to watch the most popular editing tutorials on YouTube, Finzar's above all. That did
-  not happen, and this section says why so nothing here is taken for more than it is.
-- The `/watch` skill ([bradautomates/claude-video](https://github.com/bradautomates/claude-video), MIT)
-  is installed in the repository at `.claude/skills/watch`. It downloads a video with yt-dlp, pulls
-  frames and captions, and hands them over to be looked at. Its checks pass.
-- YouTube refuses video pages to the cloud machine this work runs on ("sign in to confirm you're not a
-  bot"). Searching worked, so the list of videos exists: Finzar's "How to Edit a Gaming Video", "How
-  I'd Edit a Viral Gaming Video in 2026", "How To Edit YouTube Videos in 2026 (Ultimate Guide)" and "I
-  made 100+ gaming videos. This is what I learned", plus the most-viewed tutorials for stream
-  highlights, gaming, vlogs, cinematic editing and shorts. None of them could be opened from here, and
-  no way round YouTube's check was used.
-- So the genres were written from **published articles and editors' written breakdowns**: Finzar's
-  newsletter (which turned out to be mostly announcements; his teaching is in the videos), a breakdown
-  of how Neebs Gaming cuts for comedy, a streamer's guide to turning Twitch streams into YouTube videos,
-  two write-ups of an editor's breakdown of Casey Neistat's vlogs, StudioBinder on rhythm and shot
-  length, PremiumBeat on the basic cuts, and montage guides. Each genre lists its own.
-- The numbers (how often a cut, how fast a zoom arrives, how long a shot may be held) are judgement
-  written down from that reading. They have not been measured on real videos and have only run on the
-  generated sample.
-- **Two ways to get the real thing**, either of which lets the styles be redone from the videos
-  themselves: run `/watch` in a Claude Code session on your own Mac, where YouTube lets you in; or give
-  the skill a free Gemini key, and Google's model watches the YouTube link directly without a download.
-  [docs/EDITING-STUDY.md](../../docs/EDITING-STUDY.md) is the whole job written out, with the list of
-  videos, so on the Mac it is one sentence to paste. A cloud session cannot reach the Mac or its browser.
+- The genres were first written from published articles and editors' written breakdowns (Finzar's
+  newsletter, a breakdown of how Neebs Gaming cuts for comedy, a streamer's guide to Twitch-to-YouTube,
+  two write-ups of Casey Neistat's vlogs, StudioBinder on rhythm, PremiumBeat on the basic cuts, montage
+  guides). The numbers in that first version were judgement written down from that reading.
+- **On 14 November 2026 the videos were watched.** The `/watch` skill
+  ([bradautomates/claude-video](https://github.com/bradautomates/claude-video), MIT, installed at
+  `.claude/skills/watch`) was run on a Mac, where YouTube lets the download through, with the local engine
+  (yt-dlp, ffmpeg frames, captions). 45 videos were watched: 14 of Finzar's (the beginner gaming guide, the
+  2026 viral-gaming video, the smoothness video, sound effects, memes, music, transitions and the rest),
+  and 31 more across gaming, stream clips, vlogs and story, cinematic, commentary and podcast, shorts and
+  montage. 29 of the 45 were on the list in [docs/EDITING-STUDY.md](../../docs/EDITING-STUDY.md) and 16
+  were found by search where the list had gaps (more Finzar, two stream tutorials, six on commentary,
+  podcast and video essays, three on montage).
+  [docs/EDITING-STUDY-FINDINGS.md](../../docs/EDITING-STUDY-FINDINGS.md) has every claim with its video
+  and the time it was said or shown.
+- **What "watched" does not mean.** Frames and captions were read; nobody listened to the audio, so every
+  sound level here is a number a tutor said or a fader value on screen, never a listening judgement. Cut
+  rates were counted with ffmpeg's scene filter and are floors: it misses jump cuts on one camera and
+  counts transition flashes. Two montage videos had only auto-translated captions (Bengali, Arabic).
+- **What moved** (a number moved only where two or more independent videos disagreed with it):
+  - Gaming video: punch-in ramp 0.16 s to 0.12 s (text pops settle in about 0.1 s; zoom keyframes are
+    "a couple of frames" apart); caption words at once 4 to 3.
+  - Challenge or story: the promise by 20 s instead of 15 s; a new section every 120 s instead of 150 s.
+  - Vlog: 10 cuts a minute and 6 s shots to 6 and 9 s (Neistat's own edit runs 4 to 6 cuts a minute,
+    Dovey's 4 to 7), promise by 20 s, a new section every 120 s. This also drops the vlog's pace from
+    "fast" to "steady", so it no longer punches in on every sentence (that starts at 8 cuts a minute).
+    It is the most judgement-heavy change.
+  - Cinematic: the opening may be a fast run of shots (a label only).
+  - Principles were rewritten for the Gaming video, Story, Vlog, Cinematic, Montage, Short and Commentary
+    styles from what the videos said outright: a transition is about 12 frames and the cut sits under
+    the moment it covers most; effect levels by role; a scream is cut just after it starts; cut on every
+    second or fourth beat, not every beat; the shape of an eased move is a fast start and a long soft
+    landing; change the pace on purpose.
+- **What did not move, and why.** The gaming tutors disagree on cut rate and effects per minute (Finzar's
+  2019 videos run at twice the playbook rate, his 2026 one at 9 to 11 cuts a minute, a gaming guide at
+  about 5), and nobody states an effects rate, so those stay as they were. Commentary's pace stays calm:
+  finished YouTube talking heads cut faster, but one calm essay and the podcast-clip video match it.
+  **Stream highlights did not get its videos**: five stream tutorials were watched, but four were about
+  vertical clips or software and none showed how a long highlights video should look, so the genre's
+  note says its rules are still from written guides. No editor of a large streamer was found in four
+  searches.
+- **Still open**: a long-highlights editor to watch; what to hold back before a drop; "leave mid-thought"
+  (no video said it); and the audio itself, which a free Gemini key would let the skill hear (add it
+  through the form the skill opens, not in a chat).
+- **A tool quirk worth knowing**: for six videos `/watch` picked an auto-translated caption track by
+  default; passing `--sub-lang en` should avoid that.
 
 ### Checked
 - Core tests for the genres (seven genres, each with its own long-form style and at least two sources;
   the suggested genre per kind of recording; Stream highlights and Vlog cutting the way they describe;
   a project remembering its genre, and older projects and unknown genres reading as "not chosen") pass
-  on Linux, with the rest of the suite.
+  with the rest of the suite. New: each genre's note says what was watched and no more (Stream highlights
+  says it was not learned from the videos), every watched source is a video link listed once, and the
+  moved numbers are pinned so they change only on purpose.
+- The vlog test that expected rhythm zooms at 10 cuts a minute now expects none at 6.

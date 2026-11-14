@@ -23,7 +23,53 @@ final class VideoGenreTests: XCTestCase {
         XCTAssertEqual(Set(EditorPlaybook.all.filter { !$0.style.isShortForm }.map(\.id)), reachable)
         XCTAssertNil(VideoGenre.genre(forPlaybook: EditorPlaybook.punchyShort.id))
         XCTAssertNil(VideoGenre.genre(forPlaybook: ""))
-        XCTAssertTrue(VideoGenre.studyNote.contains("not learned by watching"))
+    }
+
+    /// Each genre says plainly what was watched for it. Only a genre whose videos taught it something claims so.
+    func testEachGenreSaysWhatWasWatchedAndNoMoreThanThat() {
+        for genre in VideoGenre.allCases {
+            XCTAssertTrue(genre.studyNote.contains("14 November 2026"), genre.rawValue)
+            XCTAssertTrue(genre.studyNote.contains("starting points"), genre.rawValue)
+            XCTAssertFalse(genre.watchedSources.isEmpty, "\(genre.rawValue) lists the videos it was checked against")
+            for source in genre.watchedSources {
+                XCTAssertTrue(source.url.hasPrefix("https://www.youtube.com/watch?v="), source.url)
+            }
+            XCTAssertEqual(Set(genre.sources.map(\.url)).count, genre.sources.count, "\(genre.rawValue) lists each source once")
+        }
+        // The stream videos did not show how a long highlights video looks, so that genre must not say it was learned from them.
+        let stream = VideoGenre.streamHighlights.studyNote
+        XCTAssertTrue(stream.contains("not learned by watching"))
+        XCTAssertFalse(stream.contains("checked against"))
+        for genre in VideoGenre.allCases where genre != .streamHighlights {
+            XCTAssertTrue(genre.studyNote.contains("checked against"), genre.rawValue)
+            XCTAssertFalse(genre.studyNote.contains("not learned by watching"), genre.rawValue)
+        }
+    }
+
+    /// The numbers that two or more of the videos watched disagreed with, as they were moved on 14 November 2026.
+    func testTheStudyMovedTheNumbersTheVideosDisagreedWith() {
+        // Snappy zooms and pop-ins: about a tenth of a second, not slower (Finzar, MortarMarv, ItsProger, Isaac).
+        XCTAssertEqual(EditorPlaybook.retention.rules.zoomRamp, 0.12, accuracy: 0.001)
+        XCTAssertFalse(EditorPlaybook.retention.rules.zoomsGlide)
+        XCTAssertEqual(EditorPlaybook.retention.rules.maxCaptionWords, 3)
+        // The spoken promise lands about twenty seconds in and a new section about every two minutes.
+        for playbook in [EditorPlaybook.story, .vlog] {
+            XCTAssertEqual(playbook.rules.hookDeadline, 20, playbook.id)
+            XCTAssertEqual(playbook.rules.rehookInterval, 120, playbook.id)
+        }
+        // A vlog-style edit runs about six hard cuts a minute, not ten.
+        XCTAssertEqual(EditorPlaybook.vlog.style.cutsPerMinute, 6)
+        XCTAssertEqual(EditorPlaybook.vlog.style.averageShotLength, 9)
+        // A cinematic opening may be a fast run of shots.
+        XCTAssertTrue(EditorPlaybook.smooth.style.opensFast)
+        // What the videos agreed on is in the principles, not only in the numbers.
+        XCTAssertTrue(EditorPlaybook.retention.principles.contains { $0.detail.contains("twelve frames") })
+        XCTAssertTrue(EditorPlaybook.smooth.principles.contains { $0.detail.contains("every second or fourth beat") })
+        XCTAssertTrue(EditorPlaybook.onTheBeat.principles.contains { $0.detail.contains("every second to fourth beat") })
+        // Left alone on purpose: the videos split on them, or did not cover them.
+        XCTAssertEqual(EditorPlaybook.commentary.style.cutsPerMinute, 3)
+        XCTAssertEqual(EditorPlaybook.streamHighlights.style.cutsPerMinute, 6)
+        XCTAssertEqual(EditorPlaybook.retention.style.cutsPerMinute, 12)
     }
 
     func testTheSuggestedGenreFollowsTheKindOfRecording() {
@@ -44,11 +90,12 @@ final class VideoGenreTests: XCTestCase {
         XCTAssertEqual(stream.style?.silence, .balanced)
         XCTAssertEqual(stream.style?.fades, true, "a soft join between moments")
         XCTAssertGreaterThan(stream.zoomSpacing, options(.retention).zoomSpacing * 2, "far fewer zooms than an edited gaming video")
-        // A vlog: music-led, quicker cuts, no caption wall.
+        // A vlog: music-led, no caption wall. Six cuts a minute, as the vlog and story videos watched run, leaves the
+        // zooms to the reactions instead of punching in on every sentence (from eight cuts a minute up they do).
         let vlog = options(.vlog)
         XCTAssertTrue(vlog.music && vlog.zooms && vlog.coldOpen)
         XCTAssertFalse(vlog.captions || vlog.memes)
-        XCTAssertEqual(vlog.style?.rhythmZooms, true, "ten cuts a minute keeps the frame moving")
+        XCTAssertEqual(vlog.style?.rhythmZooms, false, "six cuts a minute is a steady pace, not a jump-cut one")
         XCTAssertTrue(EditorPlaybook.vlog.plantsTease)
         XCTAssertFalse(EditorPlaybook.streamHighlights.plantsTease)
         // The coach holds each to its own rules.

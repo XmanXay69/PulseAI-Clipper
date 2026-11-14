@@ -207,7 +207,7 @@ struct LongFormSheet: View {
                                     .multilineTextAlignment(.leading)
                             }
                         }
-                        Text(VideoGenre.studyNote).font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                        Text(genre.studyNote).font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.top, 4)
                 }

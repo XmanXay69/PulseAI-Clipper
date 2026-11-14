@@ -1,5 +1,11 @@
 # Studying editors by watching them
 
+> **Done on 14 November 2026.** 45 videos were watched on the Mac (the 29 below that were found here, plus
+> 16 more found by search). What each taught, with video and time, is in
+> [EDITING-STUDY-FINDINGS.md](EDITING-STUDY-FINDINGS.md); what moved in the styles is in the 1.9.0 notes.
+> Not covered: an editor of a large streamer, and the audio (nobody listened). The brief below is kept as
+> it was written.
+
 The genre styles in PULSE (`Sources/PulseCore/AutoEdit/EditorPlaybook.swift`, `VideoGenre.swift`) were
 written from published articles. The plan was to watch the most popular editing tutorials instead, Finzar's
 above all. That has to happen **on your own Mac**: YouTube refuses video pages to the cloud machines Claude

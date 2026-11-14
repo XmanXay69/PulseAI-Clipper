@@ -66,6 +66,11 @@ public struct PacingRules: Codable, Hashable, Sendable {
 /// strategists describe, Walter Murch's ordering of what a cut must serve (emotion, then story, then rhythm),
 /// subtitle reading-speed standards, and published breakdowns of what high-performing shorts have in common —
 /// turned into settings the existing editors already understand.
+///
+/// The styles were first written from articles. On 14 November 2026 they were checked against 45 popular
+/// editing videos that were actually watched (frames and captions), and the numbers that two or more of them
+/// disagreed with were moved. `docs/EDITING-STUDY-FINDINGS.md` lists each claim with its video and time; a
+/// number it does not mention is still the judgement it was before.
 public struct EditorPlaybook: Hashable, Identifiable, Sendable {
     public struct Principle: Hashable, Sendable {
         public var title: String
@@ -120,13 +125,15 @@ extension EditorPlaybook {
                               popupsPerMinute: 1.0, wordsPerMinute: 190, pauseRatio: 0.04, musicBed: 0.75, effectsPerMinute: 4,
                               fadesPerMinute: 0.1, opensFast: true),
         rules: PacingRules(hookDeadline: 8, maxStaticStretch: 15, openingStaticStretch: 8, rehookInterval: 120,
-                           maxZoomsPerMinute: 8, maxEffectsPerMinute: 8, maxCaptionWords: 4, maxCaptionLineLength: 26, zoomRamp: 0.16),
+                           maxZoomsPerMinute: 8, maxEffectsPerMinute: 8, maxCaptionWords: 3, maxCaptionLineLength: 26, zoomRamp: 0.12),
         principles: [
-            Principle("Open on the moment", "No greeting, no logo. The first seconds show the best thing that happens, then the story starts."),
+            Principle("Open on the moment", "No greeting, no logo, no ask to like or subscribe. The first seconds show the best thing that happens, and say what is being done, how and why."),
             Principle("Change something every few seconds", "A cut, a punch-in, a word on screen or a sound. Vary which one, or the changes become the pattern."),
-            Principle("Cut the breath, keep the reaction", "Pauses and false starts go. The laugh, the scream and the beat after it stay."),
-            Principle("Sound sells the hit", "A whoosh for movement, a hit on the reveal, the music pulled out for a beat before the punchline."),
-            Principle("Every second earns its place", "If a stretch neither moves the story nor gets a laugh, it is cut."),
+            Principle("Cut the breath, keep the reaction", "Pauses and false starts go. The laugh and the beat after it stay. A scream is cut just after it starts, so the cut is the joke."),
+            Principle("Sound sells the hit", "A whoosh for movement, a hit on the reveal, the music pulled out for a beat before the punchline. Keep effects under the voice, transition whooshes a little louder than the rest, and no more than three or four loud blasts in a row."),
+            Principle("Layer the moment, count it once", "A riser into a hit with a short sting on top is one moment, not three effects. Give each repeated pop its own sound."),
+            Principle("Hide the cut under the transition", "A transition is about twelve frames, 0.2 s at 60 fps, and the cut sits under the moment it covers most of the frame."),
+            Principle("Every second earns its place", "If a stretch neither moves the story nor gets a laugh, it is cut, but not every bit of air: a little room lets the person show through."),
             Principle("Point at the joke, don't bury it", "A zoom on the thing the player missed, the punchline as a word on screen, one meme where it fits. Timing does the work; piling effects on hides it."),
         ])
 
@@ -140,14 +147,15 @@ extension EditorPlaybook {
                               captions: ReferenceStyle.CaptionLook(coverage: 0.2, positionY: 0.85, lineHeight: 0.045, wordsOnScreen: 6, uppercase: false),
                               popupsPerMinute: 0.4, wordsPerMinute: 165, pauseRatio: 0.09, musicBed: 0.85, effectsPerMinute: 1.5,
                               fadesPerMinute: 0.35, opensFast: true),
-        rules: PacingRules(hookDeadline: 15, maxStaticStretch: 25, openingStaticStretch: 12, rehookInterval: 150,
+        rules: PacingRules(hookDeadline: 20, maxStaticStretch: 25, openingStaticStretch: 12, rehookInterval: 120,
                            maxZoomsPerMinute: 3, maxEffectsPerMinute: 4, maxCaptionWords: 8, maxCaptionLineLength: 42, zoomRamp: 0.3),
         principles: [
-            Principle("Make a promise in fifteen seconds", "Say what the viewer will get and show a taste of it. Then start delivering."),
+            Principle("Show a taste at once, promise by twenty seconds", "Something moves from the first frame and a hook lands in the first three seconds. Say what the viewer will get by about twenty seconds, with the setup, the context and the challenge clear inside thirty. Then start delivering."),
             Principle("Pace is new information", "A video feels fast when something new keeps arriving, not when the cuts come quicker."),
-            Principle("Close one loop, open the next", "Each section settles a question and raises the next, about every two to three minutes."),
+            Principle("Change the pace on purpose", "Holding one pace tires people. Run fast bursts of shots well under two seconds into a calm held shot, and let the music or sound drop at the turn."),
+            Principle("Close one loop, open the next", "Each section settles a question and raises the next, about every two minutes."),
             Principle("Emotion before continuity", "Cut where the feeling changes. A cut that is right for the moment forgives one that is rough on the eye."),
-            Principle("Change the music when the story changes", "One bed per chapter, never one song looped under everything."),
+            Principle("Change the music when the story changes", "One bed per chapter, never one song looped under everything. Silence at the turn lands harder than a swell."),
         ])
 
     /// Calm and clear; the edit stays out of the way.
@@ -165,10 +173,10 @@ extension EditorPlaybook {
         principles: [
             Principle("Cut on a change of thought", "Hold a shot through the whole statement. A cut mid-gesture or mid-word reads as a mistake."),
             Principle("Push in slowly", "A gentle move across a long answer keeps the frame alive without calling attention to itself."),
-            Principle("The voice leads", "Music sits far under the talking or is left out. Nothing competes with the words."),
+            Principle("The voice leads", "Music sits far under the talking, about 20 to 33 dB down on its fader, or is left out of a calm essay. A new track for each chapter keeps it from becoming wallpaper. Nothing competes with the words."),
             Principle("Leave room after the big line", "A beat of quiet lets a strong statement land, and makes the next section feel quicker."),
             Principle("Captions are for reading", "Two lines at most, about forty characters each, on screen long enough to finish."),
-            Principle("Hide the join", "Where a pause was cut out of one continuous shot, a slight push-in on one side of the cut, or a cutaway over it, turns a jump into a choice."),
+            Principle("Hide the join", "Where a pause was cut out of one continuous shot, a cutaway of two to four seconds laid over it, or a push-in on one side of the cut, turns a jump into a choice. Put the cover on the layer above so the talking underneath stays untouched."),
         ])
 
     /// The phone short.
@@ -184,7 +192,7 @@ extension EditorPlaybook {
         rules: PacingRules(hookDeadline: 2, maxStaticStretch: 6, openingStaticStretch: 4, rehookInterval: 0,
                            maxZoomsPerMinute: 10, maxEffectsPerMinute: 10, maxCaptionWords: 3, maxCaptionLineLength: 22, zoomRamp: 0.12),
         principles: [
-            Principle("Win the first three seconds", "Lead with the most interesting moment. If the first sentence takes three seconds to reach its point, start later."),
+            Principle("Win the first three seconds", "Lead with the most interesting moment, or the question it answers. Keep the payoff for the end: giving the answer away five seconds in leaves nothing to wait for. If the first sentence takes three seconds to reach its point, start later."),
             Principle("One or two words per beat", "Animated captions in mixed case, with the stressed word coloured, kept above the bottom of the frame where the app's buttons sit."),
             Principle("No intro, no outro", "Almost no short that performs opens on a logo. End early, on the upswing."),
             Principle("Loop it", "The last line hands back to the first, so a second watch starts before the viewer decides to leave."),
@@ -200,15 +208,17 @@ extension EditorPlaybook {
                               cutsPerMinute: 6, averageShotLength: 10, zoomsPerMinute: 2.5, zoomScale: 1.1,
                               captions: ReferenceStyle.CaptionLook(coverage: 0.3, positionY: 0.86, lineHeight: 0.045, wordsOnScreen: 5, uppercase: false),
                               popupsPerMinute: 0.2, wordsPerMinute: 150, pauseRatio: 0.1, musicBed: 0.95, effectsPerMinute: 2,
-                              fadesPerMinute: 0.6, opensFast: false),
+                              fadesPerMinute: 0.6, opensFast: true),
         rules: PacingRules(hookDeadline: 12, maxStaticStretch: 20, openingStaticStretch: 12, rehookInterval: 150,
                            maxZoomsPerMinute: 4, maxEffectsPerMinute: 4, maxCaptionWords: 7, maxCaptionLineLength: 42, zoomRamp: 0.6),
         principles: [
             Principle("Smoothness is the secret", "Graphics ease on instead of snapping, zooms glide, transitions never start abruptly. Harsh moves pull the viewer out."),
-            Principle("Shape the speed of every move", "A move that starts slow, travels and settles reads as intended. A constant-speed one reads as a preset."),
+            Principle("Shape the speed of every move", "Ease out of the first keyframe and into the last. The best curve leaves quickly, spends most of its speed early and lands on a long soft tail; exits mirror entrances. Constant speed reads as a preset."),
             Principle("Whooshes on motion, risers into reveals", "An effect matches the movement it sits under and stays under the voice."),
-            Principle("Match moves across a cut", "Two shots zooming at the same speed join without a seam."),
-            Principle("Let the music carry it", "Sections change on the phrase, and the picture follows."),
+            Principle("Match moves across a cut", "Two shots zooming at the same speed join without a seam. Cut during an action so the movement carries into the next shot."),
+            Principle("Let the music carry it", "Pick the track first and cut at its dips and loud notes, but on every second or fourth beat, never every beat, which feels robotic. Sections change on the phrase, and the picture follows."),
+            Principle("Let sound lead or trail the picture", "Let the audio of the next shot start before its picture, or the last one run on over the next, so a cut in a conversation never stops dead."),
+            Principle("Open on motion", "A fast run of short shots, each cut landing during an action, can be the hook; then the video settles to its own pace."),
             Principle("Let it breathe", "Feelings take time. Shorter shots raise the tension and longer ones release it, so hold the shot that matters a little longer than seems necessary."),
         ])
 
@@ -224,9 +234,9 @@ extension EditorPlaybook {
         rules: PacingRules(hookDeadline: 3, maxStaticStretch: 6, openingStaticStretch: 4, rehookInterval: 60,
                            maxZoomsPerMinute: 8, maxEffectsPerMinute: 6, maxCaptionWords: 4, maxCaptionLineLength: 26, zoomRamp: 0.1),
         principles: [
-            Principle("Cut on the kick and the snare", "Hard cuts sit on the beat. The eye forgives almost anything that lands in time."),
+            Principle("Land the big moment on the drop", "Put the kill on the drop, the best clip first and the standout shot at the climax. Cut on every second to fourth beat; keep the per-beat movement, a ramp or a shake, for the beat itself. The eye forgives almost anything that lands in time."),
             Principle("Build, drop, breathe", "Short shots into the drop, the biggest play on it, a longer shot after."),
-            Principle("Slow down for the best one", "A time ramp into the play of the video, then back to full speed."),
+            Principle("Hit hard, then slow down", "Cut a couple of frames after the kill appears, with a quick zoom and a brief flash. A short slow-motion tail after the hit lets it land; ramp-style edits speed up on each beat instead."),
             Principle("No talking, no captions", "The game's sound and the track do the work. Text is for a name or a score."),
             Principle("Leave them wanting the next one", "Three minutes of the best beats ten of everything."),
             Principle("Hold back before the drop", "Longer shots and fewer effects on the way in, then one bold change on the drop itself. A flash or a shake on every beat stops meaning anything."),
@@ -258,18 +268,19 @@ extension EditorPlaybook {
         tagline: "A day told as a story. Leave each place mid-thought, show the doing fast, let the music set the pace.",
         bestFor: "Vlogs, IRL streams, travel days and behind-the-scenes videos", symbol: "figure.walk",
         style: ReferenceStyle(id: styleID(8), name: "Vlog", measuredAt: written, duration: 600, aspect: 16.0 / 9.0,
-                              cutsPerMinute: 10, averageShotLength: 6, zoomsPerMinute: 1, zoomScale: 1.1,
+                              cutsPerMinute: 6, averageShotLength: 9, zoomsPerMinute: 1, zoomScale: 1.1,
                               captions: ReferenceStyle.CaptionLook(coverage: 0.1, positionY: 0.86, lineHeight: 0.045, wordsOnScreen: 6, uppercase: false),
                               popupsPerMinute: 0.1, wordsPerMinute: 165, pauseRatio: 0.07, musicBed: 0.9, effectsPerMinute: 0.8,
                               fadesPerMinute: 0.2, opensFast: true),
-        rules: PacingRules(hookDeadline: 12, maxStaticStretch: 30, openingStaticStretch: 12, rehookInterval: 150,
+        rules: PacingRules(hookDeadline: 20, maxStaticStretch: 30, openingStaticStretch: 12, rehookInterval: 120,
                            maxZoomsPerMinute: 3, maxEffectsPerMinute: 3, maxCaptionWords: 8, maxCaptionLineLength: 42, zoomRamp: 0.3),
         principles: [
-            Principle("A day needs a story", "Something wanted at the start, something in the way, an ending. Without those it is footage, not a vlog."),
+            Principle("A day needs a story", "Something wanted at the start, something in the way, an ending: setup, conflict, resolution. Without those it is footage, not a vlog."),
             Principle("Leave mid-thought", "Cut to the next place before the sentence is finished and finish it there. The viewer leans in to hear the rest."),
-            Principle("Show the doing, fast", "A task is a run of quick cuts or a time-lapse, not the whole task."),
+            Principle("Show the doing, fast", "A task is a run of quick cuts, not the whole task. A time-lapse or a drone shot earns its place as a transition or to show where we are; otherwise it is cut."),
+            Principle("Mix the shots", "About as much handheld as locked-off and as establishing wides: wides say where we are, locked-off lets people listen, handheld brings urgency."),
             Principle("Something new to look at within half a minute", "A new place, a cutaway, a change of angle. A face talking for longer than that needs a reason."),
-            Principle("The music sets the pace", "Sections change with the track, and the cuts fall where it moves."),
+            Principle("The music sets the pace", "Sections change with the track, and the cuts fall where it moves. Where someone explains, the music can drop out and let the voice work."),
         ])
 
     public static let all: [EditorPlaybook] = [.retention, .story, .commentary, .punchyShort, .smooth, .onTheBeat, .streamHighlights, .vlog]
