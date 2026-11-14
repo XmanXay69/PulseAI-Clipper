@@ -97,6 +97,9 @@ public enum CaptionLayoutEngine {
             current.append(w)
             if i == words.count - 1 { groups.append(current) }
         }
+        if style.readingSpeedLimit > 0, maxWords > 1 {
+            groups = splitForReadingSpeed(groups, limit: style.readingSpeedLimit)
+        }
         var pages: [CaptionPage] = []
         for (gi, group) in groups.enumerated() {
             // Wrap into lines.
@@ -116,6 +119,50 @@ public enum CaptionLayoutEngine {
             pages.append(CaptionPage(index: gi, range: TimeRange(start: start, end: max(end, start + 0.1)), lines: lines))
         }
         return pages
+    }
+
+    /// A page this small is read at a glance however fast it goes by, so it is never split further.
+    static let glanceableCharacters = 14
+
+    /// Characters a second a page asks of a reader: its text over the time it is on screen (until the next
+    /// page replaces it, or 0.6 s after its last word).
+    static func readingSpeed(_ group: [TimedCaptionWord], nextStart: Seconds) -> Double {
+        guard let first = group.first, let last = group.last else { return 0 }
+        let characters = group.map(\.text.count).reduce(0, +) + max(group.count - 1, 0)
+        let shown = max(min(nextStart, last.end + 0.6) - first.start, 0.1)
+        return Double(characters) / shown
+    }
+
+    /// Splits the pages that go by faster than `limit` characters a second (#721). Speech that fast can't be
+    /// slowed, but it can be shown a few words at a time: a small page needs no reading, only a glance.
+    /// Each split lands on a phrase boundary when one is near the middle.
+    static func splitForReadingSpeed(_ groups: [[TimedCaptionWord]], limit: Double) -> [[TimedCaptionWord]] {
+        var out: [[TimedCaptionWord]] = []
+        func split(_ group: [TimedCaptionWord], nextStart: Seconds) {
+            let characters = group.map(\.text.count).reduce(0, +) + max(group.count - 1, 0)
+            guard group.count > 2, characters > glanceableCharacters, readingSpeed(group, nextStart: nextStart) > limit else {
+                out.append(group)
+                return
+            }
+            // The most even split, pulled towards a comma or a breath.
+            var best: (cost: Double, at: Int) = (.infinity, group.count / 2)
+            for at in 1..<group.count {
+                let left = group[..<at].map(\.text.count).reduce(0, +) + at - 1
+                let right = characters - left - 1
+                var cost = Double(abs(left - right))
+                let last = group[at - 1]
+                if last.text.hasSuffix(",") || last.text.hasSuffix(";") || last.text.hasSuffix(":") || last.text.hasSuffix("—") { cost -= 6 }
+                if group[at].start - last.end >= 0.2 { cost -= 4 }
+                if cost < best.cost { best = (cost, at) }
+            }
+            let head = Array(group[..<best.at]), tail = Array(group[best.at...])
+            split(head, nextStart: tail[0].start)
+            split(tail, nextStart: nextStart)
+        }
+        for (i, group) in groups.enumerated() {
+            split(group, nextStart: i + 1 < groups.count ? groups[i + 1][0].start : .infinity)
+        }
+        return out
     }
 
     /// Two greedy lines re-broken at a phrase boundary (#255): after a comma or a pause when one is near the

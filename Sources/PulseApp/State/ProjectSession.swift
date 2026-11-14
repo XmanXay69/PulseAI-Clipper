@@ -53,6 +53,8 @@ final class ProjectSession: ObservableObject, Identifiable {
     @Published var selectedClipIDs: Set<UUID> = []
     /// The last Edit My VOD settings, so "Edit Again" (and ±10 %) can re-run them.
     var lastLongFormOptions: LongFormOptions?
+    /// The loop preview in progress (#541), so a second press restarts it and a new one cancels the old.
+    var loopPreview: Task<Void, Never>?
     /// Excitement over source time per asset (for the strip on the timeline ruler), computed once on demand.
     @Published private(set) var energySignals: [UUID: EngagementSignals] = [:]
     private var energyRequests: Set<UUID> = []

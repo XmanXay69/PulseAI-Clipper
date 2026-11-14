@@ -21,7 +21,32 @@ This file grows as each one lands; the numbers are the list's.
 - The retention guess now follows an edit through its cuts and gives a little attention back at every
   change of picture, where before it only described the raw recording.
 
+### Shorts
+- **Make it loop (#541).** The coach looks for an ending that cuts cleanly back to the opening and offers
+  it as "Make it loop": end between phrases, where the sound sits at about the level the opening starts
+  at, and best of all on words left hanging for the opening to finish ("…and that's when"), a question, or
+  a return to the words the short opened with. It never cuts through a word, before the payoff, or more
+  than the last third. The fix trims the ending in one undo step. The **Loop** button in the coach panel
+  plays the last seconds into the opening three times so you can hear and see the seam.
+- **Opening lines (#542).** For a short made from a clip, the coach panel's Opening menu offers five lines
+  for the first two seconds: a question, a claim, the stakes, a tease and the clip's own words. Each is
+  true to the clip. The question is one that was asked when there is one, the stakes name the banner the
+  game put on screen, the tease counts down to the payoff that is really there ("WAIT 9 SECONDS"), and the
+  quote is made of words that were said. Choosing one puts it high in the frame for two seconds; choosing
+  another replaces it. Written on this Mac from the clip, with no cloud model.
+- **Caption pages split at reading speed (#721).** A page that would need reading at more than about twenty
+  characters a second (the subtitling standard for adults) is shown a few words at a time instead, split at
+  a comma or a breath when one is near the middle. Fast talk can't be slowed, but a small page takes a
+  glance, not a read. On for new captions, with a switch in Captions → Style; captions in projects saved
+  before this keep the pages they had. One-word-at-a-time captions and page breaks set by hand are untouched.
+
 ### Checked
 - Core tests for both (default style per kind, your own pick per kind, old settings read as off; the edit
   retention curve; two trials and a verdict) pass on Linux. macOS results are filled in at release.
-- Not checked: the predicted retention against real audience retention. It is a rule of thumb.
+- Core tests for the loop (a hanging ending beats a trail-off; questions and returns to the opening; never
+  through a word, before the payoff or too early; the coach's offer), the opening lines (five kinds, all
+  different, short enough, true to the clip; one line on the short at a time) and reading-speed pages
+  (unhurried speech untouched; a burst split at a phrase boundary with no word lost; old projects not
+  re-paged) pass on Linux.
+- Not checked: the predicted retention against real audience retention. It is a rule of thumb. The loop
+  and the opening lines have run on synthetic clips and the generated sample, not on real shorts.

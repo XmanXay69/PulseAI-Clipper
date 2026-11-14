@@ -220,6 +220,11 @@ struct CaptionStylePanel: View {
                                 .font(.pulseCaption)
                             Stepper("Max lines: \(captions?.style.maxLines ?? 2)", value: styleBinding("Max Lines", \.maxLines, fallback: 2), in: 1...4)
                                 .font(.pulseCaption)
+                            Toggle("Split pages that go by too fast", isOn: Binding(
+                                get: { (captions?.style.readingSpeedLimit ?? 0) > 0 },
+                                set: { on in styleBinding("Reading Speed", \.readingSpeedLimit, fallback: 0).wrappedValue = on ? CaptionStyle.standardReadingSpeed : 0 }))
+                                .toggleStyle(.checkbox).font(.pulseCaption)
+                                .help("A page that would need reading at more than about 20 characters a second is shown a few words at a time instead. Fast talk can't be slowed, but small pages take a glance, not a read.")
                         }
                         InspectorSection("Emphasis", isAI: true) {
                             ColorRow(label: "Emphasis color", color: styleBinding("Emphasis Color", \.emphasisColor, fallback: .yellow))

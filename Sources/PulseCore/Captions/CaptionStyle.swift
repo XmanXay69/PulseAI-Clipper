@@ -98,6 +98,12 @@ public struct CaptionStyle: Codable, Hashable, Sendable {
     public var backgroundStyle: CaptionBackgroundStyle = .solid
     /// Keep captions clear of this platform's UI.
     public var safeArea: SafeAreaPlatform?
+    /// Characters a second a page may ask of a reader (#721); a page that goes by faster is split into
+    /// smaller ones. About 20 is the subtitling standard for adults. 0 = never split for speed.
+    public var readingSpeedLimit: Double = CaptionStyle.standardReadingSpeed
+
+    /// The subtitling standard for adult viewers, in characters a second.
+    public static let standardReadingSpeed: Double = 20
 
     public init(presetName: String, text: TextStyle, highlightColor: RGBAColor = .yellow, highlightBoxColor: RGBAColor = .pulse,
                 emphasisColor: RGBAColor = .yellow, emphasisScale: Double = 1.12, highlightMode: WordHighlightMode = .color,
@@ -143,6 +149,8 @@ public struct CaptionStyle: Codable, Hashable, Sendable {
         safeArea = c.decode(SafeAreaPlatform?.self, forKey: .safeArea, default: d.safeArea)
         speakerLabelStyle = c.decode(SpeakerLabelStyle.self, forKey: .speakerLabelStyle, default: .text)
         backgroundStyle = c.decode(CaptionBackgroundStyle.self, forKey: .backgroundStyle, default: .solid)
+        // Captions saved before this existed keep the pages they had.
+        readingSpeedLimit = c.decode(Double.self, forKey: .readingSpeedLimit, default: 0)
     }
 
     // MARK: Presets

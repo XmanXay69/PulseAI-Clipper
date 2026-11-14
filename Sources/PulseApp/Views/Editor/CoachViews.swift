@@ -90,6 +90,9 @@ struct CoachSection: View {
             if let timeline = session.activeTimeline, timeline.duration > 90 {
                 PacingGraph(timeline: timeline)
             }
+            if p.format == .short, let timeline = session.activeTimeline {
+                ShortFinishRow(session: session, timeline: timeline)
+            }
             if review.suggestions.isEmpty {
                 Label("Nothing to fix — this edit is in great shape.", systemImage: "checkmark.seal.fill")
                     .font(.pulseCaption).foregroundStyle(Theme.success)
@@ -106,6 +109,48 @@ struct CoachSection: View {
             Text(p.calibratedOn > 0 ? "Calibrated on \(p.calibratedOn) of your videos' real views — still a guide, not a guarantee."
                                     : "A prediction from the video's energy, hook, pacing and polish — a guide, not a guarantee. Import your analytics in Settings → Performance to calibrate it.")
                 .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// A short's two finishing touches: a line of text over its first two seconds (#542) and a look at its loop (#541).
+struct ShortFinishRow: View {
+    @ObservedObject var session: ProjectSession
+    let timeline: Timeline
+
+    var body: some View {
+        let lines = session.hookLines(for: timeline)
+        let current = HookWriter.current(in: timeline)
+        VStack(alignment: .leading, spacing: 6) {
+            SectionLabel(text: "Opening")
+            HStack(spacing: 6) {
+                Menu {
+                    ForEach(lines) { line in
+                        Button {
+                            session.setHookLine(line)
+                        } label: {
+                            Label("\(line.kind.displayName): \(line.text)", systemImage: line.kind.symbolName)
+                        }
+                    }
+                    if current != nil {
+                        Divider()
+                        Button("Remove the Opening Line", role: .destructive) { session.setHookLine(nil) }
+                    }
+                } label: {
+                    Label(current ?? "Add an opening line", systemImage: "text.bubble")
+                        .lineLimit(1)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize(horizontal: false, vertical: true)
+                .disabled(lines.isEmpty)
+                .help(lines.isEmpty ? "Opening lines are written from the clip a short was made from; this edit didn't come from one"
+                                    : "Five lines for the first two seconds: a question, a claim, the stakes, a tease and their own words. The first two seconds decide who stays.")
+                Spacer(minLength: 4)
+                Button { session.previewLoop() } label: { Label("Loop", systemImage: "repeat") }
+                    .buttonStyle(.pulse(.ghost, compact: true))
+                    .fixedSize()
+                    .help("Play the last seconds into the opening three times, to hear and see how it loops")
+            }
         }
     }
 }

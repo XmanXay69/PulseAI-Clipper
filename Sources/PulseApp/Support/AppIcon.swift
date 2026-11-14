@@ -171,6 +171,20 @@ enum UISnapshotter {
                 try? await Task.sleep(nanoseconds: 1_200_000_000)
                 capture(app: app, name: String(format: "%02d-%@", n + 2, section.rawValue), to: directory)
                 if section == .editor { await captureViewerFrame(app: app, name: String(format: "%02d-%@-viewer-frame", n + 2, section.rawValue), to: directory) }
+                // The short's finishing touches: five opening lines (#542), one of them put on, and its loop (#541).
+                if section == .editor, let session = app.session, let short = session.activeTimeline {
+                    let lines = session.hookLines(for: short)
+                    FileHandle.standardError.write(Data("UI-HOOKS \(lines.map { "\($0.kind.rawValue): \($0.text)" }.joined(separator: " | "))\n".utf8))
+                    if let first = lines.first {
+                        session.setHookLine(first)
+                        let shown = session.activeTimeline.flatMap { HookWriter.current(in: $0) } ?? "none"
+                        FileHandle.standardError.write(Data("UI-HOOKS on the short: \(shown)\n".utf8))
+                    }
+                    if let loop = LoopBuilder.find(in: short, analysis: short.origin.flatMap { session.analyses[$0.assetID] }) {
+                        FileHandle.standardError.write(Data(String(format: "UI-LOOP ends at %.2f of %.2f s (trim %.2f), seam %.2f against %.2f now: %@\n",
+                                                                   loop.end, short.duration, loop.trim, loop.quality, loop.currentQuality, loop.reason).utf8))
+                    }
+                }
             }
             // Global search sheet.
             app.showGlobalSearch = true

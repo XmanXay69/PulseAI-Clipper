@@ -321,6 +321,14 @@ public enum EditCoach {
         }
         let raw = factors.reduce(0) { $0 + (weights[$1.name] ?? 0) * $1.value }
         let score = Int((pow(raw.clamped(0, 1), 0.85) * 100).rounded()).clamped(1, 99)
+        // A short that cuts cleanly back to its opening gets replayed (#541). Not offered beside another trim
+        // of the ending: one change to the last second at a time.
+        let trimsEnding = suggestions.contains { if case .trimEnd = $0.fix { return true } else { return false } }
+        if format == .short, !trimsEnding, let loop = LoopBuilder.find(in: timeline, analysis: analysis), loop.isWorthOffering {
+            suggestions.append(EditSuggestion(id: "loop", title: "Make it loop",
+                                              detail: "End \(String(format: "%.1f", loop.trim)) s earlier and it cuts straight back to the opening: \(loop.reason). A short that loops without a seam gets watched again.",
+                                              severity: .tip, fix: .trimEnd(loop.trim), symbol: "repeat"))
+        }
         // What an editor would say about the pacing itself: held shots, sections, effects, caption length.
         suggestions += PlaybookCoach.suggestions(for: timeline, format: format, rules: rules ?? .standard(for: format),
                                                  profile: analysis?.profile ?? .unknown, existing: Set(suggestions.map(\.id)))
