@@ -21,17 +21,25 @@ extension ProjectSession {
         return 6 + music + (options.soundEffects || options.memes ? 6 : 0) + extras
     }
 
-    func editMyVOD(options: LongFormOptions, segments: [LongFormSegment]? = nil, hookPayoff: Seconds? = nil) {
+    /// `followDefaultStyle`: the caller chose no style and Settings says each recording gets the one that suits
+    /// it (#626). What kind of recording this is is only known once it is analyzed, so the style is taken here.
+    func editMyVOD(options: LongFormOptions, segments: [LongFormSegment]? = nil, hookPayoff: Seconds? = nil, followDefaultStyle: Bool = false) {
         guard let asset = document.primaryAsset else {
             app.presentMessage(title: "No recording yet", message: "Import a stream or long video first.")
             return
         }
         guard let analysis = analyses[asset.id], analysis.audio != nil || analysis.transcript != nil else {
             app.toast("Analyzing first — your edit starts right after")
-            analyze(assetID: asset.id, generateClips: false) { [weak self] in self?.editMyVOD(options: options, segments: segments, hookPayoff: hookPayoff) }
+            analyze(assetID: asset.id, generateClips: false) { [weak self] in
+                self?.editMyVOD(options: options, segments: segments, hookPayoff: hookPayoff, followDefaultStyle: followDefaultStyle)
+            }
             return
         }
         var options = options
+        if followDefaultStyle, options.style == nil, let playbook = app.settings.ai.defaultPlaybook(for: analysis.profile) {
+            options = playbook.styled(options)
+            PulseLog.info("Edit My VOD: cut as “\(playbook.name)”, the default for \(analysis.profile.displayName.lowercased()) recordings")
+        }
         // A Thumbnail Studio export in the project fills the end screen's "next video" slot (#99).
         if options.nextVideoAssetID == nil { options.nextVideoAssetID = nextVideoThumbnail?.id }
         lastLongFormOptions = options

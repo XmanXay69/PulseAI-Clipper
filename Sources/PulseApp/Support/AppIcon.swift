@@ -274,6 +274,18 @@ enum UISnapshotter {
                 capture(app: app, name: "17-longform-sheet", to: directory)
                 app.showLongFormSheet = false
                 try? await Task.sleep(nanoseconds: 600_000_000)
+                // Compare two styles (#627): the sample drafted PULSE's own way and as Retention cut.
+                var compareBase = LongFormOptions()
+                compareBase.minimumLength = 20
+                await captureHosted(StyleCompareSheet(session: session, base: compareBase, firstID: AISettings.ownStyle, secondID: EditorPlaybook.retention.id) { _ in }
+                                        .environmentObject(app),
+                                    size: CGSize(width: 720, height: 560), name: "17b-style-compare", to: directory)
+                if let asset = session.document.primaryAsset, let analysis = session.analyses[asset.id] {
+                    let own = StyleComparison.trial(nil, asset: asset, analysis: analysis, base: compareBase)
+                    let fast = StyleComparison.trial(.retention, asset: asset, analysis: analysis, base: compareBase)
+                    let verdict = StyleComparison.verdict(own, fast)
+                    FileHandle.standardError.write(Data("UI-COMPARE \(own.name) \(own.score) (\(own.facts.summary)) vs \(fast.name) \(fast.score) (\(fast.facts.summary)): \(verdict.headline)\n".utf8))
+                }
                 let before = Set(session.document.timelines.map(\.id))
                 var options = LongFormOptions()
                 options.minimumLength = 20

@@ -272,6 +272,55 @@ extension EditorPlaybook {
     }
 }
 
+extension EditorPlaybook {
+    /// `base` cut in this style: the style decides the touches and their spacing; the length, the extras and
+    /// the things that are yours (handle, pop-up wording, tighten, chapter titles, progress bar) stay as asked.
+    public func styled(_ base: LongFormOptions) -> LongFormOptions {
+        var answers = ReferenceAnswers.recommended(for: style)
+        if answers.length == .shorts { answers.length = .youtube }
+        var options = style.longFormOptions(answers)
+        options.minimumLength = base.minimumLength
+        options.maximumLength = base.maximumLength
+        options.extras = base.extras
+        options.socialHandle = base.socialHandle
+        options.memeTexts = base.memeTexts
+        options.tighten = base.tighten
+        options.shortenPauses = base.shortenPauses
+        options.musicLevel = base.musicLevel
+        options.chapterTitles = base.chapterTitles
+        options.progressBar = base.progressBar
+        options.cutGameOnly = base.cutGameOnly
+        options.keepStoryOrder = base.keepStoryOrder
+        options.endScreen = base.endScreen
+        options.nextVideoAssetID = base.nextVideoAssetID
+        return options
+    }
+}
+
+extension AISettings {
+    /// Stored in `editStyleByProfile` for a kind of recording that should keep PULSE's own way.
+    public static let ownStyle = "own"
+
+    /// The style a new edit of this kind of recording is cut in (#626): nil when the switch is off or the
+    /// kind is set to PULSE's own way. Shorts always get the short-form style.
+    public func defaultPlaybook(for profile: ContentProfile, format: EditFormat = .longForm) -> EditorPlaybook? {
+        guard autoEditStyle else { return nil }
+        if format == .short { return .punchyShort }
+        if let id = editStyleByProfile[profile.rawValue] {
+            if id == AISettings.ownStyle { return nil }
+            if let playbook = EditorPlaybook.playbook(id: id), !playbook.style.isShortForm { return playbook }
+        }
+        return EditorPlaybook.suggested(for: profile, format: .longForm)
+    }
+
+    /// What the Settings row for a kind of recording shows: your pick, else the suggested style's id.
+    public func editStyleID(for profile: ContentProfile) -> String {
+        if let id = editStyleByProfile[profile.rawValue],
+           id == AISettings.ownStyle || EditorPlaybook.playbook(id: id).map({ !$0.style.isShortForm }) == true { return id }
+        return EditorPlaybook.suggested(for: profile, format: .longForm).id
+    }
+}
+
 /// Holds a finished edit to a playbook's rules and says, in editing terms, where it falls short.
 public enum PlaybookCoach {
     /// Stretches of the edit where nothing about the picture's editing changes: no cut, no new layer, no move

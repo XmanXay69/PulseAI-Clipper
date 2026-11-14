@@ -33,7 +33,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "theme accent colour appearance timecode transition snapping autosave backups sidebar onboarding update channel beta speakers headphones monitoring"
         case .aiProcessing: return "cloud local privacy provider api key model claude openai"
-        case .aiFeatures: return "clips length aggressiveness captions zoom crop silence filler music sound effects extras censor swear banners taste cold open speed ramp hashtags end card follow handle whoosh hook sting"
+        case .aiFeatures: return "clips length aggressiveness captions zoom crop silence filler music sound effects extras censor swear banners taste cold open speed ramp hashtags end card follow handle whoosh hook sting editing style retention cut commentary story default"
         case .brandKit: return "logo watermark intro outro bumper name card font colors handle"
         case .performance: return "threads memory cache proxies speed analysis"
         case .transcription: return "whisper speech language vocabulary speakers words"
@@ -503,6 +503,24 @@ struct AIFeatureSettings: View {
                 Button("Reset") { app.settings.ai.taste = TasteProfile() }
                     .buttonStyle(.pulse(.secondary, compact: true))
                     .disabled(app.settings.ai.taste.isEmpty)
+            }
+        }
+        SettingsGroup("Editing style", footnote: "Off, every edit is cut PULSE's own way unless you pick a style. On, Edit My VOD opens on the style for that kind of recording, the overnight batch and one-click pipeline use it, and shorts take the Punchy short pacing with your own caption look.") {
+            SettingsRow("Cut each recording in the style that suits it", detail: "PULSE works out what kind of recording it is when it analyzes it.") {
+                Toggle("", isOn: $app.settings.ai.autoEditStyle).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
+            }
+            if app.settings.ai.autoEditStyle {
+                ForEach(ContentProfile.allCases, id: \.self) { profile in
+                    SettingsRow(profile.displayName) {
+                        Picker("", selection: Binding(get: { app.settings.ai.editStyleID(for: profile) },
+                                                      set: { app.settings.ai.editStyleByProfile[profile.rawValue] = $0 })) {
+                            Text("PULSE's own").tag(AISettings.ownStyle)
+                            Divider()
+                            ForEach(EditorPlaybook.all.filter { !$0.style.isShortForm }) { Text($0.name).tag($0.id) }
+                        }
+                        .labelsHidden().frame(width: 200)
+                    }
+                }
             }
         }
         SettingsGroup("Clip finding") {

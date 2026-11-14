@@ -35,6 +35,13 @@ struct LongFormSheet: View {
     /// The storyboard's rows were moved by hand (#109): build in that order.
     @State private var keepOrder = false
     @State private var pendingHook: Seconds?
+    /// Settings' default style for this kind of recording was put in the menu when the sheet opened (#626).
+    @State private var adoptedDefault = false
+    /// The recording isn't analyzed yet, so its kind (and its default style) is only known when the edit starts.
+    @State private var followsRecording = false
+    /// You changed the style menu yourself: that choice stands.
+    @State private var styleTouched = false
+    @State private var comparing = false
 
     var options: LongFormOptions {
         var options = LongFormOptions(minimumLength: minMinutes * 60, maximumLength: max(maxMinutes, minMinutes) * 60, coldOpen: coldOpen,
@@ -130,8 +137,30 @@ struct LongFormSheet: View {
     var skipExtrasQuestion: Bool { app.settings.ai.askExtrasOncePerProject && session.document.extrasAnswered }
 
     func build(segments: [LongFormSegment]?, hookPayoff: Seconds?) {
-        session.editMyVOD(options: options, segments: segments, hookPayoff: hookPayoff)
+        session.editMyVOD(options: options, segments: segments, hookPayoff: hookPayoff, followDefaultStyle: followsRecording && !styleTouched)
         dismiss()
+    }
+
+    /// With "the style that suits each recording" on in Settings, the menu opens on that style (#626).
+    func adoptDefaultStyle() {
+        guard !adoptedDefault, app.settings.ai.autoEditStyle, let asset = session.document.primaryAsset else { return }
+        adoptedDefault = true
+        guard let analysis = session.analyses[asset.id] else {
+            editStyle = ""
+            followsRecording = true
+            return
+        }
+        followsRecording = false
+        let playbook = app.settings.ai.defaultPlaybook(for: analysis.profile)
+        editStyle = playbook?.id ?? ""
+        if let playbook { apply(playbook) }
+    }
+
+    /// What both drafts in "Compare two styles" share: the length and the things that are yours.
+    var compareBase: LongFormOptions {
+        var base = options
+        base.style = nil
+        return base
     }
 
     var settingsPage: some View {
@@ -155,6 +184,18 @@ struct LongFormSheet: View {
         .frame(width: 560, height: 640)
         .background(Theme.panel)
         .preferredColorScheme(AppModel.current?.colorScheme)
+        .onAppear { adoptDefaultStyle() }
+        .sheet(isPresented: $comparing) {
+            let suggested = suggestedPlaybook?.id ?? EditorPlaybook.retention.id
+            let first = editStyle.isEmpty ? AISettings.ownStyle : editStyle
+            StyleCompareSheet(session: session, base: compareBase, firstID: first,
+                              secondID: first == suggested ? (suggested == EditorPlaybook.story.id ? EditorPlaybook.retention.id : EditorPlaybook.story.id) : suggested) { picked in
+                styleTouched = true
+                followsRecording = false
+                editStyle = picked == AISettings.ownStyle ? "" : picked
+            }
+            .environmentObject(app)
+        }
     }
 
     var header: some View {
@@ -237,19 +278,25 @@ struct LongFormSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel(text: "Editing style")
             HStack(spacing: 8) {
-                Picker("Editing style", selection: $editStyle) {
+                Picker("Editing style", selection: Binding(get: { editStyle }, set: { styleTouched = true; followsRecording = false; editStyle = $0 })) {
                     Text("PULSE's own").tag("")
                     Divider()
                     ForEach(EditorPlaybook.all.filter { !$0.style.isShortForm }) { Text($0.name).tag($0.id) }
                 }
                 .labelsHidden()
-                .frame(width: 220)
+                .frame(width: 200)
                 .onChange(of: editStyle) { _, _ in if let playbook { apply(playbook) } }
                 if let suggested = suggestedPlaybook, suggested.id != editStyle {
-                    Button("Use \(suggested.name)") { editStyle = suggested.id }
+                    Button("Use \(suggested.name)") { styleTouched = true; followsRecording = false; editStyle = suggested.id }
                         .buttonStyle(.pulse(.ai, compact: true))
+                        .fixedSize()
                         .help("Suggested for this recording: \(suggested.bestFor.lowercased())")
                 }
+                Button("Compare two…") { comparing = true }
+                    .buttonStyle(.pulse(.ghost, compact: true))
+                    .fixedSize()
+                    .disabled(suggestedPlaybook == nil)
+                    .help(suggestedPlaybook == nil ? "Analyze the recording first" : "Draft this recording in two styles and see the coach's score and the predicted retention for each, side by side")
                 Spacer(minLength: 0)
             }
             Text(playbook.map { "\($0.tagline) Best for \($0.bestFor.lowercased())." }
@@ -258,6 +305,18 @@ struct LongFormSheet: View {
             if let playbook {
                 Text(playbook.recipe.joined(separator: " · ")).font(.pulseMicro).foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+            Toggle("Always start from the style that suits the recording", isOn: Binding(get: { app.settings.ai.autoEditStyle }, set: { on in
+                app.settings.ai.autoEditStyle = on
+                adoptedDefault = false
+                followsRecording = false
+                if on { adoptDefaultStyle() }
+            }))
+            .toggleStyle(.checkbox).font(.pulseCaption)
+            .help("Gameplay opens on Retention cut, podcasts and talking-head on Clean commentary, anything else on Story first. Change which style each kind gets in Settings → AI Features. Shorts and the overnight batch follow it too.")
+            if followsRecording {
+                Text("This recording isn't analyzed yet. Its style is chosen when the edit starts, once PULSE knows what kind it is.")
+                    .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
             }
         }
     }

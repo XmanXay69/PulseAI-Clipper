@@ -237,9 +237,10 @@ final class BatchController: ObservableObject {
                 longForm.extras = extras
                 session.editMyVOD(options: longForm)
             } else {
+                // No style picked for the batch: each video takes the default for its kind when Settings says so (#626).
                 var longForm = LongFormOptions()
                 longForm.extras = extras
-                session.editMyVOD(options: longForm)
+                session.editMyVOD(options: longForm, followDefaultStyle: true)
             }
             _ = await waitUntilIdle(app)
             if let edit = session.document.timelines.first(where: { !before.contains($0.id) }) {

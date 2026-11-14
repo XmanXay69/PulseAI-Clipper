@@ -15,6 +15,12 @@ public enum RetentionPredictor {
             return values[max(0, min(values.count - 1, i))]
         }
 
+        /// Share predicted to still be watching when it ends.
+        public var atEnd: Float { values.last ?? 1 }
+
+        /// Average share watching across the whole video: what YouTube calls average percentage viewed.
+        public var average: Float { values.isEmpty ? 1 : values.reduce(0, +) / Float(values.count) }
+
         /// The stretches where the curve falls fastest — where an edit would help most.
         public func steepestDrops(count: Int = 3, minimumSpacing: Seconds = 20) -> [Seconds] {
             guard values.count > 2, step > 0 else { return [] }
@@ -31,6 +37,25 @@ public enum RetentionPredictor {
             }
             return out.sorted()
         }
+    }
+
+    /// The curve for an edit (#627): the recording's excitement followed through the edit's cuts, with every
+    /// change of picture (a cut, a punch-in landing, a pop-up) buying a little attention back. Stretches the
+    /// recording doesn't cover (title cards, a replay of another file) count as mild.
+    public static func predict(edit timeline: Timeline, signals: EngagementSignals, assetID: UUID? = nil, step: Seconds = 1) -> Curve {
+        let duration = timeline.duration
+        guard duration > 0, step > 0, signals.step > 0, !signals.excitement.isEmpty else { return Curve(step: max(step, 1), values: [1]) }
+        let program = EditCoach.Program(timeline: timeline, assetID: assetID ?? timeline.origin?.assetID)
+        let count = max(1, Int((duration / step).rounded(.up)))
+        var excitement = [Float](repeating: 0.3, count: count)
+        for i in 0..<count {
+            guard let source = program.sourceTime(at: (Double(i) + 0.5) * step) else { continue }
+            let index = Int(source / signals.step)
+            if index >= 0, index < signals.excitement.count { excitement[i] = signals.excitement[index] }
+        }
+        // A new stretch of held picture starts right after each change.
+        let changes = PlaybookCoach.staticStretches(in: timeline).map(\.start).filter { $0 > 0.05 }
+        return predict(excitement: excitement, step: step, cuts: changes, duration: duration)
     }
 
     /// `excitement` 0…1 per step (the engagement model's combined signal); `cuts` are timeline cut times.

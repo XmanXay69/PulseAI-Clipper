@@ -1454,9 +1454,17 @@ final class ProjectSession: ObservableObject, Identifiable {
         options.canvasPresetID = platform == .youtubeShorts ? CanvasPreset.shorts.id : (platform == .instagramReels ? CanvasPreset.reels.id : CanvasPreset.tiktok.id)
         // "Make shorts like this reference": its captions, zooms, pacing and effects.
         var wantsMusic = app.settings.ai.aiMusic
+        // No style asked for: the short-form style, when Settings says every edit gets one (#626). Its pacing,
+        // zooms and effects apply; the caption look stays the one you chose.
+        var defaultStyle: EditorPlaybook?
         if let style {
             options = style.0.shortOptions(style.1, base: options)
             wantsMusic = style.0.shortWantsMusic(style.1, default: wantsMusic)
+        } else if let playbook = app.settings.ai.defaultPlaybook(for: analyses[asset.id]?.profile ?? .unknown, format: .short) {
+            var answers = ReferenceAnswers.recommended(for: playbook.style)
+            answers.copyCaptions = false
+            options = playbook.style.shortOptions(answers, base: options)
+            defaultStyle = playbook
         }
         let cam = webcamCompanion(for: asset)
         // The split that suits what you stream (Set up for my stream), when there's a facecam to place.
@@ -1469,6 +1477,7 @@ final class ProjectSession: ObservableObject, Identifiable {
                                     companionWebcam: cam, companionVoice: voiceCompanion(for: asset),
                                     companionFaceCenter: cam.flatMap { analyses[$0.id]?.webcam?.face.center })
         var timeline = ShortBuilder.build(input, options: options)
+        if let defaultStyle { timeline.editStyle = defaultStyle.id }
         if app.settings.ai.censorAudio != .off, let words = analyses[asset.id]?.transcript?.words {
             AudioCensor.apply(app.settings.ai.censorAudio, to: &timeline, words: words, assetID: asset.id, extra: app.settings.ai.normalizedExtraProfanity,
                               tone: app.settings.ai.bleepTone)
