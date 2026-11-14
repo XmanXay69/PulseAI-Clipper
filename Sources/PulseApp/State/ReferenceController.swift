@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import PulseCore
 import PulseEngine
@@ -12,6 +13,9 @@ final class ReferenceController: ObservableObject {
     @Published private(set) var stage = ""
     @Published private(set) var remaining: String?
     @Published private(set) var failure: String?
+    /// A language model is reading a studied video's words.
+    @Published private(set) var isAsking = false
+    @Published private(set) var askFailure: String?
     /// The style the sheet is working with (just measured, or picked from the saved ones).
     @Published var current: ReferenceStyle?
     weak var app: AppModel?
@@ -48,9 +52,9 @@ final class ReferenceController: ObservableObject {
                                           hasVideo: asset.metadata.hasVideo).total
                 // The finer frame pass and text reading add roughly half again.
                 job.expect(base * 1.5 + 5)
-                let style = try await ReferenceScanner.scan(asset: asset, ai: app.settings.ai,
-                                                            cacheDirectory: PulseDirectories.cache("Reference", root: app.cacheFolder),
-                                                            progress: { p in
+                let study = try await ReferenceScanner.study(asset: asset, ai: app.settings.ai,
+                                                             cacheDirectory: PulseDirectories.cache("Reference", root: app.cacheFolder),
+                                                             progress: { p in
                     Task { @MainActor [weak self] in
                         job.progress = p.fraction
                         job.detail = p.stage
@@ -59,6 +63,8 @@ final class ReferenceController: ObservableObject {
                         self?.remaining = job.remainingText
                     }
                 }, isCancelled: job.isCancelledCheck)
+                let style = study.style
+                self.keep(study.material, for: style)
                 app.settings.rememberStyle(style)
                 self.current = style
                 self.isStudying = false
@@ -86,4 +92,79 @@ final class ReferenceController: ObservableObject {
     }
 
     func clearFailure() { failure = nil }
+
+    // MARK: What it teaches
+
+    private func materialURL(for id: UUID) -> URL? {
+        guard let app else { return nil }
+        return PulseDirectories.cache("Reference", root: app.cacheFolder).appendingPathComponent("\(id.uuidString).words.json")
+    }
+
+    private func keep(_ material: StyleStudyMaterial, for style: ReferenceStyle) {
+        guard !material.isEmpty, let url = materialURL(for: style.id), let data = try? JSONEncoder().encode(material) else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+
+    /// What was said in a studied video and the text on its frames, when they were kept. They live in the
+    /// cache, so clearing it loses them, and styles studied before this existed have none.
+    func material(for style: ReferenceStyle) -> StyleStudyMaterial? {
+        guard let url = materialURL(for: style.id), let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(StyleStudyMaterial.self, from: data)
+    }
+
+    /// Asks the language model set up in Settings what a studied video teaches. It reads what was said, the
+    /// text on the frames and PULSE's measurements, and its lessons are saved with the style. Only text is sent.
+    func askWhatItTeaches(_ style: ReferenceStyle) {
+        guard let app, !isAsking else { return }
+        askFailure = nil
+        guard let provider = AIProviders.styleStudyProvider(settings: app.settings.ai) else {
+            app.presentMessage(title: "No language model is set up",
+                               message: "A model can read what is said in this video and tell PULSE the editing rules it teaches or follows. Choose Claude, or a model running on this Mac, in Settings → AI Processing.")
+            return
+        }
+        if provider.location == .cloud && app.settings.ai.processingPolicy == .alwaysLocal {
+            app.presentMessage(title: "Cloud AI is off", message: AIProviderError.cloudNotPermitted.localizedDescription)
+            return
+        }
+        // A model on this Mac usually reads far less in one go than a hosted one.
+        let budget = provider.location == .local ? 80_000 : 400_000
+        guard let words = self.material(for: style), let brief = StyleStudy.brief(style: style, material: words, budget: budget) else {
+            app.presentMessage(title: "This video's words weren't kept",
+                               message: "The model reads what was said in the video and the text on its frames. PULSE keeps those in its cache when it studies a video, and it has none for “\(style.name)”. Study the video again, then ask.")
+            return
+        }
+        if provider.location == .cloud && app.settings.ai.processingPolicy != .allowCloud {
+            let alert = NSAlert()
+            alert.messageText = "Send this video's words to \(provider.displayName)?"
+            var text = "About \(brief.wordCount.formatted()) words are sent: what was said in “\(style.name)”, with timecodes, the text PULSE read off its frames, and PULSE's measurements. Video and audio never leave your Mac."
+            if brief.leftOut > 1 {
+                text += " The video is longer than one request holds, so about \(Timecode.duration(brief.leftOut)) from its middle is left out."
+            }
+            alert.informativeText = text
+            alert.addButton(withTitle: "Send")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
+        isAsking = true
+        PulseLog.info("Asking \(provider.displayName) what “\(style.name)” teaches (\(brief.wordCount) words)")
+        Task { [weak self] in
+            do {
+                let lessons = try await provider.studyStyle(brief: brief)
+                guard let self else { return }
+                var updated = style
+                updated.lessons = lessons
+                app.settings.rememberStyle(updated)
+                if self.current?.id == style.id { self.current = updated }
+                self.isAsking = false
+                self.objectWillChange.send()
+                let count = lessons.lessons.count
+                app.logActivity(.analysis, title: "Learned \(count) editing rule\(count == 1 ? "" : "s") from “\(style.name)”",
+                                detail: lessons.summary, location: provider.location)
+                app.toast("\(count) rule\(count == 1 ? "" : "s") learned from “\(style.name)”")
+            } catch {
+                self?.isAsking = false
+                self?.askFailure = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
+        }
+    }
 }

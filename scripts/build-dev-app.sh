@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds "build/PULSE Dev.app": your own copy of PULSE that can ask the Claude Code installed and signed
-# in on this Mac, so its model features (titles, translation, edit plans) run on your
+# in on this Mac, so its model features (titles, translation, edit plans, studying a video) run on your
 # Claude account instead of an API key. For your own Mac only; it is not the app that gets released.
 # See docs/DEV-BUILD.md.
 #

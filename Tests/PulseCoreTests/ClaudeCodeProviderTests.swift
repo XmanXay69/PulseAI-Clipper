@@ -140,6 +140,28 @@ final class ClaudeCodeProviderTests: XCTestCase {
         XCTAssertTrue(seen.requests[1].user.contains("1. No way."))
     }
 
+    func testAStudiedVideoIsAskedAboutAtHighEffort() async throws {
+        final class Seen: @unchecked Sendable { var request: ClaudeCodeCLI.Request? }
+        let seen = Seen()
+        let provider = ClaudeCodeProvider(model: "claude-opus-5-5") { [self] request, _ in
+            seen.request = request
+            return self.output(self.success(["kind": "tutorial", "summary": "s", "opens_on_payoff": "yes",
+                                             "lessons": [["topic": "hook", "rule": "Open on the best moment.", "evidence": "00:00"]]]))
+        }
+        let style = ReferenceStyle(name: "Tutorial", duration: 300, aspect: 16.0 / 9.0, cutsPerMinute: 10, averageShotLength: 6, zoomsPerMinute: 2, zoomScale: 1.15,
+                                   captions: nil, popupsPerMinute: 0, wordsPerMinute: 170, pauseRatio: 0.06, musicBed: 0.5, effectsPerMinute: 1, fadesPerMinute: 0, opensFast: true)
+        let material = StyleStudyMaterial(spoken: [.init(time: 0, text: "never open with a greeting, open on the best moment.")], onScreen: [])
+        let brief = try XCTUnwrap(StyleStudy.brief(style: style, material: material))
+        let lessons = try await provider.studyStyle(brief: brief)
+        XCTAssertEqual(lessons.lessons.map(\.rule), ["Open on the best moment."])
+        XCTAssertEqual(lessons.opensOnPayoff, true)
+        XCTAssertEqual(lessons.writtenBy, "Claude (claude-opus-5-5) through Claude Code")
+        XCTAssertEqual(seen.request?.effort, "high")
+        XCTAssertEqual(seen.request?.system, StyleStudy.system)
+        XCTAssertTrue(seen.request?.user.contains("never open with a greeting") ?? false)
+        XCTAssertTrue(seen.request?.schema.contains("\"opens_on_payoff\"") ?? false)
+    }
+
     /// The real thing, start to finish, through a stand-in program: the text arrives on standard input, the
     /// program runs in an empty folder, and what it prints comes back.
     func testTheCommandIsRunWithTheTextAsItsInput() async throws {
@@ -233,6 +255,23 @@ final class ClaudeCodeProviderTests: XCTestCase {
         let draft = try await provider.planEdit(brief: brief)
         XCTAssertFalse(draft.sections.isEmpty)
         print("LIVE plan by=\(draft.writtenBy) sections=\(draft.sections.count) hookLine=\(draft.hookLine) summary=\(draft.summary)")
+
+        // What a studied video teaches.
+        let style = ReferenceStyle(name: "How to edit a gaming video", duration: 300, aspect: 16.0 / 9.0, cutsPerMinute: 16, averageShotLength: 3.7, zoomsPerMinute: 4, zoomScale: 1.2,
+                                   captions: nil, popupsPerMinute: 1, wordsPerMinute: 185, pauseRatio: 0.04, musicBed: 0.7, effectsPerMinute: 3, fadesPerMinute: 0, opensFast: true)
+        let spoken: [StyleStudyMaterial.Line] = [
+            .init(time: 0, text: "This clip got four million views and I'm going to show you exactly how I edited it."),
+            .init(time: 12, text: "Rule one: never open with a greeting. Put the best moment of the whole video in the first five seconds."),
+            .init(time: 40, text: "Rule two: cut every breath and every um, but leave the laugh after a joke, that's the part people stay for."),
+            .init(time: 95, text: "Zoom in about ten percent on the punchline, and snap it, don't ease it."),
+            .init(time: 150, text: "Every two minutes or so, tell the viewer what's coming next, so they have a reason to keep watching."),
+            .init(time: 210, text: "Sound effects sit under the voice. If you can't hear the words, it's too loud."),
+        ]
+        let studyBrief = try XCTUnwrap(StyleStudy.brief(style: style, material: StyleStudyMaterial(spoken: spoken, onScreen: [.init(time: 12, text: "RULE 1: OPEN ON THE BEST MOMENT")])))
+        let lessons = try await provider.studyStyle(brief: studyBrief)
+        XCTAssertGreaterThanOrEqual(lessons.lessons.count, 3)
+        print("LIVE study kind=\(lessons.kind.rawValue) opens=\(String(describing: lessons.opensOnPayoff)) lessons=\(lessons.lessons.count) by=\(lessons.writtenBy)")
+        for lesson in lessons.lessons.prefix(4) { print("LIVE lesson [\(lesson.topic.rawValue)] \(lesson.rule) <- \(lesson.evidence)") }
     }
 }
 #endif

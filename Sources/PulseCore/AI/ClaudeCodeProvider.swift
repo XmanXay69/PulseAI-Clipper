@@ -260,8 +260,8 @@ public enum ClaudeCodeCLI {
 }
 
 /// DEV BUILD ONLY. PULSE's model features, answered by Claude Code under the owner's own login: titles and
-/// captions, caption translation and edit plans. Only text is sent.
-public struct ClaudeCodeProvider: InsightProvider, TranslationProvider, EditPlanProvider {
+/// captions, caption translation, edit plans and what a studied video teaches. Only text is sent.
+public struct ClaudeCodeProvider: InsightProvider, TranslationProvider, EditPlanProvider, StyleStudyProvider {
     public typealias Runner = @Sendable (_ request: ClaudeCodeCLI.Request, _ model: String) async throws -> ClaudeCodeCLI.Output
 
     public let id = ClaudeCodeCLI.marker
@@ -309,6 +309,12 @@ public struct ClaudeCodeProvider: InsightProvider, TranslationProvider, EditPlan
         let answer = try await ask(.init(system: EditPlanner.system, user: brief.text, schema: ClaudeCodeCLI.text(EditPlanner.schema),
                                          effort: "high", timeout: 1800))
         return try EditPlanner.parse(answer.json, writtenBy: answer.label)
+    }
+
+    public func studyStyle(brief: StyleStudyBrief) async throws -> StyleLessons {
+        let answer = try await ask(.init(system: StyleStudy.system, user: brief.text, schema: ClaudeCodeCLI.text(StyleStudy.schema),
+                                         effort: "high", timeout: 900))
+        return try StyleStudy.parse(answer.json, writtenBy: answer.label)
     }
 
     /// Asks for one word back: proof that the command runs and is signed in. Returns the model that answered.

@@ -46,6 +46,12 @@ open build/PULSE.app
 ```
 
 - Open `Package.swift` in Xcode 16 to edit/debug; choose the **PULSE** scheme and "My Mac".
+- **PULSE Dev** (`./scripts/build-dev-app.sh --install`) is the owner's personal build: the same app with
+  one more Cloud AI provider, the Claude Code command signed in on that Mac, so the model features run on
+  the owner's Claude plan. It is compiled only with `-DPULSE_DEV`, is never released, and
+  `scripts/build-app.sh` and CI both refuse a public binary that contains it. `docs/DEV-BUILD.md` explains
+  why it has to stay that way (Anthropic does not let other products offer a Claude login) and how to
+  check it. Tests for it run with `swift test -Xswiftc -DPULSE_DEV --filter ClaudeCode`.
 - Apple Speech transcription needs the **app bundle** (it requires `NSSpeechRecognitionUsageDescription`
   from `Resources/Info.plist`). With `swift run`, use whisper.cpp (`brew install whisper-cpp` + a ggml model)
   or import an SRT/VTT.

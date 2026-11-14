@@ -23,6 +23,41 @@
   articles they were read from and the videos that were watched for them (marked "Watched:"), and a plain
   sentence saying what the watching did and did not settle for that genre.
 
+### Study a video with a language model
+- **"Ask what it teaches" in Edit Like a Reference.** PULSE already measured a video you like (cut rate,
+  zooms, captions, music, sound effects). It now also keeps what was said in it and the text it read off
+  the frames, and the language model you set up in Settings can read those and list the editing rules
+  the video teaches (a tutorial) or follows (an edited video): each rule with the timecode and words it
+  came from. The lessons are saved with the style and shown under its fingerprint.
+- **The lessons change edits in two places.** If the model found the video opens on its best moment,
+  "open with a hook" is the suggested answer for that style, whatever the cut rate of its first seconds
+  said. And **Plan with the model** in Edit My VOD is now given the rules of the style in use: a studied
+  video's rules about openings, pacing and story, or a built-in style's principles, which until now the
+  planning model was never shown.
+- **Videos you studied can be picked in Edit My VOD.** The "Editing style" menu lists them under the
+  built-in styles ("Like …"), so a studied video is a style like any other there.
+- **What the model can and cannot know.** It reads words and numbers. It does not see the picture or
+  hear the sound, and the card says so. Only text is sent, after the same question the edit planner
+  asks, and the words stay in PULSE's cache: a style studied before this version has none, and says to
+  study the video again.
+- It works with a Claude API key, with a model running on this Mac, and in PULSE Dev (below).
+
+### PULSE Dev: a build of your own that uses your Claude account
+- **`./scripts/build-dev-app.sh`** builds "PULSE Dev", a copy for the Mac it is built on, that can ask
+  the Claude Code installed and signed in there. Titles and captions, caption translation, Plan with the
+  model and Ask what it teaches then run on your Claude plan instead of an API key, with
+  `claude-opus-5-5` unless you choose another model. Settings → AI Processing → Cloud AI provider →
+  **Claude Code (your Claude account)**, with a Test Connection button.
+- **It is not in the download and cannot be.** Anthropic does not let other products offer a Claude
+  login to their users; a released app uses an API key, which is what the public PULSE has. The bridge
+  is compiled only when the dev script asks for it, the public build script refuses a binary that
+  contains it, and CI checks both on every push. [docs/DEV-BUILD.md](../../docs/DEV-BUILD.md) has the
+  steps, what is sent, what it costs against your plan's limits, and what to do when it stops working.
+- **What was tested.** Real requests through Claude Code 2.1.325 on a Linux machine: a connection test,
+  titles, a translation, an edit plan and a study, all answered by `claude-opus-5-5`. Not yet run on a
+  Mac under a Claude Max sign-in; the build script ends by asking Claude Code for one word and prints
+  what happened, so the first build is that test.
+
 ### What "studied" means here, honestly
 - The genres were first written from published articles and editors' written breakdowns (Finzar's
   newsletter, a breakdown of how Neebs Gaming cuts for comedy, a streamer's guide to Twitch-to-YouTube,

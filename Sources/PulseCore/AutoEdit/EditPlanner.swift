@@ -33,6 +33,9 @@ public struct EditBrief: Hashable, Sendable {
     public var leftOut: Seconds
     /// The part of that which falls after the last line sent.
     public var leftOutAtEnd: Seconds = 0
+    /// Rules from the style the edit was set up with: a built-in style's principles, or what a studied video
+    /// teaches about openings, pacing and story. The planner follows them where the recording allows.
+    public var guidance: [String] = []
 
     /// How many words the brief sends.
     public var wordCount: Int { lines.reduce(0) { $0 + $1.text.split(separator: " ").count } }
@@ -56,6 +59,11 @@ public struct EditBrief: Hashable, Sendable {
         out.append("Energy marks (e0 to e9) come from the recording's sound and picture: e0 is quiet, e9 is the loudest, busiest stretch of this recording.")
         if leftOut > 1 {
             out.append("The whole transcript did not fit, so \(minutes(leftOut)) of the quietest talk is left out. Each gap is marked where it falls. You cannot keep what you were not shown.")
+        }
+        if !guidance.isEmpty {
+            out.append("")
+            out.append("Editing rules for this video, from the style chosen for it. Follow them where the recording allows; the length wanted comes first.")
+            out += guidance.map { "- \($0)" }
         }
         if !picks.isEmpty {
             out.append("")
@@ -199,7 +207,7 @@ public enum EditPlanner {
     /// roughly how many characters of transcript may be sent. When the transcript is longer than that, the
     /// quietest stretches away from every picked moment are left out, and the brief says where.
     public static func brief(analysis: MediaAnalysis, options: LongFormOptions, picks moments: [LongFormSegment] = [],
-                             excitement: [Float] = [], step: Seconds = 1, budget: Int = 600_000) -> EditBrief? {
+                             excitement: [Float] = [], step: Seconds = 1, budget: Int = 600_000, guidance: [String] = []) -> EditBrief? {
         guard let transcript = analysis.transcript, !transcript.words.isEmpty else { return nil }
         // Lines: whole sentences, joined until they are worth a line, split when one runs on.
         var lines: [EditBrief.Line] = []
@@ -274,7 +282,8 @@ public enum EditPlanner {
         guard !lines.isEmpty else { return nil }
         return EditBrief(lines: lines, picks: picks, duration: analysis.duration, profile: analysis.profile,
                          minimumLength: options.minimumLength, maximumLength: options.maximumLength,
-                         targetLength: options.targetLength(forSource: analysis.duration), leftOut: leftOut, leftOutAtEnd: leftOutAtEnd)
+                         targetLength: options.targetLength(forSource: analysis.duration), leftOut: leftOut, leftOutAtEnd: leftOutAtEnd,
+                         guidance: guidance)
     }
 
     // MARK: What the model is asked

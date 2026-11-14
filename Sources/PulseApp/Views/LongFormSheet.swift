@@ -65,8 +65,34 @@ struct LongFormSheet: View {
             // The style's tuning (spacing, zoom strength, caption look, pause tightness). The switches above
             // were set to the style when it was picked and stay yours to change.
             options.style = playbook.style.longFormOptions(.recommended(for: playbook.style)).style
+        } else if let studied {
+            options.style = studied.longFormOptions(.recommended(for: studied)).style
         }
         return options
+    }
+
+    /// The picker's tag for a video you studied (Edit Like a Reference), as opposed to a built-in style's id.
+    static func studiedTag(_ style: ReferenceStyle) -> String { "studied:\(style.id.uuidString)" }
+
+    /// The studied video chosen as the style, when one is.
+    var studied: ReferenceStyle? {
+        guard editStyle.hasPrefix("studied:") else { return nil }
+        return app.settings.referenceStyles.first { Self.studiedTag($0) == editStyle }
+    }
+
+    /// The chosen style's name for the notes under the switches it sets.
+    var styleName: String? { playbook?.name ?? studied.map { "“\($0.name)”" } }
+
+    /// Sets the switches to what a studied video does.
+    func apply(_ style: ReferenceStyle) {
+        let styled = style.longFormOptions(.recommended(for: style))
+        coldOpen = styled.coldOpen
+        zooms = styled.zooms
+        captions = styled.captions
+        memes = styled.memes
+        soundEffects = styled.soundEffects
+        music = styled.music
+        restraint = styled.restraint.rawValue
     }
 
     /// The chosen editing style, if one is.
@@ -223,6 +249,8 @@ struct LongFormSheet: View {
     /// The sheet opens on the project's genre when it has one. Otherwise, with "the style that suits each
     /// recording" on in Settings, it opens on that style (#626).
     func adoptDefaultStyle() {
+        // A studied video that has since been forgotten can't be the style any more.
+        if editStyle.hasPrefix("studied:"), studied == nil { editStyle = "" }
         guard !adoptedDefault else { return }
         if let genre = session.document.genre {
             adoptedDefault = true
@@ -276,7 +304,8 @@ struct LongFormSheet: View {
         .onAppear { adoptDefaultStyle() }
         .sheet(isPresented: $comparing) {
             let suggested = suggestedPlaybook?.id ?? EditorPlaybook.retention.id
-            let first = editStyle.isEmpty ? AISettings.ownStyle : editStyle
+            // Compare works on the built-in styles; a studied video stands in as PULSE's own there.
+            let first = editStyle.isEmpty || studied != nil ? AISettings.ownStyle : editStyle
             StyleCompareSheet(session: session, base: compareBase, firstID: first,
                               secondID: first == suggested ? (suggested == EditorPlaybook.story.id ? EditorPlaybook.retention.id : EditorPlaybook.story.id) : suggested) { picked in
                 styleTouched = true
@@ -372,11 +401,16 @@ struct LongFormSheet: View {
                     Text("PULSE's own").tag("")
                     Divider()
                     ForEach(EditorPlaybook.all.filter { !$0.style.isShortForm }) { Text($0.name).tag($0.id) }
+                    if !app.settings.referenceStyles.isEmpty {
+                        Divider()
+                        // Videos studied in Edit Like a Reference.
+                        ForEach(app.settings.referenceStyles) { Text("Like “\($0.name)”").tag(Self.studiedTag($0)) }
+                    }
                 }
                 .labelsHidden()
                 .frame(width: 200)
                 .onChange(of: editStyle) { _, _ in
-                    if let playbook { apply(playbook) }
+                    if let playbook { apply(playbook) } else if let studied { apply(studied) }
                     if styleTouched { session.setGenre(selectedGenre) }
                 }
                 Button("Compare two…") { comparing = true }
@@ -387,6 +421,7 @@ struct LongFormSheet: View {
                 Spacer(minLength: 0)
             }
             Text(playbook.map { "\($0.tagline) Best for \($0.bestFor.lowercased())." }
+                 ?? studied.map(studiedNote)
                  ?? "Restrained zooms, captions, memes, sound effects and music: the way PULSE has always cut.")
                 .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
             if let playbook {
@@ -408,12 +443,26 @@ struct LongFormSheet: View {
         }
     }
 
+    /// One line about a studied video chosen as the style: what was measured, and whether a model's lessons come with it.
+    func studiedNote(_ style: ReferenceStyle) -> String {
+        var note = "Measured from a video you studied: \(style.summary.lowercased())."
+        if let lessons = style.lessons {
+            let rules = lessons.planningGuidance.count
+            note += rules > 0
+                ? " Plan with the model follows the \(rules) rule\(rules == 1 ? "" : "s") it teaches about openings, pacing and story."
+                : " A model read it, but found no rules about openings, pacing or story for the planner."
+        } else {
+            note += " Ask what it teaches in Edit Like a Reference, and Plan with the model will follow its rules."
+        }
+        return note
+    }
+
     var styleSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel(text: "How much editing")
             PulseSegmented(selection: $restraint, segments: LongFormOptions.Restraint.allCases.map { PulseSegment($0.rawValue, $0.displayName) })
-                .disabled(playbook != nil)
-            Text(playbook.map { "Set by \($0.name): its own spacing for zooms, pop-ups and effects." } ?? restraintNote)
+                .disabled(styleName != nil)
+            Text(styleName.map { "Set by \($0): its own spacing for zooms, pop-ups and effects." } ?? restraintNote)
                 .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
         }
     }
@@ -422,8 +471,8 @@ struct LongFormSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel(text: "Dead air")
             PulseSegmented(selection: $deadAir, segments: [PulseSegment(SilencePreset.conservative.rawValue, "Light"), PulseSegment(SilencePreset.balanced.rawValue, "Normal"), PulseSegment(SilencePreset.aggressive.rawValue, "Tight")])
-                .disabled(playbook != nil)
-            Text(playbook.map { "Set by \($0.name): \(options.silencePreset.displayName.lowercased()) pause cutting." } ?? deadAirNote)
+                .disabled(styleName != nil)
+            Text(styleName.map { "Set by \($0): \(options.silencePreset.displayName.lowercased()) pause cutting." } ?? deadAirNote)
                 .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
         }
     }

@@ -64,8 +64,11 @@ struct LongFormStoryboard: View {
         let signals = session.signals(for: asset.id)
         // A model on this Mac usually reads far less in one go than a hosted one.
         let budget = provider.location == .local ? 120_000 : 600_000
+        // The rules of the style this edit was set up with: a built-in style's principles, or what a model
+        // found a studied video teaches.
+        let guidance = StyleStudy.planningGuidance(styleName: options.style?.name, saved: app.settings.referenceStyles)
         guard let brief = EditPlanner.brief(analysis: analysis, options: options, picks: current.moments, excitement: signals?.excitement ?? [],
-                                            step: signals?.step ?? 1, budget: budget) else {
+                                            step: signals?.step ?? 1, budget: budget, guidance: guidance) else {
             app.presentMessage(title: "There are no words to plan from",
                                message: "The model plans from what was said, and this recording has no transcript. Transcribe it first, or build from PULSE's own plan.")
             return

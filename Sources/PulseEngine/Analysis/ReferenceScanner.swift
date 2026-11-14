@@ -8,8 +8,20 @@ import Vision
 /// cuts, faces), a finer frame pass on shorter references so quick cuts and punch-ins aren't
 /// missed, and on-screen text reading for captions and pop-ups. Everything runs on this Mac.
 public enum ReferenceScanner {
+    /// A studied video: its measured style, and what was said and shown as text, kept so a language model
+    /// can later be asked what the video teaches.
+    public struct Study: Sendable {
+        public var style: ReferenceStyle
+        public var material: StyleStudyMaterial
+    }
+
     public static func scan(asset: MediaAsset, ai: AISettings, cacheDirectory: URL, progress: @escaping ProgressHandler,
                             isCancelled: @escaping @Sendable () -> Bool = { false }) async throws -> ReferenceStyle {
+        try await study(asset: asset, ai: ai, cacheDirectory: cacheDirectory, progress: progress, isCancelled: isCancelled).style
+    }
+
+    public static func study(asset: MediaAsset, ai: AISettings, cacheDirectory: URL, progress: @escaping ProgressHandler,
+                             isCancelled: @escaping @Sendable () -> Bool = { false }) async throws -> Study {
         let url = MediaAccess.resolve(asset)
         let duration = asset.metadata.duration
         guard duration > 1 else { throw EngineError.fileMissing(url) }
@@ -45,7 +57,7 @@ public enum ReferenceScanner {
         let style = ReferenceStyleAnalyzer.measure(name: name, analysis: analysis, text: text, frameSize: size)
         PulseLog.info("Reference “\(name)”: \(style.summary) — \(String(format: "%.1f", style.cutsPerMinute)) cuts/min, "
                       + "\(String(format: "%.1f", style.zoomsPerMinute)) zooms/min, captions \(style.hasCaptions), music \(String(format: "%.2f", style.musicBed))")
-        return style
+        return Study(style: style, material: StyleStudyMaterial(transcript: analysis.transcript, text: text))
     }
 
     /// Text lines on evenly spaced frames, in normalized top-left coordinates.

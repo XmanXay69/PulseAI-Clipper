@@ -83,11 +83,13 @@ public struct ReferenceStyle: Codable, Hashable, Identifiable, Sendable {
     public var fadesPerMinute: Double
     /// Cuts come faster in the first 20 seconds than in the rest — a hook.
     public var opensFast: Bool
+    /// What a language model found this video teaches, when it was asked. nil until then.
+    public var lessons: StyleLessons?
 
     public init(id: UUID = UUID(), name: String, measuredAt: Date = Date(), duration: Seconds, aspect: Double, cutsPerMinute: Double,
                 averageShotLength: Seconds, zoomsPerMinute: Double, zoomScale: Double, captions: CaptionLook?, popupsPerMinute: Double,
                 wordsPerMinute: Double?, pauseRatio: Double?, musicBed: Double, effectsPerMinute: Double, fadesPerMinute: Double,
-                opensFast: Bool) {
+                opensFast: Bool, lessons: StyleLessons? = nil) {
         self.id = id
         self.name = name
         self.measuredAt = measuredAt
@@ -105,6 +107,7 @@ public struct ReferenceStyle: Codable, Hashable, Identifiable, Sendable {
         self.effectsPerMinute = effectsPerMinute
         self.fadesPerMinute = fadesPerMinute
         self.opensFast = opensFast
+        self.lessons = lessons
     }
 
     public var isVertical: Bool { aspect < 0.9 }
@@ -457,7 +460,8 @@ public struct ReferenceAnswers: Codable, Hashable, Sendable {
     public static func recommended(for style: ReferenceStyle) -> ReferenceAnswers {
         var answers = ReferenceAnswers()
         answers.length = style.isShortForm && style.isVertical ? .shorts : .likeReference
-        answers.coldOpen = style.opensFast || style.duration > 180
+        // A model that read the video's words knows how it opens better than the cut rate of its first seconds.
+        answers.coldOpen = style.lessons?.opensOnPayoff ?? (style.opensFast || style.duration > 180)
         return answers
     }
 }

@@ -788,6 +788,23 @@ enum AIProviders {
         }
     }
 
+    /// The provider that can say what a studied video teaches: the same choices as for planning an edit.
+    static func styleStudyProvider(settings: AISettings) -> StyleStudyProvider? {
+        switch settings.activeCloudProvider {
+        case .none:
+            return nil
+        case .claudeCode:
+            return claudeCode(settings: settings)
+        case .anthropic:
+            guard let key = KeychainStore.read(account: "anthropic"), !key.isEmpty else { return nil }
+            return AnthropicInsightProvider(apiKey: key, model: settings.cloudModel.isEmpty ? "claude-opus-5-5" : settings.cloudModel)
+        case .openAICompatible:
+            let key = KeychainStore.read(account: "openai") ?? ""
+            let base = URL(string: settings.openAIBaseURL) ?? URL(string: "http://localhost:1234/v1")!
+            return OpenAICompatibleInsightProvider(apiKey: key, model: settings.cloudModel, baseURL: base, isLocalServer: settings.openAIIsLocalServer)
+        }
+    }
+
     static func insightProvider(settings: AISettings) -> InsightProvider {
         switch settings.activeCloudProvider {
         case .none:

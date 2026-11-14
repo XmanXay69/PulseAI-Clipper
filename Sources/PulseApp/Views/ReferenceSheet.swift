@@ -211,6 +211,8 @@ struct ReferenceSheet: View {
                     }
                 }
 
+                lessonsSection(style)
+
                 DisclosureGroup {
                     VStack(alignment: .leading, spacing: 3) {
                         ForEach(style.explain(answers), id: \.self) { line in
@@ -270,6 +272,58 @@ struct ReferenceSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(20)
+        }
+    }
+
+    /// What a language model read out of a studied video, or the way to ask one. The built-in styles have
+    /// their principles above instead.
+    @ViewBuilder func lessonsSection(_ style: ReferenceStyle) -> some View {
+        if EditorPlaybook.playbook(for: style) == nil {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    SectionLabel(text: "What it teaches")
+                    Spacer()
+                    if reference.isAsking {
+                        ProgressView().controlSize(.small)
+                        Text("Reading what was said in it…").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                    } else {
+                        Button(style.lessons == nil ? "Ask what it teaches" : "Ask again") { reference.askWhatItTeaches(style) }
+                            .buttonStyle(.pulse(.secondary, compact: true))
+                            .help("The language model set up in Settings reads what is said in this video, the text on its frames and PULSE's measurements, and lists the editing rules it teaches or follows. Only text is sent.")
+                    }
+                }
+                if let failure = reference.askFailure {
+                    Label(failure, systemImage: "exclamationmark.triangle.fill").font(.pulseCaption).foregroundStyle(Theme.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if let lessons = style.lessons {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if !lessons.summary.isEmpty {
+                            Text(lessons.summary).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        ForEach(lessons.lessons) { lesson in
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: lesson.topic.symbol).font(.system(size: 12)).foregroundStyle(Theme.ai).frame(width: 18).padding(.top, 1)
+                                    .help(lesson.topic.displayName)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(lesson.rule).font(.system(size: 12)).foregroundStyle(Theme.textPrimary).fixedSize(horizontal: false, vertical: true)
+                                    if !lesson.evidence.isEmpty {
+                                        Text(lesson.evidence).font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                                    }
+                                }
+                                Spacer(minLength: 0)
+                            }
+                        }
+                        Text("\(lessons.kind.displayName), read by \(lessons.writtenBy) from its words, the text on its frames and PULSE's measurements. The model did not see the picture or hear the sound. Pick this style in Edit My VOD and Plan with the model follows its rules about openings, pacing and story.")
+                            .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                    }
+                    .card(padding: 14)
+                } else if !reference.isAsking {
+                    Text("PULSE measured how this video is cut. A language model can also read what is said in it and list the editing rules it teaches or follows.")
+                        .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
     }
 

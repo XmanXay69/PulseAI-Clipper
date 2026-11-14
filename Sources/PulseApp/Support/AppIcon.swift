@@ -450,6 +450,24 @@ enum UISnapshotter {
                 }
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 capture(app: app, name: "20-reference-questions", to: directory)
+                if let style = app.reference.current {
+                    // What was kept for a language model to read, and the card its answer is shown in. No model
+                    // is asked in CI, so the card is filled with a stand-in that says so.
+                    let kept = app.reference.material(for: style)
+                    let brief = kept.flatMap { StyleStudy.brief(style: style, material: $0) }
+                    let words = kept.map { "\($0.spoken.count) spoken lines, \($0.onScreen.count) on-screen readings" } ?? "nothing kept"
+                    FileHandle.standardError.write(Data("UI-STUDY-WORDS \(words) · brief of \(brief?.wordCount ?? 0) words\n".utf8))
+                    var shown = style
+                    shown.lessons = StyleLessons(kind: .example, summary: "A stand-in answer, to show where a model's lessons appear.",
+                                                 lessons: [StyleLessons.Lesson(topic: .hook, rule: "Open on the best moment; no greeting.", evidence: "00:00 the first words said"),
+                                                           StyleLessons.Lesson(topic: .pacing, rule: "Cut every breath, keep the laugh after the joke.", evidence: "Measured: tight jump cuts"),
+                                                           StyleLessons.Lesson(topic: .sound, rule: "Effects sit under the voice.", evidence: "00:42")],
+                                                 opensOnPayoff: true, writtenBy: "a stand-in (no model is asked in CI)")
+                    app.reference.current = shown
+                    try? await Task.sleep(nanoseconds: 800_000_000)
+                    capture(app: app, name: "20b-reference-lessons", to: directory)
+                    app.reference.current = style
+                }
                 app.showReferenceSheet = false
                 try? await Task.sleep(nanoseconds: 600_000_000)
                 if let style = app.reference.current {

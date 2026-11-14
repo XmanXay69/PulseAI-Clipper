@@ -50,6 +50,7 @@ it as "None (local only)".
 | Titles and captions for a clip | AI Clips → a clip → Generate |
 | Caption translation | Captions → Translate |
 | Planning a long video from its whole transcript | Edit My VOD → Plan with the model |
+| What a studied video teaches | Edit Like a Reference → study a video → Ask what it teaches |
 
 ## What is sent, and what it costs
 
@@ -79,7 +80,8 @@ key by accident.
 - Unit tests of the command line, reading the reply, every failure message, finding the command, the
   environment, running a stand-in program, a hung program being stopped, and cancelling.
 - Real requests through Claude Code 2.1.325 on a Linux machine: a connection test, titles, a
-  translation and an edit plan, all answered by `claude-opus-5-5`.
+  translation, an edit plan and a study of a short tutorial transcript, all answered by
+  `claude-opus-5-5`.
 - Not yet: a run on a Mac under a Claude Max sign-in. The first `./scripts/build-dev-app.sh` there is
   that test, and its CLAUDE-CHECK line is the result.
 
