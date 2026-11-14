@@ -203,6 +203,11 @@ Key files to know:
 
 ### What CI actually verifies on every push (macos-26 and macos-15-intel runners)
 
+- The personal dev configuration (`-DPULSE_DEV`, see `docs/DEV-BUILD.md`) on macos-26: it builds, its tests
+  pass, and the Claude Code bridge's marker is in that binary and not in the normal one (`DEV-GATE-OK`).
+  The walk-through also prints what a reference study kept for a language model (`UI-STUDY-WORDS`) and
+  photographs the lessons card with a stand-in answer (`20b-reference-lessons`); no model is asked in CI.
+
 - 366 unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
   captions, layouts, export settings, audio DSP, the fuzzed timeline invariants, and one `BatchNTests.swift`
   per 1.6.0 roadmap batch, …).

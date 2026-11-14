@@ -38,7 +38,7 @@ final class StyleStudyTests: XCTestCase {
         XCTAssertTrue(text.contains("00:10 cut every breath out of the talking"), text)
         XCTAssertTrue(text.contains("00:12 RULE 2 / Cut the breath"), text)
         XCTAssertEqual(brief?.leftOut, 0)
-        XCTAssertEqual(brief?.wordCount, 26)
+        XCTAssertEqual(brief?.wordCount, 33, "26 words said and 7 read off the frames")
         // Nothing said and nothing on screen: there is nothing to ask about.
         XCTAssertNil(StyleStudy.brief(style: style(), material: StyleStudyMaterial(transcript: nil, text: [])))
         // A silent video with titles can still be asked about.

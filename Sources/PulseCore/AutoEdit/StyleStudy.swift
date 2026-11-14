@@ -146,7 +146,10 @@ public struct StyleStudyBrief: Hashable, Sendable {
     public var leftOut: Seconds
     public var resumesAt: Seconds?
 
-    public var wordCount: Int { material.spoken.reduce(0) { $0 + $1.text.split(separator: " ").count } }
+    /// How many words the brief sends: what was said, and the text read off the frames.
+    public var wordCount: Int {
+        (material.spoken + material.onScreen).reduce(0) { $0 + $1.text.split(separator: " ").filter { $0 != "/" }.count }
+    }
 
     public var text: String {
         var out: [String] = []
