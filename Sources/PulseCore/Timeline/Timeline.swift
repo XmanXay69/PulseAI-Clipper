@@ -389,6 +389,8 @@ public struct Timeline: Codable, Hashable, Identifiable, Sendable {
     public var editStyle: String?
     /// Teases planted near the start and the moments they promise (#582), so the promise can be checked.
     public var openLoops: [OpenLoop]?
+    /// The video's real audience retention, imported from YouTube Studio (#936).
+    public var retention: RetentionGraph?
 
     public init(id: UUID = UUID(), name: String, canvas: CanvasSettings = .vertical1080, tracks: [Track] = [],
                 captions: CaptionTrack? = nil, markers: [Marker] = [], layout: LayoutPreset? = nil,
@@ -434,6 +436,7 @@ public struct Timeline: Codable, Hashable, Identifiable, Sendable {
         captionLanguage = c.decode(String?.self, forKey: .captionLanguage, default: nil)
         editStyle = c.decode(String?.self, forKey: .editStyle, default: nil)
         openLoops = c.decode([OpenLoop]?.self, forKey: .openLoops, default: nil)
+        retention = c.decode(RetentionGraph?.self, forKey: .retention, default: nil)
     }
 
     /// Languages the captions exist in: nil for the original, then the translations.

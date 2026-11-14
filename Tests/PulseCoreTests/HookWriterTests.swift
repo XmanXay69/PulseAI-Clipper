@@ -38,6 +38,15 @@ final class HookWriterTests: XCTestCase {
         let said = Set(words.map { TranscriptWord.normalize($0.text) })
         XCTAssertTrue(quote.split(separator: " ").allSatisfy { said.contains(TranscriptWord.normalize(String($0))) }, quote)
 
+        // A quote that only repeats the question gives way, and quotation marks never reach the screen.
+        let echo = [word("did", 10.2, 10.4), word("you", 10.45, 10.6), word("see", 10.65, 10.9), word("that?", 10.95, 11.4)]
+        let echoed = HookWriter.lines(words: echo, range: TimeRange(start: 10, end: 25), payoff: 11, tags: [.reaction])
+        let asked = echoed.first { $0.kind == .question }?.text ?? ""
+        let quoted = echoed.first { $0.kind == .quote }?.text ?? ""
+        XCTAssertEqual(asked, "DID YOU SEE THAT?")
+        XCTAssertLessThan(AnalyticsImporter.similarity(asked, quoted), 0.6, "\(asked) / \(quoted)")
+        XCTAssertEqual(HookWriter.fit("“no way.”"), "NO WAY")
+        XCTAssertTrue(echoed.allSatisfy { !$0.text.contains("“") && !$0.text.contains("\"") })
         // A payoff right at the start or far away gets a tease that doesn't lie about the wait.
         XCTAssertEqual(HookWriter.lines(words: words, range: TimeRange(start: 50, end: 65), payoff: 51, tags: [.reaction]).first { $0.kind == .tease }?.text, "DON'T BLINK")
         XCTAssertEqual(HookWriter.lines(words: [], range: TimeRange(start: 0, end: 90), payoff: 80, tags: []).first { $0.kind == .tease }?.text, "WAIT FOR THE END")

@@ -106,6 +106,18 @@ struct CoachSection: View {
                         .buttonStyle(.plain).font(.pulseMicro).foregroundStyle(Theme.info)
                 }
             }
+            HStack(spacing: 6) {
+                Button { session.importRetentionGraph() } label: {
+                    Label(session.activeTimeline?.retention == nil ? "Import real retention…" : "Replace the retention graph…", systemImage: "chart.line.downtrend.xyaxis")
+                }
+                .buttonStyle(.pulse(.ghost, compact: true))
+                .fixedSize()
+                .help("After the video is up: export its audience retention from YouTube Studio (Analytics → the video → Engagement → Audience retention → See more → download → CSV) and import it here. The real curve is drawn on the ruler, the coach shows where viewers left and what was on screen, and PULSE learns what your audience leaves during.")
+                if let graph = session.activeTimeline?.retention {
+                    Text("\(Int((graph.averageViewed * 100).rounded())) % watched on average").font(.pulseMicro).foregroundStyle(Theme.textSecondary)
+                }
+                Spacer(minLength: 0)
+            }
             Text(p.calibratedOn > 0 ? "Calibrated on \(p.calibratedOn) of your videos' real views — still a guide, not a guarantee."
                                     : "A prediction from the video's energy, hook, pacing and polish — a guide, not a guarantee. Import your analytics in Settings → Performance to calibrate it.")
                 .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)

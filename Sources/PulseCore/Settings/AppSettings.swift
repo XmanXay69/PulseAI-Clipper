@@ -116,6 +116,8 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var taste: TasteProfile = TasteProfile()
     /// Coach weights fitted to your real analytics (nil = PULSE's defaults).
     public var coachCalibration: CoachCalibration?
+    /// What this channel's viewers leave during, learned from the real retention graphs you imported (#937).
+    public var retentionProfile: RetentionProfile = RetentionProfile()
     /// Cut each recording in the built-in editing style that suits it (#626) instead of PULSE's own way.
     public var autoEditStyle: Bool = false
     /// Your own pick per kind of recording (#626): `ContentProfile` raw value → `EditorPlaybook` id, or
@@ -200,6 +202,7 @@ public struct AISettings: Codable, Hashable, Sendable {
         analysisSpeed = c.decode(AnalysisSpeedProfile.self, forKey: .analysisSpeed, default: d.analysisSpeed)
         taste = c.decode(TasteProfile.self, forKey: .taste, default: d.taste)
         coachCalibration = c.decode(CoachCalibration?.self, forKey: .coachCalibration, default: nil)
+        retentionProfile = c.decode(RetentionProfile.self, forKey: .retentionProfile, default: d.retentionProfile)
         autoEditStyle = c.decode(Bool.self, forKey: .autoEditStyle, default: d.autoEditStyle)
         editStyleByProfile = c.decode([String: String].self, forKey: .editStyleByProfile, default: d.editStyleByProfile)
     }

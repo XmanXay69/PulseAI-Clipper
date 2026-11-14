@@ -121,10 +121,12 @@ public enum HookWriter {
         default: tease = "WAIT FOR THE END"
         }
 
-        // Their own words: the most quotable sentence near the payoff.
+        // Their own words: the most quotable sentence near the payoff, unless it says what the question already does.
         var quote = TitleGenerator.bestQuote(words: inside, payoff: payoff).map { fit($0) } ?? ""
-        if quote.isEmpty || quote.count > maximumLength { quote = fit(lastWords(inside, before: payoff)) }
-        if quote.isEmpty { quote = "YOU NEED TO SEE THIS" }
+        if quote.isEmpty || quote.count > maximumLength || AnalyticsImporter.similarity(quote, question) >= 0.6 {
+            quote = fit(lastWords(inside, before: payoff))
+        }
+        if quote.isEmpty || AnalyticsImporter.similarity(quote, question) >= 0.6 { quote = "YOU NEED TO SEE THIS" }
 
         var lines = [Line(kind: .question, text: question), Line(kind: .claim, text: pick(claims, fallback: "NOBODY SAW THIS COMING")),
                      Line(kind: .stakes, text: stake), Line(kind: .tease, text: tease), Line(kind: .quote, text: quote)]
@@ -163,9 +165,9 @@ public enum HookWriter {
         return out.joined(separator: " ")
     }
 
-    /// Upper case, no trailing full stop or comma, single spaces.
+    /// Upper case, no quotation marks, no trailing full stop or comma, single spaces.
     static func fit(_ text: String) -> String {
-        var line = text.uppercased().split(separator: " ").joined(separator: " ")
+        var line = text.uppercased().filter { !"“”\"«»".contains($0) }.split(separator: " ").joined(separator: " ")
         while let last = line.last, last == "." || last == "," || last == ";" || last == ":" { line.removeLast() }
         return line
     }

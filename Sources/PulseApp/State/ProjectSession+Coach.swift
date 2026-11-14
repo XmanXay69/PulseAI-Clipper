@@ -1,4 +1,6 @@
+import AppKit
 import Foundation
+import UniformTypeIdentifiers
 import PulseCore
 import PulseEngine
 
@@ -18,14 +20,14 @@ extension ProjectSession {
         guard let timeline = activeTimeline, timeline.duration > 0.5, !document.isCompound(timeline.id),
               let analysis = analysis(for: timeline), analysis.audio != nil || analysis.transcript != nil else { return nil }
         return EditCoach.review(timeline, analysis: analysis, signals: signals(for: analysis.assetID), calibration: app.settings.ai.coachCalibration,
-                                rules: EditorPlaybook.rules(for: timeline))
+                                rules: app.settings.ai.retentionProfile.adjusted(EditorPlaybook.rules(for: timeline)))
     }
 
     /// Review of any edit in this project (used to remember predictions at export).
     func review(of timeline: Timeline) -> EditReview? {
         guard let analysis = analysis(for: timeline), analysis.audio != nil || analysis.transcript != nil else { return nil }
         return EditCoach.review(timeline, analysis: analysis, signals: signals(for: analysis.assetID), calibration: app.settings.ai.coachCalibration,
-                                rules: EditorPlaybook.rules(for: timeline))
+                                rules: app.settings.ai.retentionProfile.adjusted(EditorPlaybook.rules(for: timeline)))
     }
 
     /// Plants a tease for the strongest moment that lands in the second half of `timeline` (#582). The moments
@@ -50,6 +52,43 @@ extension ProjectSession {
             self.app.toast("“\(plan.text)” at \(Timecode.short(plan.at)) points at \(Timecode.short(plan.payoffAt))", undo: true)
             self.app.logActivity(.autoEdit, title: "Coach: planted a tease", detail: current.name)
         }
+    }
+
+    /// Where the audience left fastest in `timeline`, from its imported retention (for the marks on the ruler).
+    func retentionLeaks(for timeline: Timeline) -> [RetentionLearning.Leak] {
+        guard let graph = timeline.retention else { return [] }
+        let analysis = analysis(for: timeline)
+        return RetentionLearning.leaks(timeline: timeline, graph: graph, signals: analysis.flatMap { signals(for: $0.assetID) }, assetID: analysis?.assetID)
+    }
+
+    /// Imports the open edit's real audience retention from a YouTube Studio export (#936): the graph is kept
+    /// on the edit and drawn along the ruler, the coach says where viewers left and what was on screen, and the
+    /// video is added to what PULSE knows about this channel's audience (#937).
+    func importRetentionGraph() {
+        guard let timeline = activeTimeline else { return }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.commaSeparatedText, .plainText]
+        panel.message = "Choose the audience-retention CSV exported from YouTube Studio for “\(timeline.name)”"
+        panel.prompt = "Import"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard let text = (try? String(contentsOf: url, encoding: .utf8)) ?? (try? String(contentsOf: url, encoding: .utf16)),
+              let graph = RetentionImporter.parse(text, duration: timeline.duration, source: url.lastPathComponent) else {
+            app.presentMessage(title: "That isn't a retention export",
+                               message: "PULSE looked for a position column and a retention column and found neither. In YouTube Studio: Analytics → the video → Engagement → Audience retention → See more → the download arrow → CSV.")
+            return
+        }
+        editTimeline("Import Retention Graph") { $0.retention = graph }
+        UserDefaults.standard.set(true, forKey: "timeline.retentionStrip")
+        let analysis = analysis(for: timeline)
+        let signals = analysis.flatMap { self.signals(for: $0.assetID) }
+        if let seen = RetentionLearning.observe(timeline: timeline, graph: graph, signals: signals, assetID: analysis?.assetID) {
+            app.settings.ai.retentionProfile = app.settings.ai.retentionProfile.adding(seen, video: timeline.id.uuidString)
+        }
+        let leaks = RetentionLearning.leaks(timeline: timeline, graph: graph, signals: signals, assetID: analysis?.assetID)
+        let average = Int((graph.averageViewed * 100).rounded())
+        app.toast(leaks.isEmpty ? "Retention imported: \(average) % watched on average, no sudden drops"
+                                : "Retention imported: \(average) % watched on average. The coach shows where viewers left.")
+        app.logActivity(.analysis, title: "Imported the real retention of “\(timeline.name)”", detail: "\(average) % average viewed · \(leaks.count) sudden drop\(leaks.count == 1 ? "" : "s")")
     }
 
     /// Silences the recording's own sound where it sounds like a music track (#521), in the open edit. The

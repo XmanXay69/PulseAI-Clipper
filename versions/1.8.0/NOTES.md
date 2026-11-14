@@ -72,6 +72,24 @@ This file grows as each one lands; the numbers are the list's.
   picture is kept. Settings → AI Features → "Read reactions on camera" turns it off. It adds a minute or
   two per hour of video, and recordings analyzed before this need analyzing again to get it.
 
+### Learning from what really happened
+- **The real retention graph on the timeline (#936).** After a video is up, export its audience retention
+  from YouTube Studio (Analytics → the video → Engagement → Audience retention → See more → the download
+  arrow → CSV) and bring it in with Timeline → Import Retention Graph… or the coach panel's "Import real
+  retention…". The curve is kept with the edit and drawn along the ruler in the accent colour, over the
+  predicted one, with a red mark under each stretch where viewers left fastest. Any CSV with a position
+  column and a retention column reads: percentages, fractions or timecodes. A graph imported for another cut
+  of the video is called out instead of being drawn against the wrong timeline.
+- **What your audience leaves during (#937).** With the real graph in, the coach says where viewers left
+  ("Viewers left at 0:42: 12 in every 100 who started were gone within ten seconds") and what was on screen:
+  a shot held twelve seconds or more, dead air, a flat stretch of the recording, or nothing the edit
+  explains. Held shots and dead air come with the fix. Each imported video also adds to a profile of your
+  channel: how much faster or slower your viewers leave during each of those than on average. From two
+  videos on, Settings → Performance says what stands out ("Your viewers leave 1.8× faster during held
+  shots") and the coach gives held shots less room, or more, by up to a third. The first thirty seconds are
+  never counted: every video loses viewers fastest there. A video is counted once however often its graph
+  is imported, and Forget clears the profile.
+
 ### Checked
 - Core tests for both (default style per kind, your own pick per kind, old settings read as off; the edit
   retention curve; two trials and a verdict) pass on Linux. macOS results are filled in at release.
@@ -87,10 +105,15 @@ This file grows as each one lands; the numbers are the list's.
   music under talking; a jingle ignored; an edit flagged where it uses the music; silencing only that) and
   the face signal (the four measures follow the face; a reaction stands out from that person's rest; a
   silent reaction lifts its moment and is named) pass on Linux, on synthetic sound and synthetic landmarks.
+- Core tests for retention (YouTube Studio's table and other shapes of it read, junk refused; the steepest
+  fall found and blamed on what was on screen; the coach's leak advice and a stale graph; a channel profile
+  learned across videos, counted once each, tightening only the rule it supports) pass on Linux.
 - Not checked: the predicted retention against real audience retention. It is a rule of thumb. The loop
   and the opening lines have run on synthetic clips and the generated sample, not on real shorts. The story
   reading is keyword and position based: it has been tested on scripted transcripts, not on real streams,
   and it reads English only. The generated sample is too short for a tease, so the tease has only run in
   tests. The music detector has never heard a real recording: its thresholds come from synthetic signals.
   The face reader's Vision pass compiles and runs on CI, but the sample's facecam is a drawing, so it has
-  not read a real face anywhere yet.
+  not read a real face anywhere yet. The retention importer was written from YouTube Studio's documented
+  export (a position column and an absolute-retention column) and tested on tables shaped like it: no real
+  export file was available here, so try one and say if it is refused.

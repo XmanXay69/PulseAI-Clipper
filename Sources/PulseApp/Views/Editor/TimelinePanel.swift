@@ -124,7 +124,7 @@ struct TimelineToolbar: View {
             IconButton(symbol: "arrow.right.and.line.vertical.and.arrow.left", help: "Snapping (S)", isActive: app.settings.snapping) { app.settings.snapping.toggle() }
             IconButton(symbol: "rectangle.compress.vertical", help: "Magnetic timeline — deleting closes gaps", isActive: app.settings.magneticTimeline) { app.settings.magneticTimeline.toggle() }
             IconButton(symbol: "waveform.path.ecg", help: "Excitement strip on the ruler — where the energy is", isActive: showEnergy) { showEnergy.toggle() }
-            IconButton(symbol: "chart.line.downtrend.xyaxis", help: "Predicted retention on the ruler — where viewers are likely to leave (#490)", isActive: showRetention) { showRetention.toggle() }
+            IconButton(symbol: "chart.line.downtrend.xyaxis", help: "Retention on the ruler: the predicted curve where viewers are likely to leave (#490), and in the accent colour the video's real curve once you import it (Timeline → Import Retention Graph…)", isActive: showRetention) { showRetention.toggle() }
             IconButton(symbol: "gauge.with.dots.needle.67percent", help: "Render load on the ruler — green plays easily, red may stutter at full quality (#183)", isActive: showRenderLoad) { showRenderLoad.toggle() }
             IconButton(symbol: "text.bubble", help: "Ask PULSE — type what to change: “cut the intro”, “tighten the pauses”, “captions like TikTok” (#498)", isActive: showAssistant) { showAssistant.toggle() }
                 .popover(isPresented: $showAssistant, arrowEdge: .bottom) { AssistantPopover(session: session).frame(width: 360) }
@@ -923,6 +923,27 @@ struct TimelineRuler: View {
                     }
                     ctx.stroke(path, with: .linearGradient(Gradient(colors: [Theme.success, Theme.warning, Theme.danger]),
                                                            startPoint: CGPoint(x: 0, y: 2), endPoint: CGPoint(x: 0, y: 2 + h)), lineWidth: 1.5)
+                }
+            }
+            // The video's real retention (#936), when it was imported and still lines up: a solid line over the
+            // predicted one, with the stretches where viewers left fastest marked underneath.
+            if showRetention, let graph = timeline.retention, !graph.isStale(for: timeline.duration), timeline.duration > 0 {
+                let h: CGFloat = 10
+                var path = Path()
+                var x: CGFloat = 0
+                var first = true
+                let end = min(CGFloat(timeline.duration) * pps, size.width)
+                while x <= end {
+                    let watching = CGFloat(graph.watching(at: Double(x / pps), duration: timeline.duration))
+                    let point = CGPoint(x: x, y: 2 + h * (1 - min(max(watching, 0), 1)))
+                    if first { path.move(to: point); first = false } else { path.addLine(to: point) }
+                    x += 2
+                }
+                ctx.stroke(path, with: .color(Theme.accent), lineWidth: 2)
+                for leak in session.retentionLeaks(for: timeline) {
+                    let x0 = CGFloat(leak.time) * pps
+                    guard x0 < size.width, x0 + 10 * pps > 0 else { continue }
+                    ctx.fill(Path(CGRect(x: max(x0, 0), y: 2 + h + 1, width: min(10 * pps, size.width - max(x0, 0)), height: 2)), with: .color(Theme.danger))
                 }
             }
             // Layout morphs: a violet bar spanning each morph on the ruler's bottom edge.

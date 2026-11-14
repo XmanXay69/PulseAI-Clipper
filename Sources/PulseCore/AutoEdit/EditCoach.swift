@@ -338,6 +338,31 @@ public enum EditCoach {
                                               detail: "End \(String(format: "%.1f", loop.trim)) s earlier and it cuts straight back to the opening: \(loop.reason). A short that loops without a seam gets watched again.",
                                               severity: .tip, fix: .trimEnd(loop.trim), symbol: "repeat"))
         }
+        // The video's real retention, when it was imported (#936, #937): where the audience left, and what was
+        // on screen then.
+        if let graph = timeline.retention {
+            if graph.isStale(for: duration) {
+                suggestions.append(EditSuggestion(id: "retention-stale", title: "The retention graph is from another cut",
+                                                  detail: "The edit was \(Timecode.duration(graph.videoDuration)) long when its retention was imported and is \(Timecode.duration(duration)) now, so the graph no longer lines up with the timeline. Import the graph of the video as it is, or undo back to that cut.",
+                                                  severity: .tip, fix: .none, symbol: "chart.line.downtrend.xyaxis"))
+            } else {
+                let leaks = RetentionLearning.leaks(timeline: timeline, graph: graph, signals: signals, assetID: analysis?.assetID)
+                for (n, leak) in leaks.enumerated() {
+                    let share = max(1, Int((leak.lost * 100).rounded()))
+                    let why: String
+                    let fix: EditSuggestion.Fix
+                    switch leak.cause {
+                    case .heldShot?: why = "The picture had been held for twelve seconds or more. A punch-in or a cutaway there gives a viewer something new."; fix = .addZooms
+                    case .deadAir?: why = "Nobody was talking and nothing was happening. Tightening the pause keeps it moving."; fix = .removeDeadAir
+                    case .lowEnergy?: why = "The recording itself goes flat there. Next time, cut that stretch shorter or leave it out."; fix = .none
+                    default: why = "Nothing about the edit explains it: listen to what was said there."; fix = .none
+                    }
+                    suggestions.append(EditSuggestion(id: "leak-\(n + 1)", title: "Viewers left at \(Timecode.short(leak.time))",
+                                                      detail: "\(share) in every 100 who started were gone within ten seconds of \(Timecode.short(leak.time)), from the video's real retention. \(why)",
+                                                      severity: n == 0 ? .recommended : .tip, fix: fix, symbol: "chart.line.downtrend.xyaxis"))
+                }
+            }
+        }
         // Music in the recording's own sound (#521): said before it costs the video a claim.
         let music = MusicRisk.flags(in: timeline, analysis: analysis)
         if !music.isEmpty {

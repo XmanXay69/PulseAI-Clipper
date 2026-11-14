@@ -1246,6 +1246,16 @@ struct PerformanceSettings: View {
             if let insight = app.settings.ai.coachCalibration?.insight, !insight.isEmpty {
                 Label(insight, systemImage: "lightbulb").font(.pulseCaption).foregroundStyle(Theme.ai)
             }
+            SettingsRow("What your audience leaves during",
+                        detail: app.settings.ai.retentionProfile.videos == 0
+                            ? "Import a video's real retention (Timeline → Import Retention Graph…) and PULSE reads what was on screen when viewers left. After two videos it adjusts how long the coach lets a shot be held."
+                            : (app.settings.ai.retentionProfile.insights.isEmpty
+                                ? "\(app.settings.ai.retentionProfile.videos) video\(app.settings.ai.retentionProfile.videos == 1 ? "" : "s") read. Nothing stands out yet."
+                                : app.settings.ai.retentionProfile.insights.joined(separator: " "))) {
+                Button("Forget") { app.settings.ai.retentionProfile = RetentionProfile() }
+                    .buttonStyle(.pulse(.secondary, compact: true))
+                    .disabled(app.settings.ai.retentionProfile.videos == 0)
+            }
             SettingsRow("Exports remembered", detail: "\(app.performanceHistory.count) exported edits · \(withViews.count) with real views") {
                 Button("Reset Calibration") { app.resetCalibration() }
                     .buttonStyle(.pulse(.secondary, compact: true))

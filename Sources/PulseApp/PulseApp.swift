@@ -262,6 +262,11 @@ struct PulseCommands: Commands {
             }
         }
         CommandMenu("Timeline") {
+            Button("Import Retention Graph…") { app.session?.importRetentionGraph() }
+                .disabled(app.session?.activeTimeline == nil)
+            Button("Preview the Loop") { app.session?.previewLoop() }
+                .disabled(app.session?.activeTimeline == nil)
+            Divider()
             Button("Split at Playhead") { app.session?.splitAtPlayhead() }.keyboardShortcut(app.shortcut(.splitAtPlayhead))
             Button("Split All Tracks at Playhead") { app.session?.splitAllAtPlayhead() }.keyboardShortcut(app.shortcut(.splitAllTracks))
             Button("Add Transition") { app.session?.addDefaultTransition() }.keyboardShortcut(app.shortcut(.addTransition))
