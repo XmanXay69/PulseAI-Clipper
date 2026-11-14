@@ -124,7 +124,7 @@ struct AIClipsView: View {
             }
             HStack(spacing: 10) {
                 PulseSegmented(selection: $lengthFilter, LengthFilter.allCases) { $0.rawValue }
-                    .frame(width: 220)
+                    .frame(width: 250)
                 Menu {
                     Button("All tags") { tagFilter = nil }
                     Divider()

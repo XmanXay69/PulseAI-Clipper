@@ -250,24 +250,33 @@ struct LongFormSheet: View {
     }
 
     var footer: some View {
-        HStack {
+        VStack(alignment: .leading, spacing: 10) {
             if session.document.primaryAsset != nil {
                 let analyzed = session.document.primaryAsset.flatMap { session.analyses[$0.id] } != nil
                 let estimate = session.longFormEstimate(options: options) + (analyzed ? 0 : session.document.primaryAsset.map(session.analysisEstimate) ?? 0)
                 Label("Takes \(DurationText.approximate(estimate))\(analyzed ? "" : " (includes analyzing)")", systemImage: "clock")
-                    .font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                    .font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
             }
-            Spacer()
+            footerButtons
+        }
+        .padding(16)
+    }
+
+    var footerButtons: some View {
+        HStack(spacing: 8) {
             Button {
                 dismiss()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { app.showReferenceSheet = true }
-            } label: { Label("Like a Reference…", systemImage: "wand.and.stars") }
+            } label: { Label("Editing styles…", systemImage: "wand.and.stars") }
                 .buttonStyle(.pulse(.ghost, compact: true))
-                .help("Copy the editing style of a video you love instead")
-            Button("Cancel") { dismiss() }.buttonStyle(.pulseSecondary).keyboardShortcut(.cancelAction)
+                .fixedSize()
+                .help("Cut it in a style editors use, or like a video you love, instead")
+            Spacer(minLength: 4)
+            Button("Cancel") { dismiss() }.buttonStyle(.pulseSecondary).keyboardShortcut(.cancelAction).fixedSize()
             let analyzed = session.document.primaryAsset.flatMap { session.analyses[$0.id] }.map { $0.audio != nil || $0.transcript != nil } ?? false
-            Button { choosing = true } label: { Label("Choose Moments…", systemImage: "square.grid.3x2") }
+            Button { choosing = true } label: { Text("Choose moments…") }
                 .buttonStyle(.pulseSecondary)
+                .fixedSize()
                 .disabled(!analyzed)
                 .help(analyzed ? "See every moment PULSE picked, swap some out and choose the hook" : "Analyze the video first (or just press Edit My VOD)")
             Button {
@@ -282,9 +291,9 @@ struct LongFormSheet: View {
                 }
             } label: { Label("Edit My VOD…", systemImage: "wand.and.stars") }
                 .buttonStyle(.pulsePrimary)
+                .fixedSize()
                 .keyboardShortcut(.defaultAction)
                 .disabled(session.document.primaryAsset == nil)
         }
-        .padding(16)
     }
 }

@@ -50,7 +50,7 @@ struct ProjectsView: View {
                 }
                 HStack(spacing: 10) {
                     PulseSegmented(selection: $filter, Filter.allCases) { $0.rawValue }
-                        .frame(width: 520)
+                        .frame(width: 560)
                     Spacer(minLength: 8)
                     TextField("Search projects", text: $query)
                         .textFieldStyle(.roundedBorder)

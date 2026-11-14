@@ -151,7 +151,7 @@ struct RecordView: View {
                 }
                 HStack(spacing: 8) {
                     Text("Codec").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 80, alignment: .leading)
-                    PulseSegmented(selection: $recorder.codec, segments: [PulseSegment(VideoCodec.hevc, "HEVC (smaller)"), PulseSegment(VideoCodec.h264, "H.264 (shares anywhere)")])
+                    PulseSegmented(selection: $recorder.codec, segments: [PulseSegment(VideoCodec.hevc, "HEVC", help: "Smaller files"), PulseSegment(VideoCodec.h264, "H.264", help: "Plays anywhere, larger files")])
                 }
                 Picker("Split files", selection: Binding(get: { app.settings.recordingSplitGB }, set: { app.settings.recordingSplitGB = $0 })) {
                     Text("Never").tag(0.0)

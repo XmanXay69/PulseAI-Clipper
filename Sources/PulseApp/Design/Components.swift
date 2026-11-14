@@ -779,7 +779,7 @@ struct PulseSegmented<T: Hashable>: View {
     }
 
     var body: some View {
-        HStack(spacing: 2) {
+        SegmentLayout(spacing: 2) {
             ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
                 PulseSegmentButton(segment: segment, selected: segment.value == selection, compact: compact) {
                     selection = segment.value
@@ -790,6 +790,42 @@ struct PulseSegmented<T: Hashable>: View {
         .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.control))
         .opacity(isEnabled ? 1 : 0.45)
         .accessibilityElement(children: .contain)
+    }
+}
+
+/// Lays segments side by side, each as wide as its label needs. Spare width is shared out equally, so a
+/// control given more room than it needs fills it; when there isn't enough, every segment gives up the same
+/// share of its width rather than the long labels alone being cut.
+private struct SegmentLayout: Layout {
+    var spacing: CGFloat = 2
+
+    func widths(_ subviews: Subviews, in available: CGFloat) -> [CGFloat] {
+        let ideal = subviews.map { $0.sizeThatFits(.unspecified).width }
+        let room = available - spacing * CGFloat(max(subviews.count - 1, 0))
+        let total = ideal.reduce(0, +)
+        guard total > 0, !subviews.isEmpty else { return ideal }
+        if total <= room {
+            let extra = (room - total) / CGFloat(subviews.count)
+            return ideal.map { $0 + extra }
+        }
+        let squeeze = max(room, 0) / total
+        return ideal.map { $0 * squeeze }
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+        let natural = sizes.reduce(0) { $0 + $1.width } + spacing * CGFloat(max(subviews.count - 1, 0))
+        let height = sizes.map(\.height).max() ?? 0
+        guard let width = proposal.width, width.isFinite else { return CGSize(width: natural, height: height) }
+        return CGSize(width: max(width, 0), height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        for (subview, width) in zip(subviews, widths(subviews, in: bounds.width)) {
+            subview.place(at: CGPoint(x: x, y: bounds.minY), anchor: .topLeading, proposal: ProposedViewSize(width: width, height: bounds.height))
+            x += width + spacing
+        }
     }
 }
 
@@ -804,7 +840,7 @@ private struct PulseSegmentButton<T: Hashable>: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 if let symbol = segment.symbol { Image(systemName: symbol).font(.system(size: compact ? 10 : 11, weight: .medium)) }
-                if !segment.title.isEmpty { Text(segment.title).lineLimit(1).minimumScaleFactor(0.85) }
+                if !segment.title.isEmpty { Text(segment.title).lineLimit(1) }
             }
             .font(.system(size: compact ? 11 : 12, weight: selected ? .semibold : .medium))
             .foregroundStyle(selected ? Theme.textPrimary : (hovering ? Theme.textPrimary : Theme.textSecondary))

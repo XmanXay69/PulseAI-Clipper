@@ -427,7 +427,8 @@ struct TopBar: View {
             .help("Search projects, clips and the transcript; also the command palette")
             JobsIndicator(jobs: app.jobs)
             SystemStatusIndicator()
-            if app.session != nil {
+            // Home, Import and Media carry their own import button in the page header.
+            if app.session != nil, ![.home, .importMedia, .media].contains(app.section) {
                 Button { app.showImportPanel() } label: { Label("Import", systemImage: "plus") }
                     .buttonStyle(.pulse(.secondary, compact: true))
             }

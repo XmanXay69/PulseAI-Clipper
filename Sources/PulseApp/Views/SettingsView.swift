@@ -213,7 +213,7 @@ struct GeneralSettings: View {
         SettingsGroup("Appearance") {
             SettingsRow("Theme", detail: "Dark is graphite, Light is paper white, and Match macOS follows the system.") {
                 PulseSegmented(selection: $app.settings.appearance, AppAppearance.allCases) { $0.displayName }
-                .frame(width: 260)
+                .frame(width: 290)
             }
             SettingsRow("Accent colour", detail: "Buttons, selection, the playhead and the sparkle on what the AI made.") {
                 HStack(spacing: 8) {

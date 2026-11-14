@@ -56,7 +56,11 @@ struct MediaView: View {
         guard !live.isEmpty else { return "Videos, audio, music, sound effects and graphics in this project" }
         let parts = MediaCategory.allCases.compactMap { c -> String? in
             let n = live.filter { $0.category == c }.count
-            return n > 0 ? "\(n) \(c.displayName.lowercased())" : nil
+            guard n > 0 else { return nil }
+            let name = c.displayName.lowercased()
+            // "1 video", "1 image", "1 graphic"; audio, music and SFX read the same either way.
+            let one = ["videos": "video", "images": "image", "graphics": "graphic"][name] ?? name
+            return "\(n) \(n == 1 ? one : name)"
         }
         return "\(live.count) file\(live.count == 1 ? "" : "s") · " + parts.joined(separator: ", ")
     }
