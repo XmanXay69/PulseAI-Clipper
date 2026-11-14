@@ -42,16 +42,15 @@ struct OnboardingView: View {
                         Text(step.detail).font(.pulseCaption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 0)
                     }
-                    .padding(12)
+                    .padding(14)
                     .frame(width: 150, height: 170, alignment: .topLeading)
-                    .background(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).fill(Theme.panelRaised))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).strokeBorder(Theme.border))
+                    .raisedSurface(cornerRadius: Theme.radiusXL)
                 }
             }
             .padding(.horizontal, 26)
 
             HStack(spacing: 8) {
-                Image(systemName: "lock.shield").foregroundStyle(Theme.success)
+                Image(systemName: "lock").foregroundStyle(Theme.textSecondary)
                 Text("Local-first: video and audio never leave your Mac. Cloud AI is optional and off by default.")
                     .font(.pulseCaption).foregroundStyle(Theme.textSecondary)
             }

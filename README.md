@@ -9,18 +9,24 @@ AI decision lands on a professional timeline as normal, editable clips, keyframe
 
 ## Download
 
-**[⬇ Download PULSE 1.6.3](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
-(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.6.3/NOTES.md)
+**[⬇ Download PULSE 1.7.0](https://github.com/XmanXay69/PulseAI-Clipper/releases/latest/download/PULSE.dmg)**
+(macOS 14 or later, Apple Silicon and Intel) · [all versions](versions/README.md) · [release notes](versions/1.7.0/NOTES.md)
 
 Already installed? PULSE shows an **Update** button when a new version is out — no need to download again.
+
+**New in 1.7.0:** PULSE takes on the look of [BulkBoard](https://github.com/XmanXay69/bulkboard) — graphite
+surfaces, one blue accent, soft 12-pt cards, a page header on every page, a rounded sidebar, quiet tags and the
+app's own segmented control — with every feature where it was. And the auto-editor learns six editing styles
+(Retention cut, Story first, Clean commentary, Punchy short, Smooth and cinematic, On the beat), written down
+from what working editors teach: pick one in Edit Like a Reference and PULSE cuts your VOD that way, and the
+coach now flags held shots, missing sections, piled-up sound effects and caption pages too long to read
+([notes](versions/1.7.0/NOTES.md)). Next: [800 more ideas](docs/IDEAS-800.md).
 
 **New in 1.6.3:** a hardening pass over the last batches — two-pass export drives the encoder's passes the way
 AVFoundation expects, YouTube uploads resume after a dropped connection or a server error, dubbing can't hang on
 a silent voice, signal plugins can't stall on a full log pipe, split recordings join file by file, cancelling an
 analysis actually stops whisper.cpp, a camera that never answers can't hang a recording, and a VOD by link downloads
-whole (the 60 MB limit was the music library's). The whole app also moves to a restrained, professional design
-system — charcoal surfaces, hairline borders, flat controls, one accent, a compact title bar and page bar, a calmer
-timeline — with every feature where it was ([notes](versions/1.6.3/NOTES.md)).
+whole (the 60 MB limit was the music library's) ([notes](versions/1.6.3/NOTES.md)).
 
 **New in 1.6.2:** chapter art (a picture per chapter marker for the description), a sortable list view in the
 media panel, a GPU self-test that switches to safe mode by itself, the shuttle speed on the transport bar,
@@ -125,6 +131,9 @@ the viewer actually shows is rendered separately below.
 - **Storyboard.** Review Edit My VOD's moments before it builds: swap them, pick the hook.
 - **Overnight batch.** Queue several VODs; wake up to shorts, YouTube edits and exports.
 - **Brand kit.** Your logo, intro/outro and caption look on every edit.
+- **Editing styles.** Six built-in styles written down from what working editors teach (Retention cut, Story
+  first, Clean commentary, Punchy short, Smooth and cinematic, On the beat). Pick one and PULSE cuts your VOD
+  that way; the coach then holds the edit to that style's pacing rules.
 - **Edit Like a Reference.** Show PULSE a video whose editing you love; it measures the cuts, zooms, captions,
   music and effects, asks what you want, and edits your VOD the same way.
 - **Thumbnail Studio tie-in.** One click turns the best reaction frames into editable designs in
@@ -212,4 +221,5 @@ Sources/PulseApp      SwiftUI app
 Tests/                PulseCoreTests, PulseEngineTests (end-to-end render + export)
 Resources/Models      on-device speaker model (Resemblyzer GE2E, Apache-2.0)
 docs/HANDOFF.md       status, honest gaps, next steps
+docs/IDEAS-800.md     800 more ways to make it better (continues docs/ROADMAP-500.md)
 ```

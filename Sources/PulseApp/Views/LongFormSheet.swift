@@ -23,6 +23,8 @@ struct LongFormSheet: View {
     @AppStorage("longForm.progressBar") private var progressBar = false
     @AppStorage("longForm.cutGameOnly") private var cutGameOnly = false
     @AppStorage("longForm.deadAir") private var deadAir = SilencePreset.balanced.rawValue
+    /// The built-in editing style to cut in (an `EditorPlaybook` id); empty = PULSE's own way.
+    @AppStorage("longForm.editStyle") private var editStyle = ""
     @State private var choosing = false
     /// The extras question is showing (asked before anything is built).
     @State private var askingExtras = false
@@ -49,7 +51,33 @@ struct LongFormSheet: View {
         options.socialHandle = app.settings.ai.socialHandle
         options.deadAir = SilencePreset(rawValue: deadAir) ?? .balanced
         options.memeTexts = app.settings.ai.memeTextsByTag
+        if let playbook {
+            // The style's tuning (spacing, zoom strength, caption look, pause tightness). The switches above
+            // were set to the style when it was picked and stay yours to change.
+            options.style = playbook.style.longFormOptions(.recommended(for: playbook.style)).style
+        }
         return options
+    }
+
+    /// The chosen editing style, if one is.
+    var playbook: EditorPlaybook? { EditorPlaybook.playbook(id: editStyle) }
+
+    /// The style most recordings like this one are cut in.
+    var suggestedPlaybook: EditorPlaybook? {
+        guard let asset = session.document.primaryAsset, let analysis = session.analyses[asset.id] else { return nil }
+        return EditorPlaybook.suggested(for: analysis.profile)
+    }
+
+    /// Sets the switches to what the style does, so the sheet shows the edit you'll get.
+    func apply(_ playbook: EditorPlaybook) {
+        let styled = playbook.style.longFormOptions(.recommended(for: playbook.style))
+        coldOpen = styled.coldOpen
+        zooms = styled.zooms
+        captions = styled.captions
+        memes = styled.memes
+        soundEffects = styled.soundEffects
+        music = styled.music
+        restraint = styled.restraint.rawValue
     }
 
     var body: some View {
@@ -112,6 +140,7 @@ struct LongFormSheet: View {
             Divider().overlay(Theme.divider)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    editStyleSection
                     lengthSection
                     touchesSection
                     styleSection
@@ -203,11 +232,43 @@ struct LongFormSheet: View {
         .padding(.vertical, 4)
     }
 
+    /// Which school of editing to cut in: PULSE's own way, or one of the built-in styles.
+    var editStyleSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel(text: "Editing style")
+            HStack(spacing: 8) {
+                Picker("Editing style", selection: $editStyle) {
+                    Text("PULSE's own").tag("")
+                    Divider()
+                    ForEach(EditorPlaybook.all.filter { !$0.style.isShortForm }) { Text($0.name).tag($0.id) }
+                }
+                .labelsHidden()
+                .frame(width: 220)
+                .onChange(of: editStyle) { _, _ in if let playbook { apply(playbook) } }
+                if let suggested = suggestedPlaybook, suggested.id != editStyle {
+                    Button("Use \(suggested.name)") { editStyle = suggested.id }
+                        .buttonStyle(.pulse(.ai, compact: true))
+                        .help("Suggested for this recording: \(suggested.bestFor.lowercased())")
+                }
+                Spacer(minLength: 0)
+            }
+            Text(playbook.map { "\($0.tagline) Best for \($0.bestFor.lowercased())." }
+                 ?? "Restrained zooms, captions, memes, sound effects and music: the way PULSE has always cut.")
+                .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+            if let playbook {
+                Text(playbook.recipe.joined(separator: " · ")).font(.pulseMicro).foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
     var styleSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel(text: "How much editing")
             PulseSegmented(selection: $restraint, segments: LongFormOptions.Restraint.allCases.map { PulseSegment($0.rawValue, $0.displayName) })
-            Text(restraintNote).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                .disabled(playbook != nil)
+            Text(playbook.map { "Set by \($0.name): its own spacing for zooms, pop-ups and effects." } ?? restraintNote)
+                .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
         }
     }
 
@@ -215,7 +276,9 @@ struct LongFormSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel(text: "Dead air")
             PulseSegmented(selection: $deadAir, segments: [PulseSegment(SilencePreset.conservative.rawValue, "Light"), PulseSegment(SilencePreset.balanced.rawValue, "Normal"), PulseSegment(SilencePreset.aggressive.rawValue, "Tight")])
-            Text(deadAirNote).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                .disabled(playbook != nil)
+            Text(playbook.map { "Set by \($0.name): \(options.silencePreset.displayName.lowercased()) pause cutting." } ?? deadAirNote)
+                .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
         }
     }
 

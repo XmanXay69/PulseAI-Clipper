@@ -46,7 +46,8 @@ enum Theme {
     static var success: Color { isLight ? Color(hex: 0x15803D) : Color(hex: 0x32D74B) }
     static var danger: Color { isLight ? Color(hex: 0xDC2626) : Color(hex: 0xFF6961) }
     static var warning: Color { isLight ? Color(hex: 0xB45309) : Color(hex: 0xFFB340) }
-    static var info: Color { isLight ? Color(hex: 0x0E7490) : Color(hex: 0x64C8F0) }
+    /// "For your information" is the accent: a second blue beside it would read as a second accent.
+    static var info: Color { accent }
 
     // Track colours: muted, so a dense timeline stays calm.
     static let videoClip = Color(hex: 0x4F7FD0)

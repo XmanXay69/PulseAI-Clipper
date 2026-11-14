@@ -204,7 +204,7 @@ extension EditorPlaybook {
         id: "beat", name: "On the beat",
         tagline: "Cuts land on the kick. The music is the script.",
         bestFor: "Highlight reels, frag movies and recaps", symbol: "metronome.fill",
-        style: ReferenceStyle(id: styleID(6), name: "On the beat", measuredAt: written, duration: 180, aspect: 16.0 / 9.0,
+        style: ReferenceStyle(id: styleID(6), name: "On the beat", measuredAt: written, duration: 240, aspect: 16.0 / 9.0,
                               cutsPerMinute: 22, averageShotLength: 2.7, zoomsPerMinute: 4, zoomScale: 1.18,
                               captions: nil, popupsPerMinute: 0.3, wordsPerMinute: nil, pauseRatio: nil, musicBed: 1, effectsPerMinute: 3,
                               fadesPerMinute: 0.3, opensFast: true),

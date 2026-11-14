@@ -17,7 +17,7 @@ Intel and `macos-15` jobs are the ones that usually finish, and one green job is
 
 ## Versions
 
-`VERSION` holds the current version (1.6.3). Release notes per version live in `versions/<version>/NOTES.md`
+`VERSION` holds the current version (1.7.0). Release notes per version live in `versions/<version>/NOTES.md`
 (the Release workflow prepends them to the GitHub Release); `versions/README.md` explains how to cut a new one.
 
 ## Download (the easy way)
@@ -55,7 +55,7 @@ open build/PULSE.app
 
 | Module | What it is |
 |---|---|
-| `PulseCore` (pure Swift, 455 unit tests) | Timeline model + all edit ops (split, ripple, trim, speed, link, text-based delete/restore), snapshot undo/redo, `.pulse` project packages (autosave, rotating backups, versions, crash recovery), transcripts (SRT/VTT/whisper.cpp/OpenAI JSON), filler words, silence detection, audio sync, engagement model + AI clip generation (HOOK→CONTEXT→PAYOFF→END, AI Potential), titles/hooks, captions (8 presets, paging, word timing, emphasis, safe areas), streamer layouts + facecam detection, AI reframing, punch-ins, one-click short builder, "Make More Entertaining", templates, export presets/queue, AI provider abstraction + privacy policy (Local / Claude / OpenAI-compatible), settings, global search, multicam (sync groups, angle cuts, AI switching, grid layouts), compound clips (nested timelines), speaker diarization (segmenting, embedding clustering, MFCC fallback clustering, labels) |
+| `PulseCore` (pure Swift, 480 unit tests) | Timeline model + all edit ops (split, ripple, trim, speed, link, text-based delete/restore), snapshot undo/redo, `.pulse` project packages (autosave, rotating backups, versions, crash recovery), transcripts (SRT/VTT/whisper.cpp/OpenAI JSON), filler words, silence detection, audio sync, engagement model + AI clip generation (HOOK→CONTEXT→PAYOFF→END, AI Potential), titles/hooks, captions (8 presets, paging, word timing, emphasis, safe areas), streamer layouts + facecam detection, AI reframing, punch-ins, one-click short builder, "Make More Entertaining", templates, export presets/queue, AI provider abstraction + privacy policy (Local / Claude / OpenAI-compatible), settings, global search, multicam (sync groups, angle cuts, AI switching, grid layouts), compound clips (nested timelines), speaker diarization (segmenting, embedding clustering, MFCC fallback clustering, labels) |
 | `PulseEngine` (AVFoundation, Vision, Speech, Core Image/Metal, SQLite) | Media probing/import, thumbnails, waveforms, proxies, audio analysis, Vision face detection, Apple Speech + whisper.cpp transcription, composition builder + custom `AVVideoCompositing` compositor (layouts, masks, crops, keyframes, captions, text, color, LUTs, effects, transitions), AVAssetWriter export (H.264/HEVC hardware, ProRes), playback controller, demo media generator, SQLite library index with FTS5 transcript search, ScreenCaptureKit + camera/mic session recorder (pause/resume), audio enhance chain, neural speaker encoder (GE2E LSTM via BLAS) + MFCC fallback |
 | `PulseApp` (SwiftUI) | Sidebar app: Home, Projects, Import, AI Clips, Editor (viewer, timeline, inspector, transcript), Captions, Media, Templates, Exports, Settings; onboarding, recovery, ⌘F global search, background jobs, toasts, keyboard shortcuts |
 
@@ -65,6 +65,24 @@ Key files to know:
 - `Sources/PulseEngine/Composition/CompositionBuilder.swift` + `Rendering/FrameRenderer.swift` — how a timeline becomes pixels (same path for playback and export).
 - `Sources/PulseCore/AutoEdit/ShortBuilder.swift` — candidate → finished 9:16 short.
 - `Tests/PulseEngineTests/EngineSmokeTests.swift` — end-to-end: demo media → analysis → clips → short → rendered stills → exported MP4.
+- 1.7.0 (the BulkBoard look + editing styles): `Sources/PulseApp/Design/Theme.swift` holds BulkBoard's tokens
+  (`window` = its background, `panel` = its sidebar, `panelRaised` = its card surface, `control` = its raised tone;
+  `Theme.ai` is the accent now, there is no second colour) and the `card()` / `raisedSurface()` / `insetRow()`
+  modifiers; `Components.swift` has `PageHeader`, `StatView`, `PulseSegmented` (with `SegmentLayout`, which sizes
+  segments to their labels) and the bordered-style `PulseButtonStyle`. Every page that isn't a workspace opens with
+  a `PageHeader`; `TopBar.pagesWithHeader` says which, and the strip above only names the page on the others.
+  `AccentChoice.pulse` is the blue (`Theme.accentHex` deepens it on the light theme); `.pink` is the old default.
+  `scratchpad` scripts that turned the pickers into `PulseSegmented` and made every `RoundedRectangle` continuous
+  are not in the repo; new code should use both directly. `Sources/PulseCore/AutoEdit/EditorPlaybook.swift` is the
+  editing knowledge: six `EditorPlaybook`s (a `ReferenceStyle` fingerprint + `PacingRules` + principles),
+  `PlaybookCoach` (static stretches, re-hook gaps, effect pile-ups, caption length) called from `EditCoach.review`,
+  and `Timeline.editStyle`, set by `LongFormEditor.build` when the options' style is a playbook's, which
+  `EditorPlaybook.rules(for:)` reads so the coach judges an edit by its own style. `LongFormSheet.editStyleSection`
+  is the style menu (`longForm.editStyle` in defaults; `apply(_:)` sets the switches); `ReferenceSheet` lists the
+  playbooks; `BatchController` accepts a playbook's style id. `EngineSmokeTests.speak` wraps `/usr/bin/say` with
+  three tries and an `XCTSkip` when the voice is silent. The numbers are from published editing guidance
+  (sources in the 1.7.0 notes), not from footage: tune them against real streams. `docs/IDEAS-800.md` continues
+  the roadmap at 501.
 - 1.6.3 (hardening): `ExportPump.transferMultiPass` in `Sources/PulseEngine/Export/ExportEngine.swift` follows the
   multi-pass pattern (pass description → reset from pass 2 → request → mark pass finished); `YouTubeUploader.resumeOffset`
   recovers an interrupted upload; `DubSynthesizer.speak(_:with:)` is the one-shot continuation around

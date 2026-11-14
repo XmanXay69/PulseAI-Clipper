@@ -78,12 +78,8 @@ final class EngineSmokeTests: XCTestCase {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let rate = 48_000.0
         let url = dir.appendingPathComponent("voice.wav")
-        let say = Process()
-        say.executableURL = URL(fileURLWithPath: "/usr/bin/say")
-        say.arguments = ["-o", url.path, "--file-format=WAVE", "--data-format=LEF32@48000",
-                         "Okay chat, we are finally back. Let me show you the build I have been working on all week. It is honestly so good."]
-        try say.run()
-        say.waitUntilExit()
+        try Self.speak("Okay chat, we are finally back. Let me show you the build I have been working on all week. It is honestly so good.",
+                       to: url, dataFormat: "LEF32@48000")
         let file = try AVAudioFile(forReading: url)
         let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length))!
         try file.read(into: buffer)
@@ -296,6 +292,35 @@ final class EngineSmokeTests: XCTestCase {
         XCTAssertGreaterThan(cosB, 0.999)
     }
 
+    /// Speaks `text` into a WAV with the system voice (`say`). A hosted runner now and then hands back a silent
+    /// file because its speech service is still starting, so this tries three times with a growing pause; a
+    /// Mac whose voice never makes a sound skips the test, since the code under test needs real speech and
+    /// a silent input says nothing about it either way.
+    static func speak(_ text: String, to url: URL, dataFormat: String, voice: String? = nil) throws {
+        var lastStatus: Int32 = 0
+        for attempt in 0..<3 {
+            try? FileManager.default.removeItem(at: url)
+            let say = Process()
+            say.executableURL = URL(fileURLWithPath: "/usr/bin/say")
+            say.arguments = (voice.map { ["-v", $0] } ?? []) + ["-o", url.path, "--file-format=WAVE", "--data-format=\(dataFormat)", text]
+            try say.run()
+            say.waitUntilExit()
+            lastStatus = say.terminationStatus
+            if lastStatus == 0, hasSound(url) { return }
+            Thread.sleep(forTimeInterval: 1.5 * Double(attempt + 1))
+        }
+        throw XCTSkip("the system voice made no sound on this machine (say exited \(lastStatus) and wrote a silent file three times)")
+    }
+
+    /// True when the audio file holds at least one sample that isn't silence.
+    static func hasSound(_ url: URL) -> Bool {
+        guard let file = try? AVAudioFile(forReading: url), file.length > 0,
+              let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)),
+              (try? file.read(into: buffer)) != nil, let channels = buffer.floatChannelData else { return false }
+        let samples = UnsafeBufferPointer(start: channels[0], count: Int(buffer.frameLength))
+        return samples.contains { abs($0) > 1e-4 }
+    }
+
     /// A conversation between system voices, alternating lines, plus evenly spread word timings.
     static func voiceConversation(_ voices: [String], lines: [String], in dir: URL) throws -> (url: URL, transcript: Transcript, turns: [(range: TimeRange, voice: String)]) {
         let rate = 16_000.0
@@ -304,11 +329,7 @@ final class EngineSmokeTests: XCTestCase {
         for (i, line) in lines.enumerated() {
             let voice = voices[i % voices.count]
             let url = dir.appendingPathComponent("line\(i)-\(voice).wav")
-            let say = Process()
-            say.executableURL = URL(fileURLWithPath: "/usr/bin/say")
-            say.arguments = ["-v", voice, "-o", url.path, "--file-format=WAVE", "--data-format=LEF32@16000", line]
-            try say.run()
-            say.waitUntilExit()
+            try speak(line, to: url, dataFormat: "LEF32@16000", voice: voice)
             let file = try AVAudioFile(forReading: url)
             let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length))!
             try file.read(into: buffer)
@@ -457,12 +478,7 @@ final class EngineSmokeTests: XCTestCase {
         var turns: [(range: TimeRange, voice: String)] = []
         for (i, line) in lines.enumerated() {
             let url = dir.appendingPathComponent("line\(i).wav")
-            let say = Process()
-            say.executableURL = URL(fileURLWithPath: "/usr/bin/say")
-            say.arguments = ["-v", line.0, "-o", url.path, "--file-format=WAVE", "--data-format=LEF32@16000", line.1]
-            try say.run()
-            say.waitUntilExit()
-            guard say.terminationStatus == 0 else { throw XCTSkip("say failed for \(line.0)") }
+            try Self.speak(line.1, to: url, dataFormat: "LEF32@16000", voice: line.0)
             let file = try AVAudioFile(forReading: url)
             let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length))!
             try file.read(into: buffer)
@@ -525,13 +541,7 @@ final class EngineSmokeTests: XCTestCase {
         let dir = Self.workDir.appendingPathComponent("whisper-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let wav = dir.appendingPathComponent("speech.wav")
-        let say = Process()
-        say.executableURL = URL(fileURLWithPath: "/usr/bin/say")
-        say.arguments = ["-o", wav.path, "--file-format=WAVE", "--data-format=LEI16@16000",
-                         "No way, that was the craziest clutch I have ever seen. Let's go!"]
-        try say.run()
-        say.waitUntilExit()
-        XCTAssertEqual(say.terminationStatus, 0)
+        try Self.speak("No way, that was the craziest clutch I have ever seen. Let's go!", to: wav, dataFormat: "LEI16@16000")
 
         let transcriber = WhisperCppTranscriber(executable: executable, model: URL(fileURLWithPath: modelPath))
         let transcript = try await transcriber.transcribe(audioURL: wav, language: "en-US", progress: { _ in })

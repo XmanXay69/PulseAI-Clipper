@@ -1,0 +1,93 @@
+## PULSE 1.7.0
+
+Two things on top of [1.6.3](../1.6.3/NOTES.md): the app takes on the look of BulkBoard, and the auto-editor
+learns to cut in the styles working editors use.
+
+### Design: the BulkBoard look
+PULSE now shares one design language with [BulkBoard](https://github.com/XmanXay69/bulkboard). Every feature
+is where it was; what changed is how it is drawn.
+- **Tokens.** BulkBoard's surfaces (page `#161618`, sidebar `#1A1A1D`, cards `#1F1F22`, raised `#2A2A2E`),
+  an 8 % hairline stroke, its text colours, and its two status colours used sparingly. The light theme takes
+  BulkBoard's light values. Corners are continuous: 12 pt on cards and sheets, 10 on tiles, 7 on buttons,
+  fields and rows.
+- **One accent.** Blue by default (`#4C8DFF`, a deeper `#2563EB` on the light theme), with Pink, Violet,
+  Lime and Amber in Settings → General → Appearance. What the AI made is marked with the accent and a
+  sparkle, not a second colour. Your earlier accent choice carries over, except that "Pulse pink" as the
+  default becomes Blue; pick Pink to get it back.
+- **Sidebar.** 216 pt wide with the mark, the app's name and the open project; a rounded selection with the
+  icon in the accent; the ⌘-number shortcut shown on hover; "Runs on this Mac" at the foot (it changes when
+  a cloud model is switched on). On the working pages it still folds to an icon rail.
+- **Page headers.** Home, Projects, Import, AI Clips, Media, Templates, Exports and Settings open with a
+  large title, one line of context (how many projects and where, how many clips and from what, what will be
+  exported) and the page's own actions on the right. The strip above blends into the page and keeps the
+  project's name, search, background tasks and where processing runs.
+- **Cards.** Home is a dashboard: the two starting points, quick actions, recent projects, AI activity and
+  storage with the free space as the figure. Exports is its settings and options as cards beside the queue.
+  Settings groups are cards under sentence-case labels. Tags are quiet capsules; "On this Mac" replaces the
+  green LOCAL pill and only cloud processing is called out.
+- **Controls.** Buttons are drawn like the system's bordered ones: grey for most things, the accent filled
+  for the one thing a screen is for, the accent tinted for AI actions, red tinted for what destroys. Every
+  system segmented picker (38 of them) is replaced by the app's own, which follows the accent and sizes each
+  segment to its label. The workflow bar along the bottom is one segmented control.
+- **Mark.** The app icon and the sidebar mark are a graphite tile with a white pulse line and a blue play
+  cue, in the same family as BulkBoard's mark.
+- **Fixes along the way.** The mini viewer on AI Clips and Media is as wide as its picture instead of
+  stretching across the window. Track headers are wide enough for "A1 Dialogue". Edit My VOD's footer no
+  longer shortens its buttons to "Choos…".
+- **Tests.** The engine tests that speak a sentence with the system voice now try three times and skip
+  when a machine's voice makes no sound (a hosted runner's speech service sometimes isn't up yet); the
+  release check speaks its sentence up to three times for the same reason.
+
+### Editing styles
+Six built-in styles the auto-editor can cut in, each written down from what editors and retention
+strategists teach in public: **Retention cut** (gaming highlights), **Story first** (challenges, vlogs),
+**Clean commentary** (podcasts, talking head), **Punchy short** (TikTok, Shorts, Reels), **Smooth and
+cinematic** and **On the beat** (montages).
+- **Where.** Edit My VOD opens with an **Editing style** menu: "PULSE's own" (as before) or one of the
+  styles, with the one suggested for the open recording a click away. Picking a style sets the sheet's
+  switches to what that style does, and they stay yours to change; your choice is remembered. Edit Like a
+  Reference lists the styles above the drop zone, shows each one's principles in plain words and asks the
+  same questions it asks about a studied video. The overnight batch can use a style too.
+- **What a style is.** A fingerprint in the form a studied reference gets (cuts and zooms a minute, zoom
+  strength, caption look, pop-ups, pause tightness, music, effects, fades, a fast opening), the pacing rules
+  it lives by, and five principles. The existing editors turn the fingerprint into the edit.
+- **The coach knows the rules.** New advice: a stretch with no cut, zoom or pop-up (held tighter in the
+  opening, given twice the room on gameplay); no new section for minutes on a long video; sound effects
+  piled up until none land; caption pages or lines too long to read at a glance. An edit remembers the
+  style it was cut in and is judged by that style's rules, so "Clean commentary" isn't told to cut faster.
+- **What it is not.** Nothing here is a trained model. The styles are editing craft turned into numbers:
+  a hook that lands early, something new before attention drifts, a reset every couple of minutes, effects
+  kept for the moments that deserve them, moves that ease instead of snapping. The numbers come from
+  published guidance, not from a study of any one creator's videos, and have run on the generated sample,
+  not on hours of real streams. Treat them as starting points and say what feels wrong.
+
+### Where the styles' rules come from
+Read for this release and summarised in our own words; none of it is copied, and none of it is an
+endorsement by the people named.
+- Finzar, [The Real Secret to PRO Level Editing](https://finzar.substack.com/p/the-real-secret-to-pro-level-editing):
+  smoothness first; graphics that ease on, zooms that glide, transitions that don't start abruptly.
+- Vidpros on Mario Joos, [retention editing](https://vidpros.com/retention-editing-what-you-can-learn-from-mario-joos/):
+  hook, then steadily arriving new information, then a payoff; pace is new information, not cut rate.
+- AIR Media-Tech, [cutting patterns that keep viewers past minute 8](https://air.io/en/youtube-hacks/advanced-retention-editing-cutting-patterns-that-keep-viewers-past-minute-8):
+  shot-change ranges by audience, a reset around 25–35 s, re-hooks every two to three minutes, music levels,
+  big transitions saved for big moments.
+- OpusClip, [what high-performing clips have in common](https://www.opus.pro/blog/video-editing-tips): captions
+  on most clips, a word or two per beat, mixed case, above the platform's buttons; almost no intros.
+- Walter Murch's Rule of Six, as taught in [this course note](https://cloud.wikis.utexas.edu/wiki/spaces/rtf318/pages/80022510/Murch+s+Rule+of+Six):
+  a cut serves emotion first, then story, then rhythm.
+- YouTube Help, [key moments for audience retention](https://support.google.com/youtube/answer/9314415): the
+  first thirty seconds are the part to work on.
+- Subtitle line-length and reading-speed conventions (about 42 characters a line, two lines, about 20
+  characters a second), as used in streaming style guides.
+
+### Also
+- `docs/IDEAS-800.md`: 800 more ways to make PULSE better, numbered 501–1300 to continue the first roadmap,
+  with the twenty to do first at the top.
+
+### Checked
+- Compiled and tested on GitHub's macOS 26 (Apple silicon) and macOS 15 (Intel) runners; 480 core tests
+  (nine new for the styles and the coach) and the engine's end-to-end tests.
+- Every page and sheet screenshotted on CI in the new look and reviewed; the README's screenshots are from
+  that run.
+- Not checked: the look on a real display at other window sizes than CI's 1440 × 900, the light theme page
+  by page, and the styles on real recordings.
