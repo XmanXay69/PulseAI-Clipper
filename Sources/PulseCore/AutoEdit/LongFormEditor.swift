@@ -45,6 +45,8 @@ public struct LongFormOptions: Codable, Hashable, Sendable {
     public var nextVideoAssetID: UUID? = nil
     /// Your own meme pop-up text per mood (Settings → AI Features); empty = PULSE's default.
     public var memeTexts: [ClipTag: String] = [:]
+    /// Plant a tease in the first half minute that points at the strongest later moment (#582).
+    public var openLoop = false
 
     /// Seconds between reaction zooms / meme pop-ups / transition whooshes.
     public var zoomSpacing: Seconds { style?.zoomSpacing ?? restraint.zoomSpacing }
@@ -694,6 +696,13 @@ public enum LongFormEditor {
         // The "how much is left" bar (#92).
         if options.progressBar { ProgressBar.add(&timeline) }
 
+        // A tease early on for the strongest moment that lands late (#582), so there is something to stay for.
+        var teased: String?
+        if options.openLoop, let plan = OpenLoopBuilder.plan(timeline: timeline, moments: segments, assetID: asset.id) {
+            OpenLoopBuilder.plant(plan, in: &timeline, assetID: asset.id)
+            teased = plan.text
+        }
+
         // YouTube chapters for the description.
         let outroAt = timeline.tracks[0].clips.first { $0.name == "End Screen" }?.start
         timeline.notes = chapterList(timeline.markers.filter { $0.color == .blue }, hasHook: hookRange != nil, outroAt: outroAt)
@@ -715,6 +724,7 @@ public enum LongFormEditor {
         if removed > 1 { parts.append("\(Int(removed)) s of dead air cut") }
         if pausesShortened > 0 { parts.append("\(pausesShortened) pauses sped up") }
         if hookRange != nil { parts.append("hook") }
+        if teased != nil { parts.append("a tease for a later moment") }
         if zooms > 0 { parts.append("\(zooms) zooms") }
         if memes > 0 { parts.append("\(memes) memes") }
         if whooshes > 0 { parts.append("\(whooshes) transitions") }

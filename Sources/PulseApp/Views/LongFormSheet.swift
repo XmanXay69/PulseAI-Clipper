@@ -23,6 +23,8 @@ struct LongFormSheet: View {
     @AppStorage("longForm.progressBar") private var progressBar = false
     @AppStorage("longForm.cutGameOnly") private var cutGameOnly = false
     @AppStorage("longForm.deadAir") private var deadAir = SilencePreset.balanced.rawValue
+    /// A line early on that points at the strongest later moment (#582).
+    @AppStorage("longForm.tease") private var tease = false
     /// The built-in editing style to cut in (an `EditorPlaybook` id); empty = PULSE's own way.
     @AppStorage("longForm.editStyle") private var editStyle = ""
     @State private var choosing = false
@@ -55,6 +57,7 @@ struct LongFormSheet: View {
         options.chapterTitles = chapterTitles
         options.progressBar = progressBar
         options.cutGameOnly = cutGameOnly
+        options.openLoop = tease
         options.socialHandle = app.settings.ai.socialHandle
         options.deadAir = SilencePreset(rawValue: deadAir) ?? .balanced
         options.memeTexts = app.settings.ai.memeTextsByTag
@@ -85,6 +88,7 @@ struct LongFormSheet: View {
         soundEffects = styled.soundEffects
         music = styled.music
         restraint = styled.restraint.rawValue
+        tease = playbook.plantsTease
     }
 
     var body: some View {
@@ -226,6 +230,7 @@ struct LongFormSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel(text: "Add")
             touch("Fire hook", "flame.fill", "Opens with a teaser of the best moment", $coldOpen)
+            touch("Tease", "hourglass", "A line in the first half minute that points at the strongest later moment", $tease)
             touch("Zooms", "plus.magnifyingglass", "Punch-ins on the big reactions", $zooms)
             touch("Captions", "captions.bubble", "Clean subtitles — outlined, no box, easy to read", $captions)
             touch("Memes", "face.smiling", "Pop-up text on the funniest moments", $memes, preview: .memes)

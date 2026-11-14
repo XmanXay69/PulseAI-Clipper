@@ -28,6 +28,30 @@ extension ProjectSession {
                                 rules: EditorPlaybook.rules(for: timeline))
     }
 
+    /// Plants a tease for the strongest moment that lands in the second half of `timeline` (#582). The moments
+    /// are found again off the main thread (the same ones Edit My VOD chose from); only one that is really in
+    /// the edit can be promised.
+    func plantTease(in timeline: Timeline) {
+        guard let analysis = analysis(for: timeline) else { return }
+        let options = lastLongFormOptions ?? LongFormOptions()
+        let taste = app.settings.ai.taste
+        let timelineID = timeline.id
+        Task { [weak self] in
+            let moments = await Task.detached(priority: .userInitiated) {
+                LongFormEditor.planMoments(analysis: analysis, options: options, taste: taste).moments
+            }.value
+            guard let self, let current = self.document.timeline(id: timelineID), self.activeTimeline?.id == timelineID else { return }
+            guard let plan = OpenLoopBuilder.plan(timeline: current, moments: moments, assetID: analysis.assetID) else {
+                self.app.toast("Nothing strong enough lands in the second half to promise")
+                return
+            }
+            self.editTimeline("Plant Tease") { edit in _ = OpenLoopBuilder.plant(plan, in: &edit, assetID: analysis.assetID) }
+            self.playback.seek(to: plan.at)
+            self.app.toast("“\(plan.text)” at \(Timecode.short(plan.at)) points at \(Timecode.short(plan.payoffAt))", undo: true)
+            self.app.logActivity(.autoEdit, title: "Coach: planted a tease", detail: current.name)
+        }
+    }
+
     func applyCoachFix(_ suggestion: EditSuggestion) {
         guard let timeline = activeTimeline else { return }
         var only = EntertainmentOptions()
@@ -62,6 +86,11 @@ extension ProjectSession {
         case .coldOpen(let range):
             editTimeline("Add Cold Open") { try $0.insertColdOpen(from: range) }
             playback.seek(to: 0)
+        case .plantTease:
+            plantTease(in: timeline)
+            return
+        case .removeTease:
+            editTimeline("Remove Tease") { OpenLoopBuilder.remove(from: &$0) }
         case .none:
             return
         }

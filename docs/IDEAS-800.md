@@ -8,7 +8,7 @@ for the least work.
 
 ## Where to start
 
-If only twenty get built, these are the ones. Built so far (see the [1.8.0 notes](../versions/1.8.0/NOTES.md)): 626, 627, 541, 542, 721.
+If only twenty get built, these are the ones. Built so far (see the [1.8.0 notes](../versions/1.8.0/NOTES.md)): 626, 627, 541, 542, 721, 581, 582.
 
 | # | What | Why first |
 |---|---|---|

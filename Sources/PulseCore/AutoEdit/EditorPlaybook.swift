@@ -293,8 +293,12 @@ extension EditorPlaybook {
         options.keepStoryOrder = base.keepStoryOrder
         options.endScreen = base.endScreen
         options.nextVideoAssetID = base.nextVideoAssetID
+        options.openLoop = base.openLoop || plantsTease
         return options
     }
+
+    /// The styles built on a promise kept late: they plant a tease for the strongest later moment (#582).
+    public var plantsTease: Bool { id == EditorPlaybook.retention.id || id == EditorPlaybook.story.id }
 }
 
 extension AISettings {

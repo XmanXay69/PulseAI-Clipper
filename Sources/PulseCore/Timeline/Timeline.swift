@@ -387,6 +387,8 @@ public struct Timeline: Codable, Hashable, Identifiable, Sendable {
     /// The built-in editing style this edit was cut in (an `EditorPlaybook` id); nil = PULSE's own way, a
     /// studied reference, or an edit made by hand. The coach holds the edit to that style's pacing rules.
     public var editStyle: String?
+    /// Teases planted near the start and the moments they promise (#582), so the promise can be checked.
+    public var openLoops: [OpenLoop]?
 
     public init(id: UUID = UUID(), name: String, canvas: CanvasSettings = .vertical1080, tracks: [Track] = [],
                 captions: CaptionTrack? = nil, markers: [Marker] = [], layout: LayoutPreset? = nil,
@@ -431,6 +433,7 @@ public struct Timeline: Codable, Hashable, Identifiable, Sendable {
         captionTranslations = c.decode([String: CaptionTrack].self, forKey: .captionTranslations, default: [:])
         captionLanguage = c.decode(String?.self, forKey: .captionLanguage, default: nil)
         editStyle = c.decode(String?.self, forKey: .editStyle, default: nil)
+        openLoops = c.decode([OpenLoop]?.self, forKey: .openLoops, default: nil)
     }
 
     /// Languages the captions exist in: nil for the original, then the translations.

@@ -21,6 +21,30 @@ struct LongFormStoryboard: View {
 
     @State private var plan: LongFormPlan?
     @State private var selected: Set<UUID> = []
+    /// The kept moments read as a story (#581): which beat each is, the order that tells it, what is missing.
+    @State private var arc: NarrativeArc?
+
+    /// Reads the kept moments again after the selection changes.
+    func readStory() {
+        guard let plan else { arc = nil; return }
+        let kept = plan.moments.filter { selected.contains($0.id) }
+        let transcript = asset.flatMap { session.analyses[$0.id]?.transcript }
+        arc = NarrativeArcBuilder.build(moments: kept, transcript: transcript, duration: asset?.metadata.duration ?? 0)
+    }
+
+    /// Puts the kept moments in the order that tells the story: the goal first, the setbacks and tries as they
+    /// happened, the result last. Moments that aren't kept stay where they were, after them.
+    func arrangeAsStory() {
+        guard var plan, let arc else { return }
+        let byID = Dictionary(plan.moments.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let story = arc.order.compactMap { byID[$0] }
+        guard story.count > 1 else { return }
+        let rest = plan.moments.filter { !arc.order.contains($0.id) }
+        if story.map(\.id) != plan.moments.filter({ arc.order.contains($0.id) }).map(\.id) { reordered = true }
+        plan.moments = story + rest
+        self.plan = plan
+        app.toast(reordered ? "Arranged as a story: the goal first, the result last" : "Already in story order")
+    }
 
     /// The main recording's words, for chapter names (#86).
     var words: [TranscriptWord] { session.document.primaryAsset.flatMap { session.analyses[$0.id]?.transcript?.words } ?? [] }
@@ -124,6 +148,7 @@ struct LongFormStoryboard: View {
             footer
         }
         .task { await loadPlan() }
+        .onChange(of: selected) { _, _ in readStory() }
     }
 
     /// Storyboard reorder (#109): swap with the neighbour; the build then keeps this order instead of the recording's.
@@ -155,6 +180,7 @@ struct LongFormStoryboard: View {
         plan = result
         selected = result.selected
         hook = result.hook
+        readStory()
     }
 
     var header: some View {
@@ -203,6 +229,23 @@ struct LongFormStoryboard: View {
                     }
                     .padding(.top, 4)
                     .help("How the video will read, chapter by chapter (#86): split at the biggest jumps in the stream")
+                }
+                if let arc, !arc.placements.isEmpty {
+                    HStack(spacing: 8) {
+                        Text("Story").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                        Text(arc.summary).font(.pulseCaption).foregroundStyle(arc.missing.isEmpty ? Theme.textPrimary : Theme.warning).lineLimit(1)
+                        Button("Arrange as a story") { arrangeAsStory() }
+                            .buttonStyle(.pulse(.ai, compact: true))
+                            .fixedSize()
+                            .disabled(arc.order.count < 2)
+                            .help("Puts the goal first, the setbacks and tries in the order they happened, and the result last")
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.top, 4)
+                    .help("The kept moments read as a story (#581): what they set out to do, what got in the way, what they tried and how it ended")
+                    if let gap = arc.missing.first {
+                        Text(gap.adviceWhenMissing).font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
         }
@@ -256,6 +299,10 @@ struct LongFormStoryboard: View {
                 Text("\(Timecode.short(r.start)) → \(Timecode.short(r.end)) in the stream\(trims[moment.id] != nil ? " · trimmed" : "")")
                     .font(.pulseMicro).foregroundStyle(trims[moment.id] != nil ? Theme.ai : Theme.textTertiary)
                 HStack(spacing: 4) {
+                    if on, let placement = arc?.placements.first(where: { $0.momentID == moment.id }) {
+                        TagChip(text: placement.beat.displayName, symbol: placement.beat.symbolName)
+                            .help("Read as the story's \(placement.beat.displayName.lowercased()) from \(placement.evidence)")
+                    }
                     ForEach(moment.tags.prefix(3), id: \.self) { TagChip(text: $0.displayName, color: Theme.ai) }
                 }
                 if let asset, on {

@@ -84,6 +84,10 @@ public struct EditSuggestion: Hashable, Identifiable, Sendable {
         case addSoundEffects
         /// Copy this timeline range to the very start as a teaser.
         case coldOpen(TimeRange)
+        /// Plant a tease in the first half minute that points at the strongest later moment (#582).
+        case plantTease
+        /// Take a tease off whose moment is no longer in the edit.
+        case removeTease
         case none
 
         public var buttonTitle: String? {
@@ -96,6 +100,8 @@ public struct EditSuggestion: Hashable, Identifiable, Sendable {
             case .addZooms: return "Add Zooms"
             case .addSoundEffects: return "Add SFX"
             case .coldOpen: return "Add Hook"
+            case .plantTease: return "Plant Tease"
+            case .removeTease: return "Remove Tease"
             case .none: return nil
             }
         }
@@ -328,6 +334,18 @@ public enum EditCoach {
             suggestions.append(EditSuggestion(id: "loop", title: "Make it loop",
                                               detail: "End \(String(format: "%.1f", loop.trim)) s earlier and it cuts straight back to the opening: \(loop.reason). A short that loops without a seam gets watched again.",
                                               severity: .tip, fix: .trimEnd(loop.trim), symbol: "repeat"))
+        }
+        // A tease is a promise (#582): say so when a later cut broke it, and offer one when a long video has none.
+        let unpaid = OpenLoopBuilder.unpaid(in: timeline)
+        for item in unpaid {
+            suggestions.append(EditSuggestion(id: "tease-unpaid", title: "The tease isn't paid off",
+                                              detail: "“\(item.loop.text)” at \(Timecode.short(item.teaseAt)) promises a moment, but \(item.reason). A promise that isn't kept costs more trust than no promise: take the tease off, or put the moment back.",
+                                              severity: .recommended, fix: .removeTease, symbol: "exclamationmark.bubble"))
+        }
+        if format == .longForm, duration >= 300, unpaid.isEmpty, (timeline.openLoops ?? []).isEmpty {
+            suggestions.append(EditSuggestion(id: "tease", title: "Give them something to stay for",
+                                              detail: "Nothing early on says what is coming. A line in the first half minute that points at the strongest later moment gives a viewer a reason to stay for it. PULSE only promises a moment that is really in the edit.",
+                                              severity: .tip, fix: .plantTease, symbol: "hourglass"))
         }
         // What an editor would say about the pacing itself: held shots, sections, effects, caption length.
         suggestions += PlaybookCoach.suggestions(for: timeline, format: format, rules: rules ?? .standard(for: format),

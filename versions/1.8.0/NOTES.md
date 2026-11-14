@@ -40,6 +40,21 @@ This file grows as each one lands; the numbers are the list's.
   glance, not a read. On for new captions, with a switch in Captions → Style; captions in projects saved
   before this keep the pages they had. One-word-at-a-time captions and page breaks set by hand are untouched.
 
+### Long videos that tell a story
+- **The story in the moments (#581).** "Choose moments…" in Edit My VOD now reads the kept moments as a
+  story: which is the goal, which are obstacles, which are attempts, which is the result. The reading comes
+  from what was said in each moment ("we're going to…", "oh no", "one more try", "we did it"), its tags and
+  where in the stream it sits. Each row carries its beat, the header says what there is ("A goal, 2
+  obstacles, an attempt and a result") and names what is missing with something to do about it. **Arrange
+  as a story** puts the goal first even when it was said twenty minutes in, keeps the setbacks and tries in
+  the order they happened, and ends on the strongest result. Nothing is sent anywhere.
+- **A tease that is kept (#582).** Edit My VOD has a **Tease** switch: a small line in the first half minute
+  ("COMING UP: THE CLUTCH") that points at the strongest moment landing in the second half of the edit, not
+  the one the cold open already shows. Retention cut and Story first turn it on. The promise is stored with
+  the edit and checked after every change: cut the moment, or move it in front of the tease, and the coach
+  says "The tease isn't paid off" with a one-click removal. A long edit with no tease gets a "Give them
+  something to stay for" tip that plants one. PULSE only ever promises a moment that is really in the edit.
+
 ### Checked
 - Core tests for both (default style per kind, your own pick per kind, old settings read as off; the edit
   retention curve; two trials and a verdict) pass on Linux. macOS results are filled in at release.
@@ -48,5 +63,11 @@ This file grows as each one lands; the numbers are the list's.
   different, short enough, true to the clip; one line on the short at a time) and reading-speed pages
   (unhurried speech untouched; a burst split at a phrase boundary with no word lost; old projects not
   re-paged) pass on Linux.
+- Core tests for the story (a challenge stream read beat by beat; a goal said late told first; what is
+  missing named; no transcript) and the tease (planted for a moment that really lands late; a cut moment
+  caught and the coach's fix; offered on a long edit, never on a short) pass on Linux.
 - Not checked: the predicted retention against real audience retention. It is a rule of thumb. The loop
-  and the opening lines have run on synthetic clips and the generated sample, not on real shorts.
+  and the opening lines have run on synthetic clips and the generated sample, not on real shorts. The story
+  reading is keyword and position based: it has been tested on scripted transcripts, not on real streams,
+  and it reads English only. The generated sample is too short for a tease, so the tease has only run in
+  tests.

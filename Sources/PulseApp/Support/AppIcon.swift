@@ -293,7 +293,7 @@ enum UISnapshotter {
                 compareBase.minimumLength = 20
                 await captureHosted(StyleCompareSheet(session: session, base: compareBase, firstID: AISettings.ownStyle, secondID: EditorPlaybook.retention.id) { _ in }
                                         .environmentObject(app),
-                                    size: CGSize(width: 720, height: 560), name: "17b-style-compare", to: directory)
+                                    size: CGSize(width: 760, height: 680), name: "17b-style-compare", to: directory)
                 if let asset = session.document.primaryAsset, let analysis = session.analyses[asset.id] {
                     let own = StyleComparison.trial(nil, asset: asset, analysis: analysis, base: compareBase)
                     let fast = StyleComparison.trial(.retention, asset: asset, analysis: analysis, base: compareBase)

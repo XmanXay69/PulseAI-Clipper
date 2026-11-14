@@ -32,15 +32,16 @@ struct StyleCompareSheet: View {
             SheetHeader("Compare two styles", symbol: "rectangle.split.2x1",
                         subtitle: "The same recording drafted both ways. Nothing is added to the project until you pick one.")
             Divider().overlay(Theme.divider)
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top, spacing: 12) {
-                    column($firstID, other: secondID)
-                    column($secondID, other: firstID)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .top, spacing: 12) {
+                        column($firstID, other: secondID)
+                        column($secondID, other: firstID)
+                    }
+                    verdictCard
                 }
-                verdictCard
+                .padding(20)
             }
-            .padding(20)
-            Spacer(minLength: 0)
             Divider().overlay(Theme.divider)
             HStack {
                 Text("Drafts leave out the music search, B-roll and audio levelling the full edit adds.")
@@ -50,7 +51,7 @@ struct StyleCompareSheet: View {
             }
             .padding(16)
         }
-        .frame(width: 720, height: 560)
+        .frame(width: 760, height: 680)
         .background(Theme.panel)
         .preferredColorScheme(AppModel.current?.colorScheme)
         .task(id: firstID + "|" + secondID) { await draft() }
@@ -58,11 +59,23 @@ struct StyleCompareSheet: View {
 
     func column(_ selection: Binding<String>, other: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Picker("Style", selection: selection) {
-                ForEach(choices.filter { $0.id != other }) { choice in Text(choice.name).tag(choice.id) }
+            HStack(spacing: 8) {
+                Picker("Style", selection: selection) {
+                    ForEach(choices.filter { $0.id != other }) { choice in Text(choice.name).tag(choice.id) }
+                }
+                .labelsHidden()
+                .frame(width: 190)
+                Spacer(minLength: 0)
+                if let trial = trials[selection.wrappedValue] {
+                    Button {
+                        onPick(trial.id)
+                        dismiss()
+                    } label: { Label("Use", systemImage: "checkmark") }
+                        .buttonStyle(.pulse(.primary, compact: true))
+                        .fixedSize()
+                        .help("Sets Edit My VOD to \(trial.name); the full edit is built when you press Edit My VOD")
+                }
             }
-            .labelsHidden()
-            .frame(maxWidth: .infinity, alignment: .leading)
             if let trial = trials[selection.wrappedValue] {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text("\(trial.score)").font(.stat(34)).foregroundStyle(Theme.potentialColor(trial.score))
@@ -91,26 +104,17 @@ struct StyleCompareSheet: View {
                         }
                     }
                 }
-                Spacer(minLength: 4)
-                Button {
-                    onPick(trial.id)
-                    dismiss()
-                } label: { Label("Use \(trial.name)", systemImage: "checkmark") }
-                    .buttonStyle(.pulse(.primary, compact: true))
-                    .help("Sets Edit My VOD to this style; the full edit is built when you press Edit My VOD")
             } else if failed {
                 Text("Analyze the recording first, then compare.").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
-                Spacer(minLength: 4)
             } else {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
                     Text("Drafting…").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
                 }
-                Spacer(minLength: 4)
             }
         }
         .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 330, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .raisedSurface(cornerRadius: Theme.radiusXL)
     }
 
