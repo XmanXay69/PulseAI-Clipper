@@ -66,7 +66,9 @@ struct LongFormStoryboard: View {
         let budget = provider.location == .local ? 120_000 : 600_000
         // The rules of the style this edit was set up with: a built-in style's principles, or what a model
         // found a studied video teaches.
-        let guidance = StyleStudy.planningGuidance(styleName: options.style?.name, saved: app.settings.referenceStyles)
+        // What the studied videos of this project's genre agree on comes first, when they have been merged.
+        let guidance = app.studyLibrary.planningGuidance(for: session.document.genre)
+            + StyleStudy.planningGuidance(styleName: options.style?.name, saved: app.settings.referenceStyles)
         guard let brief = EditPlanner.brief(analysis: analysis, options: options, picks: current.moments, excitement: signals?.excitement ?? [],
                                             step: signals?.step ?? 1, budget: budget, guidance: guidance) else {
             app.presentMessage(title: "There are no words to plan from",

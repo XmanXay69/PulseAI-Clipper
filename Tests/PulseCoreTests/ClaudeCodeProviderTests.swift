@@ -162,6 +162,31 @@ final class ClaudeCodeProviderTests: XCTestCase {
         XCTAssertTrue(seen.request?.schema.contains("\"opens_on_payoff\"") ?? false)
     }
 
+    func testAGenresLessonsAreMergedAtHighEffort() async throws {
+        final class Seen: @unchecked Sendable { var request: ClaudeCodeCLI.Request? }
+        let seen = Seen()
+        let provider = ClaudeCodeProvider(model: "claude-opus-5-5") { [self] request, _ in
+            seen.request = request
+            return self.output(self.success(["summary": "Fast and loud.", "rules": [["topic": "hook", "rule": "Open on the best moment.", "videos": [1, 2]]]]))
+        }
+        var library = StudyLibrary()
+        library.add([VideoSearchResult(videoID: "a", title: "How to edit gaming videos", channel: "One", duration: 600, views: 200),
+                     VideoSearchResult(videoID: "b", title: "Gaming editing tutorial", channel: "Two", duration: 600, views: 100)], to: .gamingVideo)
+        for id in ["a", "b"] {
+            library.record(StyleLessons(kind: .tutorial, summary: "", lessons: [.init(topic: .hook, rule: "Start with the payoff.")]), measured: nil, for: id)
+        }
+        let brief = try XCTUnwrap(GenreStudy.brief(genre: .gamingVideo, library: library))
+        let learned = try await provider.mergeLessons(brief: brief)
+        XCTAssertEqual(learned.rules.map(\.rule), ["Open on the best moment."])
+        XCTAssertEqual(learned.rules.first?.support, 2)
+        XCTAssertEqual(learned.videoCount, 2)
+        XCTAssertEqual(learned.writtenBy, "Claude (claude-opus-5-5) through Claude Code")
+        XCTAssertEqual(seen.request?.effort, "high")
+        XCTAssertEqual(seen.request?.system, GenreStudy.system)
+        XCTAssertTrue(seen.request?.user.contains("Video 2: Gaming editing tutorial (Two)") ?? false)
+        XCTAssertTrue(seen.request?.schema.contains("\"videos\"") ?? false)
+    }
+
     /// The real thing, start to finish, through a stand-in program: the text arrives on standard input, the
     /// program runs in an empty folder, and what it prints comes back.
     func testTheCommandIsRunWithTheTextAsItsInput() async throws {
@@ -272,6 +297,23 @@ final class ClaudeCodeProviderTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(lessons.lessons.count, 3)
         print("LIVE study kind=\(lessons.kind.rawValue) opens=\(String(describing: lessons.opensOnPayoff)) lessons=\(lessons.lessons.count) by=\(lessons.writtenBy)")
         for lesson in lessons.lessons.prefix(4) { print("LIVE lesson [\(lesson.topic.rawValue)] \(lesson.rule) <- \(lesson.evidence)") }
+
+        // Merging a genre's lessons.
+        var library = StudyLibrary()
+        library.add([VideoSearchResult(videoID: "a", title: "How to edit a gaming video", channel: "One", duration: 600, views: 300),
+                     VideoSearchResult(videoID: "b", title: "Gaming editing for beginners", channel: "Two", duration: 600, views: 200),
+                     VideoSearchResult(videoID: "c", title: "Edit gaming videos like a pro", channel: "Three", duration: 600, views: 100)], to: .gamingVideo)
+        library.record(lessons, measured: nil, for: "a")
+        library.record(StyleLessons(kind: .tutorial, summary: "", lessons: [.init(topic: .hook, rule: "Show the best moment in the first 5 to 10 seconds, before any intro."),
+                                                                            .init(topic: .pacing, rule: "Remove silences and filler words; keep reactions."),
+                                                                            .init(topic: .zooms, rule: "Zoom in 20 percent on reactions, eased over half a second.")]), measured: nil, for: "b")
+        library.record(StyleLessons(kind: .tutorial, summary: "", lessons: [.init(topic: .hook, rule: "Never start with a greeting or a logo."),
+                                                                            .init(topic: .sound, rule: "Keep sound effects quieter than the voice.")]), measured: nil, for: "c")
+        let mergeBrief = try XCTUnwrap(GenreStudy.brief(genre: .gamingVideo, library: library))
+        let learned = try await provider.mergeLessons(brief: mergeBrief)
+        XCTAssertGreaterThanOrEqual(learned.rules.count, 2)
+        print("LIVE merge rules=\(learned.rules.count) videos=\(learned.videoCount) summary=\(learned.summary)")
+        for rule in learned.rules.prefix(4) { print("LIVE rule [\(rule.topic.rawValue)] x\(rule.support) \(rule.rule)") }
     }
 }
 #endif

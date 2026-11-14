@@ -32,6 +32,12 @@ public enum VODDownloader {
         return destination
     }
 
+    /// The video's title, when YouTube gives one.
+    public static func title(videoID: String) async -> String? {
+        let title = (try? await YouTube(videoID: videoID, methods: [.local]).metadata)?.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (title?.isEmpty ?? true) ? nil : title
+    }
+
     /// Reports once per whole percent, not once per megabyte.
     private final class ProgressGate: @unchecked Sendable {
         private let lock = NSLock()

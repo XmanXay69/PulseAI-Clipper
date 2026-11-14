@@ -146,10 +146,21 @@ final class AppModel: ObservableObject {
     let batch = BatchController()
     /// "Edit Like a Reference": studies a video whose editing you like.
     let reference = ReferenceController()
+    /// Links to videos about editing each kind of video, studied one after another.
+    let studyLibrary = StudyLibraryController()
     /// In-app updates from GitHub Releases.
     let updater = AppUpdater()
     private var updaterObserver: AnyCancellable?
     @Published var showReferenceSheet = false
+    @Published var showStudyLibrary = false
+
+    /// Opens the study library. The sheet that asked for it closes first: two can't be up at once.
+    func openStudyLibrary() {
+        let wasOpen = showReferenceSheet || showLongFormSheet
+        showReferenceSheet = false
+        showLongFormSheet = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + (wasOpen ? 0.45 : 0)) { [weak self] in self?.showStudyLibrary = true }
+    }
     /// "Set up for my stream" (#441).
     @Published var showSetupWizard = false
     private var recordingObserver: AnyCancellable?
@@ -244,6 +255,7 @@ final class AppModel: ObservableObject {
         EngagementLexicon.customProfanity = settings.ai.normalizedExtraProfanity
         noteVersionChange()
         reference.app = self
+        studyLibrary.app = self
         updaterObserver = updater.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 1_500_000_000)

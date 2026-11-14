@@ -52,18 +52,36 @@ public struct VideoSearchResult: Hashable, Sendable {
     public var title: String
     public var channel: String
     public var duration: Seconds?
+    /// How many times it has been watched, when the page says.
+    public var views: Int? = nil
 }
 
 public enum YouTubeSearchParser {
     /// YouTube's own "Creative Commons" search filter.
     public static let creativeCommonsFilter = "EgIwAQ%3D%3D"
+    /// Videos only (no channels, playlists or Shorts shelves), in YouTube's own order of relevance.
+    public static let videosFilter = "EgIQAQ%3D%3D"
+    /// Videos only, most watched first.
+    public static let videosByViewsFilter = "CAMSAhAB"
 
     public static func searchURL(query: String, creativeCommons: Bool = true) -> URL {
+        searchURL(query: query, filter: creativeCommons ? creativeCommonsFilter : nil)
+    }
+
+    /// A search page, optionally with one of YouTube's filter codes (the `sp` parameter).
+    public static func searchURL(query: String, filter: String?) -> URL {
         var components = URLComponents(string: "https://www.youtube.com/results")!
         components.queryItems = [URLQueryItem(name: "search_query", value: query)]
         var string = components.url!.absoluteString
-        if creativeCommons { string += "&sp=\(creativeCommonsFilter)" }
+        if let filter { string += "&sp=\(filter)" }
         return URL(string: string)!
+    }
+
+    /// "718,209 views" / "1 view" / "No views" → the number. Nil when the text has none.
+    public static func parseViews(_ text: String) -> Int? {
+        if text.lowercased().hasPrefix("no views") { return 0 }
+        let digits = text.prefix { $0.isNumber || $0 == "," || $0 == "." || $0 == " " }.filter(\.isNumber)
+        return digits.isEmpty ? nil : Int(digits)
     }
 
     /// The first balanced `{…}` after `marker` (string-aware), e.g. `ytInitialData`.
@@ -105,7 +123,7 @@ public enum YouTubeSearchParser {
             guard let id = r["videoId"] as? String, seen.insert(id).inserted else { return nil }
             let duration = text(r["lengthText"]).flatMap(parseDuration)
             return VideoSearchResult(videoID: id, title: text(r["title"]) ?? "Untitled", channel: text(r["ownerText"]) ?? text(r["longBylineText"]) ?? "",
-                                     duration: duration)
+                                     duration: duration, views: text(r["viewCountText"]).flatMap(parseViews))
         }
     }
 

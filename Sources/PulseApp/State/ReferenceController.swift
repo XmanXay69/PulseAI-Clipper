@@ -33,50 +33,112 @@ final class ReferenceController: ObservableObject {
             return
         }
         let name = url.deletingPathExtension().lastPathComponent
-        isStudying = true
-        studyingName = name
-        progress = 0
-        stage = "Opening the video"
-        remaining = nil
-        failure = nil
-        current = nil
+        begin(name: name, stage: "Opening the video")
         PulseLog.info("Studying reference: \(url.lastPathComponent)")
         job = app.jobs.start("Studying reference · \(name)", kind: .analysis) { [weak self] job in
             guard let self else { return }
             do {
-                let plan = ImportPlan.make(urls: [url], existingPaths: [])
-                guard let item = plan.items.first else { throw EngineError.fileMissing(url) }
-                let asset = try await MediaImporter.makeAsset(for: item, cacheRoot: app.cacheFolder)
-                let speed = app.settings.ai.analysisSpeed
-                let base = speed.estimate(duration: asset.metadata.duration, hasAudio: asset.metadata.hasAudio, transcribe: true,
-                                          hasVideo: asset.metadata.hasVideo).total
-                // The finer frame pass and text reading add roughly half again.
-                job.expect(base * 1.5 + 5)
-                let study = try await ReferenceScanner.study(asset: asset, ai: app.settings.ai,
-                                                             cacheDirectory: PulseDirectories.cache("Reference", root: app.cacheFolder),
-                                                             progress: { p in
-                    Task { @MainActor [weak self] in
-                        job.progress = p.fraction
-                        job.detail = p.stage
-                        self?.progress = p.fraction
-                        self?.stage = p.stage
-                        self?.remaining = job.remainingText
-                    }
-                }, isCancelled: job.isCancelledCheck)
-                let style = study.style
-                self.keep(study.material, for: style)
-                app.settings.rememberStyle(style)
-                self.current = style
-                self.isStudying = false
-                app.logActivity(.analysis, title: "Studied the editing of “\(name)”", detail: style.summary, location: .local)
-                app.toast("Got it — \(style.summary.lowercased())")
-            } catch {
-                self.isStudying = false
-                if !Task.isCancelled, job.state == .running {
-                    self.failure = "Couldn't study that video: \(error.localizedDescription)"
+                let study = try await Self.scan(url, app: app, job: job, cache: app.cacheFolder, light: false, estimate: true) { [weak self] p in
+                    self?.show(p, job: job)
                 }
+                self.finish(study, named: nil)
+            } catch {
+                self.fail(error, job: job)
                 throw error
             }
+        }
+    }
+
+    /// Studies a YouTube video from its link: fetches it, measures it, keeps its words, and deletes the
+    /// download. Only youtube.com is contacted.
+    func study(link: String) {
+        guard let app, !isStudying else { return }
+        guard let videoID = YouTubeURL.videoID(from: link) else {
+            failure = "That doesn't look like a YouTube link. Paste the address of the video's page."
+            return
+        }
+        begin(name: "the linked video", stage: "Finding the video")
+        PulseLog.info("Studying linked reference: \(videoID)")
+        job = app.jobs.start("Studying a linked video", kind: .analysis) { [weak self] job in
+            guard let self else { return }
+            // The download and everything made while studying it live in one folder, removed at the end.
+            let work = PulseDirectories.cache("Study Downloads", root: app.cacheFolder).appendingPathComponent(videoID, isDirectory: true)
+            try? FileManager.default.removeItem(at: work)
+            defer { try? FileManager.default.removeItem(at: work) }
+            do {
+                let title = await VODDownloader.title(videoID: videoID)
+                if let title { self.studyingName = title }
+                let file = try await VODDownloader.download(videoID: videoID, into: work) { message in
+                    Task { @MainActor [weak self] in
+                        self?.stage = message
+                        job.detail = message
+                    }
+                }
+                let study = try await Self.scan(file, app: app, job: job, cache: work, light: false, estimate: true) { [weak self] p in
+                    self?.show(p, job: job)
+                }
+                self.finish(study, named: title ?? "YouTube video \(videoID)")
+            } catch {
+                self.fail(error, job: job)
+                throw error
+            }
+        }
+    }
+
+    /// Scans one video file as part of a background job. `cache` is where anything made along the way goes.
+    /// With `estimate`, the job is told how long this video should take.
+    static func scan(_ url: URL, app: AppModel, job: BackgroundJob, cache: URL, light: Bool, estimate: Bool,
+                     progress: @escaping @MainActor @Sendable (EngineProgress) -> Void) async throws -> ReferenceScanner.Study {
+        let plan = ImportPlan.make(urls: [url], existingPaths: [])
+        guard let item = plan.items.first else { throw EngineError.fileMissing(url) }
+        let asset = try await MediaImporter.makeAsset(for: item, cacheRoot: cache)
+        if estimate {
+            let base = app.settings.ai.analysisSpeed.estimate(duration: asset.metadata.duration, hasAudio: asset.metadata.hasAudio, transcribe: true,
+                                                              hasVideo: asset.metadata.hasVideo).total
+            // The finer frame pass and text reading add roughly half again.
+            job.expect(base * 1.5 + 5)
+        }
+        return try await ReferenceScanner.study(asset: asset, ai: app.settings.ai, cacheDirectory: PulseDirectories.cache("Reference", root: cache),
+                                                progress: { p in Task { @MainActor in progress(p) } },
+                                                isCancelled: job.isCancelledCheck, light: light)
+    }
+
+    private func begin(name: String, stage: String) {
+        isStudying = true
+        studyingName = name
+        progress = 0
+        self.stage = stage
+        remaining = nil
+        failure = nil
+        current = nil
+    }
+
+    private func show(_ p: EngineProgress, job: BackgroundJob) {
+        job.progress = p.fraction
+        job.detail = p.stage
+        progress = p.fraction
+        stage = p.stage
+        remaining = job.remainingText
+    }
+
+    /// Keeps a finished study: the style in settings, its words in the cache. `title` renames a style whose
+    /// file was named by a video id.
+    private func finish(_ study: ReferenceScanner.Study, named title: String?) {
+        guard let app else { return }
+        var style = study.style
+        if let title, !title.isEmpty { style.name = title }
+        keep(study.material, for: style)
+        app.settings.rememberStyle(style)
+        current = style
+        isStudying = false
+        app.logActivity(.analysis, title: "Studied the editing of “\(style.name)”", detail: style.summary, location: .local)
+        app.toast("Got it — \(style.summary.lowercased())")
+    }
+
+    private func fail(_ error: Error, job: BackgroundJob) {
+        isStudying = false
+        if !Task.isCancelled, job.state == .running {
+            failure = "Couldn't study that video: \(error.localizedDescription)"
         }
     }
 

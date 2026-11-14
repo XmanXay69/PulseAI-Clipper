@@ -42,6 +42,43 @@
   study the video again.
 - It works with a Claude API key, with a model running on this Mac, and in PULSE Dev (below).
 
+### Study from a link, and a library of videos to study
+- **Paste a YouTube link** in Edit Like a Reference and PULSE fetches the video, studies it and deletes
+  the download when it is done. Nothing has to be downloaded by hand first.
+- **Study Library** (File menu, and a button in Edit Like a Reference and under the genre in Edit My
+  VOD) holds, for each of the seven genres, the most-watched videos that teach editing that kind of
+  video. PULSE ships with 467 of them: Gaming video 100,
+  Cinematic 100, Montage 82, Challenge or story 69, Vlog 49, Commentary or podcast 49, Stream
+  highlights 18. Each row shows the channel, the views and the length, and opens on YouTube.
+- **"Study" works through a genre one video at a time**: fetch it from YouTube, measure it on this Mac,
+  have the language model read what was said and list the rules it teaches, keep those, delete the
+  download. Stop whenever you like; what is done stays done and the rest carries on later. A video that
+  can't be fetched or has nothing said in it is marked and passed over. If the model stops answering
+  (a usage limit, a sign-in), the run stops and says why, and the videos stay queued.
+- **What a genre's videos agree on.** When a run finishes, the model merges that genre's lessons into
+  at most twenty rules, each with how many videos teach it and up to three of them by name. **Plan with
+  the model** follows the ones about openings, pacing and story for a project of that genre, ahead of
+  the built-in principles. The merged rules are shown at the top of the library.
+- **"Find More"** runs the searches from your Mac (twenty phrasings per genre, in YouTube's own order
+  and most-watched first) and adds what passes the same filter, until the genre holds a hundred. You
+  can also paste any link into a genre.
+- **What to expect, honestly.**
+  - The shipped list is the most watched of what those searches returned on 14 November 2026 and
+    passed a title filter (about cutting, teaching something, naming the genre, in English, at least
+    10,000 views, three minutes to an hour). It is not a ranking of everything on YouTube, and for
+    some genres there are not a hundred such videos, which is why those lists are shorter: editing a
+    stream into a video has few popular tutorials. 42 of the 467 are the videos already watched for
+    this version's styles. A title filter lets some off-topic videos through, and some with English
+    titles are spoken in another language; a rule only one video teaches is dropped at the merge.
+  - A video takes a few minutes: the download, transcription and a pass over the frames. A genre of a
+    hundred is hours, so it is something to leave running. The batch uses a lighter scan than a single
+    study (no face detection, no second look at the cuts, fewer frames read for text).
+  - Each video is one request to the language model, and one more per genre for the merge. With PULSE
+    Dev that comes out of your Claude plan's limits.
+  - The models read words and PULSE's measurements. They do not see the picture or hear the sound.
+  - The automatic editor's own numbers are not changed by any of this. The rules reach the model that
+    plans an edit, not the built-in styles.
+
 ### PULSE Dev: a build of your own that uses your Claude account
 - **`./scripts/build-dev-app.sh`** builds "PULSE Dev", a copy for the Mac it is built on, that can ask
   the Claude Code installed and signed in there. Titles and captions, caption translation, Plan with the

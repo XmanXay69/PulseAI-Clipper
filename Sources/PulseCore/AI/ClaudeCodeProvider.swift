@@ -317,6 +317,12 @@ public struct ClaudeCodeProvider: InsightProvider, TranslationProvider, EditPlan
         return try StyleStudy.parse(answer.json, writtenBy: answer.label)
     }
 
+    public func mergeLessons(brief: GenreStudyBrief) async throws -> GenreKnowledge {
+        let answer = try await ask(.init(system: GenreStudy.system, user: brief.text, schema: ClaudeCodeCLI.text(GenreStudy.schema),
+                                         effort: "high", timeout: 1500))
+        return try GenreStudy.parse(answer.json, brief: brief, writtenBy: answer.label)
+    }
+
     /// Asks for one word back: proof that the command runs and is signed in. Returns the model that answered.
     public func check() async throws -> String {
         let schema: [String: Any] = ["type": "object", "properties": ["ready": ["type": "boolean"]], "required": ["ready"], "additionalProperties": false]

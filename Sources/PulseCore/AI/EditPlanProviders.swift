@@ -184,6 +184,11 @@ extension AnthropicInsightProvider: StyleStudyProvider {
         let reply = try await judge(system: StyleStudy.system, schema: StyleStudy.schema, user: brief.text)
         return try StyleStudy.parse(try Self.object(in: reply, what: "lessons"), writtenBy: "Claude (\(reply.servedBy))")
     }
+
+    public func mergeLessons(brief: GenreStudyBrief) async throws -> GenreKnowledge {
+        let reply = try await judge(system: GenreStudy.system, schema: GenreStudy.schema, user: brief.text)
+        return try GenreStudy.parse(try Self.object(in: reply, what: "rules"), brief: brief, writtenBy: "Claude (\(reply.servedBy))")
+    }
 }
 
 extension OpenAICompatibleInsightProvider: EditPlanProvider {
@@ -256,5 +261,10 @@ extension OpenAICompatibleInsightProvider: StyleStudyProvider {
     public func studyStyle(brief: StyleStudyBrief) async throws -> StyleLessons {
         let answer = try await complete(system: StyleStudy.system + "\n\n" + StyleStudy.shapeInWords, user: brief.text)
         return try StyleStudy.parse(try Self.object(completion: answer.completion, what: "lessons"), writtenBy: answer.servedBy)
+    }
+
+    public func mergeLessons(brief: GenreStudyBrief) async throws -> GenreKnowledge {
+        let answer = try await complete(system: GenreStudy.system + "\n\n" + GenreStudy.shapeInWords, user: brief.text)
+        return try GenreStudy.parse(try Self.object(completion: answer.completion, what: "rules"), brief: brief, writtenBy: answer.servedBy)
     }
 }

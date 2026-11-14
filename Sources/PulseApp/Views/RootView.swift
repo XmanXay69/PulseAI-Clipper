@@ -59,6 +59,7 @@ struct RootView: View {
         }
         .sheet(isPresented: Binding(get: { app.updater.showSheet }, set: { app.updater.showSheet = $0 })) { UpdateSheet(updater: app.updater) }
         .sheet(isPresented: $app.showReferenceSheet) { ReferenceSheet(reference: app.reference).environmentObject(app) }
+        .sheet(isPresented: $app.showStudyLibrary) { StudyLibrarySheet(library: app.studyLibrary).environmentObject(app) }
         .sheet(isPresented: $app.showSetupWizard) { SetupWizardSheet().environmentObject(app) }
         .sheet(item: $app.thumbnailRequest) { request in
             if let session = app.session { ThumbnailSheet(session: session, request: request).environmentObject(app) }

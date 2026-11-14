@@ -120,7 +120,13 @@ public actor OnlineMusicLibrary {
     }
 
     func search(_ query: String) async throws -> [VideoSearchResult] {
-        var request = URLRequest(url: YouTubeSearchParser.searchURL(query: query, creativeCommons: true))
+        try await searchVideos(query, filter: YouTubeSearchParser.creativeCommonsFilter)
+    }
+
+    /// One page of YouTube's search for a phrase, with one of its filter codes (see `YouTubeSearchParser`).
+    /// Only youtube.com is contacted; nothing about the user is sent.
+    public func searchVideos(_ query: String, filter: String?) async throws -> [VideoSearchResult] {
+        var request = URLRequest(url: YouTubeSearchParser.searchURL(query: query, filter: filter))
         request.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
         request.httpShouldHandleCookies = false

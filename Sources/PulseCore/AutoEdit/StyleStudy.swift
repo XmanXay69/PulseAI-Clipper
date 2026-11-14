@@ -318,4 +318,6 @@ public enum StyleStudy {
 /// providers and by any OpenAI-compatible local server. Only text is sent.
 public protocol StyleStudyProvider: AIProvider {
     func studyStyle(brief: StyleStudyBrief) async throws -> StyleLessons
+    /// Merges the lessons of one genre's studied videos into the rules they agree on.
+    func mergeLessons(brief: GenreStudyBrief) async throws -> GenreKnowledge
 }

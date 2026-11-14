@@ -238,11 +238,35 @@ struct LongFormSheet: View {
                     .padding(.top, 4)
                 }
                 .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                studyLibraryLine(genre)
             } else {
                 Text(suggestedGenre.map { "Pick one and PULSE cuts the way that kind of video is edited. This recording looks like \($0.displayName.lowercased()) (the dot)." }
                      ?? "Pick one and PULSE cuts the way that kind of video is edited.")
                     .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
             }
+        }
+    }
+
+    /// What the study library holds for a genre, and the way into it.
+    func studyLibraryLine(_ genre: VideoGenre) -> some View {
+        let library = app.studyLibrary.library
+        let studied = library.count(in: genre, state: .studied)
+        let total = library.count(in: genre)
+        let note: String
+        if let learned = library.knowledge(for: genre) {
+            let rules = learned.planningGuidance.count
+            note = "Plan with the model also follows \(rules) rule\(rules == 1 ? "" : "s") merged from \(learned.videoCount) studied video\(learned.videoCount == 1 ? "" : "s")."
+        } else if studied > 0 {
+            note = "\(studied) of \(total) videos about editing this kind of video are studied. Merge them in the study library and Plan with the model follows their rules."
+        } else {
+            note = "\(total) video\(total == 1 ? "" : "s") about editing this kind of video \(total == 1 ? "is" : "are") waiting in the study library."
+        }
+        return HStack(spacing: 8) {
+            Text(note).font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 8)
+            Button("Study Library…") { app.openStudyLibrary() }
+                .buttonStyle(.pulse(.ghost, compact: true))
+                .fixedSize()
         }
     }
 

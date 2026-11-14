@@ -12,6 +12,7 @@ struct ReferenceSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var answers = ReferenceAnswers()
     @State private var dropTargeted = false
+    @State private var link = ""
     /// The extras question before a long-form edit.
     @State private var askingExtras = false
 
@@ -96,9 +97,19 @@ struct ReferenceSheet: View {
                 VStack(spacing: 10) {
                     Image(systemName: "film.stack").font(.system(size: 30)).foregroundStyle(dropTargeted ? Theme.accent : Theme.textTertiary)
                     Text("Drop a reference video here").font(.pulseHeadline).foregroundStyle(Theme.textPrimary)
-                    Text("A YouTube video, TikTok or short you'd like yours to feel like. Download it first — PULSE studies it right here on your Mac; nothing is uploaded.")
+                    Text("A video, TikTok or short you'd like yours to feel like. PULSE studies it right here on your Mac; nothing is uploaded.")
                         .font(.pulseCaption).foregroundStyle(Theme.textTertiary).multilineTextAlignment(.center).frame(maxWidth: 420)
                     Button("Choose Video…") { choose() }.buttonStyle(.pulsePrimary)
+                    HStack(spacing: 8) {
+                        TextField("or paste a YouTube link", text: $link)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit { studyLink() }
+                        Button("Study Link") { studyLink() }
+                            .buttonStyle(.pulse(.secondary, compact: true))
+                            .disabled(YouTubeURL.videoID(from: link) == nil)
+                    }
+                    .frame(maxWidth: 420)
+                    .help("PULSE fetches the video from YouTube, studies it, and deletes the download when it is done")
                 }
                 .frame(maxWidth: .infinity)
                 .padding(28)
@@ -120,6 +131,17 @@ struct ReferenceSheet: View {
                     SectionLabel(text: "Styles you've studied")
                     ForEach(reference.saved) { style in savedRow(style) }
                 }
+                HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Study library").font(.pulseCaption).foregroundStyle(Theme.textPrimary)
+                        Text("The most-watched videos about editing each kind of video, studied one after another and merged into rules for that genre.")
+                            .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 8)
+                    Button("Open Library…") { app.openStudyLibrary() }
+                        .buttonStyle(.pulse(.secondary, compact: true))
+                }
+                .padding(.top, 4)
             }
             .padding(20)
         }
@@ -325,6 +347,12 @@ struct ReferenceSheet: View {
                 }
             }
         }
+    }
+
+    func studyLink() {
+        guard YouTubeURL.videoID(from: link) != nil else { return }
+        reference.study(link: link)
+        link = ""
     }
 
     func question<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {

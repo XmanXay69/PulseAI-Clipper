@@ -192,6 +192,7 @@ struct PulseCommands: Commands {
             Button("Open Sample Project") { app.openDemoProject() }
             Button("Edit Like a Reference…") { app.showReferenceSheet = true }
                 .keyboardShortcut("r", modifiers: [.command, .option])
+            Button("Study Library…") { app.openStudyLibrary() }
             Button("Check Edit") { app.session?.checkEdit() }
                 .keyboardShortcut("k", modifiers: [.command, .shift])
                 .disabled(app.session?.activeTimeline == nil)

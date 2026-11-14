@@ -50,7 +50,8 @@ it as "None (local only)".
 | Titles and captions for a clip | AI Clips → a clip → Generate |
 | Caption translation | Captions → Translate |
 | Planning a long video from its whole transcript | Edit My VOD → Plan with the model |
-| What a studied video teaches | Edit Like a Reference → study a video → Ask what it teaches |
+| What a studied video teaches | Edit Like a Reference → study a video or a link → Ask what it teaches |
+| Working through a genre's videos, and merging what they teach | File → Study Library → Study |
 
 ## What is sent, and what it costs
 

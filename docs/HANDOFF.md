@@ -207,6 +207,12 @@ Key files to know:
   pass, and the Claude Code bridge's marker is in that binary and not in the normal one (`DEV-GATE-OK`).
   The walk-through also prints what a reference study kept for a language model (`UI-STUDY-WORDS`) and
   photographs the lessons card with a stand-in answer (`20b-reference-lessons`); no model is asked in CI.
+- The study library: `UI-LIBRARY` prints how many links ship per genre, and `20c-study-library` shows the
+  window part-way through a genre (stand-in rows; nothing is fetched or asked in CI). The list itself is
+  `Sources/PulseCore/AutoEdit/StudySeeds.swift`, built from real YouTube search pages with
+  `StudyFinder`'s own filter; `StudySeedGatherTests` is the tool that rebuilds it from saved pages
+  (`PULSE_SEED_QUERIES=1` prints the searches, `PULSE_SEED_DIR=<folder of pages>` prints the list).
+  Downloading, studying and deleting a real video is not exercised in CI.
 
 - 366 unit/engine tests (timeline edit ops, undo, project save/recovery, transcript parsers, clip generation,
   captions, layouts, export settings, audio DSP, the fuzzed timeline invariants, and one `BatchNTests.swift`

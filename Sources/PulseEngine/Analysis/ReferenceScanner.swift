@@ -20,21 +20,23 @@ public enum ReferenceScanner {
         try await study(asset: asset, ai: ai, cacheDirectory: cacheDirectory, progress: progress, isCancelled: isCancelled).style
     }
 
+    /// `light` is for studying many videos in a row for what they say: no face detection and no finer
+    /// second look at the cuts, and fewer frames read for text. The measurements are coarser; the words are the same.
     public static func study(asset: MediaAsset, ai: AISettings, cacheDirectory: URL, progress: @escaping ProgressHandler,
-                             isCancelled: @escaping @Sendable () -> Bool = { false }) async throws -> Study {
+                             isCancelled: @escaping @Sendable () -> Bool = { false }, light: Bool = false) async throws -> Study {
         let url = MediaAccess.resolve(asset)
         let duration = asset.metadata.duration
         guard duration > 1 else { throw EngineError.fileMissing(url) }
 
         // 1. Audio, speech and the standard frame pass (0–60 %).
         let pipeline = AnalysisPipeline(cacheDirectory: cacheDirectory)
-        let options = AnalysisPipeline.Options(transcribe: true, detectFaces: true, ai: ai, speed: ai.analysisSpeed)
+        let options = AnalysisPipeline.Options(transcribe: true, detectFaces: !light, ai: ai, speed: ai.analysisSpeed)
         var analysis = try await pipeline.run(asset: asset, options: options, progress: { p in
             progress(EngineProgress(stage: "Listening to the reference — \(p.stage.lowercased())", fraction: p.fraction * 0.6))
         }, isCancelled: isCancelled).analysis
 
         // 2. A finer look at the cuts and zooms (60–85 %): ≤ 1,200 frames, faces on every one.
-        if asset.metadata.hasVideo || asset.kind == .video {
+        if !light, asset.metadata.hasVideo || asset.kind == .video {
             let interval = max(0.5, duration / 1200)
             if interval < (analysis.visual?.hop ?? 1) || (analysis.visual?.faces.count ?? 0) < Int(duration / 2) {
                 let fine = try await VisualAnalyzer().analyze(url: url, duration: duration,
@@ -47,7 +49,7 @@ public enum ReferenceScanner {
         }
 
         // 3. Read the on-screen text (85–100 %): ≤ 300 frames.
-        let text = try await readText(url: url, duration: duration, progress: { fraction in
+        let text = try await readText(url: url, duration: duration, frames: light ? 120 : 300, progress: { fraction in
             progress(EngineProgress(stage: "Reading the captions", fraction: 0.85 + fraction * 0.15))
         }, isCancelled: isCancelled)
 
@@ -61,7 +63,7 @@ public enum ReferenceScanner {
     }
 
     /// Text lines on evenly spaced frames, in normalized top-left coordinates.
-    static func readText(url: URL, duration: Seconds, progress: @escaping (Double) -> Void,
+    static func readText(url: URL, duration: Seconds, frames: Int = 300, progress: @escaping (Double) -> Void,
                          isCancelled: @escaping @Sendable () -> Bool) async throws -> [TextSample] {
         let asset = AVURLAsset(url: url)
         let tracks = try await asset.loadTracks(withMediaType: .video)
@@ -69,7 +71,7 @@ public enum ReferenceScanner {
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
         generator.maximumSize = CGSize(width: 960, height: 960)
-        let interval = max(1, duration / 300)
+        let interval = max(1, duration / Double(max(frames, 1)))
         let tolerance = CMTime(seconds: min(0.25, interval / 4), preferredTimescale: 600)
         generator.requestedTimeToleranceBefore = tolerance
         generator.requestedTimeToleranceAfter = tolerance

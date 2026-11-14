@@ -470,6 +470,17 @@ enum UISnapshotter {
                 }
                 app.showReferenceSheet = false
                 try? await Task.sleep(nanoseconds: 600_000_000)
+                // The study library: the shipped list per genre, and the window as it looks part-way through one.
+                // The studied rows and the merged rules are stand-ins that say so; nothing is fetched or asked in CI.
+                let shipped = app.studyLibrary.library
+                let perGenre = VideoGenre.allCases.map { "\($0.displayName) \(shipped.count(in: $0))" }.joined(separator: ", ")
+                FileHandle.standardError.write(Data("UI-LIBRARY \(shipped.videos.count) videos shipped: \(perGenre)\n".utf8))
+                app.studyLibrary.showSample(genre: session.document.genre ?? .gamingVideo)
+                app.showStudyLibrary = true
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                capture(app: app, name: "20c-study-library", to: directory)
+                app.showStudyLibrary = false
+                try? await Task.sleep(nanoseconds: 700_000_000)
                 if let style = app.reference.current {
                     var answers = ReferenceAnswers.recommended(for: style)
                     answers.length = .short
