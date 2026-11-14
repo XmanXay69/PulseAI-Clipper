@@ -137,6 +137,40 @@ jobs:
         env:
           EXPECT_FRAMES: ${{ matrix.os == 'macos-26' && '1' || '0' }}
 
+      # The owner's personal dev configuration (-DPULSE_DEV, the Claude Code bridge) is never released, so
+      # nothing above compiles it. It is built and its tests run here, in its own build folder, so it
+      # cannot rot unnoticed. One runner is enough.
+      - name: Cache dev configuration build
+        if: ${{ matrix.os == 'macos-26' }}
+        uses: actions/cache@v4
+        with:
+          path: .build-dev
+          key: spm-dev-${{ matrix.os }}-${{ hashFiles('Package.swift') }}-${{ github.sha }}
+          restore-keys: |
+            spm-dev-${{ matrix.os }}-${{ hashFiles('Package.swift') }}-
+
+      - name: Dev configuration builds and passes its tests
+        if: ${{ matrix.os == 'macos-26' && steps.build.outcome == 'success' }}
+        run: |
+          set +e
+          swift build --build-tests --build-path .build-dev -Xswiftc -DPULSE_DEV 2>&1 | tee build-dev.log
+          status=${PIPESTATUS[0]}
+          if [ $status -ne 0 ]; then
+            echo "================ COMPILER ERRORS (dev configuration) ================"
+            grep -E "error:" build-dev.log | sort -u | head -200
+            exit $status
+          fi
+          swift test --skip-build --build-path .build-dev -Xswiftc -DPULSE_DEV --filter "ClaudeCode|DevBuildGate|StyleStudy" 2>&1 | tee test-dev.log
+          status=${PIPESTATUS[0]}
+          grep -E "Executed [0-9]+ tests" test-dev.log | tail -1
+          # The bridge must be in this build and must not be in the one that ships.
+          dev_bin="$(swift build --build-path .build-dev -Xswiftc -DPULSE_DEV --show-bin-path)/PULSE"
+          pub_bin="$(swift build --show-bin-path)/PULSE"
+          if ! LC_ALL=C grep -q "pulse.dev.claude-code" "$dev_bin"; then echo "DEV-GATE-FAIL the dev build has no Claude Code bridge"; status=1; fi
+          if LC_ALL=C grep -q "pulse.dev.claude-code" "$pub_bin"; then echo "DEV-GATE-FAIL the public build contains the Claude Code bridge"; status=1; fi
+          [ $status -eq 0 ] && echo "DEV-GATE-OK bridge present in the dev build, absent from the public build"
+          exit $status
+
       - name: Build PULSE.app
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.bundle || contains(github.event.head_commit.message, '[app]') }}
         run: ./scripts/build-app.sh

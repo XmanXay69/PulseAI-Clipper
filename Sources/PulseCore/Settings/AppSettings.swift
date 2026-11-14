@@ -20,13 +20,31 @@ public enum CloudProviderKind: String, Codable, CaseIterable, Sendable {
     case none
     case anthropic
     case openAICompatible
+    /// The Claude Code command signed in on this Mac. Only a personal dev build (`PULSE_DEV`) offers it and
+    /// acts on it; the public app reads it as `none`, so one settings file serves both.
+    case claudeCode
 
     public var displayName: String {
         switch self {
         case .none: return "None (local only)"
         case .anthropic: return "Claude (Anthropic)"
         case .openAICompatible: return "OpenAI-compatible / local LLM server"
+        case .claudeCode: return "Claude Code (your Claude account)"
         }
+    }
+
+    /// Whether this copy of PULSE was built as the owner's personal dev build.
+    public static var isDevBuild: Bool {
+        #if PULSE_DEV
+        return true
+        #else
+        return false
+        #endif
+    }
+
+    /// The choices this copy of PULSE offers in Settings.
+    public static var offered: [CloudProviderKind] {
+        allCases.filter { $0 != .claudeCode || isDevBuild }
     }
 }
 
@@ -110,6 +128,8 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var cloudModel: String = "claude-opus-5-5"
     public var openAIBaseURL: String = "http://localhost:1234/v1"
     public var openAIIsLocalServer: Bool = true
+    /// Dev build: where the `claude` command is, when it isn't in one of the usual places. Empty = find it.
+    public var claudeCodePath: String = ""
     /// Learned analysis speed of this Mac (for time estimates).
     public var analysisSpeed: AnalysisSpeedProfile = AnalysisSpeedProfile()
     /// What you find entertaining, learned from 👍 / 👎.
@@ -125,6 +145,12 @@ public struct AISettings: Codable, Hashable, Sendable {
     public var editStyleByProfile: [String: String] = [:]
 
     public init() {}
+
+    /// The provider this copy of PULSE acts on: what Settings says, except that Claude Code counts as none
+    /// outside the dev build.
+    public var activeCloudProvider: CloudProviderKind {
+        cloudProvider == .claudeCode && !CloudProviderKind.isDevBuild ? .none : cloudProvider
+    }
 
     /// `memeTexts` keyed by tag.
     public var memeTextsByTag: [ClipTag: String] {
@@ -199,6 +225,7 @@ public struct AISettings: Codable, Hashable, Sendable {
         cloudModel = c.decode(String.self, forKey: .cloudModel, default: d.cloudModel)
         openAIBaseURL = c.decode(String.self, forKey: .openAIBaseURL, default: d.openAIBaseURL)
         openAIIsLocalServer = c.decode(Bool.self, forKey: .openAIIsLocalServer, default: d.openAIIsLocalServer)
+        claudeCodePath = c.decode(String.self, forKey: .claudeCodePath, default: d.claudeCodePath)
         analysisSpeed = c.decode(AnalysisSpeedProfile.self, forKey: .analysisSpeed, default: d.analysisSpeed)
         taste = c.decode(TasteProfile.self, forKey: .taste, default: d.taste)
         coachCalibration = c.decode(CoachCalibration?.self, forKey: .coachCalibration, default: nil)

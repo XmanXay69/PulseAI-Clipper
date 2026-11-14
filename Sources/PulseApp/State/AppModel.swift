@@ -1034,7 +1034,7 @@ final class AppModel: ObservableObject {
             "Hardware encoders: H.264 \(VideoEncoders.hardwareAvailable(for: .h264) ? "yes" : "no") · HEVC \(VideoEncoders.hardwareAvailable(for: .hevc) ? "yes" : "no") · ProRes \(VideoEncoders.hardwareAvailable(for: .proRes422) ? "yes" : "no")",
             "Transcription: \(transcription.text)",
             "Cache: \(cacheFolder.path) (\(ByteCountFormatter.string(fromByteCount: diskInfo.cacheBytes, countStyle: .file))) · free \(ByteCountFormatter.string(fromByteCount: diskInfo.availableBytes, countStyle: .file))",
-            "Processing policy: \(settings.ai.processingPolicy) · cloud provider: \(settings.ai.cloudProvider.displayName) · online music: \(settings.ai.onlineMusic)",
+            "Processing policy: \(settings.ai.processingPolicy) · cloud provider: \(settings.ai.activeCloudProvider.displayName) · online music: \(settings.ai.onlineMusic)",
             "Open project: \(session?.document.name ?? "none") · \(session?.document.timelines.count ?? 0) timelines · \(session?.document.media.count ?? 0) media",
             "",
             "Last log lines:",

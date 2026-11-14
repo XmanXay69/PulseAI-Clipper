@@ -21,6 +21,11 @@ struct PulseMain: App {
                 exit(1)
             }
         }
+        #if PULSE_DEV
+        // Dev build: `PULSE --claude-check` asks Claude Code for one word, prints what happened and exits.
+        // The dev build script runs it, so a missing install or sign-in shows up before the app is opened.
+        if args.contains("--claude-check") { DevCheck.run() }
+        #endif
         // `PULSE --render-dmg-background <dir>` writes the installer window background (1× and 2× PNGs).
         if let i = args.firstIndex(of: "--render-dmg-background"), i + 1 < args.count {
             do {

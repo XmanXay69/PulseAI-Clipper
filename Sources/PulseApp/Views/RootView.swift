@@ -138,7 +138,7 @@ struct Sidebar: View {
     var collapsed: Bool { app.section.isWorkspace ? !expandedOnWorkspace : app.settings.sidebarCollapsed }
 
     /// Whether anything leaves this Mac: only when a cloud model is switched on.
-    var isLocal: Bool { app.settings.ai.cloudProvider == .none || app.settings.ai.processingPolicy == .alwaysLocal }
+    var isLocal: Bool { app.settings.ai.activeCloudProvider == .none || app.settings.ai.processingPolicy == .alwaysLocal }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -489,7 +489,7 @@ struct SystemStatusIndicator: View {
     @State private var showPopover = false
 
     var location: ProcessingLocation {
-        app.settings.ai.cloudProvider == .none || app.settings.ai.processingPolicy == .alwaysLocal ? .local : .cloud
+        app.settings.ai.activeCloudProvider == .none || app.settings.ai.processingPolicy == .alwaysLocal ? .local : .cloud
     }
 
     var attention: Bool { memory.level != .normal || FrameRenderer.safeMode || (!Connectivity.shared.isOnline && location == .cloud) }

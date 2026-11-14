@@ -586,7 +586,7 @@ struct CandidateDetailPanel: View {
                 }
                 .buttonStyle(.pulse(.ghost, compact: true))
                 .disabled(aiBusy)
-                .help(app.settings.ai.cloudProvider == .none ? "Uses PULSE's local title generator" : "Sends only the transcript text to \(app.settings.ai.cloudProvider.displayName)")
+                .help(app.settings.ai.activeCloudProvider == .none ? "Uses PULSE's local title generator" : "Sends only the transcript text to \(app.settings.ai.activeCloudProvider.displayName)")
             }
             CopyRow(label: "YouTube Shorts", text: candidate.copy.shortsTitle)
             CopyRow(label: "TikTok", text: candidate.copy.tiktokCaption)
@@ -737,12 +737,29 @@ struct FlowChips: View {
 
 /// Resolves the insight provider from settings (Keychain API keys for cloud providers).
 enum AIProviders {
+    #if PULSE_DEV
+    /// Dev build: Claude through the Claude Code command signed in on this Mac. When the command can't be
+    /// found, the provider says so the moment it is asked for anything.
+    static func claudeCode(settings: AISettings) -> ClaudeCodeProvider? {
+        let model = settings.cloudModel.isEmpty ? "claude-opus-5-5" : settings.cloudModel
+        guard let executable = ClaudeCodeCLI.locate(custom: settings.claudeCodePath) else {
+            return ClaudeCodeProvider(model: model) { _, _ in throw AIProviderError.unavailable(ClaudeCodeCLI.notInstalled) }
+        }
+        return ClaudeCodeProvider(model: model, executable: executable)
+    }
+    #else
+    /// Only the personal dev build can reach Claude Code; `activeCloudProvider` never names it here.
+    static func claudeCode(settings: AISettings) -> AnthropicInsightProvider? { nil }
+    #endif
+
     /// The translation provider (#248): the configured cloud provider or a local OpenAI-compatible server; nil when
     /// nothing is set up (PULSE has no built-in translation model).
     static func translationProvider(settings: AISettings) -> TranslationProvider? {
-        switch settings.cloudProvider {
+        switch settings.activeCloudProvider {
         case .none:
             return nil
+        case .claudeCode:
+            return claudeCode(settings: settings)
         case .anthropic:
             guard let key = KeychainStore.read(account: "anthropic"), !key.isEmpty else { return nil }
             return AnthropicInsightProvider(apiKey: key, model: settings.cloudModel.isEmpty ? "claude-opus-5-5" : settings.cloudModel)
@@ -756,9 +773,11 @@ enum AIProviders {
     /// The provider that can plan an edit from a transcript (#1281): the configured cloud provider or a local
     /// OpenAI-compatible server; nil when nothing is set up (PULSE's own planner needs no model).
     static func editPlanProvider(settings: AISettings) -> EditPlanProvider? {
-        switch settings.cloudProvider {
+        switch settings.activeCloudProvider {
         case .none:
             return nil
+        case .claudeCode:
+            return claudeCode(settings: settings)
         case .anthropic:
             guard let key = KeychainStore.read(account: "anthropic"), !key.isEmpty else { return nil }
             return AnthropicInsightProvider(apiKey: key, model: settings.cloudModel.isEmpty ? "claude-opus-5-5" : settings.cloudModel)
@@ -770,9 +789,12 @@ enum AIProviders {
     }
 
     static func insightProvider(settings: AISettings) -> InsightProvider {
-        switch settings.cloudProvider {
+        switch settings.activeCloudProvider {
         case .none:
             return LocalInsightProvider()
+        case .claudeCode:
+            let provider: InsightProvider? = claudeCode(settings: settings)
+            return provider ?? LocalInsightProvider()
         case .anthropic:
             guard let key = KeychainStore.read(account: "anthropic"), !key.isEmpty else { return LocalInsightProvider() }
             return AnthropicInsightProvider(apiKey: key, model: settings.cloudModel.isEmpty ? "claude-opus-5-5" : settings.cloudModel)

@@ -27,7 +27,7 @@ enum ProblemReporter {
             "Transcription: \(TranscriptionEngineFactory.friendlyStatus(settings: app.settings.ai).text)",
             "Analysis speed (s per media-minute): audio \(String(format: "%.2f", app.settings.ai.analysisSpeed.audio)), "
                 + "speech \(String(format: "%.2f", app.settings.ai.analysisSpeed.transcription)), video \(String(format: "%.2f", app.settings.ai.analysisSpeed.video))",
-            "Cloud AI: \(app.settings.ai.cloudProvider.displayName)",
+            "Cloud AI: \(app.settings.ai.activeCloudProvider.displayName)",
         ]
         if let session = app.session {
             let doc = session.document

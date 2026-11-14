@@ -399,8 +399,8 @@ struct AIProcessingSettings: View {
         }
         SettingsGroup("Cloud AI provider (optional)", footnote: "API keys are stored in your macOS Keychain, never in project files.") {
             SettingsRow("Provider") {
-                Picker("", selection: $app.settings.ai.cloudProvider) {
-                    ForEach(CloudProviderKind.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                Picker("", selection: Binding(get: { app.settings.ai.activeCloudProvider }, set: { app.settings.ai.cloudProvider = $0 })) {
+                    ForEach(CloudProviderKind.offered, id: \.self) { Text($0.displayName).tag($0) }
                 }
                 .labelsHidden().frame(width: 260)
                 .disabled(app.settings.ai.processingPolicy == .alwaysLocal)
@@ -409,9 +409,11 @@ struct AIProcessingSettings: View {
                 Label("Always Local is on, so cloud providers are disabled.", systemImage: "lock.fill")
                     .font(.pulseCaption).foregroundStyle(Theme.success)
             }
-            switch app.settings.ai.cloudProvider {
+            switch app.settings.ai.activeCloudProvider {
             case .none:
                 EmptyView()
+            case .claudeCode:
+                claudeCodeRows
             case .anthropic:
                 SettingsRow("Model") {
                     TextField("claude-opus-5-5", text: $app.settings.ai.cloudModel).textFieldStyle(.roundedBorder).frame(width: 260)
@@ -474,6 +476,48 @@ struct AIProcessingSettings: View {
             keyStatus = "Couldn't save to the Keychain."
         }
     }
+
+    /// Dev build only: the rows for Claude through the Claude Code command on this Mac.
+    @ViewBuilder var claudeCodeRows: some View {
+        #if PULSE_DEV
+        let found = ClaudeCodeCLI.locate(custom: app.settings.ai.claudeCodePath)
+        SettingsRow("Model", detail: "A full model name, or opus, sonnet, haiku.") {
+            TextField("claude-opus-5-5", text: $app.settings.ai.cloudModel).textFieldStyle(.roundedBorder).frame(width: 260)
+        }
+        SettingsRow("Claude Code command", detail: found.map { "Using \($0.path)" } ?? "Not found. Install Claude Code, or give the path to “claude” here.") {
+            TextField("Found automatically", text: $app.settings.ai.claudeCodePath).textFieldStyle(.roundedBorder).frame(width: 260)
+        }
+        Label("Dev build. PULSE asks the Claude Code on this Mac, under the account it is signed in to, so this counts against your Claude plan's limits. It sends transcript text only, with Claude Code's tools switched off. The public PULSE doesn't have this.",
+              systemImage: "hammer.fill")
+            .font(.pulseCaption).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+        HStack(spacing: 8) {
+            Spacer()
+            Button(testing ? "Testing…" : "Test Connection") { testClaudeCode() }
+                .buttonStyle(.pulse(.secondary, compact: true))
+                .disabled(testing)
+        }
+        #else
+        EmptyView()
+        #endif
+    }
+
+    #if PULSE_DEV
+    func testClaudeCode() {
+        testing = true
+        keyStatus = nil
+        let settings = app.settings.ai
+        Task {
+            do {
+                guard let provider = AIProviders.claudeCode(settings: settings) else { throw AIProviderError.unavailable(ClaudeCodeCLI.notInstalled) }
+                let model = try await provider.check()
+                keyStatus = "Connected: \(model) answered through Claude Code."
+            } catch {
+                keyStatus = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
+            testing = false
+        }
+    }
+    #endif
 
     func test() {
         testing = true
@@ -1321,8 +1365,8 @@ struct PrivacyPane: View {
     var body: some View {
         SettingsGroup("What leaves your Mac", footnote: "Video, audio, transcripts and projects stay on this Mac. Nothing is uploaded unless a line below says so, and each one has its own switch.") {
             line("Analysis, transcription, captions, edits, exports", on: false, detail: "On this Mac, always. Whisper and Apple Speech run locally.")
-            line("Cloud AI (titles, captions rewrite)", on: app.settings.ai.cloudProvider != .none,
-                 detail: app.settings.ai.cloudProvider == .none ? "Off — PULSE's local generator is used." : "Only transcript text goes to \(app.settings.ai.cloudProvider.displayName), and only when you ask (policy: \(app.settings.ai.processingPolicy)).")
+            line("Cloud AI (titles, captions rewrite)", on: app.settings.ai.activeCloudProvider != .none,
+                 detail: app.settings.ai.activeCloudProvider == .none ? "Off — PULSE's local generator is used." : "Only transcript text goes to \(app.settings.ai.activeCloudProvider.displayName), and only when you ask (policy: \(app.settings.ai.processingPolicy)).")
             line("Creative Commons music and B-roll", on: app.settings.ai.onlineMusic || app.settings.ai.editExtras.brollClips,
                  detail: "Searches and downloads go to youtube.com / googlevideo.com. Nothing about your video is sent — only the mood words.")
             line("Update check", on: true, detail: "Help → Check for Updates reads GitHub Releases. No identifiers are sent.")
