@@ -17,3 +17,5 @@ DerivedData/
 __pycache__/
 *.pyc
 /.build-dev
+# The YouTube dependency floats on purpose (Package.swift: "from 0.4.9"), so the lock file is not kept.
+/Package.resolved
