@@ -55,7 +55,7 @@ open build/PULSE.app
 
 | Module | What it is |
 |---|---|
-| `PulseCore` (pure Swift, 480 unit tests) | Timeline model + all edit ops (split, ripple, trim, speed, link, text-based delete/restore), snapshot undo/redo, `.pulse` project packages (autosave, rotating backups, versions, crash recovery), transcripts (SRT/VTT/whisper.cpp/OpenAI JSON), filler words, silence detection, audio sync, engagement model + AI clip generation (HOOK→CONTEXT→PAYOFF→END, AI Potential), titles/hooks, captions (8 presets, paging, word timing, emphasis, safe areas), streamer layouts + facecam detection, AI reframing, punch-ins, one-click short builder, "Make More Entertaining", templates, export presets/queue, AI provider abstraction + privacy policy (Local / Claude / OpenAI-compatible), settings, global search, multicam (sync groups, angle cuts, AI switching, grid layouts), compound clips (nested timelines), speaker diarization (segmenting, embedding clustering, MFCC fallback clustering, labels) |
+| `PulseCore` (pure Swift, 482 unit tests) | Timeline model + all edit ops (split, ripple, trim, speed, link, text-based delete/restore), snapshot undo/redo, `.pulse` project packages (autosave, rotating backups, versions, crash recovery), transcripts (SRT/VTT/whisper.cpp/OpenAI JSON), filler words, silence detection, audio sync, engagement model + AI clip generation (HOOK→CONTEXT→PAYOFF→END, AI Potential), titles/hooks, captions (8 presets, paging, word timing, emphasis, safe areas), streamer layouts + facecam detection, AI reframing, punch-ins, one-click short builder, "Make More Entertaining", templates, export presets/queue, AI provider abstraction + privacy policy (Local / Claude / OpenAI-compatible), settings, global search, multicam (sync groups, angle cuts, AI switching, grid layouts), compound clips (nested timelines), speaker diarization (segmenting, embedding clustering, MFCC fallback clustering, labels) |
 | `PulseEngine` (AVFoundation, Vision, Speech, Core Image/Metal, SQLite) | Media probing/import, thumbnails, waveforms, proxies, audio analysis, Vision face detection, Apple Speech + whisper.cpp transcription, composition builder + custom `AVVideoCompositing` compositor (layouts, masks, crops, keyframes, captions, text, color, LUTs, effects, transitions), AVAssetWriter export (H.264/HEVC hardware, ProRes), playback controller, demo media generator, SQLite library index with FTS5 transcript search, ScreenCaptureKit + camera/mic session recorder (pause/resume), audio enhance chain, neural speaker encoder (GE2E LSTM via BLAS) + MFCC fallback |
 | `PulseApp` (SwiftUI) | Sidebar app: Home, Projects, Import, AI Clips, Editor (viewer, timeline, inspector, transcript), Captions, Media, Templates, Exports, Settings; onboarding, recovery, ⌘F global search, background jobs, toasts, keyboard shortcuts |
 
@@ -75,7 +75,10 @@ Key files to know:
   `scratchpad` scripts that turned the pickers into `PulseSegmented` and made every `RoundedRectangle` continuous
   are not in the repo; new code should use both directly. `Sources/PulseCore/AutoEdit/EditorPlaybook.swift` is the
   editing knowledge: six `EditorPlaybook`s (a `ReferenceStyle` fingerprint + `PacingRules` + principles),
-  `PlaybookCoach` (static stretches, re-hook gaps, effect pile-ups, caption length) called from `EditCoach.review`,
+  `PlaybookCoach` (static stretches, re-hook gaps, effect pile-ups, caption length, zooms that snap in a style that
+  glides) called from `EditCoach.review`; `PacingRules.zoomRamp` is how fast a punch-in lands in that style
+  (`PunchInGenerator` eases in and out from 0.4 s up; `LongFormEditor`, `ReferenceStyle.shortOptions` and
+  `EntertainmentEditor` pass it on),
   and `Timeline.editStyle`, set by `LongFormEditor.build` when the options' style is a playbook's, which
   `EditorPlaybook.rules(for:)` reads so the coach judges an edit by its own style. `LongFormSheet.editStyleSection`
   is the style menu (`longForm.editStyle` in defaults; `apply(_:)` sets the switches); `ReferenceSheet` lists the

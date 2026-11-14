@@ -179,7 +179,8 @@ public enum PunchInGenerator {
             let release = min(clip.duration, holdEnd + settings.rampDuration * 1.5)
             var zoom = timeline.tracks[ti].clips[ci].transform.zoom
             let base = zoom.value
-            zoom.setKeyframe(at: rampStart, value: base, interpolation: .easeOut, aiGenerated: true)
+            // A short ramp lands hard (ease-out); a long one starts slow, travels and settles (ease-in-out).
+            zoom.setKeyframe(at: rampStart, value: base, interpolation: settings.rampDuration >= 0.4 ? .easeInOut : .easeOut, aiGenerated: true)
             zoom.setKeyframe(at: max(local, rampStart + 0.05), value: base * level, interpolation: .hold, aiGenerated: true)
             if holdEnd < clip.duration - 0.05 {
                 zoom.setKeyframe(at: holdEnd, value: base * level, interpolation: .easeInOut, aiGenerated: true)

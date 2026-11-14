@@ -108,10 +108,10 @@ struct AIClipsView: View {
                     .buttonStyle(.pulse(.ai, compact: true))
                     .disabled(session.document.primaryAsset == nil)
                     .help("Turn the whole stream into a 10–20 minute YouTube video")
-                Button { app.showReferenceSheet = true } label: { Label("Like a reference", systemImage: "wand.and.stars") }
+                Button { app.showReferenceSheet = true } label: { Label("Editing styles", systemImage: "wand.and.stars") }
                     .buttonStyle(.pulse(.secondary, compact: true))
                     .disabled(session.document.primaryAsset == nil)
-                    .help("Edit your VOD the way a video you love is edited (⌥⌘R)")
+                    .help("Cut your VOD in one of six editing styles, or the way a video you love is edited (⌥⌘R)")
                 Button { regenerateAll() } label: { Label("Find again", systemImage: "arrow.clockwise") }
                     .buttonStyle(.pulse(.secondary, compact: true))
                     .disabled(session.document.primaryAsset == nil)
@@ -307,16 +307,12 @@ struct ClipCandidateCard: View {
                     TagChip(text: "\(1 + (candidate.extraRanges?.count ?? 0)) moments · \(Int(candidate.totalDuration.rounded()))s", symbol: "rectangle.stack")
                         .help("Built from several moments joined with cuts")
                 }
-                HStack(spacing: 4) {
-                    ForEach(candidate.tags.prefix(2), id: \.self) { tag in TagChip(text: tag.displayName) }
-                    if candidate.timelineID == nil {
-                        TagChip(text: app.settings.ai.captionPresetName.isEmpty ? "TikTok captions" : "\(app.settings.ai.captionPresetName) captions", symbol: "captions.bubble")
-                            .help("The caption look this short gets (Settings → AI Features); change it per short in Captions (#61)")
-                    }
-                    Spacer(minLength: 2)
-                    Text(PerformanceTier(score: candidate.potential).emoji).font(.system(size: 10))
-                        .help(PerformanceTier(score: candidate.potential).displayName)
-                    PotentialMeter(potential: candidate.potential)
+                // The tags give way before the card does: a card never grows wider than its column.
+                ViewThatFits(in: .horizontal) {
+                    tagRow(tags: 2, captions: true)
+                    tagRow(tags: 2, captions: false)
+                    tagRow(tags: 1, captions: false)
+                    tagRow(tags: 0, captions: false)
                 }
                 HStack(spacing: 6) {
                     if candidate.status == .dismissed {
@@ -405,6 +401,22 @@ struct ClipCandidateCard: View {
         }
         guard let pair else { return nil }
         return pair.a.id == candidate.id ? pair.b : pair.a
+    }
+
+    /// Tags, the caption look and the score on one line; `ViewThatFits` picks the fullest version that fits.
+    func tagRow(tags: Int, captions: Bool) -> some View {
+        HStack(spacing: 4) {
+            ForEach(candidate.tags.prefix(tags), id: \.self) { tag in TagChip(text: tag.displayName) }
+            if captions, candidate.timelineID == nil {
+                TagChip(text: app.settings.ai.captionPresetName.isEmpty ? "TikTok captions" : "\(app.settings.ai.captionPresetName) captions", symbol: "captions.bubble")
+                    .help("The caption look this short gets (Settings → AI Features); change it per short in Captions (#61)")
+            }
+            Spacer(minLength: 2)
+            Text(PerformanceTier(score: candidate.potential).emoji).font(.system(size: 10))
+                .help(PerformanceTier(score: candidate.potential).displayName)
+            PotentialMeter(potential: candidate.potential)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     var preview: some View {

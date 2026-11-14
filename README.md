@@ -18,7 +18,7 @@ Already installed? PULSE shows an **Update** button when a new version is out â€
 surfaces, one blue accent, soft 12-pt cards, a page header on every page, a rounded sidebar, quiet tags and the
 app's own segmented control â€” with every feature where it was. And the auto-editor learns six editing styles
 (Retention cut, Story first, Clean commentary, Punchy short, Smooth and cinematic, On the beat), written down
-from what working editors teach: pick one in Edit Like a Reference and PULSE cuts your VOD that way, and the
+from what working editors teach: pick one in Edit My VOD or Edit Like a Reference and PULSE cuts your VOD that way, and the
 coach now flags held shots, missing sections, piled-up sound effects and caption pages too long to read
 ([notes](versions/1.7.0/NOTES.md)). Next: [800 more ideas](docs/IDEAS-800.md).
 

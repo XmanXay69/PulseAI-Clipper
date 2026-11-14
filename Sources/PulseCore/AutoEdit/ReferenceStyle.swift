@@ -581,6 +581,7 @@ extension ReferenceStyle {
             let scale = closely ? zoomScale : (zoomScale + options.punchInSettings.reactionZoom) / 2
             options.punchInSettings.reactionZoom = scale.clamped(1.06, 1.45)
             options.punchInSettings.punchlineZoom = (1 + (scale - 1) * 0.7).clamped(1.04, 1.35)
+            if let playbook = EditorPlaybook.playbook(for: self) { options.punchInSettings.rampDuration = playbook.rules.zoomRamp }
         }
         if answers.copySoundEffects { options.soundEffects = closely ? hasSoundEffects : effectsPerMinute >= 0.3 }
         return options

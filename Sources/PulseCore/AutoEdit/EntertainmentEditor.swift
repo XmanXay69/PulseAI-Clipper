@@ -102,6 +102,8 @@ public enum EntertainmentEditor {
             if let target = faceTrack?.id ?? timeline.videoTracks.first?.id, !moments.isEmpty {
                 var settings = PunchInSettings()
                 settings.minimumSpacing = 2.5
+                // An edit cut in a built-in style keeps that style's kind of zoom.
+                if let playbook = timeline.editStyle.flatMap({ EditorPlaybook.playbook(id: $0) }) { settings.rampDuration = playbook.rules.zoomRamp }
                 PunchInGenerator.apply(moments: moments, to: &timeline, trackID: target, settings: settings)
                 report.punchIns = timeline.tracks.first { $0.id == target }?.clips.map { $0.transform.zoom.keyframes.filter(\.aiGenerated).count / 3 }.reduce(0, +) ?? 0
             }

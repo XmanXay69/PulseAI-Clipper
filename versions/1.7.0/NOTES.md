@@ -33,7 +33,10 @@ is where it was; what changed is how it is drawn.
   cue, in the same family as BulkBoard's mark.
 - **Fixes along the way.** The mini viewer on AI Clips and Media is as wide as its picture instead of
   stretching across the window. Track headers are wide enough for "A1 Dialogue". Edit My VOD's footer no
-  longer shortens its buttons to "Choos…".
+  longer shortens its buttons to "Choos…". An AI Clips card drops a tag before it grows wider than its
+  column, so cards line up with even gaps. Home's quick actions fit their words, and "Like a Reference"
+  there and on AI Clips is now "Editing styles". A project's status sits on a dark pill over its thumbnail
+  so it reads in both themes.
 - **Tests.** The engine tests that speak a sentence with the system voice now try three times and skip
   when a machine's voice makes no sound (a hosted runner's speech service sometimes isn't up yet); the
   release check speaks its sentence up to three times for the same reason.
@@ -51,9 +54,14 @@ cinematic** and **On the beat** (montages).
 - **What a style is.** A fingerprint in the form a studied reference gets (cuts and zooms a minute, zoom
   strength, caption look, pop-ups, pause tightness, music, effects, fades, a fast opening), the pacing rules
   it lives by, and five principles. The existing editors turn the fingerprint into the edit.
+- **How a zoom arrives.** Each style also says how fast a punch-in lands. Retention cut, Punchy short and
+  On the beat snap in within a tenth to a sixth of a second. Clean commentary takes 0.4 s. Smooth and
+  cinematic takes 0.6 s and eases in and out, so the move starts slow, travels and settles. Edit My VOD,
+  shorts cut in a style and Make More Entertaining all use the style's figure.
 - **The coach knows the rules.** New advice: a stretch with no cut, zoom or pop-up (held tighter in the
   opening, given twice the room on gameplay); no new section for minutes on a long video; sound effects
-  piled up until none land; caption pages or lines too long to read at a glance. An edit remembers the
+  piled up until none land; caption pages or lines too long to read at a glance; zooms that jump in on an edit cut in a style whose
+  moves glide. An edit remembers the
   style it was cut in and is judged by that style's rules, so "Clean commentary" isn't told to cut faster.
 - **What it is not.** Nothing here is a trained model. The styles are editing craft turned into numbers:
   a hook that lands early, something new before attention drifts, a reset every couple of minutes, effects
@@ -88,8 +96,8 @@ endorsement by the people named.
   with the twenty to do first at the top.
 
 ### Checked
-- Compiled and tested on GitHub's macOS 26 (Apple silicon) and macOS 15 (Intel) runners: 501 tests, of
-  which 480 are core tests (nine new for the styles and the coach) and 21 run the engine end to end.
+- Compiled and tested on GitHub's macOS 26 (Apple silicon) and macOS 15 (Intel) runners: 503 tests, of
+  which 482 are core tests (eleven new for the styles and the coach) and 21 run the engine end to end.
 - Every page and sheet screenshotted on CI in the new look and reviewed; the README's screenshots are from
   that run.
 - The light theme is screenshotted on CI for Home, AI Clips, the editor, Exports and Settings; sheets now

@@ -185,6 +185,75 @@ final class EditorPlaybookTests: XCTestCase {
         XCTAssertFalse(bare.contains { $0.id == "static-stretch" })
     }
 
+    func testASmoothStyleGlidesItsZoomsAndTheCoachCatchesSnaps() throws {
+        // Every style says how fast a punch-in arrives; only the calm ones glide.
+        XCTAssertTrue(EditorPlaybook.smooth.rules.zoomsGlide)
+        XCTAssertTrue(EditorPlaybook.commentary.rules.zoomsGlide)
+        XCTAssertFalse(EditorPlaybook.retention.rules.zoomsGlide)
+        XCTAssertFalse(EditorPlaybook.punchyShort.rules.zoomsGlide)
+        XCTAssertFalse(PacingRules.standard(for: .longForm).zoomsGlide)
+        XCTAssertFalse(PacingRules.standard(for: .short).zoomsGlide)
+        XCTAssertTrue(EditorPlaybook.smooth.recipe.contains { $0.contains("easing in over 0.6 s") })
+        XCTAssertFalse(EditorPlaybook.retention.recipe.contains { $0.contains("easing in") })
+
+        // The same two moments, cut the default way and the smooth way.
+        var snappy = Fixtures.simpleTimeline(clipDuration: 30)
+        PunchInGenerator.apply(moments: [.reaction(8), .reaction(20)], to: &snappy, trackID: snappy.tracks[0].id)
+        var gliding = Fixtures.simpleTimeline(clipDuration: 30)
+        var settings = PunchInSettings()
+        settings.rampDuration = EditorPlaybook.smooth.rules.zoomRamp
+        PunchInGenerator.apply(moments: [.reaction(8), .reaction(20)], to: &gliding, trackID: gliding.tracks[0].id, settings: settings)
+
+        XCTAssertEqual(PlaybookCoach.zoomArrivals(in: snappy).count, 2)
+        XCTAssertEqual(PlaybookCoach.zoomArrivals(in: snappy).max() ?? 9, 0.18, accuracy: 0.01)
+        XCTAssertEqual(PlaybookCoach.zoomArrivals(in: gliding).min() ?? 0, 0.6, accuracy: 0.01)
+        let first = try XCTUnwrap(gliding.tracks[0].clips[0].transform.zoom.keyframes.first)
+        XCTAssertEqual(first.interpolation, .easeInOut, "a long ramp starts slow and settles")
+        XCTAssertEqual(snappy.tracks[0].clips[0].transform.zoom.keyframes.first?.interpolation, .easeOut)
+
+        // Held to the smooth style, the snappy cut is told so and the gliding one isn't.
+        let smooth = EditorPlaybook.smooth.rules
+        let told = try XCTUnwrap(PlaybookCoach.suggestions(for: snappy, format: .longForm, rules: smooth).first { $0.id == "snap-zooms" })
+        XCTAssertTrue(told.detail.contains("2 of 2"), told.detail)
+        XCTAssertEqual(told.severity, .tip)
+        XCTAssertFalse(PlaybookCoach.suggestions(for: gliding, format: .longForm, rules: smooth).contains { $0.id == "snap-zooms" })
+        // A style that snaps on purpose never hears it, and one snap among glides is left alone.
+        XCTAssertFalse(PlaybookCoach.suggestions(for: snappy, format: .longForm, rules: EditorPlaybook.retention.rules).contains { $0.id == "snap-zooms" })
+        XCTAssertFalse(PlaybookCoach.suggestions(for: snappy, format: .longForm, rules: .standard(for: .longForm)).contains { $0.id == "snap-zooms" })
+        // Pop-up text may pop: it isn't a zoom on the footage.
+        var popped = gliding
+        var meme = TimelineClip(name: "Meme", content: .text(TextElement(text: "BRUH")), start: 10, sourceIn: 0, sourceDuration: 2)
+        meme.transform.scale.setKeyframe(at: 0, value: 0.6, interpolation: .easeOut, aiGenerated: true)
+        meme.transform.scale.setKeyframe(at: 0.1, value: 1, interpolation: .linear, aiGenerated: true)
+        popped.tracks[2].clips = [meme]
+        XCTAssertEqual(PlaybookCoach.zoomArrivals(in: popped).count, 2)
+    }
+
+    func testAStylesRampReachesTheEditItCuts() throws {
+        let duration: Seconds = 3000
+        let analysis = MediaAnalysis(assetID: Fixtures.assetID, duration: duration,
+                                     audio: Fixtures.audio(duration: duration, spikes: Array(stride(from: 150.0, to: 2900, by: 230))),
+                                     transcript: Fixtures.transcript(duration: duration), profile: .gameplay)
+        let asset = Fixtures.mediaAsset(duration: duration)
+        func arrivals(_ playbook: EditorPlaybook) -> [Seconds] {
+            var answers = ReferenceAnswers.recommended(for: playbook.style)
+            answers.copyZooms = true
+            let options = playbook.style.longFormOptions(answers)
+            return PlaybookCoach.zoomArrivals(in: LongFormEditor.build(asset: asset, analysis: analysis, options: options).timeline)
+        }
+        let smooth = arrivals(.smooth)
+        let retention = arrivals(.retention)
+        XCTAssertFalse(smooth.isEmpty)
+        XCTAssertFalse(retention.isEmpty)
+        // Most of a smooth edit's zooms take the full ramp (one near a clip's start can be shorter).
+        let glides = smooth.filter { $0 >= 0.55 }.count
+        XCTAssertGreaterThan(Double(glides), Double(smooth.count) * 0.6, "\(smooth)")
+        XCTAssertLessThan(retention.max() ?? 9, 0.3, "\(retention)")
+        // A short in a built-in style carries the ramp too.
+        let short = EditorPlaybook.punchyShort.style.shortOptions(.recommended(for: EditorPlaybook.punchyShort.style), base: ShortBuildOptions())
+        XCTAssertEqual(short.punchInSettings.rampDuration, EditorPlaybook.punchyShort.rules.zoomRamp, accuracy: 0.001)
+    }
+
     func testAnEditRemembersTheStyleItWasCutInAndIsJudgedByIt() throws {
         let duration: Seconds = 3000
         let analysis = MediaAnalysis(assetID: Fixtures.assetID, duration: duration,

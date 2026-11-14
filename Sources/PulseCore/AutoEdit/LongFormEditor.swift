@@ -527,7 +527,8 @@ public enum LongFormEditor {
             settings.punchlineZoom = 1 + (settings.reactionZoom - 1) * 0.6
             settings.minimumSpacing = options.zoomSpacing
             settings.holdDuration = 1.8
-            settings.rampDuration = 0.25
+            // A built-in style brings its own ramp: Retention cut snaps in, Smooth and cinematic glides.
+            settings.rampDuration = options.style.flatMap { tuning in EditorPlaybook.all.first { $0.name == tuning.name } }?.rules.zoomRamp ?? 0.25
             // A fast reference punches in and out on the sentences too, not just the big reactions.
             if let style = options.style, style.rhythmZooms, let words = analysis.transcript?.words {
                 settings.statementZoom = 1 + (settings.reactionZoom - 1) * 0.5

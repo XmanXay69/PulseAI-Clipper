@@ -19,9 +19,18 @@ public struct PacingRules: Codable, Hashable, Sendable {
     public var maxCaptionWords: Int
     /// Longest caption line, in characters.
     public var maxCaptionLineLength: Int
+    /// How long a punch-in takes to arrive. Short ones snap (a jolt on the joke); from 0.4 s up the move
+    /// starts slow, travels and settles, and the coach treats a zoom that jumps in as out of style.
+    public var zoomRamp: Seconds
+
+    /// From this ramp up, a style is one where moves glide rather than snap.
+    public static let glidingRamp: Seconds = 0.4
+
+    public var zoomsGlide: Bool { zoomRamp >= PacingRules.glidingRamp }
 
     public init(hookDeadline: Seconds, maxStaticStretch: Seconds, openingStaticStretch: Seconds, rehookInterval: Seconds,
-                maxZoomsPerMinute: Double, maxEffectsPerMinute: Double, maxCaptionWords: Int, maxCaptionLineLength: Int) {
+                maxZoomsPerMinute: Double, maxEffectsPerMinute: Double, maxCaptionWords: Int, maxCaptionLineLength: Int,
+                zoomRamp: Seconds = 0.25) {
         self.hookDeadline = hookDeadline
         self.maxStaticStretch = maxStaticStretch
         self.openingStaticStretch = openingStaticStretch
@@ -30,6 +39,7 @@ public struct PacingRules: Codable, Hashable, Sendable {
         self.maxEffectsPerMinute = maxEffectsPerMinute
         self.maxCaptionWords = maxCaptionWords
         self.maxCaptionLineLength = maxCaptionLineLength
+        self.zoomRamp = zoomRamp
     }
 
     /// What an edit is held to when no playbook was chosen: a phone short decides in two or three seconds and
@@ -39,7 +49,7 @@ public struct PacingRules: Codable, Hashable, Sendable {
         switch format {
         case .short:
             return PacingRules(hookDeadline: 2, maxStaticStretch: 8, openingStaticStretch: 5, rehookInterval: 0,
-                               maxZoomsPerMinute: 10, maxEffectsPerMinute: 12, maxCaptionWords: 4, maxCaptionLineLength: 26)
+                               maxZoomsPerMinute: 10, maxEffectsPerMinute: 12, maxCaptionWords: 4, maxCaptionLineLength: 26, zoomRamp: 0.18)
         case .longForm:
             return PacingRules(hookDeadline: 15, maxStaticStretch: 30, openingStaticStretch: 15, rehookInterval: 180,
                                maxZoomsPerMinute: 4, maxEffectsPerMinute: 6, maxCaptionWords: 8, maxCaptionLineLength: 42)
@@ -110,7 +120,7 @@ extension EditorPlaybook {
                               popupsPerMinute: 1.0, wordsPerMinute: 190, pauseRatio: 0.04, musicBed: 0.75, effectsPerMinute: 4,
                               fadesPerMinute: 0.1, opensFast: true),
         rules: PacingRules(hookDeadline: 8, maxStaticStretch: 15, openingStaticStretch: 8, rehookInterval: 120,
-                           maxZoomsPerMinute: 8, maxEffectsPerMinute: 8, maxCaptionWords: 4, maxCaptionLineLength: 26),
+                           maxZoomsPerMinute: 8, maxEffectsPerMinute: 8, maxCaptionWords: 4, maxCaptionLineLength: 26, zoomRamp: 0.16),
         principles: [
             Principle("Open on the moment", "No greeting, no logo. The first seconds show the best thing that happens, then the story starts."),
             Principle("Change something every few seconds", "A cut, a punch-in, a word on screen or a sound. Vary which one, or the changes become the pattern."),
@@ -130,7 +140,7 @@ extension EditorPlaybook {
                               popupsPerMinute: 0.4, wordsPerMinute: 165, pauseRatio: 0.09, musicBed: 0.85, effectsPerMinute: 1.5,
                               fadesPerMinute: 0.35, opensFast: true),
         rules: PacingRules(hookDeadline: 15, maxStaticStretch: 25, openingStaticStretch: 12, rehookInterval: 150,
-                           maxZoomsPerMinute: 3, maxEffectsPerMinute: 4, maxCaptionWords: 8, maxCaptionLineLength: 42),
+                           maxZoomsPerMinute: 3, maxEffectsPerMinute: 4, maxCaptionWords: 8, maxCaptionLineLength: 42, zoomRamp: 0.3),
         principles: [
             Principle("Make a promise in fifteen seconds", "Say what the viewer will get and show a taste of it. Then start delivering."),
             Principle("Pace is new information", "A video feels fast when something new keeps arriving, not when the cuts come quicker."),
@@ -150,7 +160,7 @@ extension EditorPlaybook {
                               popupsPerMinute: 0.05, wordsPerMinute: 155, pauseRatio: 0.11, musicBed: 0.25, effectsPerMinute: 0.2,
                               fadesPerMinute: 0.25, opensFast: false),
         rules: PacingRules(hookDeadline: 20, maxStaticStretch: 40, openingStaticStretch: 20, rehookInterval: 180,
-                           maxZoomsPerMinute: 2, maxEffectsPerMinute: 1.5, maxCaptionWords: 10, maxCaptionLineLength: 42),
+                           maxZoomsPerMinute: 2, maxEffectsPerMinute: 1.5, maxCaptionWords: 10, maxCaptionLineLength: 42, zoomRamp: 0.4),
         principles: [
             Principle("Cut on a change of thought", "Hold a shot through the whole statement. A cut mid-gesture or mid-word reads as a mistake."),
             Principle("Push in slowly", "A gentle move across a long answer keeps the frame alive without calling attention to itself."),
@@ -170,7 +180,7 @@ extension EditorPlaybook {
                               popupsPerMinute: 1.5, wordsPerMinute: 200, pauseRatio: 0.03, musicBed: 0.3, effectsPerMinute: 4,
                               fadesPerMinute: 0, opensFast: true),
         rules: PacingRules(hookDeadline: 2, maxStaticStretch: 6, openingStaticStretch: 4, rehookInterval: 0,
-                           maxZoomsPerMinute: 10, maxEffectsPerMinute: 10, maxCaptionWords: 3, maxCaptionLineLength: 22),
+                           maxZoomsPerMinute: 10, maxEffectsPerMinute: 10, maxCaptionWords: 3, maxCaptionLineLength: 22, zoomRamp: 0.12),
         principles: [
             Principle("Win the first three seconds", "Lead with the most interesting moment. If the first sentence takes three seconds to reach its point, start later."),
             Principle("One or two words per beat", "Animated captions in mixed case, with the stressed word coloured, kept above the bottom of the frame where the app's buttons sit."),
@@ -190,7 +200,7 @@ extension EditorPlaybook {
                               popupsPerMinute: 0.2, wordsPerMinute: 150, pauseRatio: 0.1, musicBed: 0.95, effectsPerMinute: 2,
                               fadesPerMinute: 0.6, opensFast: false),
         rules: PacingRules(hookDeadline: 12, maxStaticStretch: 20, openingStaticStretch: 12, rehookInterval: 150,
-                           maxZoomsPerMinute: 4, maxEffectsPerMinute: 4, maxCaptionWords: 7, maxCaptionLineLength: 42),
+                           maxZoomsPerMinute: 4, maxEffectsPerMinute: 4, maxCaptionWords: 7, maxCaptionLineLength: 42, zoomRamp: 0.6),
         principles: [
             Principle("Smoothness is the secret", "Graphics ease on instead of snapping, zooms glide, transitions never start abruptly. Harsh moves pull the viewer out."),
             Principle("Shape the speed of every move", "A move that starts slow, travels and settles reads as intended. A constant-speed one reads as a preset."),
@@ -209,7 +219,7 @@ extension EditorPlaybook {
                               captions: nil, popupsPerMinute: 0.3, wordsPerMinute: nil, pauseRatio: nil, musicBed: 1, effectsPerMinute: 3,
                               fadesPerMinute: 0.3, opensFast: true),
         rules: PacingRules(hookDeadline: 3, maxStaticStretch: 6, openingStaticStretch: 4, rehookInterval: 60,
-                           maxZoomsPerMinute: 8, maxEffectsPerMinute: 6, maxCaptionWords: 4, maxCaptionLineLength: 26),
+                           maxZoomsPerMinute: 8, maxEffectsPerMinute: 6, maxCaptionWords: 4, maxCaptionLineLength: 26, zoomRamp: 0.1),
         principles: [
             Principle("Cut on the kick and the snare", "Hard cuts sit on the beat. The eye forgives almost anything that lands in time."),
             Principle("Build, drop, breathe", "Short shots into the drop, the biggest play on it, a longer shot after."),
@@ -246,7 +256,8 @@ extension EditorPlaybook {
         var lines: [String] = []
         lines.append("A cut about every \(ReferenceStyle.seconds(style.averageShotLength))")
         if style.hasZooms {
-            lines.append("A punch-in about every \(ReferenceStyle.seconds(60 / style.zoomsPerMinute)), \(Int(((style.zoomScale - 1) * 100).rounded()))% closer")
+            lines.append("A punch-in about every \(ReferenceStyle.seconds(60 / style.zoomsPerMinute)), \(Int(((style.zoomScale - 1) * 100).rounded()))% closer"
+                         + (rules.zoomsGlide ? ", easing in over \(String(format: "%.1f", rules.zoomRamp)) s" : ""))
         }
         if let captions = style.captions, style.hasCaptions {
             lines.append(captions.wordsOnScreen < 2.5 ? "Captions a word or two at a time" : "Captions about \(Int(captions.wordsOnScreen.rounded())) words at a time")
@@ -304,6 +315,23 @@ public enum PlaybookCoach {
         return stretches
     }
 
+    /// How long each zoom-in on the footage takes to arrive, in seconds (0 for one that jumps). Pop-up text is
+    /// left out: a word that pops is meant to.
+    public static func zoomArrivals(in timeline: Timeline) -> [Seconds] {
+        var arrivals: [Seconds] = []
+        for track in timeline.tracks where track.kind == .video && !track.isHidden {
+            for clip in track.clips where clip.isEnabled {
+                guard case .media = clip.content else { continue }
+                for property in [clip.transform.zoom, clip.transform.scale] {
+                    for (a, b) in zip(property.keyframes, property.keyframes.dropFirst()) where b.value > a.value + 1e-3 {
+                        arrivals.append(a.interpolation == .hold ? 0 : max(0, b.time - a.time))
+                    }
+                }
+            }
+        }
+        return arrivals
+    }
+
     /// Times a long video marks a new section: a chapter marker, a new music bed, a transition, a layout change.
     public static func resets(in timeline: Timeline) -> [Seconds] {
         var times = timeline.markers.map(\.time) + timeline.layoutChanges.map(\.time)
@@ -338,6 +366,18 @@ public enum PlaybookCoach {
                     detail: "From \(Timecode.short(worst.range.start)) the edit holds one framing. A punch-in, a cutaway or a word on screen about every \(Int(worst.limit.rounded())) s keeps eyes on it"
                         + (opening ? "; the opening is where most viewers decide to stay." : "."),
                     severity: opening || worst.excess > 2 ? .recommended : .tip, fix: .addZooms, symbol: "rectangle.dashed"))
+            }
+        }
+
+        // Zooms that jump in, in a style whose moves glide.
+        if rules.zoomsGlide {
+            let arrivals = zoomArrivals(in: timeline)
+            let snaps = arrivals.filter { $0 < rules.zoomRamp * 0.5 }.count
+            if snaps >= 2, snaps * 2 >= arrivals.count {
+                out.append(EditSuggestion(
+                    id: "snap-zooms", title: "Zooms snap in",
+                    detail: "\(snaps) of \(arrivals.count) zooms arrive in under \(String(format: "%.1f", rules.zoomRamp * 0.5)) s. This style lets a move start slow, travel and settle over about \(String(format: "%.1f", rules.zoomRamp)) s, so it reads as intended instead of as a jolt. Pull the two keyframes apart and set the first to ease in and out.",
+                    severity: .tip, fix: .none, symbol: "plus.magnifyingglass"))
             }
         }
 

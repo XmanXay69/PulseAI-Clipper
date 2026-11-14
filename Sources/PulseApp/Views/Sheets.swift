@@ -175,7 +175,7 @@ struct GlobalSearchView: View {
         if hasProject {
             list += [
                 Action(id: "act.vod", title: "Edit My VOD…", subtitle: "A 10–20 minute YouTube video from the whole stream") { app.showLongFormSheet = true },
-                Action(id: "act.reference", title: "Edit Like a Reference…", subtitle: "Copy the style of a video you love") { app.showReferenceSheet = true },
+                Action(id: "act.reference", title: "Edit Like a Reference…", subtitle: "Six editing styles, or copy a video you love") { app.showReferenceSheet = true },
                 Action(id: "act.clips", title: "Generate AI Clips", subtitle: "Find the best moments for shorts") {
                     if let session = app.session, let asset = session.document.primaryAsset { session.generateCandidates(assetID: asset.id) }
                 },

@@ -94,21 +94,24 @@ struct HomeView: View {
             QuickActionTile(symbol: "record.circle", title: "Record", subtitle: "Screen + webcam + mic") {
                 app.showRecordSheet = true
             }
-            QuickActionTile(symbol: "sparkles.rectangle.stack", title: "Shorts + YouTube Video", subtitle: "Whole VOD, one click") {
+            QuickActionTile(symbol: "sparkles.rectangle.stack", title: "Shorts + YouTube", subtitle: "Whole VOD, one click") {
                 app.runFullPipeline()
             }
+            .help("Finds the shorts and cuts the YouTube video from the same stream in one go")
             QuickActionTile(symbol: "moon.stars", title: "Overnight Batch", subtitle: "Queue several VODs") {
                 app.showBatchSheet = true
             }
-            QuickActionTile(symbol: "wand.and.stars", title: "Like a Reference", subtitle: "Copy an edit you love") {
+            QuickActionTile(symbol: "wand.and.stars", title: "Editing Styles", subtitle: "Or copy an edit you love") {
                 app.showReferenceSheet = true
             }
-            QuickActionTile(symbol: "slider.horizontal.3", title: "Set Up for My Stream", subtitle: app.settings.streamSetup == nil ? "Six questions, twenty settings" : "Change your answers") {
+            .help("Pick one of six built-in editing styles, or show PULSE a video whose editing you love")
+            QuickActionTile(symbol: "slider.horizontal.3", title: "Set Up for My Stream", subtitle: app.settings.streamSetup == nil ? "Six quick questions" : "Change your answers") {
                 app.showSetupWizard = true
             }
-            QuickActionTile(symbol: "play.rectangle.on.rectangle", title: "Sample Project", subtitle: "Gaming · right-click for podcast or IRL") {
+            QuickActionTile(symbol: "play.rectangle.on.rectangle", title: "Sample Project", subtitle: "Gaming, podcast or IRL") {
                 app.openDemoProject()
             }
+            .help("Opens a generated gaming stream to try PULSE on. Right-click for a podcast or IRL sample.")
             .contextMenu {
                 ForEach(DemoMediaGenerator.Genre.allCases, id: \.self) { genre in
                     Button(genre.displayName) { app.openDemoProject(genre: genre) }
@@ -296,11 +299,14 @@ struct ProjectCard: View {
                 }
                 .frame(height: 112)
                 .clipped()
-                HStack(spacing: 4) {
-                    if project.isFavorite { Image(systemName: "star.fill").foregroundStyle(Theme.warning) }
-                    TagChip(text: project.status.displayName, color: statusColor)
+                // Over a thumbnail the status sits on its own dark pill, so it reads on any frame in either theme.
+                HStack(spacing: 5) {
+                    if project.isFavorite { Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Theme.warning) }
+                    Circle().fill(statusColor).frame(width: 6, height: 6)
+                    Text(project.status.displayName).font(.pulseMicro).foregroundStyle(.white)
                 }
-                .font(.system(size: 10))
+                .padding(.horizontal, 7).padding(.vertical, 3)
+                .background(Capsule().fill(.black.opacity(0.6)))
                 .padding(8)
             }
             VStack(alignment: .leading, spacing: 6) {
