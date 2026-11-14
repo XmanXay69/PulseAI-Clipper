@@ -1,0 +1,52 @@
+# The ONLY 7 Cuts You Need To Tell Any Story — Tim Runia (9:23, views not shown in report) — https://www.youtube.com/watch?v=J0ydlAqg6_8
+Genre this speaks to: vlog/story (narrative cutting; also general)
+Usable?: yes. Seven named cut types with when-to-use reasons, shown on his own finished films. Qualitative, almost no numbers. Contains two plugs for his paid "Story Starter Kit".
+Evidence available: captions yes (manual, 182 segments, read in full); frames 50 report frames + 1 dense 1-fps strip of 0:00-0:36 + 2 zoomed frames; downloaded yes (1280x720, 25 fps)
+
+## Rules stated
+- Opening claim: a good edit does not come from many layers, effects and transitions; after 15 years and hundreds if not thousands of videos he finds it comes from simple, intentional cuts that make the story feel like a story [said 00:00-00:20].
+- Cut 1, flow cut: when something in the frame (person, object or the camera) moves in a direction, start the next shot moving the same direction and the eye keeps going; if the next shot's motion goes the opposite way or sideways it is "friction" and the cut is felt. Think of editing as choreography; ask "is the subject moving, is the camera moving, can I connect the directions" [said 00:20-01:45].
+- Cut 2, smash cut: deliberately break the rhythm with a sudden cut to a completely different scene; works best when the music or sound cuts out too; adds an emotional reset (humour, tension) and marks a turning point; do not overuse because surprise only works if it is surprising [said 01:45-02:50].
+- Cut 3, jump cut: stay in the same frame and skip forward in time; practical for showing progress, repetition or speeding something up; can make a scene fast or chaotic; he likes to land the jump exactly on the beat of the music [said 03:11-03:54].
+- Cut 4, action cut: cut in the middle of a movement (e.g. as someone sits down) so the motion continues across the cut; it feels natural because the viewer's brain is already following the motion; works even for slow calm actions [said 03:54-04:34].
+- Action-cut trick: keep the viewer's attention on the same spot of the frame across the cut (his balloon with its "dream" sticker stays in the same place, so the eye does not move) and the cut is nearly invisible; "a few frames earlier or later" can make the difference [said 04:14-04:55].
+- Cut 5, wide-medium-close pattern: wide shows where we are, medium what is happening, close the detail or emotion; gives structure and clarity. Variations once you know it: wide straight to close for an emotional hit, or start close and reveal the wide late as a surprise (someone is in a desert) [said 04:55-05:57].
+- Cut 6, match cut: connect two shots through something visually similar (shape, subject in the same position in frame) to link two moments in time or two places, or to make a metaphor, such as past self to present self; when matching people, match the eye position across the cut [said 06:17-07:01].
+- Cut 7, speed of the cut (rhythm): if the video moves at one pace the audience tunes out; shift the tempo; faster cuts build tension, slower cuts let a moment land emotionally; like music it needs a climax and a release; if a video is too flat or too chaotic, change the cut speed [said 07:22-08:05].
+- Do not cram all seven into one video; ask what the moment needs (smooth flow, a surprise, a shift in rhythm) and pick that cut [said 08:47-09:08].
+- Numbers he gives: 7 cuts, 15 years, "a few frames" of timing nudge. No seconds, percentages or dB.
+
+## What the editor's own timeline and effects show
+- A real editing timeline appears only as b-roll for about 1 s at the start: a tilted, blurred Premiere-style timeline with at least 6 audio tracks labelled Audio 1-6 (green audio clips with waveforms, small white keyframe/marker flags on tracks 3-5), a magenta video clip named "C9030.MP4", and an effects panel with a folder list (e.g. "Lights & Flares" with several items) [seen 00:02-00:04, zoomed frames at 2.6 s and 3.5 s]. It illustrates the "layers and effects" he says he no longer relies on. No clip-length or keyframe teaching is shown.
+- He never shows how he makes the seven cuts in an editor. Each cut is demonstrated with a clip from one of his own finished films (credited in small lower-left white text: "Example from: ..."), in the finished render [seen 00:58, 01:24, 02:58, 05:53 and others].
+- A whiteboard marker drawing a play-button icon [seen 01:00] is the frame near his spoken flow-cut example of a marker dragged up followed by an upward camera move [heard 00:41-01:01]; I did not see the matching second shot.
+
+## How the video itself is edited
+- Cut rate at hard scene changes (scene>0.35, 320 px) [measured]: 0:00-3:00 17.3/min (mean shot 3.4 s); 1:00-4:00 13.3/min (4.4 s); 2:00-5:00 10.7/min (5.5 s); 4:00-7:00 12.0/min (4.9 s); 6:00-9:00 10.0/min (5.8 s); 7:20-9:23 8.8/min (6.5 s). Contents: a talking head in a studio (static medium shot, softly lit) interleaved with short film clips and B-roll; so these are a mix of talking head and clips. The cut counts are driven by the example clips and montage bursts, not by cutting the talking head.
+- Hook: 0:00 he is already talking to camera, no greeting or logo; there are 16 scene changes (threshold 0.2, looser than the usual 0.35) between 1.9 and 10.9 s (a motion-blurred face at about 5 s, a timeline shot, editor-from-behind, boxer, skirt dancer, with a burst of 8 changes in the last second 10.0-10.9 s), then calmer; the promise "the only seven cuts" is spoken at about 0:20 [heard 00:20, measured pts 1.9-10.9 s].
+- Seven-shot counting montage: seven quick shots, one per cut type, with a large white digit over each, at 22.76, 22.88, 23.00, 23.12, 23.24, 23.36, 23.48 s, i.e. 0.12 s apart = 3 frames at 25 fps per shot [measured, seen 00:23 shows digits '1' and '4'; dense strip shows '7']. Then the "1 OF 7 FLOW CUT" title card on yellow at about 0:32-0:34 [seen dense strip].
+- Chapter cards: bold navy sans caps on a flat orange-yellow gradient, with a small "n OF 7" above, used for each cut: "FLOW CUT" (about 0:33), "ACTION CUT" (03:52), "WIDE MEDIUM CLOSE" (04:59), "SPEED OF THE CUT" (07:14) [seen]. So the video is split into 7 named sections of about 40-100 s each (0:20, 1:45, 3:11, 3:54, 4:55, 6:17, 7:22 per the spoken openings) [heard].
+- Smash cut used on the viewer: a joke caption "*SMASH CUT INCOMING..." in white over a 2016 clip, then a hard cut to a 2019 and a 2023 set shot with year stamps [seen 02:11, 02:15, 02:18]. The music floor falls to about -45 dB for the 20-s block at 2:20 (versus -24 to -31 dB elsewhere), consistent with sound dropping out on the smash cut [measured, audio only, 20-s blocks].
+- Rhythm demonstration: in the speed-of-the-cut section the picture goes from a 13-s static talking head to a burst of about 9 cuts in about 3 s (13.00 to 16.2 s after 7:20, i.e. about 0.08-0.3 s apart, mean about 0.35 s or 8-9 frames at 25 fps), then back to a slow shot [measured 7:33-7:36].
+- Music: audio floor (10th-percentile 0.5-s RMS per 20 s block) about -24 to -31 dB with speech medians about -19 to -22 dB for most of the video, with dips to -37 to -45 dB at 2:20, 2:40, 3:40, 6:00, 7:00 [measured; suggests a constant bed with deliberate drops, not confirmed by ear].
+- Captions: none on his own speech in the frames; the example clips carry their own burned-in sentence subtitle (white, bottom centre) [seen 01:24]. Small lower-left source credit text on each example [seen].
+- Zooms: none on the talking head; the talking head is a locked static shot [seen across 20+ talking-head frames].
+- Sponsor/promo: Story Starter Kit mention at 2:50, and a full pitch at 8:05-8:47 with screen recordings of the template and course page [heard, seen 08:34, 08:41]. End screen suggests his 5-line story method video at 9:08.
+
+## Against today's playbook
+- story principle "Emotion before continuity ... a cut that is right for the moment forgives one that is rough on the eye": his flow/action/match cuts are continuity-first, but his smash cut and speed-of-cut sections are emotion-first; he does not rank them, he says pick by what the moment needs [said 08:47-09:08]. Neutral.
+- story principle "Pace is new information": he frames pace as contrast, with fast cuts for tension and slow for emotion, and warns that constant pace makes people tune out [said 07:22-07:43]. Supports varying pace; the playbook has one fixed cutsPerMinute.
+- story.cutsPerMinute 7 / averageShotLength 8.5: this video averages 9-17 hard cuts/min at the start and 9-12 later (mean shot 3.4-6.5 s); but it is a talking head intercut with example clips, so it is a faster fingerprint than the playbook; not a pure story edit [measured].
+- Not in the playbook: smash cut should coincide with music/sound dropping out [said 01:45]; speed contrast with bursts of 8-9 frame shots next to 10+ s holds [measured 7:33-7:36].
+- Not in the playbook: shot-size order wide->medium->close in a scene for clarity [said 04:55-05:17]; he also gives the two reversals above (wide-to-close skip, close-first reveal). This matches Casey's establishing-shot rule in video 1.
+- vlog principle "Show the doing, fast": his jump cut = same frame, skip time, landed on the music beat, used for progress and repetition and for speeding things up [said 03:11-03:54]. Confirms, and adds "land the jump on a beat".
+- vlog principle "The music sets the pace ... cuts fall where it moves": he lands jump cuts exactly on the beat [said 03:34]; consistent.
+- vlog principle "Leave mid-thought": not about speech, but his action cut is the same idea applied to motion: cut during the action and finish it in the next shot [said 03:54-04:14]. Partial support for cutting before the thing finishes.
+- Captions/zoom/popup numbers: not supported either way (no captions on his talking head; no punch-ins; chapter cards are about 4 per video).
+
+## Caveats
+- One filmmaker's taste, cinematic-narrative style; it is not a vlog or a challenge video, so cut-rate numbers are a talking-head tutorial's, not a vlog's.
+- The 2.9 s "burst" counts and the 0.12 s montage spacing come from scene-detect timestamps at 25 fps; they are measured, but I did not check each frame by eye.
+- The audio-floor figures cannot tell music from room tone.
+- The timeline is only seen as a blurred 1-second b-roll shot; I cannot say which editor beyond "Premiere-style".
+- Sponsored in the sense of self-promotion (Story Starter Kit); no third-party sponsor.

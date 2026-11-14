@@ -1,0 +1,48 @@
+# How to Edit ANY Video Like You've Done it 1,000 Times — Herman Huang (8:23, views not shown in report) — https://www.youtube.com/watch?v=Zm7J3KqqXPk
+Genre this speaks to: general (a learning method for entering any editing style; the worked example is short-form coach content, not vlog or story)
+Usable?: partly. It is a process video with a paid sponsor (Happy Editing assets, about 4:49-6:00); almost no timing numbers and nothing on story structure. Useful for what to look at when studying a style, the genre-baseline idea, and as a specimen of a heavily graphic-driven edit.
+Evidence available: captions yes (auto, 502 segments, read in full); frames 50 report frames + 3 zoomed frames; downloaded yes (1280x720). Note: report frame stamps can sit a few seconds off.
+
+## Rules stated
+- Five levels, each building on the last: (1) watch a lot of the genre to learn its structure and the "average" client expectation; (2) find and bookmark the best in the genre (bigger budgets, higher production value, better performance); (3) dissect them frame by frame; (4) close the skill gap with reps and, if useful, editing assets; (5) apply your own taste on top so you are not a commodity [said 00:22-00:42, 01:02-08:01].
+- Level 1: every type of video has a structure; watch more than seems necessary until a pattern shows (for coach short-form: jump cuts, word-by-word captions, numbered lists); that is the minimum bar the client expects [said 01:02-01:43].
+- Level 2: pick the videos that make you think "I wish I made that" and save them in a folder to reference [said 02:03-02:23].
+- Level 3: put the bookmarked videos into the editor and go frame by frame, noting the pacing, framing, camera movement, graphics, effects, music and sound effects, and ask why each decision was made; when the same trick keeps appearing you are ready to perform it [said 03:06-03:48].
+- Knowing a trick is not the same as doing it (the skill gap); no way round practising the specific effects; fundamentals from years of editing carry over [said 03:48-04:28].
+- Level 5 (taste): decide which parts of the style matter; for vertical coach content he names quick captions, full-screen stock footage and graphics popping in as the "core structure"; then apply what you already like (premium-feeling fonts, cinematic stock footage, full-screen graphics instead of static corner images) so your work is not interchangeable [said 06:38-07:39].
+- No dated numbers on craft: "decade" of magic-promo editing, "five levels", "five or six years" using the sponsor's assets (not craft).
+
+## What the editor's own timeline and effects show
+- Premiere Pro 2025 (window title "HE_Overlays_1", sequence "Neon Lovers") is shown for the sponsor demonstration at about 5:10, on a screen photographed at an angle (read from a 1280-px frame) [seen 05:10]:
+  - Effect Controls for an overlay clip: Position 960.0, 540.0; Scale 50.0 with Uniform Scale on; Rotation 0.0; Anchor Point 1920.0, 1080.0; Crop 0% on all sides; Opacity 100.0%; Blend Mode: Screen. The bin shows film-burn clips named "HE_FilmBurn001...014.mov", 3840x2160, 23.976p, durations around 0:04-0:17 as listed in the bin.
+  - Timeline: four video tracks V1-V4 and one audio track; V4 holds a grain overlay clip ("35mmGrain_16x9_NoPerf.mov") across the whole 4-s sequence, V2 holds the selected film-burn overlay (about 1 s long, 665-815 px on a ruler where 1 s is about 155 px), V1 holds about four stock clips of roughly 1 s each (names beginning 6451244, 6451249, 6451254, 6451277).
+  - Ruler shows 00:00:01:00 to 00:00:04:00, playhead at 00:00:01:05. This is a demo of overlays (film burn blended with Screen, grain on top), not of a story cut.
+- A desk shot of two monitors shows a dense multi-track Premiere timeline (about 6-8 tracks, many short coloured clips in purple, orange and green) at too small a size to measure [seen 01:05, 06:14].
+- End gag: a timeline of stacked clips named C1729.MP4, C1750.MP4, C1865.MP4, C1945.MP4, C1946.MP4, C1947.MP4 forming a staircase with a pixel-art character climbing it, a voiceover audio clip "HE_Editing_VO.wav" under it [seen 08:07, 08:16]. A prop, not a real edit.
+- No story or pacing timeline is shown; no keyframes shown.
+
+## How the video itself is edited
+- Cut rate at hard scene changes (scene>0.35, 320 px) [measured]: 0:00-3:00 16.0/min (mean shot 3.7 s); 1:00-4:00 15.0/min; 2:30-5:30 14.3/min (4.1 s); 4:00-7:00 16.7/min (3.5 s); 5:30-8:23 12.9/min (4.5 s); 6:40-8:23 9.4/min (6.0 s); first 30 s 14/min (7 cuts, mean 3.8 s). Content of these stretches: a static desk talking head (medium and a closer side angle), b-roll of his gear, and many graphic inserts. Estimated by eye from the 50 report frames: about half of the scene-change frames (roughly 25) are graphic/HUD/screen inserts and only about 10 are the talking head; the report picks scene changes so that over-counts inserts, but the cut rate is high mainly because of those inserts [estimated].
+- Hook and promise: 0:02 opens with credentials ("trusted by the biggest brands ... first time cutting that type of video"), 0:22 the promise "five levels", 0:42 "you'll walk into it like you've done it a thousand times" [heard 00:02, 00:22, 00:42]. Picture in 0:00-0:15 is a dark macro of a desk gadget, a side-angle talking head and an extreme eye close-up [seen 00:00, 00:09, 00:12]; 0:32-1:12 a HUD-style sequence (silhouette at the monitor, a "NEW PROJECT" dialog he taps, a loading bar at 76%, a face-scan outline, an eye graphic) [seen 00:32-01:12]. The sponsor is first named at about 0:58 ("made possible by") [heard 00:42-01:02]. First real point starts about 1:02.
+- Graphic language: a black grid with red corner marks and small vertical text on both edges; video clips shown inside an OS-style window with a white title bar and a small close icon; other people's example videos shown pixelated/mosaic-blurred in portrait boxes; a CRT-TV look, scan lines, glitch cut-ins, a pixel "CHEAT CODE" padlock title at about 4:52, a pixel-art "level up" gag and an HP bar at the end [seen 00:46, 02:14, 02:54, 04:06-04:18, 04:52, 05:24-06:28, 08:07-08:16]. Not word-for-word captions: no burned-in captions on his speech in any frame; one small white caption "If you have" appears inside an embedded example reel at about 1:39 [seen].
+- Example reels: screenshots of Instagram posts with comments, with the reel playing inside (the "coach" examples) at about 1:36-1:39 [seen 01:36, 01:39].
+- Talking-head framing is static in each of its two or three angles (front medium, closer side profile, over-the-shoulder at the monitors); no punch-ins seen [seen].
+- Sponsor read (Happy Editing): about 4:49 to 6:00 (about 71 s, 14% of the video) with a "pop-up" link at about 5:55 and a screen demo "just on its own ... with assets" [heard 04:49-05:55; seen 05:10, 05:34, 05:44]. The ad is cut in the same graphic style as the rest, with no outfit or room change, unlike video 4. A community plug ("Frame by Frame" Kaizen members) at about 3:06 [heard 03:06].
+- Music: audio floor (10th-percentile 0.5-s RMS per 20 s block) is -24 to -33 dB for the whole video with speech medians about -18 to -20 dB (the loudest mix of my five), dropping only after the end at 8:20 [measured, audio only]. Caption track tags [music] repeatedly from 0:02 to 8:08 [heard]. So a constant music bed under speech nearly all the time.
+- Sections: five levels start about 1:02, 2:03, 2:23, 3:48 (skill gap), 6:16 (taste); gaps about 61 s, 20 s, 85 s, 148 s with the sponsor (4:49-6:00) inside the skill-gap section [heard]. The structure is a numbered "levels" list, not a story.
+
+## Against today's playbook
+- This video does not speak to vlog or story pacing. Where it overlaps, it only measures his own explainer style, not a vlog: 9-17 hard cuts/min with mean shot 3.5-6 s is much faster than story (7/min, 8.5 s) and a bit faster than vlog (10/min, 6 s) [measured]. Treat as a commentary-with-graphics fingerprint, not a correction for vlog or story.
+- musicBed 0.85-0.9 (story/vlog): his bed is present nearly the whole time (floor never below -33 dB until the end) [measured]; consistent for a high-music edit, but not a vlog.
+- popupsPerMinute 0.4/0.1: this video has graphic inserts roughly every 10-20 s (estimated 3+/min), much higher; irrelevant to vlog/story, relevant to a graphic-led explainer.
+- hookDeadline 12-15: his promise lands at 0:22 and the credential line is spoken in the first 5 s [heard 00:02, 00:22]; a hook at 22 s is a small contradiction of 12-15 for a talking explainer.
+- Sponsor: a 71-s mid-roll at about 57% of the runtime (4:49-6:00 of 8:23).
+- Not in playbook: "genre baseline" idea, that each style has a minimum expected toolkit (e.g. jump cuts, word-by-word captions, numbered lists for coach shorts) and quality comes from adding your own touches [said 01:43, 06:59-07:39]. Matches how PULSE genre styles are meant to work.
+- Checklist for dissecting a style (pacing, framing, camera movement, graphics, effects, music, sound effects) lines up with the fingerprint fields already in PULSE [said 03:27].
+
+## Caveats
+- Self-taught-process content with a paid sponsor, one editor's taste, partly aimed at short-form coach content; not about story structure, b-roll, voiceover or time-lapse use.
+- Frame-count of inserts is a by-eye estimate from scene-change frames, which biases toward inserts.
+- Effect Controls values are read from an angled screen capture in one frame; the sequence is a demo, not an editing lesson.
+- Audio floor cannot separate music from room noise; [music] tags come from auto-captions.
+- Captions are automatic, so single words may be wrong; the structure of the argument is clear.
