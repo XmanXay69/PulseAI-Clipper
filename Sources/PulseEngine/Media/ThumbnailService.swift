@@ -145,6 +145,11 @@ public actor WaveformService {
     private let cacheDirectory: URL
     private var memory: [String: [Float]] = [:]
     private var inFlight: [String: Task<[Float], Never>] = [:]
+    /// Files read at once. A page of audio tiles asks for all of its waveforms together; the rest wait in line
+    /// without holding a thread.
+    private let gate = AsyncGate(limit: 2)
+    /// A read that goes this long without a new buffer is given up on (the waveform stays empty this launch).
+    static let stallLimit: TimeInterval = 30
 
     public init(cacheDirectory: URL = PulseDirectories.cache("Waveforms")) {
         self.cacheDirectory = cacheDirectory
@@ -167,8 +172,16 @@ public actor WaveformService {
             memory[key] = series.values
             return series.values
         }
+        // The read blocks on AVAssetReader, so it runs on a Dispatch thread, never on one of Swift concurrency's
+        // few cooperative threads: with those all parked in readers, nothing else in the app could run.
+        let gate = self.gate
         let task = Task.detached(priority: .utility) { () -> [Float] in
-            (try? WaveformService.compute(url: url)) ?? []
+            await gate.enter()
+            let values = await BlockingWork.run(stallLimit: WaveformService.stallLimit, fallback: [Float]()) { heartbeat in
+                (try? WaveformService.compute(url: url, heartbeat: heartbeat)) ?? []
+            }
+            await gate.leave()
+            return values
         }
         inFlight[key] = task
         let values = await task.value
@@ -180,7 +193,8 @@ public actor WaveformService {
         return values
     }
 
-    static func compute(url: URL) throws -> [Float] {
+    /// Blocking: call it from a Dispatch thread (see `BlockingWork`), not from a task.
+    static func compute(url: URL, heartbeat: BlockingWork.Heartbeat? = nil) throws -> [Float] {
         let asset = AVURLAsset(url: url)
         let semaphore = DispatchSemaphore(value: 0)
         var audioTrack: AVAssetTrack?
@@ -188,7 +202,8 @@ public actor WaveformService {
             audioTrack = tracks?.first
             semaphore.signal()
         }
-        semaphore.wait()
+        guard semaphore.wait(timeout: .now() + stallLimit) == .success else { return [] }
+        heartbeat?.beat()
         guard let track = audioTrack else { return [] }
         let reader = try AVAssetReader(asset: asset)
         let sampleRate = 8000.0
@@ -209,6 +224,7 @@ public actor WaveformService {
         var current: Float = 0
         var counter = 0
         while let buffer = output.copyNextSampleBuffer() {
+            heartbeat?.beat()
             let samples = SampleBufferReader.floats(from: buffer)
             for sample in samples {
                 current = max(current, abs(sample))

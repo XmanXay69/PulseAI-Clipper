@@ -37,6 +37,13 @@ is where it was; what changed is how it is drawn.
   column, so cards line up with even gaps. Home's quick actions fit their words, and "Like a Reference"
   there and on AI Clips is now "Editing styles". A project's status sits on a dark pill over its thumbnail
   so it reads in both themes.
+- **A freeze fixed.** Opening Media in a project with many audio files could stop everything PULSE does in
+  the background, for good: analysis, exports, even its own timers. Each audio tile read its waveform on one
+  of the few threads Swift keeps for background work, and with a reader parked on every one of them nothing
+  was left to run the work the readers were waiting for. The window still responded, which hid it. Waveforms
+  are now read on ordinary threads, two files at a time, and a read that goes 30 seconds without progress is
+  given up on. CI's walk-through found it on a three-core runner: it now opens Media after the project has
+  gained music and sound effects, names each step, and fails with a stack sample when it stalls.
 - **Tests.** The engine tests that speak a sentence with the system voice now try three times and skip
   when a machine's voice makes no sound (a hosted runner's speech service sometimes isn't up yet); the
   release check speaks its sentence up to three times for the same reason.
@@ -96,8 +103,9 @@ endorsement by the people named.
   with the twenty to do first at the top.
 
 ### Checked
-- Compiled and tested on GitHub's macOS 26 (Apple silicon) and macOS 15 (Intel) runners: 503 tests, of
-  which 482 are core tests (eleven new for the styles and the coach) and 21 run the engine end to end.
+- Compiled and tested on GitHub's macOS 26 (Apple silicon) and macOS 15 (Intel) runners: 507 tests, of
+  which 486 are core tests (eleven new for the styles and the coach, four for keeping blocking reads off
+  Swift's background threads) and 21 run the engine end to end.
 - Every page and sheet screenshotted on CI in the new look and reviewed; the README's screenshots are from
   that run.
 - The light theme is screenshotted on CI for Home, AI Clips, the editor, Exports and Settings; sheets now

@@ -55,7 +55,7 @@ open build/PULSE.app
 
 | Module | What it is |
 |---|---|
-| `PulseCore` (pure Swift, 482 unit tests) | Timeline model + all edit ops (split, ripple, trim, speed, link, text-based delete/restore), snapshot undo/redo, `.pulse` project packages (autosave, rotating backups, versions, crash recovery), transcripts (SRT/VTT/whisper.cpp/OpenAI JSON), filler words, silence detection, audio sync, engagement model + AI clip generation (HOOK→CONTEXT→PAYOFF→END, AI Potential), titles/hooks, captions (8 presets, paging, word timing, emphasis, safe areas), streamer layouts + facecam detection, AI reframing, punch-ins, one-click short builder, "Make More Entertaining", templates, export presets/queue, AI provider abstraction + privacy policy (Local / Claude / OpenAI-compatible), settings, global search, multicam (sync groups, angle cuts, AI switching, grid layouts), compound clips (nested timelines), speaker diarization (segmenting, embedding clustering, MFCC fallback clustering, labels) |
+| `PulseCore` (pure Swift, 486 unit tests) | Timeline model + all edit ops (split, ripple, trim, speed, link, text-based delete/restore), snapshot undo/redo, `.pulse` project packages (autosave, rotating backups, versions, crash recovery), transcripts (SRT/VTT/whisper.cpp/OpenAI JSON), filler words, silence detection, audio sync, engagement model + AI clip generation (HOOK→CONTEXT→PAYOFF→END, AI Potential), titles/hooks, captions (8 presets, paging, word timing, emphasis, safe areas), streamer layouts + facecam detection, AI reframing, punch-ins, one-click short builder, "Make More Entertaining", templates, export presets/queue, AI provider abstraction + privacy policy (Local / Claude / OpenAI-compatible), settings, global search, multicam (sync groups, angle cuts, AI switching, grid layouts), compound clips (nested timelines), speaker diarization (segmenting, embedding clustering, MFCC fallback clustering, labels) |
 | `PulseEngine` (AVFoundation, Vision, Speech, Core Image/Metal, SQLite) | Media probing/import, thumbnails, waveforms, proxies, audio analysis, Vision face detection, Apple Speech + whisper.cpp transcription, composition builder + custom `AVVideoCompositing` compositor (layouts, masks, crops, keyframes, captions, text, color, LUTs, effects, transitions), AVAssetWriter export (H.264/HEVC hardware, ProRes), playback controller, demo media generator, SQLite library index with FTS5 transcript search, ScreenCaptureKit + camera/mic session recorder (pause/resume), audio enhance chain, neural speaker encoder (GE2E LSTM via BLAS) + MFCC fallback |
 | `PulseApp` (SwiftUI) | Sidebar app: Home, Projects, Import, AI Clips, Editor (viewer, timeline, inspector, transcript), Captions, Media, Templates, Exports, Settings; onboarding, recovery, ⌘F global search, background jobs, toasts, keyboard shortcuts |
 
@@ -82,7 +82,13 @@ Key files to know:
   and `Timeline.editStyle`, set by `LongFormEditor.build` when the options' style is a playbook's, which
   `EditorPlaybook.rules(for:)` reads so the coach judges an edit by its own style. `LongFormSheet.editStyleSection`
   is the style menu (`longForm.editStyle` in defaults; `apply(_:)` sets the switches); `ReferenceSheet` lists the
-  playbooks; `BatchController` accepts a playbook's style id. `EngineSmokeTests.speak` wraps `/usr/bin/say` with
+  playbooks; `BatchController` accepts a playbook's style id. `Sources/PulseCore/Common/BlockingWork.swift`: `BlockingWork.run` puts a blocking read on a Dispatch thread with a
+  heartbeat and a stall limit, and `AsyncGate` limits how many run at once. `WaveformService.peaks` uses both
+  (two files at a time, 30 s stall limit) because a reader parked on every cooperative thread froze all async
+  work in the app (found on CI's three-core runner when Media opened with eleven audio files). The other
+  `copyNextSampleBuffer` loops in `PulseEngine` (analysis, beat detection, loudness, export) still run inside
+  detached tasks; they run one or two at a time today, so move any that start fanning out onto `BlockingWork`.
+  `EngineSmokeTests.speak` wraps `/usr/bin/say` with
   three tries and an `XCTSkip` when the voice is silent. The numbers are from published editing guidance
   (sources in the 1.7.0 notes), not from footage: tune them against real streams. `docs/IDEAS-800.md` continues
   the roadmap at 501.

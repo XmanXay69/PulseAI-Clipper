@@ -477,6 +477,20 @@ enum UISnapshotter {
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             step("35-light-media shown")
             capture(app: app, name: "35-light-media", to: directory)
+            // Every audio tile asked for its waveform at once; say how many were drawn and how long it took.
+            if let session = app.session {
+                let audio = session.document.media.filter { $0.kind == .audio }
+                let started = Date()
+                var drawn = 0
+                for asset in audio {
+                    let peaks = await WaveformService.shared.peaks(for: session.url(for: asset))
+                    if !peaks.isEmpty { drawn += 1 }
+                }
+                FileHandle.standardError.write(Data(String(format: "UI-WAVEFORMS %ld of %ld audio files have a waveform, %.1f s after the page opened\n",
+                                                           drawn, audio.count, Date().timeIntervalSince(started) + 1.5).utf8))
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                capture(app: app, name: "36-light-media-waveforms", to: directory)
+            }
             step("done")
             app.settings.appearance = chosen
             app.applyAppearance()
