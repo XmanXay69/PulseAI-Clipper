@@ -286,6 +286,10 @@ enum UISnapshotter {
                 app.showLongFormSheet = true
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
                 capture(app: app, name: "17-longform-sheet", to: directory)
+                if let asset = session.document.primaryAsset, let analysis = session.analyses[asset.id] {
+                    let genre = VideoGenre.suggested(for: analysis.profile)
+                    FileHandle.standardError.write(Data("UI-GENRE the sample (\(analysis.profile.displayName)) is suggested as \(genre.displayName), cut as \(genre.playbook.name): \(genre.playbook.recipe.joined(separator: " · ")); project genre \(session.document.genre?.displayName ?? "not chosen")\n".utf8))
+                }
                 app.showLongFormSheet = false
                 try? await Task.sleep(nanoseconds: 600_000_000)
                 // Compare two styles (#627): the sample drafted PULSE's own way and as Retention cut.

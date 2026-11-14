@@ -145,9 +145,93 @@ struct LongFormSheet: View {
         dismiss()
     }
 
-    /// With "the style that suits each recording" on in Settings, the menu opens on that style (#626).
+    /// The genre whose style is chosen now, and the one this recording looks like.
+    var selectedGenre: VideoGenre? { VideoGenre.genre(forPlaybook: editStyle) }
+    var suggestedGenre: VideoGenre? {
+        guard let asset = session.document.primaryAsset, let analysis = session.analyses[asset.id] else { return nil }
+        return VideoGenre.suggested(for: analysis.profile)
+    }
+
+    /// The genre button: this project is that kind of video from now on, and the sheet is set to its style.
+    func pick(_ genre: VideoGenre) {
+        styleTouched = true
+        followsRecording = false
+        editStyle = genre.playbook.id
+        apply(genre.playbook)
+        session.setGenre(genre)
+    }
+
+    /// What kind of video this is. One button decides which editing knowledge the auto-editor uses.
+    var genreSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel(text: "What kind of video is this?")
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+                ForEach(VideoGenre.allCases) { genre in
+                    let selected = selectedGenre == genre
+                    let suggested = suggestedGenre == genre
+                    Button { pick(genre) } label: {
+                        VStack(spacing: 5) {
+                            Image(systemName: genre.symbol).font(.system(size: 15, weight: .medium))
+                            Text(genre.displayName).font(.system(size: 11, weight: .semibold)).multilineTextAlignment(.center).lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .foregroundStyle(selected ? Theme.accent : Theme.textPrimary)
+                        .frame(maxWidth: .infinity, minHeight: 58)
+                        .padding(.horizontal, 6)
+                        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(selected ? Theme.accent.opacity(0.12) : Theme.panelRaised))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)
+                            .strokeBorder(selected ? Theme.accent : Theme.border, lineWidth: selected ? 1.5 : 1))
+                        .overlay(alignment: .topTrailing) {
+                            if suggested && !selected { Circle().fill(Theme.ai).frame(width: 6, height: 6).padding(6) }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(genre.blurb + (suggested ? " Suggested for this recording." : ""))
+                    .accessibilityLabel(genre.displayName)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                }
+            }
+            if let genre = selectedGenre {
+                Text("\(genre.blurb) PULSE cuts it as \(genre.playbook.name), and this project remembers the choice.")
+                    .font(.pulseMicro).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+                DisclosureGroup("How \(genre.playbook.name) cuts, and where its rules come from") {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(genre.playbook.principles, id: \.title) { principle in
+                            Text("**\(principle.title).** \(principle.detail)").font(.pulseMicro).foregroundStyle(Theme.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        ForEach(genre.sources, id: \.url) { source in
+                            if let url = URL(string: source.url) {
+                                Link("\(source.title): \(source.gave)", destination: url).font(.pulseMicro)
+                                    .multilineTextAlignment(.leading)
+                            }
+                        }
+                        Text(VideoGenre.studyNote).font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.top, 4)
+                }
+                .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+            } else {
+                Text(suggestedGenre.map { "Pick one and PULSE cuts the way that kind of video is edited. This recording looks like \($0.displayName.lowercased()) (the dot)." }
+                     ?? "Pick one and PULSE cuts the way that kind of video is edited.")
+                    .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// The sheet opens on the project's genre when it has one. Otherwise, with "the style that suits each
+    /// recording" on in Settings, it opens on that style (#626).
     func adoptDefaultStyle() {
-        guard !adoptedDefault, app.settings.ai.autoEditStyle, let asset = session.document.primaryAsset else { return }
+        guard !adoptedDefault else { return }
+        if let genre = session.document.genre {
+            adoptedDefault = true
+            followsRecording = false
+            editStyle = genre.playbook.id
+            apply(genre.playbook)
+            return
+        }
+        guard app.settings.ai.autoEditStyle, let asset = session.document.primaryAsset else { return }
         adoptedDefault = true
         guard let analysis = session.analyses[asset.id] else {
             editStyle = ""
@@ -173,6 +257,7 @@ struct LongFormSheet: View {
             Divider().overlay(Theme.divider)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    genreSection
                     editStyleSection
                     lengthSection
                     touchesSection
@@ -290,7 +375,10 @@ struct LongFormSheet: View {
                 }
                 .labelsHidden()
                 .frame(width: 200)
-                .onChange(of: editStyle) { _, _ in if let playbook { apply(playbook) } }
+                .onChange(of: editStyle) { _, _ in
+                    if let playbook { apply(playbook) }
+                    if styleTouched { session.setGenre(selectedGenre) }
+                }
                 if let suggested = suggestedPlaybook, suggested.id != editStyle {
                     Button("Use \(suggested.name)") { styleTouched = true; followsRecording = false; editStyle = suggested.id }
                         .buttonStyle(.pulse(.ai, compact: true))

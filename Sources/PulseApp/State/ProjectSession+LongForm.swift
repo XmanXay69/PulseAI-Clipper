@@ -3,6 +3,14 @@ import Foundation
 import PulseCore
 import PulseEngine
 
+extension ProjectSession {
+    /// The genre button: what kind of video this project is making. Nil clears it.
+    func setGenre(_ genre: VideoGenre?) {
+        guard document.genre != genre else { return }
+        edit("Set Genre", coalesce: "genre") { $0.genre = genre }
+    }
+}
+
 /// "Edit My VOD": the whole stream → a 10–20 minute YouTube video, as an ordinary editable timeline.
 extension ProjectSession {
     /// Library effects the long-form edit may use (rendered on this Mac the first time).
@@ -36,9 +44,15 @@ extension ProjectSession {
             return
         }
         var options = options
-        if followDefaultStyle, options.style == nil, let playbook = app.settings.ai.defaultPlaybook(for: analysis.profile) {
-            options = playbook.styled(options)
-            PulseLog.info("Edit My VOD: cut as “\(playbook.name)”, the default for \(analysis.profile.displayName.lowercased()) recordings")
+        if followDefaultStyle, options.style == nil {
+            // The project's own genre first; otherwise the style Settings gives this kind of recording.
+            if let genre = document.genre {
+                options = genre.playbook.styled(options)
+                PulseLog.info("Edit My VOD: cut as “\(genre.playbook.name)”, this project's genre (\(genre.displayName.lowercased()))")
+            } else if let playbook = app.settings.ai.defaultPlaybook(for: analysis.profile) {
+                options = playbook.styled(options)
+                PulseLog.info("Edit My VOD: cut as “\(playbook.name)”, the default for \(analysis.profile.displayName.lowercased()) recordings")
+            }
         }
         // A Thumbnail Studio export in the project fills the end screen's "next video" slot (#99).
         if options.nextVideoAssetID == nil { options.nextVideoAssetID = nextVideoThumbnail?.id }

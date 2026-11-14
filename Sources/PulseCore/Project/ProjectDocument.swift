@@ -95,6 +95,9 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
     public var workflowStage: WorkflowStage?
     /// Settings this project pins instead of the app-wide ones (#445).
     public var overrides: ProjectOverrides = ProjectOverrides()
+    /// What kind of video this project is making, when you have said. It decides which editing style the
+    /// auto-editor cuts in; nil = suggested from the recording.
+    public var genre: VideoGenre?
 
     public init(id: UUID = UUID(), name: String, createdAt: Date = Date()) {
         self.id = id
@@ -149,6 +152,8 @@ public struct ProjectDocument: Codable, Hashable, Identifiable, Sendable {
         overrides = c.decode(ProjectOverrides.self, forKey: .overrides, default: ProjectOverrides())
         editingSeconds = c.decode(Seconds.self, forKey: .editingSeconds, default: 0)
         loudnessChoice = c.decode(String?.self, forKey: .loudnessChoice, default: nil)
+        // A genre this version doesn't know (a project saved by a newer one) reads as "not chosen".
+        genre = (try? c.decodeIfPresent(String.self, forKey: .genre)).flatMap { $0 }.flatMap(VideoGenre.init(rawValue:))
     }
 
     // MARK: Convenience

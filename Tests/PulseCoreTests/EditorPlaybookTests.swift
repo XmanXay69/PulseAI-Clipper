@@ -4,7 +4,7 @@ import XCTest
 final class EditorPlaybookTests: XCTestCase {
     func testEveryPlaybookIsDistinctAndFindsItselfByItsStyle() {
         let all = EditorPlaybook.all
-        XCTAssertEqual(all.count, 6)
+        XCTAssertEqual(all.count, 8)
         XCTAssertEqual(Set(all.map(\.id)).count, all.count)
         XCTAssertEqual(Set(all.map(\.style.id)).count, all.count)
         for playbook in all {

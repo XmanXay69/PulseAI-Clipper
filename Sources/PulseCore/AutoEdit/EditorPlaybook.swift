@@ -127,6 +127,7 @@ extension EditorPlaybook {
             Principle("Cut the breath, keep the reaction", "Pauses and false starts go. The laugh, the scream and the beat after it stay."),
             Principle("Sound sells the hit", "A whoosh for movement, a hit on the reveal, the music pulled out for a beat before the punchline."),
             Principle("Every second earns its place", "If a stretch neither moves the story nor gets a laugh, it is cut."),
+            Principle("Point at the joke, don't bury it", "A zoom on the thing the player missed, the punchline as a word on screen, one meme where it fits. Timing does the work; piling effects on hides it."),
         ])
 
     /// A promise, a build and a payoff.
@@ -167,6 +168,7 @@ extension EditorPlaybook {
             Principle("The voice leads", "Music sits far under the talking or is left out. Nothing competes with the words."),
             Principle("Leave room after the big line", "A beat of quiet lets a strong statement land, and makes the next section feel quicker."),
             Principle("Captions are for reading", "Two lines at most, about forty characters each, on screen long enough to finish."),
+            Principle("Hide the join", "Where a pause was cut out of one continuous shot, a slight push-in on one side of the cut, or a cutaway over it, turns a jump into a choice."),
         ])
 
     /// The phone short.
@@ -207,6 +209,7 @@ extension EditorPlaybook {
             Principle("Whooshes on motion, risers into reveals", "An effect matches the movement it sits under and stays under the voice."),
             Principle("Match moves across a cut", "Two shots zooming at the same speed join without a seam."),
             Principle("Let the music carry it", "Sections change on the phrase, and the picture follows."),
+            Principle("Let it breathe", "Feelings take time. Shorter shots raise the tension and longer ones release it, so hold the shot that matters a little longer than seems necessary."),
         ])
 
     /// Cuts on the kick.
@@ -226,9 +229,50 @@ extension EditorPlaybook {
             Principle("Slow down for the best one", "A time ramp into the play of the video, then back to full speed."),
             Principle("No talking, no captions", "The game's sound and the track do the work. Text is for a name or a score."),
             Principle("Leave them wanting the next one", "Three minutes of the best beats ten of everything."),
+            Principle("Hold back before the drop", "Longer shots and fewer effects on the way in, then one bold change on the drop itself. A flash or a shake on every beat stops meaning anything."),
         ])
 
-    public static let all: [EditorPlaybook] = [.retention, .story, .commentary, .punchyShort, .smooth, .onTheBeat]
+    /// The stream, minus the waiting.
+    public static let streamHighlights = EditorPlaybook(
+        id: "stream", name: "Stream highlights",
+        tagline: "The best of the stream in order, the waiting cut out and the reactions kept.",
+        bestFor: "Twitch and Kick VODs turned into a YouTube highlights video", symbol: "dot.radiowaves.left.and.right",
+        style: ReferenceStyle(id: styleID(7), name: "Stream highlights", measuredAt: written, duration: 720, aspect: 16.0 / 9.0,
+                              cutsPerMinute: 6, averageShotLength: 10, zoomsPerMinute: 1.5, zoomScale: 1.15,
+                              captions: ReferenceStyle.CaptionLook(coverage: 0.1, positionY: 0.85, lineHeight: 0.045, wordsOnScreen: 6, uppercase: false),
+                              popupsPerMinute: 0.15, wordsPerMinute: 175, pauseRatio: 0.07, musicBed: 0.1, effectsPerMinute: 0.7,
+                              fadesPerMinute: 0.25, opensFast: true),
+        rules: PacingRules(hookDeadline: 10, maxStaticStretch: 30, openingStaticStretch: 12, rehookInterval: 150,
+                           maxZoomsPerMinute: 3, maxEffectsPerMinute: 3, maxCaptionWords: 8, maxCaptionLineLength: 42, zoomRamp: 0.2),
+        principles: [
+            Principle("Cut whatever drags", "Queues, menus, wandering and waiting go. What is left is the stream people wish they had watched."),
+            Principle("Keep the line that sets it up", "A moment with no set-up is just noise. The sentence before the scream stays, even when it is quiet."),
+            Principle("The reaction is the content", "The laugh, the silence after the mistake and the look at the camera stay in. That is what a highlights video has that a clip doesn't."),
+            Principle("A light touch", "Clean cuts, a push-in on the reaction, a soft join between moments. Captions and memes are for the shorts cut from it."),
+            Principle("Say where we are", "When the game, the match or the day changes, a title or a chapter tells the viewer, so nobody has to work it out."),
+        ])
+
+    /// A day with a beginning, a middle and an end.
+    public static let vlog = EditorPlaybook(
+        id: "vlog", name: "Vlog",
+        tagline: "A day told as a story. Leave each place mid-thought, show the doing fast, let the music set the pace.",
+        bestFor: "Vlogs, IRL streams, travel days and behind-the-scenes videos", symbol: "figure.walk",
+        style: ReferenceStyle(id: styleID(8), name: "Vlog", measuredAt: written, duration: 600, aspect: 16.0 / 9.0,
+                              cutsPerMinute: 10, averageShotLength: 6, zoomsPerMinute: 1, zoomScale: 1.1,
+                              captions: ReferenceStyle.CaptionLook(coverage: 0.1, positionY: 0.86, lineHeight: 0.045, wordsOnScreen: 6, uppercase: false),
+                              popupsPerMinute: 0.1, wordsPerMinute: 165, pauseRatio: 0.07, musicBed: 0.9, effectsPerMinute: 0.8,
+                              fadesPerMinute: 0.2, opensFast: true),
+        rules: PacingRules(hookDeadline: 12, maxStaticStretch: 30, openingStaticStretch: 12, rehookInterval: 150,
+                           maxZoomsPerMinute: 3, maxEffectsPerMinute: 3, maxCaptionWords: 8, maxCaptionLineLength: 42, zoomRamp: 0.3),
+        principles: [
+            Principle("A day needs a story", "Something wanted at the start, something in the way, an ending. Without those it is footage, not a vlog."),
+            Principle("Leave mid-thought", "Cut to the next place before the sentence is finished and finish it there. The viewer leans in to hear the rest."),
+            Principle("Show the doing, fast", "A task is a run of quick cuts or a time-lapse, not the whole task."),
+            Principle("Something new to look at within half a minute", "A new place, a cutaway, a change of angle. A face talking for longer than that needs a reason."),
+            Principle("The music sets the pace", "Sections change with the track, and the cuts fall where it moves."),
+        ])
+
+    public static let all: [EditorPlaybook] = [.retention, .story, .commentary, .punchyShort, .smooth, .onTheBeat, .streamHighlights, .vlog]
 
     public static func playbook(id: String) -> EditorPlaybook? { all.first { $0.id == id } }
 
@@ -298,7 +342,7 @@ extension EditorPlaybook {
     }
 
     /// The styles built on a promise kept late: they plant a tease for the strongest later moment (#582).
-    public var plantsTease: Bool { id == EditorPlaybook.retention.id || id == EditorPlaybook.story.id }
+    public var plantsTease: Bool { [EditorPlaybook.retention.id, EditorPlaybook.story.id, EditorPlaybook.vlog.id].contains(id) }
 }
 
 extension AISettings {
