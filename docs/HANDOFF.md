@@ -29,7 +29,8 @@ system libraries only) in `Contents/MacOS/whisper-cli` and `ggml-base.en.bin` in
 The workflow checks the mounted image: signature, both slices, the app binary running, and a real `say` →
 whisper transcription using only what's inside the image. Without Developer ID secrets the app is ad-hoc
 signed, so the first launch needs Privacy & Security → Open Anyway (macOS 15) or right-click → Open
-(macOS 14); the README lists the secrets that make it signed + notarized.
+(macOS 14); `docs/SIGNING.md` is the step-by-step for the five secrets that make it signed + notarized, and
+Actions → Check signing setup tries them without releasing.
 
 ## Run it on your Mac
 
@@ -65,6 +66,29 @@ Key files to know:
 - `Sources/PulseEngine/Composition/CompositionBuilder.swift` + `Rendering/FrameRenderer.swift` — how a timeline becomes pixels (same path for playback and export).
 - `Sources/PulseCore/AutoEdit/ShortBuilder.swift` — candidate → finished 9:16 short.
 - `Tests/PulseEngineTests/EngineSmokeTests.swift` — end-to-end: demo media → analysis → clips → short → rendered stills → exported MP4.
+- 1.8.0 (in progress, not released: the "top twenty" of `docs/IDEAS-800.md`, all built; `VERSION` and the README
+  still say 1.7.0 until a `[release]` commit). Where each lives, all with tests in `Tests/PulseCoreTests`:
+  default style per kind of recording and the two-style compare (`AISettings.defaultPlaybook`,
+  `AutoEdit/StyleComparison.swift`, `Views/StyleCompareSheet.swift`); the loop, the five opening lines and
+  reading-speed caption pages (`AutoEdit/LoopBuilder.swift`, `Clips/HookWriter.swift`, `Captions/CaptionLayout.swift`);
+  the story reading and the tease (`AutoEdit/NarrativeArc.swift`, `AutoEdit/OpenLoop.swift`, `Timeline.openLoops`);
+  music in the recording and the face signal (`Analysis/MusicDetector.swift`, `Analysis/FaceExpression.swift`,
+  `PulseEngine/Analysis/FaceExpressionAnalyzer.swift`); the real retention graph and what it teaches
+  (`Analysis/RetentionGraph.swift`, `Timeline.retention`, `AISettings.retentionProfile`); the dialogue-first mix,
+  one pass rebuilt, the looping trim (`Audio/MixAssistant.swift`, `AutoEdit/EditRebuilder.swift`,
+  `Timeline/TrimLoop.swift`, app side in `State/ProjectSession+Finishing.swift`); the head start on long recordings
+  (`Clips/HeadStart.swift`, `PulseEngine/Media/HeadClip.swift`, `ProjectSession.headStart`, `headAnalyses`); the
+  posting plan and review comments (`Export/PostingPlan.swift`, `Export/ReviewComments.swift`,
+  `Views/PostingPlanSheet.swift`, `State/ProjectSession+Sharing.swift`); the language-model edit planner
+  (`AutoEdit/EditPlanner.swift` builds the brief and checks the answer, `AI/EditPlanProviders.swift` talks to
+  Claude streamed or to an OpenAI-compatible server, `LongFormStoryboard.planWithModel` shows the plan for
+  approval; it has **never been run against a real model**, there is no key in CI); the viewer's frame judged in
+  CI (`Common/FrameCheck.swift`, `UISnapshotter.captureViewerFrame`, reference in `.github/viewer-frames.json`,
+  how to update it in `docs/VIEWER-FRAMES.md`); signing (`scripts/check-signing.sh`, `scripts/notarize.sh`, the
+  `Check signing setup` workflow, `docs/SIGNING.md`; untried with real credentials). Two things learned the hard
+  way: a public struct in `PulseCore` that the app constructs needs an explicit `public init` (Linux only builds
+  `PulseCore`, so a missing one compiles here and fails on macOS: check for it before pushing), and the heuristics
+  above were tuned on synthetic signals, so the "Not checked" list in `versions/1.8.0/NOTES.md` is the honest to-do.
 - 1.7.0 (the BulkBoard look + editing styles): `Sources/PulseApp/Design/Theme.swift` holds BulkBoard's tokens
   (`window` = its background, `panel` = its sidebar, `panelRaised` = its card surface, `control` = its raised tone;
   `Theme.ai` is the accent now, there is no second colour) and the `card()` / `raisedSurface()` / `insetRow()`
