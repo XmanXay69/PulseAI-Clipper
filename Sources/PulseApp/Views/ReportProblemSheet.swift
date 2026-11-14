@@ -23,8 +23,8 @@ struct ReportProblemSheet: View {
                 .scrollContentBackground(.hidden)
                 .padding(8)
                 .frame(height: 120)
-                .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.well))
-                .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.border))
+                .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.well))
+                .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(Theme.border))
             VStack(alignment: .leading, spacing: 4) {
                 Label("Included: the app log, macOS and Mac model, recent activity, the open project's settings and file names, recent PULSE crash reports.", systemImage: "doc.zipper")
                 Label("Never included: your videos, audio, transcripts or API keys.", systemImage: "lock.shield")

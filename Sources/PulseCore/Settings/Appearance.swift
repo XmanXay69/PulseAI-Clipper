@@ -1,14 +1,15 @@
 import Foundation
 
-/// The app's accent colour (#425). The AI violet stays the same whichever you pick, so AI features keep
-/// their own colour.
+/// The app's accent colour (#425). One accent everywhere: buttons, selection, the playhead and the sparkle on
+/// what the AI made. The default is the blue PULSE shares with BulkBoard.
 public enum AccentChoice: String, Codable, CaseIterable, Sendable {
-    case pulse, electric, lime, amber
+    case pulse, pink, electric, lime, amber
 
     public var displayName: String {
         switch self {
-        case .pulse: return "Pulse pink"
-        case .electric: return "Electric blue"
+        case .pulse: return "Blue"
+        case .pink: return "Pink"
+        case .electric: return "Violet"
         case .lime: return "Lime"
         case .amber: return "Amber"
         }
@@ -17,18 +18,20 @@ public enum AccentChoice: String, Codable, CaseIterable, Sendable {
     /// The colour as 0xRRGGBB.
     public var hex: UInt32 {
         switch self {
-        case .pulse: return 0xFF3D6E
-        case .electric: return 0x3D8BFF
+        case .pulse: return 0x4C8DFF
+        case .pink: return 0xFF3D6E
+        case .electric: return 0x8C7BE0
         case .lime: return 0xA6E22E
         case .amber: return 0xFFB020
         }
     }
 
-    /// The far end of the accent gradient — a little warmer or cooler so filled controls read as lit.
+    /// A neighbouring shade of the accent, for the app icon and other artwork that wants two tones.
     public var gradientEndHex: UInt32 {
         switch self {
-        case .pulse: return 0xFF6A4D
-        case .electric: return 0x5EDBFF
+        case .pulse: return 0x7FB0FF
+        case .pink: return 0xFF6A4D
+        case .electric: return 0xB4A6F5
         case .lime: return 0x3DDC97
         case .amber: return 0xFF7A3D
         }

@@ -61,8 +61,8 @@ struct ReferenceSheet: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(28)
-                .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(dropTargeted ? Theme.accent.opacity(0.08) : Theme.panelRaised))
-                .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge)
+                .background(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).fill(dropTargeted ? Theme.accent.opacity(0.08) : Theme.panelRaised))
+                .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous)
                     .strokeBorder(dropTargeted ? Theme.accent : Theme.border, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])))
                 .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { providers in
                     loadURLs(from: providers) { urls in if let url = urls.first { reference.study(url) } }
@@ -98,7 +98,7 @@ struct ReferenceSheet: View {
                 .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help("Forget this style")
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.panelRaised))
     }
 
     /// "Edit like my last videos" (#489): the average of how your recent exports were cut.
@@ -115,7 +115,7 @@ struct ReferenceSheet: View {
                 .buttonStyle(.plain).foregroundStyle(Theme.textTertiary).help("Forget what PULSE learned from your exports")
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.panelRaised))
         .help("PULSE keeps the fingerprint of your last ten exports — pacing, zooms, captions, music, effects — and can edit the next one the same way (#489)")
     }
 
@@ -152,7 +152,7 @@ struct ReferenceSheet: View {
                             Spacer(minLength: 0)
                         }
                         .padding(8)
-                        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+                        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.panelRaised))
                     }
                 }
 
@@ -310,7 +310,7 @@ struct ReferenceSheet: View {
                     Label(answers.length == .shorts ? "Make \(answers.shortsCount) Short\(answers.shortsCount == 1 ? "" : "s") Like This" : "Edit My VOD Like This",
                           systemImage: "wand.and.stars")
                 }
-                .buttonStyle(.pulseAI)
+                .buttonStyle(.pulsePrimary)
                 .keyboardShortcut(.defaultAction)
                 .disabled(app.session?.document.primaryAsset == nil)
                 .sheet(isPresented: $askingExtras) {

@@ -99,7 +99,7 @@ struct ViewerView: View {
                                 Text("Rebuilding").font(.pulseMicro).foregroundStyle(.white.opacity(0.85))
                             }
                             .padding(.horizontal, 9).padding(.vertical, 6)
-                            .background(RoundedRectangle(cornerRadius: 7).fill(.black.opacity(0.55)))
+                            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(.black.opacity(0.55)))
                             .padding(8)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                             .allowsHitTesting(false)
@@ -116,7 +116,7 @@ struct ViewerView: View {
                             .font(.pulseMicro).foregroundStyle(.white.opacity(0.9))
                             .frame(width: 150)
                             .padding(.horizontal, 9).padding(.vertical, 6)
-                            .background(RoundedRectangle(cornerRadius: 7).fill(.black.opacity(0.6)))
+                            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(.black.opacity(0.6)))
                             .padding(8)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                             .allowsHitTesting(false)
@@ -142,7 +142,7 @@ struct ViewerView: View {
                                 .font(.pulseCaption)
                                 .foregroundStyle(.white)
                                 .padding(10)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.75)))
+                                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(.black.opacity(0.75)))
                                 .padding(12)
                         }
                     }
@@ -524,7 +524,7 @@ struct MediaOfflineBanner: View {
                 .font(.pulseMicro).foregroundStyle(.white.opacity(0.6)).multilineTextAlignment(.center).frame(maxWidth: 240)
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 10).fill(.black.opacity(0.75)))
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.black.opacity(0.75)))
     }
 }
 
@@ -558,8 +558,8 @@ struct TransportBar: View {
                     .padding(.horizontal, 8)
                     .frame(minWidth: 112, maxWidth: 128, alignment: .leading)
                     .frame(height: 24)
-                    .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.well))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.accent))
+                    .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.well))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(Theme.accent))
                     .onAppear { timecodeFocused = true }
             } else {
                 ClockObserving(clock: playback.clock) {
@@ -570,8 +570,8 @@ struct TransportBar: View {
                         .padding(.horizontal, 8)
                         .frame(minWidth: 112, maxWidth: 128, alignment: .leading)
                         .frame(height: 24)
-                        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.well))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.border))
+                        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.well))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(Theme.border))
                         .contentShape(Rectangle())
                         .onTapGesture { typedTimecode = ""; editingTimecode = true }
                         .help("Click to type a time (12:34, 1:02:03 or 12:34:15 for frames) and press return")
@@ -584,8 +584,8 @@ struct TransportBar: View {
                 Image(systemName: playback.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .frame(width: 40, height: 26)
-                    .background(RoundedRectangle(cornerRadius: Theme.radius).fill(playback.isPlaying ? Theme.accent : Theme.control))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(playback.isPlaying ? .clear : Theme.borderStrong.opacity(0.7)))
+                    .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(playback.isPlaying ? Theme.accent : Theme.control))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(playback.isPlaying ? .clear : Theme.borderStrong.opacity(0.7)))
                     .foregroundStyle(playback.isPlaying ? Color.white : Theme.textPrimary)
             }
             .buttonStyle(.plain)
@@ -695,18 +695,18 @@ struct PlatformChrome: View {
                         Text("12K").font(.system(size: max(7, w * 0.025), weight: .semibold)).foregroundStyle(.white.opacity(0.8))
                     }
                 }
-                RoundedRectangle(cornerRadius: 4).fill(.white.opacity(0.35)).frame(width: w * 0.09, height: w * 0.09)
+                RoundedRectangle(cornerRadius: 4, style: .continuous).fill(.white.opacity(0.35)).frame(width: w * 0.09, height: w * 0.09)
             }
             .frame(width: w * i.right)
             .offset(x: w * (1 - i.right), y: h * (1 - i.bottom) - h * 0.42)
             // Username + caption + sound ticker.
             VStack(alignment: .leading, spacing: 5) {
                 Text("@yourhandle").font(.system(size: max(9, w * 0.038), weight: .bold)).foregroundStyle(.white.opacity(0.95))
-                RoundedRectangle(cornerRadius: 3).fill(.white.opacity(0.55)).frame(width: w * 0.55, height: max(6, w * 0.028))
-                RoundedRectangle(cornerRadius: 3).fill(.white.opacity(0.4)).frame(width: w * 0.38, height: max(6, w * 0.028))
+                RoundedRectangle(cornerRadius: 3, style: .continuous).fill(.white.opacity(0.55)).frame(width: w * 0.55, height: max(6, w * 0.028))
+                RoundedRectangle(cornerRadius: 3, style: .continuous).fill(.white.opacity(0.4)).frame(width: w * 0.38, height: max(6, w * 0.028))
                 HStack(spacing: 4) {
                     Image(systemName: "music.note").font(.system(size: max(8, w * 0.03))).foregroundStyle(.white.opacity(0.8))
-                    RoundedRectangle(cornerRadius: 3).fill(.white.opacity(0.4)).frame(width: w * 0.3, height: max(5, w * 0.024))
+                    RoundedRectangle(cornerRadius: 3, style: .continuous).fill(.white.opacity(0.4)).frame(width: w * 0.3, height: max(5, w * 0.024))
                 }
             }
             .offset(x: w * max(0.03, i.left + 0.02), y: h * (1 - i.bottom) - h * 0.17)
@@ -714,9 +714,9 @@ struct PlatformChrome: View {
             HStack {
                 ForEach(0..<5, id: \.self) { k in
                     if k == 2 {
-                        RoundedRectangle(cornerRadius: 5).fill(.white.opacity(0.9)).frame(width: w * 0.12, height: max(14, h * 0.028))
+                        RoundedRectangle(cornerRadius: 5, style: .continuous).fill(.white.opacity(0.9)).frame(width: w * 0.12, height: max(14, h * 0.028))
                     } else {
-                        RoundedRectangle(cornerRadius: 3).fill(.white.opacity(0.5)).frame(width: w * 0.07, height: max(8, h * 0.014))
+                        RoundedRectangle(cornerRadius: 3, style: .continuous).fill(.white.opacity(0.5)).frame(width: w * 0.07, height: max(8, h * 0.014))
                     }
                     if k < 4 { Spacer() }
                 }
@@ -841,7 +841,7 @@ struct ScopesPanel: View {
                 }
                 .frame(width: 150, height: 72)
                 .background(Color.black.opacity(0.85))
-                .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(.white.opacity(0.15)))
+                .overlay(RoundedRectangle(cornerRadius: 3, style: .continuous).strokeBorder(.white.opacity(0.15)))
                 if let data {
                     Text(data.clippedShare > 0.01 ? String(format: "%.0f%% clipping", data.clippedShare * 100) :
                             (data.crushedShare > 0.3 ? String(format: "%.0f%% crushed blacks", data.crushedShare * 100) : "no clipping"))
@@ -867,11 +867,11 @@ struct ScopesPanel: View {
                 }
                 .frame(width: 72, height: 72)
                 .background(Color.black.opacity(0.85))
-                .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(.white.opacity(0.15)))
+                .overlay(RoundedRectangle(cornerRadius: 3, style: .continuous).strokeBorder(.white.opacity(0.15)))
             }
         }
         .padding(8)
-        .background(RoundedRectangle(cornerRadius: 7).fill(.black.opacity(0.55)))
+        .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(.black.opacity(0.55)))
         .allowsHitTesting(false)
         .task(id: playback.isPlaying) {
             // Playing: a few times a second; paused: once per seek (the clock tick) — cheap either way.
@@ -924,8 +924,8 @@ struct SpeedEditHUD: View {
                 .font(.pulseMicro).foregroundStyle(.white.opacity(0.6))
         }
         .padding(.horizontal, 12).padding(.vertical, 7)
-        .background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.7)))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.accent.opacity(0.5)))
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(.black.opacity(0.7)))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.accent.opacity(0.5)))
     }
 }
 

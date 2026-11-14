@@ -34,7 +34,7 @@ struct PublishSheet: View {
                 GridRow {
                     Text("Description").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
                     TextEditor(text: $upload.description).font(.pulseCaption).frame(width: 420, height: 120)
-                        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Theme.border))
+                        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Theme.border))
                 }
                 GridRow {
                     Text("Tags").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
@@ -42,10 +42,8 @@ struct PublishSheet: View {
                 }
                 GridRow {
                     Text("Visibility").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
-                    Picker("", selection: $upload.privacy) {
-                        ForEach(YouTubeUpload.Privacy.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                    }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 260)
+                    PulseSegmented(selection: $upload.privacy, YouTubeUpload.Privacy.allCases) { $0.displayName }
+                    .frame(width: 260)
                     .disabled(scheduled)
                 }
                 GridRow {

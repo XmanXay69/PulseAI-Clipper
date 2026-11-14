@@ -10,7 +10,8 @@ enum AppIcon {
         NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
             let inset = rect.insetBy(dx: size * 0.08, dy: size * 0.08)
             let path = NSBezierPath(roundedRect: inset, xRadius: size * 0.2, yRadius: size * 0.2)
-            NSGradient(colors: [NSColor(red: 0.09, green: 0.09, blue: 0.13, alpha: 1), NSColor(red: 0.03, green: 0.03, blue: 0.05, alpha: 1)])?
+            // A graphite tile, the same family as BulkBoard's mark: 0x3A3A40 at the top to 0x18181B at the bottom.
+            NSGradient(colors: [NSColor(srgbRed: 0.227, green: 0.227, blue: 0.251, alpha: 1), NSColor(srgbRed: 0.094, green: 0.094, blue: 0.106, alpha: 1)])?
                 .draw(in: path, angle: -90)
             NSColor.white.withAlphaComponent(0.08).setStroke()
             path.lineWidth = size * 0.01
@@ -30,7 +31,7 @@ enum AppIcon {
             line.lineWidth = size * 0.055
             line.lineCapStyle = .round
             line.lineJoinStyle = .round
-            NSColor(red: 1, green: 0.24, blue: 0.43, alpha: 1).setStroke()
+            NSColor.white.withAlphaComponent(0.88).setStroke()
             line.stroke()
             // Play triangle (short-form cue).
             let tri = NSBezierPath()
@@ -39,7 +40,8 @@ enum AppIcon {
             tri.line(to: NSPoint(x: tx + w * 0.16, y: midY))
             tri.line(to: NSPoint(x: tx, y: midY + w * 0.1))
             tri.close()
-            NSColor(red: 0.55, green: 0.42, blue: 1, alpha: 1).setFill()
+            // The one accent: 0x4C8DFF.
+            NSColor(srgbRed: 0.298, green: 0.553, blue: 1, alpha: 1).setFill()
             tri.fill()
             return true
         }

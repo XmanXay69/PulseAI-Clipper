@@ -178,7 +178,7 @@ struct TranscriptPanel: View {
             .overlay(alignment: .bottom) { if lowConfidence { Rectangle().fill(Theme.warning.opacity(0.7)).frame(height: 1).padding(.horizontal, 2) } }
             .help(lowConfidence ? "Low confidence (\(Int((word.confidence ?? 0) * 100)) %) — double-click to fix" : "")
             .padding(.horizontal, 2)
-            .background(RoundedRectangle(cornerRadius: 3).fill(selected ? Theme.info.opacity(0.35) : (hit ? Theme.warning.opacity(0.3) : .clear)))
+            .background(RoundedRectangle(cornerRadius: 3, style: .continuous).fill(selected ? Theme.info.opacity(0.35) : (hit ? Theme.warning.opacity(0.3) : .clear)))
             .onTapGesture {
                 if NSEvent.modifierFlags.contains(.shift), let a = anchor {
                     selection = min(a, index)...max(a, index)

@@ -143,7 +143,7 @@ struct PacingGraph: View {
                         .offset(y: -geo.size.height * CGFloat(6 / top))
                     HStack(alignment: .bottom, spacing: 1) {
                         ForEach(Array(counts.enumerated()), id: \.offset) { _, n in
-                            RoundedRectangle(cornerRadius: 1)
+                            RoundedRectangle(cornerRadius: 1, style: .continuous)
                                 .fill(n > 30 ? Theme.warning : (n < 4 ? Theme.textTertiary.opacity(0.5) : Theme.info))
                                 .frame(height: max(1, geo.size.height * CGFloat(Double(n) / top)))
                                 .frame(maxWidth: .infinity)
@@ -152,7 +152,7 @@ struct PacingGraph: View {
                 }
             }
             .frame(height: 34)
-            .background(RoundedRectangle(cornerRadius: 4).fill(Theme.well))
+            .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Theme.well))
         }
         .help("Cuts per minute, minute by minute. The green band (6–20) feels lively without tiring; orange minutes over 30 may feel frantic.")
     }
@@ -183,7 +183,7 @@ struct SuggestionRow: View {
             }
         }
         .padding(8)
-        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(color.opacity(0.25)))
+        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.panelRaised))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(color.opacity(0.25)))
     }
 }

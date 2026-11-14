@@ -82,62 +82,69 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Settings").font(.pulseHeadline).foregroundStyle(Theme.textPrimary)
-                    .padding(.horizontal, 10).padding(.bottom, 6)
+        VStack(spacing: 0) {
+            PageHeader("Settings", subtitle: "How PULSE looks, what the AI does and where files go") {
                 TextField("Search settings", text: $query)
                     .textFieldStyle(.roundedBorder)
-                    .font(.pulseCaption)
-                    .padding(.horizontal, 6).padding(.bottom, 8)
+                    .frame(width: 220)
                     .onChange(of: query) { _, _ in if let first = visibleTabs.first, !visibleTabs.contains(tab) { tab = first } }
-                if visibleTabs.isEmpty {
-                    Text("Nothing matches “\(query)”").font(.pulseMicro).foregroundStyle(Theme.textTertiary).padding(.horizontal, 10)
-                }
-                ForEach(visibleTabs) { t in
-                    Button { tab = t } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: t.symbol).frame(width: 16)
-                            Text(t.title)
-                            Spacer()
+            }
+            .padding(.horizontal, Theme.Spacing.xxl)
+            .padding(.top, 4)
+            .padding(.bottom, Theme.Spacing.l)
+            HStack(alignment: .top, spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 2) {
+                        if visibleTabs.isEmpty {
+                            Text("Nothing matches “\(query)”").font(.system(size: 12)).foregroundStyle(Theme.textSecondary).padding(.horizontal, 10)
                         }
-                        .font(.pulseBody)
-                        .foregroundStyle(tab == t ? Theme.textPrimary : Theme.textSecondary)
-                        .padding(.horizontal, 10).padding(.vertical, 6)
-                        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(tab == t ? Theme.control : .clear))
-                        .contentShape(Rectangle())
+                        ForEach(visibleTabs) { t in
+                            Button { tab = t } label: {
+                                HStack(spacing: 9) {
+                                    Image(systemName: t.symbol).font(.system(size: 13)).frame(width: 18)
+                                        .foregroundStyle(tab == t ? Theme.accent : Theme.textSecondary)
+                                    Text(t.title).font(.system(size: 13, weight: tab == t ? .semibold : .regular)).foregroundStyle(Theme.textPrimary)
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 10).padding(.vertical, 6)
+                                .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(tab == t ? Theme.control : .clear))
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(tab == t ? [.isSelected] : [])
+                        }
                     }
-                    .buttonStyle(.plain)
+                    .padding(.leading, Theme.Spacing.l)
+                    .padding(.trailing, Theme.Spacing.s)
+                    .padding(.bottom, Theme.Spacing.xxl)
                 }
-                Spacer()
-            }
-            .padding(14)
-            .frame(width: 200)
-            .background(Theme.panel)
-            Rectangle().fill(Theme.divider).frame(width: 1)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    switch tab {
-                    case .general: GeneralSettings()
-                    case .aiProcessing: AIProcessingSettings()
-                    case .aiFeatures: AIFeatureSettings()
-                    case .brandKit: BrandKitSettings()
-                    case .performance: PerformanceSettings()
-                    case .transcription: TranscriptionSettings()
-                    case .files: FileSettings()
-                    case .proxies: ProxySettingsPane()
-                    case .shortcuts: ShortcutsPane()
-                    case .statistics: StatisticsPane()
-                    case .diagnostics: DiagnosticsPane()
-                    case .privacy: PrivacyPane()
-                    case .plugins: PluginsPane()
-                    case .publishing: PublishingPane()
+                .frame(width: 216)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
+                        switch tab {
+                        case .general: GeneralSettings()
+                        case .aiProcessing: AIProcessingSettings()
+                        case .aiFeatures: AIFeatureSettings()
+                        case .brandKit: BrandKitSettings()
+                        case .performance: PerformanceSettings()
+                        case .transcription: TranscriptionSettings()
+                        case .files: FileSettings()
+                        case .proxies: ProxySettingsPane()
+                        case .shortcuts: ShortcutsPane()
+                        case .statistics: StatisticsPane()
+                        case .diagnostics: DiagnosticsPane()
+                        case .privacy: PrivacyPane()
+                        case .plugins: PluginsPane()
+                        case .publishing: PublishingPane()
+                        }
                     }
+                    .padding(.leading, Theme.Spacing.m)
+                    .padding(.trailing, Theme.Spacing.xxl)
+                    .padding(.bottom, Theme.Spacing.xxl)
+                    .frame(maxWidth: 720, alignment: .leading)
                 }
-                .padding(24)
-                .frame(maxWidth: 680, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Theme.window)
     }
@@ -158,13 +165,10 @@ struct SettingsGroup<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel(text: title)
-            VStack(alignment: .leading, spacing: 10) { content() }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .raisedSurface()
-                .elevation(1)
+            VStack(alignment: .leading, spacing: 12) { content() }
+                .card()
             if let footnote {
-                Text(footnote).font(.pulseCaption).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
+                Text(footnote).font(.system(size: 11)).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -185,7 +189,7 @@ struct SettingsRow<Control: View>: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label).font(.pulseBody).foregroundStyle(Theme.textPrimary)
-                if let detail { Text(detail).font(.pulseCaption).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true) }
+                if let detail { Text(detail).font(.system(size: 11.5)).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true) }
             }
             Spacer(minLength: 12)
             control()
@@ -207,13 +211,11 @@ struct GeneralSettings: View {
             }
         }
         SettingsGroup("Appearance") {
-            SettingsRow("Theme", detail: "Dark is the editing suite; Light is a paper white; Match macOS follows the system.") {
-                Picker("", selection: $app.settings.appearance) {
-                    ForEach(AppAppearance.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                }
-                .pickerStyle(.segmented).labelsHidden().frame(width: 260)
+            SettingsRow("Theme", detail: "Dark is graphite, Light is paper white, and Match macOS follows the system.") {
+                PulseSegmented(selection: $app.settings.appearance, AppAppearance.allCases) { $0.displayName }
+                .frame(width: 260)
             }
-            SettingsRow("Accent colour", detail: "Buttons, selection and the playhead. AI features keep their violet.") {
+            SettingsRow("Accent colour", detail: "Buttons, selection, the playhead and the sparkle on what the AI made.") {
                 HStack(spacing: 8) {
                     ForEach(AccentChoice.allCases, id: \.self) { choice in
                         Button { app.settings.accent = choice } label: {
@@ -302,10 +304,8 @@ struct GeneralSettings: View {
                     .labelsHidden().toggleStyle(.switch).tint(Theme.accent)
             }
             SettingsRow("Track height", detail: "How tall timeline tracks are; compact mode still tightens long timelines.") {
-                Picker("", selection: $app.settings.trackHeight) {
-                    ForEach(TrackHeightPreset.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                }
-                .pickerStyle(.segmented).labelsHidden().frame(width: 200)
+                PulseSegmented(selection: $app.settings.trackHeight, TrackHeightPreset.allCases) { $0.displayName }
+                .frame(width: 200)
             }
             SettingsRow("Thumbnail after export", detail: "Send a thumbnail design for every finished export to Thumbnail Studio (when it's installed).") {
                 Toggle("", isOn: $app.settings.thumbnailAfterExport).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
@@ -359,10 +359,8 @@ struct GeneralSettings: View {
                     .buttonStyle(.pulse(.secondary, compact: true))
             }
             SettingsRow("Update channel", detail: app.settings.updateChannel.detail + " The update sheet lists everything since the version you have.") {
-                Picker("", selection: $app.settings.updateChannel) {
-                    ForEach(UpdateChannel.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                }
-                .labelsHidden().pickerStyle(.segmented).frame(width: 160)
+                PulseSegmented(selection: $app.settings.updateChannel, UpdateChannel.allCases) { $0.displayName }
+                .frame(width: 160)
                 .onChange(of: app.settings.updateChannel) { _, _ in Task { await app.updater.check(userInitiated: false) } }
             }
             SettingsRow("Something not working?", detail: "Bundles the app log and system info (never your media) and opens a GitHub issue.") {
@@ -509,10 +507,8 @@ struct AIFeatureSettings: View {
         }
         SettingsGroup("Clip finding") {
             SettingsRow("Default clip length") {
-                Picker("", selection: $app.settings.ai.defaultClipLength) {
-                    ForEach(ClipLengthPreset.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                }
-                .pickerStyle(.segmented).labelsHidden().frame(width: 280)
+                PulseSegmented(selection: $app.settings.ai.defaultClipLength, segments: ClipLengthPreset.allCases.map { PulseSegment($0, $0.segmentTitle, help: $0.displayName) })
+                .frame(width: 280)
             }
             if app.settings.ai.defaultClipLength == .custom {
                 SettingsRow("Custom length", detail: "10–90 seconds") {
@@ -565,18 +561,12 @@ struct AIFeatureSettings: View {
                     .textFieldStyle(.roundedBorder).frame(width: 260)
             }
             SettingsRow("Audio under swear words", detail: "What AI-built shorts and VOD edits do to the sound under the words the caption filter masks. Rendered non-destructively; change it per timeline in the captions workspace.") {
-                Picker("", selection: $app.settings.ai.censorAudio) {
-                    ForEach(CensorAudio.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                }
-                .pickerStyle(.segmented).labelsHidden().frame(width: 220)
+                PulseSegmented(selection: $app.settings.ai.censorAudio, CensorAudio.allCases) { $0.displayName }
+                .frame(width: 220)
             }
             SettingsRow("Bleep tone", detail: "Pitch of the bleep over swear words.") {
-                Picker("", selection: $app.settings.ai.bleepTone) {
-                    Text("Low (440 Hz)").tag(440.0)
-                    Text("Classic (1 kHz)").tag(1000.0)
-                    Text("High (2 kHz)").tag(2000.0)
-                }
-                .pickerStyle(.segmented).labelsHidden().frame(width: 300)
+                PulseSegmented(selection: $app.settings.ai.bleepTone, segments: [PulseSegment(440.0, "Low (440 Hz)"), PulseSegment(1000.0, "Classic (1 kHz)"), PulseSegment(2000.0, "High (2 kHz)")])
+                .frame(width: 300)
             }
             SettingsRow("Cold open on shorts", detail: "Shorts open on 1.6 s of the payoff, cut hard, then tell the story.") {
                 Toggle("", isOn: $app.settings.ai.coldOpenShorts).labelsHidden().toggleStyle(.switch).tint(Theme.ai)
@@ -601,10 +591,8 @@ struct AIFeatureSettings: View {
                 }
             }
             SettingsRow("End of every short", detail: app.settings.ai.shortsEndCTA.detail) {
-                Picker("", selection: $app.settings.ai.shortsEndCTA) {
-                    ForEach(EndCTA.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                }
-                .pickerStyle(.segmented).labelsHidden().frame(width: 300)
+                PulseSegmented(selection: $app.settings.ai.shortsEndCTA, EndCTA.allCases) { $0.displayName }
+                .frame(width: 300)
             }
             SettingsRow("Your handle", detail: "Goes on follow cards (“FOLLOW @you FOR MORE”).") {
                 TextField("@you", text: $app.settings.ai.socialHandle).textFieldStyle(.roundedBorder).frame(width: 160)
@@ -930,10 +918,8 @@ struct ProxySettingsPane: View {
                 .labelsHidden().frame(width: 140)
             }
             SettingsRow("Proxy size") {
-                Picker("", selection: $app.settings.proxy.quality) {
-                    ForEach(ProxyQuality.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                }
-                .pickerStyle(.segmented).labelsHidden().frame(width: 220)
+                PulseSegmented(selection: $app.settings.proxy.quality, ProxyQuality.allCases) { $0.displayName }
+                .frame(width: 220)
             }
             if app.settings.proxy.quality == .custom {
                 SettingsRow("Custom height") {
@@ -945,13 +931,11 @@ struct ProxySettingsPane: View {
                 Toggle("", isOn: $app.settings.proxy.useProxiesForPlayback).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
             }
             SettingsRow("Viewer quality", detail: "How large the viewer renders each frame; exports always render in full.") {
-                Picker("", selection: Binding(get: { app.settings.playbackQuality }, set: { q in
+                PulseSegmented(selection: Binding(get: { app.settings.playbackQuality }, set: { q in
                     app.settings.playbackQuality = q
                     app.session?.setPlaybackQuality(q)
-                })) {
-                    ForEach(PlaybackQuality.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                }
-                .pickerStyle(.segmented).labelsHidden().frame(width: 180)
+                }), PlaybackQuality.allCases) { $0.displayName }
+                .frame(width: 180)
             }
             SettingsRow("Drop a step when playback stutters", detail: "PULSE steps the viewer down on its own when it can't keep up, and says so.") {
                 Toggle("", isOn: $app.settings.autoPlaybackQuality).labelsHidden().toggleStyle(.switch).tint(Theme.accent)
@@ -981,7 +965,7 @@ struct StatisticsPane: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(12)
-                        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+                        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.panelRaised))
                     }
                 }
                 if let since = stats.since {
@@ -1043,7 +1027,7 @@ struct ShortcutsPane: View {
                         Spacer()
                         Text(item.0).font(.pulseMono).foregroundStyle(Theme.textPrimary)
                             .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(RoundedRectangle(cornerRadius: Theme.radiusSmall).fill(Theme.control))
+                            .background(RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous).fill(Theme.control))
                     }
                 }
             }
@@ -1072,7 +1056,7 @@ struct BrandKitSettings: View {
                 HStack(spacing: 8) {
                     if !app.settings.brandKit.logoPath.isEmpty, let image = NSImage(contentsOfFile: app.settings.brandKit.logoPath) {
                         Image(nsImage: image).resizable().aspectRatio(contentMode: .fit).frame(width: 40, height: 28)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(Theme.well))
+                            .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Theme.well))
                     }
                     pickButton(kit.logoPath, types: ["png", "jpg", "jpeg", "heic", "tiff"])
                 }
@@ -1291,7 +1275,7 @@ struct DiagnosticsPane: View {
             }
             .frame(height: 360)
             .padding(8)
-            .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.control))
+            .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.control))
         }
         .onAppear { text = app.diagnosticsText() }
     }
@@ -1510,7 +1494,7 @@ struct PluginsPane: View {
                     }
                 }
                 .padding(8)
-                .background(RoundedRectangle(cornerRadius: 6).fill(Theme.well))
+                .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.well))
             }
             Spacer()
         }

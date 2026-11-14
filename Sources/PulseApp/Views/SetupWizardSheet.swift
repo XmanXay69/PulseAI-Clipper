@@ -32,10 +32,7 @@ struct SetupWizardSheet: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         question("Where do you stream?") {
-                            Picker("", selection: $setup.platform) {
-                                ForEach(StreamSetup.Platform.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                            }
-                            .pickerStyle(.segmented).labelsHidden()
+                            PulseSegmented(selection: $setup.platform, StreamSetup.Platform.allCases) { $0.displayName }
                         }
                         question("What do you stream most?") {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 8)], spacing: 8) {
@@ -45,30 +42,19 @@ struct SetupWizardSheet: View {
                             }
                         }
                         question("Is there a facecam on screen?") {
-                            Picker("", selection: $setup.facecam) {
-                                Text("Yes").tag(true)
-                                Text("No").tag(false)
-                            }
-                            .pickerStyle(.segmented).labelsHidden().frame(width: 200)
+                            PulseSegmented(selection: $setup.facecam, segments: [PulseSegment(true, "Yes"), PulseSegment(false, "No")])
+                            .frame(width: 200)
                         }
                         question("Where's your voice?") {
-                            Picker("", selection: $setup.mic) {
-                                ForEach(StreamSetup.Mic.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                            }
-                            .pickerStyle(.segmented).labelsHidden()
+                            PulseSegmented(selection: $setup.mic, StreamSetup.Mic.allCases) { $0.displayName }
                             Text(setup.micAdvice).font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
                         }
                         question("Where do your shorts go?") {
-                            Picker("", selection: $setup.shortsTarget) {
-                                ForEach(StreamSetup.ShortsTarget.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                            }
-                            .pickerStyle(.segmented).labelsHidden()
+                            PulseSegmented(selection: $setup.shortsTarget, StreamSetup.ShortsTarget.allCases) { $0.displayName }
                         }
                         question("How should the edits feel?") {
-                            Picker("", selection: $setup.pace) {
-                                ForEach(StreamSetup.Pace.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                            }
-                            .pickerStyle(.segmented).labelsHidden().frame(width: 300)
+                            PulseSegmented(selection: $setup.pace, StreamSetup.Pace.allCases) { $0.displayName }
+                            .frame(width: 300)
                             Text(paceHint).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
                         }
                         question("Caption look") {
@@ -160,8 +146,8 @@ struct SetupWizardSheet: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 10).padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: Theme.radius).fill(on ? Theme.accentSoft : Theme.control))
-            .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(on ? Theme.accent.opacity(0.6) : Theme.border))
+            .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(on ? Theme.accentSoft : Theme.control))
+            .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(on ? Theme.accent.opacity(0.6) : Theme.border))
         }
         .buttonStyle(.plain)
     }

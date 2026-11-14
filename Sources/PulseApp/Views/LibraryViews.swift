@@ -50,38 +50,58 @@ struct MediaView: View {
         if panel.runModal() == .OK, let url = panel.url { session.relinkMissingMedia(in: url) }
     }
 
+    /// "4 files · 2 videos, 1 music, 1 sound effect"
+    var subtitle: String {
+        let live = session.document.media.filter { !$0.isTrashed }
+        guard !live.isEmpty else { return "Videos, audio, music, sound effects and graphics in this project" }
+        let parts = MediaCategory.allCases.compactMap { c -> String? in
+            let n = live.filter { $0.category == c }.count
+            return n > 0 ? "\(n) \(c.displayName.lowercased())" : nil
+        }
+        return "\(live.count) file\(live.count == 1 ? "" : "s") · " + parts.joined(separator: ", ")
+    }
+
     var body: some View {
+        VStack(spacing: 0) {
+            PageHeader("Media", subtitle: subtitle) {
+                Button { app.showImportPanel() } label: { Label("Import", systemImage: "plus") }.buttonStyle(.pulse(.primary, compact: true))
+            }
+            .padding(.horizontal, Theme.Spacing.xxl)
+            .padding(.top, 4)
+            .padding(.bottom, Theme.Spacing.l)
+            Rectangle().fill(Theme.divider).frame(height: 1)
+            panes
+        }
+    }
+
+    var panes: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
-                SectionLabel(text: "Library").padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 6)
+                SectionLabel(text: "Library").padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 6)
                 binRow(nil, title: "All Media", symbol: "tray.full")
                 ForEach(MediaCategory.allCases, id: \.self) { c in
                     binRow(c, title: c.displayName, symbol: symbol(for: c))
                 }
-                Divider().padding(.vertical, 8)
-                Toggle(isOn: $favoritesOnly) { Label("Favorites", systemImage: "star") }
-                    .toggleStyle(.button).buttonStyle(.plain).font(.pulseCaption).padding(.horizontal, 12)
-                Toggle(isOn: $unusedOnly) { Label("Unused", systemImage: "tray") }
-                    .toggleStyle(.button).buttonStyle(.plain).font(.pulseCaption).padding(.horizontal, 12)
+                Rectangle().fill(Theme.divider).frame(height: 1).padding(.horizontal, 18).padding(.vertical, 8)
+                filterRow(isOn: $favoritesOnly, title: "Favorites", symbol: "star")
+                filterRow(isOn: $unusedOnly, title: "Unused", symbol: "tray")
                     .help("Files no timeline or clip card uses (#17)")
                 let missing = session.document.media.filter { $0.availability == .missing && !$0.isTrashed }.count
                 if missing > 0 {
                     Button { relinkAll() } label: { Label("Relink \(missing) Missing…", systemImage: "link.badge.plus") }
-                        .buttonStyle(.plain).font(.pulseCaption).foregroundStyle(Theme.warning).padding(.horizontal, 12)
+                        .buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(Theme.warning).padding(.horizontal, 18).padding(.vertical, 5)
                         .help("Pick a folder once; every missing file inside it (by name, and size when names repeat) is reconnected (#7)")
                 }
                 let trashed = session.document.trashedMedia.count
-                Toggle(isOn: $showTrash) { Label("Trash\(trashed > 0 ? " (\(trashed))" : "")", systemImage: "trash") }
-                    .toggleStyle(.button).buttonStyle(.plain).font(.pulseCaption).padding(.horizontal, 12)
+                filterRow(isOn: $showTrash, title: "Trash\(trashed > 0 ? " (\(trashed))" : "")", symbol: "trash")
                     .help("Media you set aside; its clips still play, and Restore brings it back (#22)")
                 if showTrash, trashed > 0 {
-                    Button("Empty Trash") { session.emptyMediaTrash() }.buttonStyle(.pulse(.ghost, compact: true)).padding(.horizontal, 12)
+                    Button("Empty Trash") { session.emptyMediaTrash() }.buttonStyle(.pulse(.ghost, compact: true)).padding(.horizontal, 14)
                         .help("Deletes trashed media nothing uses; files on disk are untouched")
                 }
                 Spacer()
             }
-            .frame(width: 180)
-            .background(Theme.panel)
+            .frame(width: 196)
             Rectangle().fill(Theme.divider).frame(width: 1)
             VStack(spacing: 0) {
                 HStack(spacing: 8) {
@@ -99,11 +119,9 @@ struct MediaView: View {
                         .frame(width: 150)
                     IconButton(symbol: listView ? "square.grid.2x2" : "list.bullet", help: listView ? "Grid" : "List with sortable columns (#18)", isActive: listView) { listView.toggle() }
                     Spacer()
-                    Button { app.showImportPanel() } label: { Label("Import", systemImage: "plus") }.buttonStyle(.pulseSecondary)
                 }
-                .padding(10)
-                .background(Theme.panel)
-                .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
                 if assets.isEmpty {
                     EmptyStateView(symbol: "photo.stack", title: "No media", message: "Import videos, audio, music, sound effects and graphics. Drag them straight onto the timeline.",
                                    actionTitle: "Import Media") { app.showImportPanel() }
@@ -125,7 +143,8 @@ struct MediaView: View {
                                     }
                             }
                         }
-                        .padding(14)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 16)
                     }
                 }
             }
@@ -156,13 +175,34 @@ struct MediaView: View {
                 Spacer()
                 Text("\(count)").foregroundStyle(Theme.textTertiary)
             }
-            .font(.pulseCaption)
+            .font(.system(size: 12, weight: category == c ? .semibold : .regular))
             .foregroundStyle(category == c ? Theme.textPrimary : Theme.textSecondary)
             .padding(.horizontal, 10).padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 5).fill(category == c ? Theme.control : .clear))
-            .padding(.horizontal, 6)
+            .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(category == c ? Theme.control : .clear))
+            .padding(.horizontal, 8)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    /// Favorites, Unused, Trash: a row that stays lit while its filter is on.
+    func filterRow(isOn: Binding<Bool>, title: String, symbol: String) -> some View {
+        Button { isOn.wrappedValue.toggle() } label: {
+            HStack {
+                Image(systemName: isOn.wrappedValue ? symbol + ".fill" : symbol).frame(width: 16)
+                    .foregroundStyle(isOn.wrappedValue ? Theme.accent : Theme.textSecondary)
+                Text(title)
+                Spacer()
+            }
+            .font(.system(size: 12, weight: isOn.wrappedValue ? .semibold : .regular))
+            .foregroundStyle(isOn.wrappedValue ? Theme.textPrimary : Theme.textSecondary)
+            .padding(.horizontal, 10).padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(isOn.wrappedValue ? Theme.control : .clear))
+            .padding(.horizontal, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isOn.wrappedValue ? [.isSelected] : [])
     }
 
     func mediaInspector(_ asset: MediaAsset) -> some View {
@@ -170,7 +210,7 @@ struct MediaView: View {
             VStack(alignment: .leading, spacing: 12) {
                 ThumbnailView(url: asset.kind == .audio ? nil : session.url(for: asset), time: 2, maxWidth: 560, contentMode: .fit)
                     .frame(height: 150)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 Text(asset.name).font(.pulseHeadline).foregroundStyle(Theme.textPrimary)
                 HStack {
                     Button { session.edit("Favorite") { $0.updateAsset(id: asset.id) { $0.isFavorite.toggle() } } } label: {
@@ -299,8 +339,8 @@ struct MediaTile: View {
                 .padding(6)
             }
             .frame(height: 110)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            Text(asset.name).font(.pulseCaption).foregroundStyle(Theme.textPrimary).lineLimit(1)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+            Text(asset.name).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textPrimary).lineLimit(1)
             HStack(spacing: 6) {
                 Label(asset.role.displayName, systemImage: asset.role.symbolName)
                 Spacer()
@@ -310,8 +350,8 @@ struct MediaTile: View {
             .foregroundStyle(Theme.textTertiary)
         }
         .padding(8)
-        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(selected ? Theme.control : Theme.panelRaised))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(selected ? Theme.accent : Theme.border))
+        .background(RoundedRectangle(cornerRadius: Theme.radiusXL, style: .continuous).fill(selected ? Theme.accentSoft : Theme.panelRaised))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusXL, style: .continuous).strokeBorder(selected ? Theme.accent : Theme.border))
     }
 }
 
@@ -324,26 +364,23 @@ struct TemplatesView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Templates").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                    Text("Reusable looks: caption style, facecam layout & frame, color, intro/outro, music settings.").font(.pulseCaption).foregroundStyle(Theme.textTertiary)
-                }
-                Spacer()
-                Button { saving = true } label: { Label("Save Current Timeline as Template", systemImage: "square.and.arrow.down.on.square") }
-                    .buttonStyle(.pulsePrimary)
+            PageHeader("Templates", subtitle: "Reusable looks: caption style, facecam layout and frame, colour, intro and outro, music settings") {
+                Button { saving = true } label: { Label("Save current timeline", systemImage: "square.and.arrow.down.on.square") }
+                    .buttonStyle(.pulse(.primary, compact: true))
                     .disabled(app.session?.activeTimeline == nil)
+                    .help("Save the open timeline's look as a template")
             }
-            .padding(16)
-            .background(Theme.panel)
-            .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
+            .padding(.horizontal, Theme.Spacing.xxl)
+            .padding(.top, 4)
+            .padding(.bottom, Theme.Spacing.l)
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 14)], spacing: 14) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 16)], spacing: 16) {
                     ForEach(app.allTemplates) { template in
                         TemplateCard(template: template)
                     }
                 }
-                .padding(18)
+                .padding(.horizontal, Theme.Spacing.xxl)
+                .padding(.bottom, Theme.Spacing.xxl)
             }
         }
         .alert("Save Template", isPresented: $saving) {
@@ -370,33 +407,33 @@ struct TemplateCard: View {
                 }
             }
             .frame(height: 110)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLarge))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous))
             HStack {
-                Text(template.name).font(.pulseHeadline).foregroundStyle(Theme.textPrimary)
+                Text(template.name).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
                 Spacer()
                 if template.isBuiltIn { TagChip(text: "Built-in") }
             }
             HStack(spacing: 4) {
-                TagChip(text: template.layout.displayName, color: Theme.info)
-                TagChip(text: template.captionStyle.presetName, color: Theme.ai)
-                if template.silencePreset != nil { TagChip(text: "Jump cuts", color: Theme.warning) }
+                TagChip(text: template.layout.displayName)
+                TagChip(text: template.captionStyle.presetName)
+                if template.silencePreset != nil { TagChip(text: "Jump cuts") }
             }
             HStack {
-                Button("Apply to Timeline") {
+                Button("Apply to timeline") {
                     app.session?.applyTemplate(template)
                     app.section = .editor
                 }
-                .buttonStyle(.pulse(.primary, compact: true))
+                .buttonStyle(.pulse(.secondary, compact: true))
                 .disabled(app.session?.activeTimeline == nil)
                 Spacer()
                 if !template.isBuiltIn {
                     Button { app.deleteGlobalTemplate(template.id) } label: { Image(systemName: "trash") }.buttonStyle(.pulse(.ghost, compact: true))
+                        .help("Delete this template")
                 }
             }
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(Theme.panelRaised))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(Theme.border))
+        .raisedSurface(cornerRadius: Theme.radiusXL)
     }
 }
 
@@ -422,15 +459,18 @@ struct ExportSettingsForm: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             Image(systemName: preset.symbolName).font(.system(size: 14))
-                            Text(preset.name).font(.system(size: 11, weight: .semibold)).lineLimit(1)
-                            Text(preset.resolutionLabel).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                                .foregroundStyle(settings.presetID == preset.id ? Theme.accent : Theme.textSecondary)
+                            Text(preset.name).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                            Text(preset.resolutionLabel).font(.pulseMicro.monospacedDigit()).foregroundStyle(Theme.textSecondary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(8)
-                        .foregroundStyle(settings.presetID == preset.id ? Theme.accent : Theme.textSecondary)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(settings.presetID == preset.id ? Theme.accentSoft : Theme.control))
+                        .padding(10)
+                        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).fill(settings.presetID == preset.id ? Theme.accentSoft : Theme.control.opacity(0.55)))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).strokeBorder(settings.presetID == preset.id ? Theme.accent : Color.clear))
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityAddTraits(settings.presetID == preset.id ? [.isSelected] : [])
                 }
             }
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
@@ -460,10 +500,8 @@ struct ExportSettingsForm: View {
                 }
                 GridRow {
                     Text("Quality").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
-                    Picker("", selection: $settings.quality) {
-                        ForEach(ExportQuality.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                    }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 300)
+                    PulseSegmented(selection: $settings.quality, ExportQuality.allCases) { $0.displayName }
+                    .frame(width: 300)
                 }
                 GridRow {
                     Text("Video bitrate").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
@@ -593,23 +631,90 @@ struct ExportsView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 0) {
+        VStack(spacing: 0) {
+            PageHeader("Exports", subtitle: headerSubtitle) {
+                Button { previewCurrent() } label: { Label("Preview 10 s", systemImage: "eye") }
+                    .buttonStyle(.pulse(.secondary, compact: true))
+                    .help("Encodes ten seconds from the in point with these settings and opens it, so you can judge the bitrate before the full export (#360)")
+                    .disabled(app.session?.activeTimeline == nil)
+                Button { exportAllShorts() } label: { Label("Export all shorts (\(app.session?.document.timelines.count ?? 0))", systemImage: "square.and.arrow.up.on.square") }
+                    .buttonStyle(.pulse(.secondary, compact: true))
+                    .disabled((app.session?.document.timelines.isEmpty ?? true))
+                Button { exportCurrent() } label: { Label("Export timeline", systemImage: "square.and.arrow.up") }
+                    .buttonStyle(.pulse(.primary, compact: true))
+                    .disabled(app.session?.activeTimeline == nil || measuring != nil)
+                    .help("Export the open timeline with these settings")
+            }
+            .padding(.horizontal, Theme.Spacing.xxl)
+            .padding(.top, 4)
+            .padding(.bottom, Theme.Spacing.l)
+            columns
+        }
+        .onAppear {
+            guard !loaded else { return }
+            loaded = true
+            let preset = ExportPreset.preset(id: app.session?.document.overrides.exportPresetID ?? app.settings.defaultExportPresetID) ?? .tiktok
+            settings = app.session?.document.exportSettings ?? ExportSettings(preset: preset)
+            if settings.outputDirectory.isEmpty { settings.outputDirectory = app.exportFolder.path }
+            // A YouTube edit (Edit My VOD) shouldn't start on a vertical short-form preset.
+            if let timeline = app.session?.activeTimeline, EditFormat.of(timeline) == .longForm,
+               ["tiktok", "shorts", "reels"].contains(settings.presetID) {
+                let folder = settings.outputDirectory
+                settings = ExportSettings(preset: .youtube)
+                settings.outputDirectory = folder
+            }
+            baseline = settings
+        }
+        .onChange(of: settings) { _, newValue in
+            if let baseline, newValue == baseline { return }
+            baseline = nil
+            app.session?.edit("Export Settings", coalesce: "export-settings") { $0.exportSettings = newValue }
+            app.settings.defaultExportPresetID = newValue.presetID
+        }
+        .alert("Loudness check", isPresented: Binding(get: { loudnessAsk != nil }, set: { if !$0 { loudnessAsk = nil } }), presenting: loudnessAsk) { ask in
+            switch ask.verdict.action {
+            case .lower, .levelDialogue:
+                Button("Fix & Export") { fixLoudness(ask) }
+                Button("Always Fix in This Project") { app.session?.edit("Remember Loudness Choice") { $0.loudnessChoice = "fix" }; fixLoudness(ask) }
+                Button("Export As Is") { queue(ask.timeline) }
+                Button("Always As Is in This Project") { app.session?.edit("Remember Loudness Choice") { $0.loudnessChoice = "asIs" }; queue(ask.timeline) }
+                Button("Cancel", role: .cancel) {}
+            case .fine, .quietButLeveled:
+                Button("Export") { queue(ask.timeline) }
+                Button("Cancel", role: .cancel) {}
+            }
+        } message: { ask in
+            Text(ask.verdict.summary)
+        }
+    }
+
+    /// What will be exported, in one line.
+    var headerSubtitle: String {
+        guard let timeline = app.session?.activeTimeline else { return "Open a timeline to export it, or queue every short at once" }
+        let preset = ExportPreset.preset(id: settings.presetID)?.name ?? "Custom"
+        return "\(timeline.name) · \(Timecode.duration(timeline.duration)) · \(preset)"
+    }
+
+    var columns: some View {
+        HStack(alignment: .top, spacing: Theme.Spacing.xl) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Export").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                    ExportSettingsForm(settings: $settings)
-                    HStack(spacing: 10) {
-                        Button { previewCurrent() } label: { Label("Preview 10 s", systemImage: "eye") }
-                            .buttonStyle(.pulse(.secondary, compact: true))
-                            .help("Encodes ten seconds from the in point with these settings and opens it, so you can judge the bitrate before the full export (#360)")
-                            .disabled(app.session?.activeTimeline == nil)
-                        Button { exportCurrent() } label: { Label("Export Current Timeline", systemImage: "square.and.arrow.up") }
-                            .buttonStyle(.pulsePrimary)
-                            .disabled(app.session?.activeTimeline == nil || measuring != nil)
-                        Button { exportAllShorts() } label: { Label("Export All Shorts (\(app.session?.document.timelines.count ?? 0))", systemImage: "square.and.arrow.up.on.square") }
-                            .buttonStyle(.pulseSecondary)
-                            .disabled((app.session?.document.timelines.isEmpty ?? true))
-                    }
+                VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
+                    ExportSettingsForm(settings: $settings).card()
+                    optionsCard
+                }
+                .padding(.bottom, Theme.Spacing.xxl)
+            }
+            .frame(maxWidth: .infinity)
+            ExportQueueView(queue: app.exports)
+                .frame(width: 380)
+                .padding(.bottom, Theme.Spacing.xxl)
+        }
+        .padding(.horizontal, Theme.Spacing.xxl)
+    }
+
+    var optionsCard: some View {
+                VStack(alignment: .leading, spacing: 14) {
+                    SectionLabel(text: "Options")
                     Toggle(isOn: $settings.audioOnly) {
                         VStack(alignment: .leading, spacing: 1) {
                             Text("Audio only (.m4a)").font(.pulseBody).foregroundStyle(Theme.textPrimary)
@@ -680,48 +785,7 @@ struct ExportsView: View {
                     Text("Exports render in the background with the GPU compositor and VideoToolbox hardware encoder. Keep editing while they run.")
                         .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
                 }
-                .padding(20)
-            }
-            .frame(maxWidth: .infinity)
-            Rectangle().fill(Theme.divider).frame(width: 1)
-            ExportQueueView(queue: app.exports).frame(width: 400)
-        }
-        .onAppear {
-            guard !loaded else { return }
-            loaded = true
-            let preset = ExportPreset.preset(id: app.session?.document.overrides.exportPresetID ?? app.settings.defaultExportPresetID) ?? .tiktok
-            settings = app.session?.document.exportSettings ?? ExportSettings(preset: preset)
-            if settings.outputDirectory.isEmpty { settings.outputDirectory = app.exportFolder.path }
-            // A YouTube edit (Edit My VOD) shouldn't start on a vertical short-form preset.
-            if let timeline = app.session?.activeTimeline, EditFormat.of(timeline) == .longForm,
-               ["tiktok", "shorts", "reels"].contains(settings.presetID) {
-                let folder = settings.outputDirectory
-                settings = ExportSettings(preset: .youtube)
-                settings.outputDirectory = folder
-            }
-            baseline = settings
-        }
-        .onChange(of: settings) { _, newValue in
-            if let baseline, newValue == baseline { return }
-            baseline = nil
-            app.session?.edit("Export Settings", coalesce: "export-settings") { $0.exportSettings = newValue }
-            app.settings.defaultExportPresetID = newValue.presetID
-        }
-        .alert("Loudness check", isPresented: Binding(get: { loudnessAsk != nil }, set: { if !$0 { loudnessAsk = nil } }), presenting: loudnessAsk) { ask in
-            switch ask.verdict.action {
-            case .lower, .levelDialogue:
-                Button("Fix & Export") { fixLoudness(ask) }
-                Button("Always Fix in This Project") { app.session?.edit("Remember Loudness Choice") { $0.loudnessChoice = "fix" }; fixLoudness(ask) }
-                Button("Export As Is") { queue(ask.timeline) }
-                Button("Always As Is in This Project") { app.session?.edit("Remember Loudness Choice") { $0.loudnessChoice = "asIs" }; queue(ask.timeline) }
-                Button("Cancel", role: .cancel) {}
-            case .fine, .quietButLeveled:
-                Button("Export") { queue(ask.timeline) }
-                Button("Cancel", role: .cancel) {}
-            }
-        } message: { ask in
-            Text(ask.verdict.summary)
-        }
+                .card()
     }
 
     func previewCurrent() {
@@ -810,12 +874,19 @@ struct ExportQueueView: View {
     var body: some View {
         let summary = queue.summary
         VStack(spacing: 0) {
-            PanelHeader("Export Queue", subtitle: summary.total == 0 ? "Empty" : "\(summary.completed) done · \(summary.active) rendering · \(summary.queued) queued\(summary.failed > 0 ? " · \(summary.failed) failed" : "")") {
-                HStack(spacing: 4) {
-                    Button("Cancel All") { queue.cancelAll() }.buttonStyle(.pulse(.ghost, compact: true)).disabled(summary.active + summary.queued == 0)
-                    Button("Clear") { queue.clearFinished() }.buttonStyle(.pulse(.ghost, compact: true))
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    SectionLabel(text: "Export queue")
+                    Text(summary.total == 0 ? "Empty" : "\(summary.completed) done · \(summary.active) rendering · \(summary.queued) queued\(summary.failed > 0 ? " · \(summary.failed) failed" : "")")
+                        .font(.system(size: 12).monospacedDigit()).foregroundStyle(Theme.textPrimary)
                 }
+                Spacer(minLength: 4)
+                Button("Cancel all") { queue.cancelAll() }.buttonStyle(.pulse(.ghost, compact: true)).disabled(summary.active + summary.queued == 0)
+                Button("Clear") { queue.clearFinished() }.buttonStyle(.pulse(.ghost, compact: true))
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
             if summary.total > 0 {
                 VStack(alignment: .leading, spacing: 4) {
                     ThinProgressBar(progress: summary.overallProgress)
@@ -823,7 +894,7 @@ struct ExportQueueView: View {
                         Text("About \(Timecode.duration(eta)) remaining").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
                     }
                 }
-                .padding(12)
+                .padding(.horizontal, 16).padding(.bottom, 10)
             }
             if queue.jobs.isEmpty {
                 EmptyStateView(symbol: "tray", title: "No exports", message: "Queue one timeline, or select several AI clips and batch export them.")
@@ -852,7 +923,10 @@ struct ExportQueueView: View {
                 }
             }
         }
-        .background(Theme.panel)
+        .frame(minHeight: 320)
+        .background(Theme.panelRaised)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusXL, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusXL, style: .continuous).strokeBorder(Theme.border))
     }
 }
 
@@ -909,8 +983,8 @@ struct ExportJobRow: View {
                 HStack { Text("Cancelled").font(.pulseMicro).foregroundStyle(Theme.textTertiary); Spacer(); Button("Retry") { queue.retry(job.id) }.buttonStyle(.pulse(.ghost, compact: true)) }
             }
         }
-        .padding(12)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
+        .padding(.horizontal, 16).padding(.vertical, 12)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.divider).frame(height: 1) }
     }
 }
 
@@ -928,12 +1002,10 @@ struct BatchExportSheet: View {
             Text("Batch Export \(candidateIDs.count) Clip\(candidateIDs.count == 1 ? "" : "s")").font(.pulseTitle).foregroundStyle(Theme.textPrimary)
             Text("Clips without an edit are built automatically (captions, framing, punch-ins) before exporting. Existing edits are exported as they are.")
                 .font(.pulseCaption).foregroundStyle(Theme.textSecondary)
-            Picker("Build mode", selection: $mode) {
-                Text("Create Short").tag(ShortBuildOptions.Mode.oneClick)
-                Text("Auto Edit").tag(ShortBuildOptions.Mode.autoEdit)
+            HStack(spacing: 8) {
+                Text("Build mode").font(.pulseCaption).foregroundStyle(Theme.textSecondary)
+                PulseSegmented(selection: $mode, segments: [PulseSegment(ShortBuildOptions.Mode.oneClick, "Create Short"), PulseSegment(ShortBuildOptions.Mode.autoEdit, "Auto Edit")]).frame(width: 300)
             }
-            .pickerStyle(.segmented)
-            .frame(width: 300)
             ExportSettingsForm(settings: $settings)
             HStack {
                 Spacer()

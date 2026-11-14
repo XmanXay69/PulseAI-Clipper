@@ -206,11 +206,7 @@ struct LongFormSheet: View {
     var styleSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel(text: "How much editing")
-            Picker("", selection: $restraint) {
-                ForEach(LongFormOptions.Restraint.allCases, id: \.self) { Text($0.displayName).tag($0.rawValue) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            PulseSegmented(selection: $restraint, segments: LongFormOptions.Restraint.allCases.map { PulseSegment($0.rawValue, $0.displayName) })
             Text(restraintNote).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
         }
     }
@@ -218,13 +214,7 @@ struct LongFormSheet: View {
     var deadAirSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel(text: "Dead air")
-            Picker("", selection: $deadAir) {
-                Text("Light").tag(SilencePreset.conservative.rawValue)
-                Text("Normal").tag(SilencePreset.balanced.rawValue)
-                Text("Tight").tag(SilencePreset.aggressive.rawValue)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            PulseSegmented(selection: $deadAir, segments: [PulseSegment(SilencePreset.conservative.rawValue, "Light"), PulseSegment(SilencePreset.balanced.rawValue, "Normal"), PulseSegment(SilencePreset.aggressive.rawValue, "Tight")])
             Text(deadAirNote).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
         }
     }
@@ -291,7 +281,7 @@ struct LongFormSheet: View {
                     askingExtras = true
                 }
             } label: { Label("Edit My VOD…", systemImage: "wand.and.stars") }
-                .buttonStyle(.pulseAI)
+                .buttonStyle(.pulsePrimary)
                 .keyboardShortcut(.defaultAction)
                 .disabled(session.document.primaryAsset == nil)
         }

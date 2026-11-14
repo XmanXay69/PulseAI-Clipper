@@ -61,12 +61,8 @@ struct EditExtrasSheet: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 8) {
                                 Text("Replay speed").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 110, alignment: .leading)
-                                Picker("", selection: $extras.replaySpeed) {
-                                    Text("0.5×").tag(0.5)
-                                    Text("0.35×").tag(0.35)
-                                    Text("0.25×").tag(0.25)
-                                }
-                                .pickerStyle(.segmented).labelsHidden().frame(width: 180)
+                                PulseSegmented(selection: $extras.replaySpeed, segments: [PulseSegment(0.5, "0.5×"), PulseSegment(0.35, "0.35×"), PulseSegment(0.25, "0.25×")])
+                                .frame(width: 180)
                                 TextField("REPLAY", text: $extras.replayTag).textFieldStyle(.roundedBorder).frame(width: 110)
                                     .help("The tag over a replay")
                             }
@@ -120,7 +116,7 @@ struct EditExtrasSheet: View {
                 } label: {
                     Label(offerApproveCut && extras.approveCut ? "Review the Cut…" : "Edit My VOD", systemImage: "wand.and.stars")
                 }
-                .buttonStyle(.pulseAI)
+                .buttonStyle(.pulsePrimary)
                 .keyboardShortcut(.defaultAction)
             }
             .padding(16)

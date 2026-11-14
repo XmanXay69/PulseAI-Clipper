@@ -115,7 +115,7 @@ struct WorkspaceBar: View {
                         .font(.system(size: 11, weight: selected ? .semibold : .medium))
                         .padding(.horizontal, 9).padding(.vertical, 3)
                         .foregroundStyle(selected ? Theme.textPrimary : Theme.textTertiary)
-                        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(selected ? Theme.control : .clear))
+                        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(selected ? Theme.control : .clear))
                 }
                 .buttonStyle(.plain)
                 .help(preset == .editing ? "Media, viewer, inspector and timeline" : (preset == .color ? "A wider inspector for grading" : "A taller timeline for the mix"))
@@ -193,7 +193,7 @@ struct LeftPanel: View {
                         .padding(.horizontal, labelled ? 8 : 7)
                         .padding(.vertical, 6)
                         .foregroundStyle(selected ? Theme.accent : (labelled ? Theme.textPrimary : Theme.textTertiary))
-                        .background(RoundedRectangle(cornerRadius: 5).fill(selected ? Theme.control : .clear))
+                        .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(selected ? Theme.control : .clear))
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -259,11 +259,11 @@ struct MediaPanel: View {
                                 }
                                 Text(Timecode.short(asset.metadata.duration)).font(.system(size: 9, weight: .semibold).monospacedDigit())
                                     .padding(.horizontal, 4).padding(.vertical, 1)
-                                    .background(RoundedRectangle(cornerRadius: 3).fill(.black.opacity(0.6))).foregroundStyle(.white)
+                                    .background(RoundedRectangle(cornerRadius: 3, style: .continuous).fill(.black.opacity(0.6))).foregroundStyle(.white)
                                     .padding(4)
                             }
                             .frame(height: 62)
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                             HStack(spacing: 3) {
                                 Image(systemName: asset.role.symbolName).font(.system(size: 8)).foregroundStyle(Theme.textTertiary)
                                 Text(asset.name).font(.system(size: 10)).foregroundStyle(Theme.textSecondary).lineLimit(1)
@@ -317,8 +317,8 @@ struct MediaPanel: View {
             }
             .padding(.horizontal, 7).padding(.vertical, 4)
             .foregroundStyle(selected ? Theme.accent : Theme.textSecondary)
-            .background(RoundedRectangle(cornerRadius: 5).fill(selected || targeted ? Theme.control : Theme.panelRaised))
-            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(targeted ? Theme.accent : Theme.border))
+            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(selected || targeted ? Theme.control : Theme.panelRaised))
+            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(targeted ? Theme.accent : Theme.border))
         }
         .buttonStyle(.plain)
         .dropDestination(for: String.self) { items, _ in
@@ -392,7 +392,7 @@ struct EffectsPanel: View {
                             }
                             .frame(maxWidth: .infinity, minHeight: 52)
                             .foregroundStyle(Theme.textSecondary)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(Theme.control))
+                            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.control))
                         }
                         .buttonStyle(.plain)
                         .help("Apply to the selected clip")
@@ -405,7 +405,7 @@ struct EffectsPanel: View {
                             Text(kind.displayName).font(.system(size: 10.5, weight: .medium))
                                 .frame(maxWidth: .infinity, minHeight: 30)
                                 .foregroundStyle(Theme.textSecondary)
-                                .background(RoundedRectangle(cornerRadius: 6).fill(Theme.control))
+                                .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.control))
                         }
                         .buttonStyle(.plain)
                         .help("Adds as the selected clip's in-transition")
@@ -449,10 +449,7 @@ struct AIToolsPanel: View {
                         HStack { Text("Make More Entertaining").font(.pulseHeadline); Spacer(); AIBadge() }
                         ToggleRow(label: "Jump cuts (remove dead air)", isOn: $options.jumpCuts)
                         if options.jumpCuts {
-                            Picker("", selection: $options.silencePreset) {
-                                ForEach(SilencePreset.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                            }
-                            .pickerStyle(.segmented).labelsHidden()
+                            PulseSegmented(selection: $options.silencePreset, SilencePreset.allCases, compact: true) { $0.displayName }
                             Text(options.silencePreset.summary).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
                         }
                         ToggleRow(label: "Remove um / uh / repeats", isOn: $options.removeFillers)
@@ -463,16 +460,13 @@ struct AIToolsPanel: View {
                         ToggleRow(label: "Music bed (your library)", isOn: $options.music)
                         ToggleRow(label: "Soft in/out transitions", isOn: $options.transitions)
                         Button { session.makeMoreEntertaining(options: options) } label: { Label("Apply", systemImage: "wand.and.stars").frame(maxWidth: .infinity) }
-                            .buttonStyle(.pulseAI)
+                            .buttonStyle(.pulsePrimary)
                     }
                 }
                 Card(padding: 10) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Silence Removal").font(.pulseHeadline)
-                        Picker("", selection: $silence) {
-                            ForEach(SilencePreset.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                        }
-                        .pickerStyle(.segmented).labelsHidden()
+                        PulseSegmented(selection: $silence, SilencePreset.allCases, compact: true) { $0.displayName }
                         Text(silence.summary).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
                         Button("Remove Silences") { removeSilences() }.buttonStyle(.pulse(.secondary, compact: true))
                         Text("Removed sections are listed in the Inspector — restore any of them.").font(.pulseMicro).foregroundStyle(Theme.textTertiary)

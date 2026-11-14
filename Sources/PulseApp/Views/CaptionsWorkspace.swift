@@ -186,10 +186,10 @@ struct CaptionStylePanel: View {
                             LabeledSlider(label: "Bg opacity", value: styleBinding("Background Opacity", \.text.backgroundOpacity, fallback: 0), range: 0...1)
                         }
                         InspectorSection("Highlight & Animation") {
-                            Picker("Mode", selection: styleBinding("Display Mode", \.displayMode, fallback: .phrase)) {
-                                ForEach(CaptionDisplayMode.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                            HStack(spacing: 8) {
+                                Text("Mode").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 74, alignment: .leading)
+                                PulseSegmented(selection: styleBinding("Display Mode", \.displayMode, fallback: .phrase), CaptionDisplayMode.allCases, compact: true) { $0.displayName }
                             }
-                            .pickerStyle(.segmented)
                             HStack(spacing: 5) {
                                 ForEach(HighlightPreset.all) { preset in
                                     let on = captions.map { preset.matches($0.style) } ?? false
@@ -197,15 +197,15 @@ struct CaptionStylePanel: View {
                                         .buttonStyle(.pulse(on ? .primary : .secondary, compact: true))
                                 }
                             }
-                            Picker("Speaker", selection: styleBinding("Speaker Label", \.speakerLabelStyle, fallback: .text)) {
-                                ForEach(SpeakerLabelStyle.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                            HStack(spacing: 8) {
+                                Text("Speaker").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 74, alignment: .leading)
+                                PulseSegmented(selection: styleBinding("Speaker Label", \.speakerLabelStyle, fallback: .text), SpeakerLabelStyle.allCases, compact: true) { $0.displayName }
                             }
-                            .pickerStyle(.segmented)
                             .help("Speaker names above the words: plain small caps or a lower-third chip (#252)")
-                            Picker("Box", selection: styleBinding("Caption Background", \.backgroundStyle, fallback: .solid)) {
-                                ForEach(CaptionBackgroundStyle.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                            HStack(spacing: 8) {
+                                Text("Box").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 74, alignment: .leading)
+                                PulseSegmented(selection: styleBinding("Caption Background", \.backgroundStyle, fallback: .solid), CaptionBackgroundStyle.allCases, compact: true) { $0.displayName }
                             }
-                            .pickerStyle(.segmented)
                             .help("Frosted blurs the picture behind the words instead of a solid box (#253)")
                             Picker("Highlight", selection: styleBinding("Highlight Mode", \.highlightMode, fallback: .color)) {
                                 ForEach(WordHighlightMode.allCases, id: \.self) { Text($0.displayName).tag($0) }
@@ -292,10 +292,10 @@ struct CaptionStylePanel: View {
                             }
                         }
                         InspectorSection("Swear words") {
-                            Picker("Audio", selection: Binding(get: { audioCensor }, set: { setAudioCensor($0) })) {
-                                ForEach(CensorAudio.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                            HStack(spacing: 8) {
+                                Text("Audio").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 74, alignment: .leading)
+                                PulseSegmented(selection: Binding(get: { audioCensor }, set: { setAudioCensor($0) }), CensorAudio.allCases, compact: true) { $0.displayName }
                             }
-                            .pickerStyle(.segmented)
                             Text(audioCensorNote).font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
                         }
                         InspectorSection("Position") {
@@ -423,7 +423,7 @@ struct CaptionPresetSwatch: View {
                         Text(style.text.textCase.apply(word))
                             .foregroundStyle(Color(on && style.highlightMode != .scale ? style.highlightColor : style.text.color))
                             .padding(.horizontal, style.highlightMode == .box ? 3 : 0)
-                            .background(RoundedRectangle(cornerRadius: 2).fill(on && style.highlightMode == .box ? Color(style.highlightBoxColor) : .clear))
+                            .background(RoundedRectangle(cornerRadius: 2, style: .continuous).fill(on && style.highlightMode == .box ? Color(style.highlightBoxColor) : .clear))
                             .scaleEffect(scaled ? 1.18 : 1)
                             .animation(animated ? Theme.motion(.spring(response: 0.25, dampingFraction: 0.6)) : nil, value: active)
                     }
@@ -432,11 +432,11 @@ struct CaptionPresetSwatch: View {
                 .italic(style.text.italic)
                 .shadow(color: .black.opacity(style.text.strokeWidth > 0 ? 0.9 : style.text.shadowOpacity), radius: style.text.strokeWidth > 0 ? 0.8 : 2)
                 .padding(4)
-                .background(RoundedRectangle(cornerRadius: 3).fill(Color(style.text.backgroundColor).opacity(style.text.backgroundOpacity)))
+                .background(RoundedRectangle(cornerRadius: 3, style: .continuous).fill(Color(style.text.backgroundColor).opacity(style.text.backgroundOpacity)))
             }
             .frame(height: 46)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(selected ? Theme.accent : Theme.border, lineWidth: selected ? 2 : 1))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(selected ? Theme.accent : Theme.border, lineWidth: selected ? 2 : 1))
             Text(style.presetName).font(.system(size: 10, weight: .medium)).foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
         }
     }
@@ -577,7 +577,7 @@ struct CaptionWordEditor: View {
                 .foregroundStyle(active ? Theme.accent : (w.isEmphasized ? Theme.warning : Theme.textPrimary))
                 .padding(.horizontal, 5)
                 .padding(.vertical, 2)
-                .background(RoundedRectangle(cornerRadius: 4).fill(session.focusedCaptionWordID == w.id ? Theme.info.opacity(0.35) : Theme.control))
+                .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(session.focusedCaptionWordID == w.id ? Theme.info.opacity(0.35) : Theme.control))
                 .overlay(alignment: .topTrailing) {
                     if source?.emphasisIsAI == true { Circle().fill(Theme.ai).frame(width: 4, height: 4).offset(x: 1, y: -1) }
                 }

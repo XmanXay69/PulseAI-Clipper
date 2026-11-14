@@ -30,7 +30,7 @@ struct RootView: View {
         .overlay { if let step = app.tourStep { TourOverlay(step: step) } }
         .overlay {
             if dropTargeted {
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: Theme.radiusXL, style: .continuous)
                     .strokeBorder(Theme.accent, style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
                     .background(Theme.accent.opacity(0.06))
                     .overlay(Label("Drop to import into \(app.session?.document.name ?? "a new project")", systemImage: "square.and.arrow.down")
@@ -137,76 +137,117 @@ struct Sidebar: View {
 
     var collapsed: Bool { app.section.isWorkspace ? !expandedOnWorkspace : app.settings.sidebarCollapsed }
 
+    /// Whether anything leaves this Mac: only when a cloud model is switched on.
+    var isLocal: Bool { app.settings.ai.cloudProvider == .none || app.settings.ai.processingPolicy == .alwaysLocal }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 8) {
-                Image(nsImage: AppIcon.render(size: 64)).resizable().frame(width: 22, height: 22)
+            HStack(spacing: 10) {
+                Image(nsImage: AppIcon.render(size: 64)).resizable().frame(width: 26, height: 26)
                 if !collapsed {
-                    Text("PULSE").font(.system(size: 13, weight: .bold)).tracking(1.5).foregroundStyle(Theme.textPrimary)
-                    Text(AppModel.shortVersion).font(.pulseMicro).foregroundStyle(Theme.textTertiary)
-                        .help("PULSE \(AppModel.versionString)")
-                    Spacer()
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("PULSE").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                        Text(app.session?.document.name ?? "AI video editor").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                    }
+                    .lineLimit(1)
+                    Spacer(minLength: 0)
                 }
             }
-            .padding(.horizontal, collapsed ? 15 : 16)
-            .padding(.top, 36)
-            .padding(.bottom, 12)
+            .padding(.horizontal, collapsed ? 5 : 10)
+            .padding(.top, 38)
+            .padding(.bottom, 14)
+            .help("PULSE \(AppModel.versionString)")
 
             ForEach(Array(Self.groups.enumerated()), id: \.offset) { index, group in
                 if let title = group.title, !collapsed {
-                    SectionLabel(text: title).padding(.horizontal, 16).padding(.top, index == 0 ? 0 : 12).padding(.bottom, 4)
+                    SectionLabel(text: title).padding(.horizontal, 10).padding(.top, 14).padding(.bottom, 4)
                 } else if index > 0 {
-                    Rectangle().fill(Theme.divider).frame(height: 1).padding(.horizontal, collapsed ? 14 : 16).padding(.vertical, 6)
+                    Rectangle().fill(Theme.divider).frame(height: 1).padding(.horizontal, collapsed ? 6 : 10).padding(.vertical, 7)
                 }
                 ForEach(group.sections) { section in
                     SidebarItem(section: section, collapsed: collapsed)
                 }
             }
             if !collapsed, !app.projects.filter(\.isFavorite).isEmpty {
-                SectionLabel(text: "Favorites").padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 4)
+                SectionLabel(text: "Favorites").padding(.horizontal, 10).padding(.top, 14).padding(.bottom, 4)
                 ForEach(app.projects.filter(\.isFavorite).prefix(4)) { p in
-                    Button { app.openProject(p) } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Theme.warning)
-                            Text(p.name).lineLimit(1).font(.pulseCaption).foregroundStyle(Theme.textSecondary)
-                        }
-                        .padding(.horizontal, 16).padding(.vertical, 4)
-                    }
-                    .buttonStyle(.plain)
+                    SidebarProjectRow(name: p.name, marker: .star) { app.openProject(p) }
                 }
             }
             if !collapsed, !app.projects.isEmpty {
-                SectionLabel(text: "Recent").padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 4)
+                SectionLabel(text: "Recent").padding(.horizontal, 10).padding(.top, 14).padding(.bottom, 4)
                 ForEach(app.projects.prefix(4)) { p in
-                    Button { app.openProject(p) } label: {
-                        HStack(spacing: 8) {
-                            Circle().fill(app.session?.document.id == p.id ? Theme.accent : Theme.textTertiary).frame(width: 5, height: 5)
-                            Text(p.name).lineLimit(1).font(.pulseCaption).foregroundStyle(Theme.textSecondary)
-                        }
-                        .padding(.horizontal, 16).padding(.vertical, 4)
-                    }
-                    .buttonStyle(.plain)
+                    SidebarProjectRow(name: p.name, marker: app.session?.document.id == p.id ? .open : .closed) { app.openProject(p) }
                 }
             }
-            Spacer()
+            Spacer(minLength: 8)
             SidebarItem(section: .settings, collapsed: collapsed)
-            Button {
-                withAnimation(Theme.motion(.easeOut(duration: 0.18))) {
-                    if app.section.isWorkspace { expandedOnWorkspace.toggle() } else { app.settings.sidebarCollapsed.toggle() }
+            HStack(spacing: 6) {
+                if !collapsed {
+                    Label(isLocal ? "Runs on this Mac" : "Cloud AI is on", systemImage: isLocal ? "lock" : "icloud")
+                        .font(.system(size: 11))
+                        .foregroundStyle(isLocal ? Theme.textSecondary : Theme.warning)
+                        .lineLimit(1)
+                        .help(isLocal ? "Video, audio and transcripts stay on this Mac." : "A cloud model you switched on is used for some steps. Settings → AI Processing.")
+                    Spacer(minLength: 0)
                 }
-            } label: {
-                Image(systemName: collapsed ? "sidebar.right" : "sidebar.left")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.textTertiary)
-                    .frame(maxWidth: .infinity, alignment: collapsed ? .center : .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
+                Button {
+                    withAnimation(Theme.motion(.easeOut(duration: 0.18))) {
+                        if app.section.isWorkspace { expandedOnWorkspace.toggle() } else { app.settings.sidebarCollapsed.toggle() }
+                    }
+                } label: {
+                    Image(systemName: collapsed ? "sidebar.right" : "sidebar.left")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(width: collapsed ? 36 : 22, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(collapsed ? "Expand sidebar" : "Collapse sidebar")
             }
-            .buttonStyle(.plain)
-            .help(collapsed ? "Expand sidebar" : "Collapse sidebar")
+            .padding(.leading, collapsed ? 0 : 10)
+            .padding(.trailing, collapsed ? 0 : 4)
+            .padding(.top, 6)
         }
-        .frame(width: collapsed ? 52 : 208)
+        .padding(.horizontal, 8)
+        .padding(.bottom, 12)
+        .frame(width: collapsed ? 52 : 216)
         .background(Theme.panel)
+    }
+}
+
+/// A favourite or recent project in the sidebar.
+struct SidebarProjectRow: View {
+    enum Marker { case star, open, closed }
+    let name: String
+    let marker: Marker
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Group {
+                    switch marker {
+                    case .star: Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(Theme.warning)
+                    case .open: Circle().fill(Theme.accent).frame(width: 6, height: 6)
+                    case .closed: Circle().fill(Theme.textTertiary).frame(width: 5, height: 5)
+                    }
+                }
+                .frame(width: 18)
+                Text(name).lineLimit(1).font(.system(size: 12)).foregroundStyle(hovering ? Theme.textPrimary : Theme.textSecondary)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background {
+                if hovering { RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.control.opacity(0.5)) }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help("Open \(name)")
     }
 }
 
@@ -221,46 +262,54 @@ struct SidebarItem: View {
 
     var body: some View {
         Button { app.section = section } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 9) {
                 Image(systemName: section.symbol)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 13))
                     .frame(width: 18)
                     .foregroundStyle(isSelected ? Theme.accent : Theme.textSecondary)
                 if !collapsed {
                     Text(section.title)
-                        .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
-                        .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
-                    Spacer()
+                        .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
                     if section == .aiClips, let count = app.session?.document.visibleCandidates.count, count > 0 {
                         Text("\(count)").font(.system(size: 10, weight: .semibold).monospacedDigit())
                             .padding(.horizontal, 6).padding(.vertical, 1)
-                            .background(Capsule().fill(Theme.aiSoft)).foregroundStyle(Theme.ai)
+                            .background(Capsule().fill(isSelected ? Theme.controlSelected : Theme.control)).foregroundStyle(Theme.textSecondary)
                     }
                     if section == .exports, app.exports.isRunning {
                         ProgressRing(progress: app.exports.summary.overallProgress, size: 12)
                     }
+                    if hovering, let key = section.shortcut {
+                        Text(verbatim: "⌘\(String(key.character))").font(.system(size: 10)).foregroundStyle(Theme.textSecondary)
+                    }
                 }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, collapsed ? 9 : 10)
             .padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: Theme.radius).fill(isSelected ? Theme.control : (hovering ? Theme.control.opacity(0.5) : .clear)))
-            .overlay(alignment: .leading) {
-                if isSelected { RoundedRectangle(cornerRadius: 1).fill(Theme.accent).frame(width: 2, height: 14).offset(x: -4) }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                if isSelected || hovering {
+                    RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)
+                        .fill(isSelected ? Theme.control : Theme.control.opacity(0.5))
+                }
             }
-            .padding(.horizontal, 6)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .opacity(disabled ? 0.45 : 1)
         .onHover { hovering = $0 }
         .help(collapsed ? section.title : "")
+        .accessibilityLabel(section.title)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 }
 
 // MARK: Page bar
 
 /// The workflow along the bottom of the window, one click per stage — Media → AI Clips → Edit →
-/// Captions → Deliver — like the page bar of a pro editing suite.
+/// Captions → Deliver — drawn as one segmented control.
 struct PageBar: View {
     @EnvironmentObject var app: AppModel
 
@@ -275,26 +324,29 @@ struct PageBar: View {
     var body: some View {
         HStack(spacing: 0) {
             Button { app.section = .home } label: {
-                Image(systemName: "house").font(.system(size: 12)).foregroundStyle(Theme.textTertiary).frame(width: 40, height: 36)
+                Image(systemName: "house").font(.system(size: 12)).foregroundStyle(Theme.textSecondary).frame(width: 40, height: 40)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Home")
             Spacer(minLength: 8)
             // The pages of the workflow, left to right, the way a post-production suite lays them out.
-            HStack(spacing: 0) {
+            HStack(spacing: 2) {
                 ForEach(Self.pages, id: \.0) { page in
                     PageBarItem(section: page.0, title: page.1, symbol: page.2)
                 }
             }
+            .padding(2)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.control))
             Spacer(minLength: 8)
             Button { app.showLongFormSheet = true } label: {
                 Label("Edit My VOD", systemImage: "film.stack")
             }
             .buttonStyle(.pulse(.ai, compact: true))
-            .padding(.trailing, 10)
+            .padding(.trailing, 12)
             .help("Turn the whole stream into a 10–20 minute YouTube video")
         }
-        .frame(height: 36)
+        .frame(height: 40)
         .background(Theme.panel)
         .overlay(alignment: .top) { Rectangle().fill(Theme.divider).frame(height: 1) }
     }
@@ -313,51 +365,63 @@ struct PageBarItem: View {
         Button { app.section = section } label: {
             HStack(spacing: 6) {
                 Image(systemName: symbol).font(.system(size: 11, weight: .medium))
-                Text(title).font(.system(size: 11, weight: selected ? .semibold : .medium))
+                    .foregroundStyle(selected ? Theme.accent : (hovering ? Theme.textPrimary : Theme.textSecondary))
+                Text(title).font(.system(size: 12, weight: selected ? .semibold : .medium))
+                    .foregroundStyle(selected || hovering ? Theme.textPrimary : Theme.textSecondary)
             }
-            .foregroundStyle(selected ? Theme.textPrimary : (hovering ? Theme.textPrimary : Theme.textSecondary))
             .padding(.horizontal, 14)
-            .frame(height: 36)
-            .background(Rectangle().fill(hovering && !selected ? Theme.control.opacity(0.5) : .clear))
-            .overlay(alignment: .top) { Rectangle().fill(selected ? Theme.accent : .clear).frame(height: 2) }
+            .frame(height: 26)
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(selected ? Theme.controlSelected : (hovering ? Theme.controlHover.opacity(0.6) : Color.clear)))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .help(title)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }
 
 // MARK: Top bar
 
+/// The strip under the title bar: which project this is and whether it is saved, then search, background
+/// tasks and where processing runs. Pages carry their own title, so this only names the page on the
+/// working pages, which have no header of their own.
 struct TopBar: View {
     @EnvironmentObject var app: AppModel
+
+    /// Pages that open with a large page header and so don't need the page named here as well.
+    static let pagesWithHeader: Set<SidebarSection> = [.home, .projects, .importMedia, .templates, .exports, .settings, .aiClips, .media]
+
+    /// Over the editor and the captions workspace the strip is window chrome; over a page it blends into it.
+    var isChrome: Bool { !Self.pagesWithHeader.contains(app.section) }
 
     var body: some View {
         HStack(spacing: 10) {
             HStack(spacing: 6) {
                 if let session = app.session {
-                    Text(session.document.name).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                    Text(session.document.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
                     SaveStateBadge(session: session)
-                    Text("/").font(.system(size: 12)).foregroundStyle(Theme.textTertiary)
+                    if !Self.pagesWithHeader.contains(app.section) {
+                        Text("·").font(.system(size: 13)).foregroundStyle(Theme.textTertiary)
+                        Text(app.section.title).font(.system(size: 13)).foregroundStyle(Theme.textSecondary)
+                    }
                 }
-                Text(app.section.title).font(.system(size: 12.5, weight: app.session == nil ? .semibold : .regular))
-                    .foregroundStyle(app.session == nil ? Theme.textPrimary : Theme.textSecondary)
             }
             Spacer()
             Button { app.showGlobalSearch = true } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass").font(.system(size: 10, weight: .medium))
+                    Image(systemName: "magnifyingglass").font(.system(size: 11, weight: .medium))
                     Text("Search").lineLimit(1)
                     Spacer()
-                    Text("⌘F").font(.pulseMicro).foregroundStyle(Theme.textTertiary)
+                    Text("⌘F").font(.pulseMicro)
                 }
-                .font(.pulseCaption)
-                .foregroundStyle(Theme.textTertiary)
-                .padding(.horizontal, 8)
-                .frame(width: 200, height: 24)
-                .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.well))
-                .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.border))
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.horizontal, 9)
+                .frame(width: 210, height: 26)
+                .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.control))
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Search projects, clips and the transcript; also the command palette")
@@ -369,11 +433,11 @@ struct TopBar: View {
             }
             VersionBadge()
         }
-        .padding(.leading, 14)
-        .padding(.trailing, 12)
-        .frame(height: 40)
-        .background(Theme.panel)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
+        .padding(.leading, 24)
+        .padding(.trailing, 16)
+        .frame(height: 44)
+        .background(isChrome ? Theme.panel : Theme.window)
+        .overlay(alignment: .bottom) { Rectangle().fill(isChrome ? Theme.divider : Color.clear).frame(height: 1) }
     }
 }
 
@@ -391,9 +455,9 @@ struct VersionBadge: View {
                     .font(.system(size: 10, weight: update != nil ? .semibold : .medium)).monospacedDigit()
             }
             .foregroundStyle(update != nil ? Color.white : Theme.textTertiary)
-            .padding(.horizontal, 7).frame(height: 22)
-            .background(RoundedRectangle(cornerRadius: Theme.radius).fill(update != nil ? Theme.accent : .clear))
-            .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(update != nil ? .clear : Theme.border))
+            .padding(.horizontal, update != nil ? 9 : 4).frame(height: 22)
+            .background(Capsule().fill(update != nil ? Theme.accent : Color.clear))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(update != nil ? "A new version of PULSE is ready — click to see what's new and install" : "PULSE \(AppModel.versionString) — click to check for updates")
@@ -434,10 +498,11 @@ struct SystemStatusIndicator: View {
         Button { showPopover.toggle() } label: {
             HStack(spacing: 5) {
                 Circle().fill(attention ? Theme.warning : Theme.success).frame(width: 6, height: 6)
-                Text(location == .local ? "LOCAL" : "CLOUD").font(.system(size: 9, weight: .semibold)).tracking(0.5).foregroundStyle(Theme.textTertiary)
+                Text(location == .local ? "On this Mac" : "Cloud").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary)
             }
-            .padding(.horizontal, 8).frame(height: 22)
-            .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.control.opacity(0.6)))
+            .padding(.horizontal, 9).frame(height: 24)
+            .background(Capsule().fill(Theme.control))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(attention ? "Something needs a look — click for details" : "Everything's normal — click for details")
@@ -486,9 +551,10 @@ struct JobsIndicator: View {
                         .frame(maxWidth: 180, alignment: .leading)
                 }
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 9)
             .frame(height: 24)
-            .background(RoundedRectangle(cornerRadius: Theme.radius).fill(running.isEmpty ? .clear : Theme.control.opacity(0.6)))
+            .background(Capsule().fill(running.isEmpty ? Color.clear : Theme.control))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help("Background tasks")
@@ -572,18 +638,18 @@ struct ToastView: View {
         if let toast = app.toastMessage {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.success)
-                Text(toast.message).font(.pulseBody).foregroundStyle(Theme.textPrimary).lineLimit(2)
+                Text(toast.message).font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.textPrimary).lineLimit(2)
                 if let action = toast.action {
                     Button(action.title) { action.run(); app.toastMessage = nil }
                         .buttonStyle(.pulse(.secondary, compact: true))
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(Theme.elevated))
-            .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(Theme.borderStrong))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 9)
+            .background(Capsule().fill(Theme.elevated))
+            .overlay(Capsule().strokeBorder(Theme.border))
             .elevation(2)
-            .padding(.bottom, app.session != nil ? 62 : 24) // clear of the page bar
+            .padding(.bottom, app.session != nil ? 66 : 24) // clear of the page bar
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .id(toast.id)
             .animation(Theme.motion(.spring(response: 0.3, dampingFraction: 0.85)), value: toast.id)

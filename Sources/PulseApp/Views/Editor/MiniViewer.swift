@@ -49,12 +49,14 @@ struct MiniViewer: View {
                 }
                 .font(.system(size: 10))
                 .padding(.horizontal, 8).padding(.vertical, 5)
-                .background(Theme.panel)
+                .background(Theme.panelRaised)
             }
+            // The column is as wide as the picture: the bar under it would otherwise stretch across the page.
+            .frame(width: width)
             .background(Color.black)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.borderStrong, lineWidth: 1))
-            .shadow(color: .black.opacity(0.45), radius: 14, y: 4)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).strokeBorder(Theme.borderStrong, lineWidth: 1))
+            .elevation(2)
             .offset(x: offset.width + dragging.width, y: offset.height + dragging.height)
             .gesture(DragGesture(minimumDistance: 2)
                 .onChanged { dragging = $0.translation }
@@ -63,7 +65,7 @@ struct MiniViewer: View {
                     dragging = .zero
                 })
             .onHover { hovering = $0 }
-            .padding(16)
+            .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 56)   // clear of the workflow bar
             .help("The edit's viewer, so it keeps playing while you pick clips or media (#196). Drag to move; click to play or pause.")
         }
     }

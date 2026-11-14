@@ -44,8 +44,8 @@ struct OnboardingView: View {
                     }
                     .padding(12)
                     .frame(width: 150, height: 170, alignment: .topLeading)
-                    .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(Theme.panelRaised))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(Theme.border))
+                    .background(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).fill(Theme.panelRaised))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).strokeBorder(Theme.border))
                 }
             }
             .padding(.horizontal, 26)
@@ -120,7 +120,7 @@ struct RecoveryView: View {
                     Button("Open") { app.recover(snapshot) }.buttonStyle(.pulse(.primary, compact: true))
                 }
                 .padding(10)
-                .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+                .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.panelRaised))
             }
             HStack {
                 Spacer()
@@ -312,7 +312,7 @@ struct GlobalSearchView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
-        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(highlighted ? Theme.control : .clear))
+        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(highlighted ? Theme.control : .clear))
         .contentShape(Rectangle())
     }
 

@@ -30,7 +30,7 @@ struct TourOverlay: View {
                 // The dim with a hole: a compositing group lets the rounded rectangle punch through.
                 Color.black.opacity(0.62)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .frame(width: cutout.width, height: cutout.height)
                             .offset(x: cutout.minX, y: cutout.minY)
                             .blendMode(.destinationOut),
@@ -38,7 +38,7 @@ struct TourOverlay: View {
                     )
                     .compositingGroup()
                     .onTapGesture { advance() }
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(Theme.accent, lineWidth: 2)
                     .frame(width: cutout.width, height: cutout.height)
                     .offset(x: cutout.minX, y: cutout.minY)
@@ -72,8 +72,8 @@ struct TourOverlay: View {
             }
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(Theme.panelRaised))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(Theme.border))
+        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).fill(Theme.panelRaised))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).strokeBorder(Theme.border))
         .shadow(color: .black.opacity(0.4), radius: 18, y: 6)
     }
 

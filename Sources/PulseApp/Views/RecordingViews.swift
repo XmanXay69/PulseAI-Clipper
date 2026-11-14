@@ -71,7 +71,7 @@ struct RecordView: View {
                         }
                     }
                     .padding(12)
-                    .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+                    .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.panelRaised))
                 }
                 if !displays.isEmpty {
                     SectionLabel(text: "Displays")
@@ -100,8 +100,8 @@ struct RecordView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
-            .background(RoundedRectangle(cornerRadius: Theme.radius).fill(selected ? Theme.accentSoft : Theme.panelRaised))
-            .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(selected ? Theme.accent : Theme.border))
+            .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(selected ? Theme.accentSoft : Theme.panelRaised))
+            .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(selected ? Theme.accent : Theme.border))
         }
         .buttonStyle(.plain)
     }
@@ -140,21 +140,19 @@ struct RecordView: View {
                     CameraPreview(deviceID: cameraID)
                         .overlay(FaceGuide())
                         .frame(height: 150)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.radius))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.border))
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(Theme.border))
                         .help("Line your face up inside the guide — the facecam crop PULSE cuts later is centred on it")
                 }
                 SectionLabel(text: "Video")
-                Picker("Frame rate", selection: $recorder.frameRate) {
-                    Text("30 fps").tag(30)
-                    Text("60 fps").tag(60)
+                HStack(spacing: 8) {
+                    Text("Frame rate").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 80, alignment: .leading)
+                    PulseSegmented(selection: $recorder.frameRate, segments: [PulseSegment(30, "30 fps"), PulseSegment(60, "60 fps")])
                 }
-                .pickerStyle(.segmented)
-                Picker("Codec", selection: $recorder.codec) {
-                    Text("HEVC (smaller)").tag(VideoCodec.hevc)
-                    Text("H.264 (shares anywhere)").tag(VideoCodec.h264)
+                HStack(spacing: 8) {
+                    Text("Codec").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 80, alignment: .leading)
+                    PulseSegmented(selection: $recorder.codec, segments: [PulseSegment(VideoCodec.hevc, "HEVC (smaller)"), PulseSegment(VideoCodec.h264, "H.264 (shares anywhere)")])
                 }
-                .pickerStyle(.segmented)
                 Picker("Split files", selection: Binding(get: { app.settings.recordingSplitGB }, set: { app.settings.recordingSplitGB = $0 })) {
                     Text("Never").tag(0.0)
                     Text("Every 2 GB").tag(2.0)
@@ -277,8 +275,8 @@ struct MulticamSessionCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(Theme.panelRaised))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(Theme.border))
+        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).fill(Theme.panelRaised))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).strokeBorder(Theme.border))
     }
 }
 

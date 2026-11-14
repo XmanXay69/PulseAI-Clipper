@@ -4,6 +4,8 @@ import SwiftUI
 
 // MARK: Buttons
 
+/// The app's buttons, drawn like the system's bordered ones: a quiet grey for most things, the accent filled
+/// for the one thing a screen is for, the accent tinted for what the AI does, red tinted for what destroys.
 struct PulseButtonStyle: ButtonStyle {
     enum Kind { case primary, secondary, ghost, ai, destructive }
     var kind: Kind = .secondary
@@ -20,17 +22,15 @@ struct PulseButtonStyle: ButtonStyle {
         @State private var hovering = false
         @Environment(\.isEnabled) private var isEnabled
 
-        var filled: Bool { kind == .primary || kind == .ai || kind == .destructive }
-
         var body: some View {
             configuration.label
-                .font(.system(size: compact ? 11 : 12, weight: filled ? .semibold : .medium))
-                .padding(.horizontal, compact ? 8 : 12)
-                .padding(.vertical, compact ? 3.5 : 5)
+                .font(.system(size: compact ? 11.5 : 12.5, weight: kind == .primary ? .semibold : .medium))
+                .lineLimit(1)
+                .padding(.horizontal, compact ? 9 : 12)
+                .padding(.vertical, compact ? 3.5 : 5.5)
                 .foregroundStyle(foreground)
-                .background(RoundedRectangle(cornerRadius: Theme.radius).fill(background))
-                .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(border, lineWidth: 1))
-                .opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.4)
+                .background(RoundedRectangle(cornerRadius: compact ? 6 : Theme.radius, style: .continuous).fill(background))
+                .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.4)
                 .contentShape(Rectangle())
                 .onHover { hovering = $0 }
                 .animation(Theme.motion(.easeOut(duration: 0.1)), value: hovering)
@@ -38,7 +38,9 @@ struct PulseButtonStyle: ButtonStyle {
 
         var foreground: Color {
             switch kind {
-            case .primary, .ai, .destructive: return .white
+            case .primary: return .white
+            case .ai: return Theme.accent
+            case .destructive: return Theme.danger
             case .secondary: return Theme.textPrimary
             case .ghost: return hovering ? Theme.textPrimary : Theme.textSecondary
             }
@@ -46,18 +48,11 @@ struct PulseButtonStyle: ButtonStyle {
 
         var background: Color {
             switch kind {
-            case .primary: return hovering ? Theme.accent.opacity(0.86) : Theme.accent
-            case .ai: return hovering ? Theme.ai.opacity(0.86) : Theme.ai
-            case .destructive: return hovering ? Theme.danger.opacity(0.78) : Theme.danger.opacity(0.88)
+            case .primary: return hovering ? Theme.accent.opacity(0.88) : Theme.accent
+            case .ai: return hovering ? Theme.accent.opacity(0.24) : Theme.accentSoft
+            case .destructive: return Theme.danger.opacity(hovering ? 0.22 : 0.14)
             case .secondary: return hovering ? Theme.controlHover : Theme.control
             case .ghost: return hovering ? Theme.control : .clear
-            }
-        }
-
-        var border: Color {
-            switch kind {
-            case .secondary: return Theme.borderStrong.opacity(0.7)
-            default: return .clear
             }
         }
     }
@@ -96,10 +91,9 @@ struct IconButton: View {
                 .font(.system(size: size * 0.46, weight: .medium))
                 .frame(width: size, height: size)
                 .foregroundStyle(isActive ? Theme.accent : (hovering ? Theme.textPrimary : Theme.textSecondary))
-                .background(RoundedRectangle(cornerRadius: Theme.radiusSmall).fill(isActive ? Theme.accentSoft : (hovering ? Theme.control : .clear)))
-                .overlay(RoundedRectangle(cornerRadius: Theme.radiusSmall).strokeBorder(isActive ? Theme.accent.opacity(0.35) : .clear))
+                .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(isActive ? Theme.accentSoft : (hovering ? Theme.control : .clear)))
                 // Keyboard focus ring in the accent colour (#408), in place of the system's blue one.
-                .overlay(RoundedRectangle(cornerRadius: Theme.radiusSmall).strokeBorder(Theme.accent, lineWidth: focused ? 1.5 : 0))
+                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Theme.accent, lineWidth: focused ? 1.5 : 0))
         }
         .buttonStyle(.plain)
         .focusable()
@@ -144,13 +138,12 @@ struct SheetHeader<Extra: View>: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: symbol).font(.system(size: 18, weight: .medium)).foregroundStyle(tint)
-                .frame(width: 40, height: 40).background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(tint.opacity(0.12)))
-                .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(tint.opacity(0.2)))
-            VStack(alignment: .leading, spacing: 3) {
+            Image(systemName: symbol).font(.system(size: 17, weight: .medium)).foregroundStyle(tint)
+                .frame(width: 38, height: 38).background(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).fill(Theme.control))
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.pulseTitle).foregroundStyle(Theme.textPrimary)
                 if let subtitle {
-                    Text(subtitle).font(.pulseCaption).foregroundStyle(Theme.textSecondary).lineLimit(lines).fixedSize(horizontal: false, vertical: true)
+                    Text(subtitle).font(.system(size: 12)).foregroundStyle(Theme.textSecondary).lineLimit(lines).fixedSize(horizontal: false, vertical: true)
                 }
                 extra()
             }
@@ -191,14 +184,63 @@ struct PanelHeader<Trailing: View>: View {
 }
 
 struct Card<Content: View>: View {
-    var padding: CGFloat = 12
+    var padding: CGFloat = Theme.Spacing.l
     @ViewBuilder var content: () -> Content
 
     var body: some View {
         content()
             .padding(padding)
-            .raisedSurface()
-            .elevation(1)
+            .raisedSurface(cornerRadius: Theme.radiusXL)
+    }
+}
+
+/// The top of a page: a large title, one line saying what the page is for or what it holds, and the page's
+/// own actions on the right.
+struct PageHeader<Trailing: View>: View {
+    let title: String
+    var subtitle: String?
+    @ViewBuilder var trailing: () -> Trailing
+
+    init(_ title: String, subtitle: String? = nil, @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() }) {
+        self.title = title
+        self.subtitle = subtitle
+        self.trailing = trailing
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.pulseDisplay).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                if let subtitle {
+                    Text(subtitle).font(.pulseBody).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 12)
+            HStack(spacing: 8) { trailing() }
+        }
+    }
+}
+
+/// A number with a label underneath.
+struct StatView: View {
+    let value: String
+    let label: String
+    var unit: String?
+    var size: CGFloat = 24
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value).font(.stat(size)).foregroundStyle(Theme.textPrimary).contentTransition(.numericText())
+                if let unit {
+                    Text(unit).font(.system(size: max(11, size * 0.42), weight: .medium)).foregroundStyle(Theme.textSecondary)
+                }
+            }
+            Text(label).font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -212,18 +254,15 @@ struct EmptyStateView: View {
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: symbol)
-                .font(.system(size: 22, weight: .regular))
-                .foregroundStyle(Theme.textTertiary)
-                .frame(width: 52, height: 52)
-                .background(RoundedRectangle(cornerRadius: Theme.radiusXL).fill(Theme.panelRaised))
-                .overlay(RoundedRectangle(cornerRadius: Theme.radiusXL).strokeBorder(Theme.border))
-            Text(title).font(.pulseSubtitle).foregroundStyle(Theme.textPrimary)
+                .font(.system(size: 30, weight: .regular))
+                .foregroundStyle(Theme.textSecondary)
+            Text(title).font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.textPrimary)
             Text(message).font(.pulseBody).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center).frame(maxWidth: 360)
             if let actionTitle, let action {
                 Button(actionTitle, action: action).buttonStyle(.pulsePrimary).padding(.top, 4)
             }
         }
-        .padding(30)
+        .padding(36)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -235,16 +274,18 @@ struct TagChip: View {
     var color: Color = Theme.textSecondary
     var symbol: String?
 
+    /// Plain tags are grey on the raised tone; a tag given a colour is that colour on a wash of itself.
+    var isNeutral: Bool { color == Theme.textSecondary || color == Theme.textTertiary }
+
     var body: some View {
         HStack(spacing: 3) {
             if let symbol { Image(systemName: symbol).font(.system(size: 8, weight: .bold)) }
             Text(text).font(.pulseMicro).lineLimit(1)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 2.5)
         .foregroundStyle(color)
-        .background(Capsule().fill(color.opacity(0.14)))
-        .overlay(Capsule().strokeBorder(color.opacity(0.22)))
+        .background(Capsule().fill(isNeutral ? Theme.control : color.opacity(0.14)))
         .fixedSize()
     }
 }
@@ -254,29 +295,30 @@ struct AIBadge: View {
     var label = "AI"
     var body: some View {
         HStack(spacing: 2) {
-            Image(systemName: "sparkles").font(.system(size: 8, weight: .bold))
-            Text(label).font(.system(size: 9, weight: .bold))
+            Image(systemName: "sparkles").font(.system(size: 8, weight: .semibold))
+            Text(label).font(.system(size: 10, weight: .medium))
         }
-        .padding(.horizontal, 5)
-        .padding(.vertical, 1.5)
-        .foregroundStyle(Theme.ai)
-        .background(Capsule().fill(Theme.aiSoft))
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .foregroundStyle(Theme.accent)
+        .background(Capsule().fill(Theme.accentSoft))
         .help("Created by PULSE AI — fully editable")
     }
 }
 
-/// LOCAL / CLOUD privacy badge.
+/// Where something was processed: on this Mac (the quiet default) or by a cloud provider (called out).
 struct ProcessingBadge: View {
     let location: ProcessingLocation
     var body: some View {
         HStack(spacing: 3) {
-            Image(systemName: location == .local ? "lock.laptopcomputer" : "icloud").font(.system(size: 9, weight: .semibold))
-            Text(location.displayName).font(.system(size: 9, weight: .bold)).tracking(0.5)
+            Image(systemName: location == .local ? "lock" : "icloud").font(.system(size: 9, weight: .medium))
+            Text(location == .local ? "On this Mac" : "Cloud").font(.system(size: 10, weight: .medium))
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
-        .foregroundStyle(location == .local ? Theme.success : Theme.warning)
-        .background(Capsule().fill((location == .local ? Theme.success : Theme.warning).opacity(0.13)))
+        .padding(.horizontal, 7)
+        .padding(.vertical, 2.5)
+        .foregroundStyle(location == .local ? Theme.textSecondary : Theme.warning)
+        .background(Capsule().fill(location == .local ? Theme.control : Theme.warning.opacity(0.14)))
+        .fixedSize()
         .help(location == .local ? "Processed on this Mac. Nothing was uploaded." : "Processed by a cloud AI provider you enabled.")
     }
 }
@@ -693,6 +735,104 @@ struct Sparkline: View {
             let v = samples[lo] + (samples[hi] - samples[lo]) * (index - Double(lo))
             let dot = CGRect(x: CGFloat(p) * size.width - 1.5, y: size.height - CGFloat(v.clamped(0, 1)) * (size.height - 2) - 2.5, width: 3, height: 3)
             ctx.fill(Path(ellipseIn: dot), with: .color(Theme.textPrimary))
+        }
+    }
+}
+
+// MARK: Segmented control
+
+/// One choice in a `PulseSegmented`.
+struct PulseSegment<T: Hashable> {
+    let value: T
+    let title: String
+    var symbol: String?
+    var help: String?
+
+    init(_ value: T, _ title: String, symbol: String? = nil, help: String? = nil) {
+        self.value = value
+        self.title = title
+        self.symbol = symbol
+        self.help = help
+    }
+}
+
+/// The app's segmented control: a raised-tone track with the chosen segment a step lighter. The system's
+/// draws its selection in the macOS accent whatever this app's accent is, so the app draws its own.
+/// Segments share the width the control is given.
+struct PulseSegmented<T: Hashable>: View {
+    @Binding var selection: T
+    let segments: [PulseSegment<T>]
+    var compact = false
+    @Environment(\.isEnabled) private var isEnabled
+
+    init(selection: Binding<T>, segments: [PulseSegment<T>], compact: Bool = false) {
+        self._selection = selection
+        self.segments = segments
+        self.compact = compact
+    }
+
+    /// One segment per value, titled by `title`.
+    init<S: Sequence>(selection: Binding<T>, _ values: S, compact: Bool = false, title: (T) -> String) where S.Element == T {
+        self._selection = selection
+        self.segments = values.map { PulseSegment($0, title($0)) }
+        self.compact = compact
+    }
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
+                PulseSegmentButton(segment: segment, selected: segment.value == selection, compact: compact) {
+                    selection = segment.value
+                }
+            }
+        }
+        .padding(2)
+        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.control))
+        .opacity(isEnabled ? 1 : 0.45)
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private struct PulseSegmentButton<T: Hashable>: View {
+    let segment: PulseSegment<T>
+    let selected: Bool
+    let compact: Bool
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if let symbol = segment.symbol { Image(systemName: symbol).font(.system(size: compact ? 10 : 11, weight: .medium)) }
+                if !segment.title.isEmpty { Text(segment.title).lineLimit(1).minimumScaleFactor(0.85) }
+            }
+            .font(.system(size: compact ? 11 : 12, weight: selected ? .semibold : .medium))
+            .foregroundStyle(selected ? Theme.textPrimary : (hovering ? Theme.textPrimary : Theme.textSecondary))
+            .padding(.horizontal, compact ? 7 : 10)
+            .frame(maxWidth: .infinity)
+            .frame(height: compact ? 20 : 24)
+            .background(RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(selected ? Theme.controlSelected : (hovering ? Theme.controlHover.opacity(0.6) : Color.clear)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help(segment.help ?? "")
+        .accessibilityLabel(segment.title.isEmpty ? (segment.help ?? "") : segment.title)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
+}
+
+extension ClipLengthPreset {
+    /// Short enough for six segments in a narrow card; the full name is the segment's tooltip.
+    var segmentTitle: String {
+        switch self {
+        case .short15: return "15s"
+        case .medium30: return "30s"
+        case .long60: return "60s"
+        case .reels90: return "90s"
+        case .tiktok180: return "3m"
+        case .custom: return "Custom"
         }
     }
 }

@@ -99,7 +99,7 @@ struct LongFormStoryboard: View {
                     LazyVStack(spacing: 8) {
                         ForEach(plan.moments) { moment in
                             row(moment)
-                                .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(focusedMoment == moment.id ? Theme.accent : .clear, lineWidth: 1.5))
+                                .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(focusedMoment == moment.id ? Theme.accent : .clear, lineWidth: 1.5))
                                 .onTapGesture { focusedMoment = moment.id }
                                 .id(moment.id)
                         }
@@ -243,7 +243,7 @@ struct LongFormStoryboard: View {
                 }
             }
                 .frame(width: 120, height: 68)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .onHover { inside in hoveringMoment = inside ? moment.id : (hoveringMoment == moment.id ? nil : hoveringMoment) }
                 .overlay(alignment: .bottomLeading) {
                     Text(Timecode.short(r.duration)).font(.pulseMicro).padding(.horizontal, 4).padding(.vertical, 1)
@@ -268,7 +268,7 @@ struct LongFormStoryboard: View {
                                 Rectangle().fill(Theme.accent).frame(width: 1.5).offset(x: max(0, min(geo.size.width - 1.5, x)))
                             }
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
                         .help("The moment's waveform; the bright line is the payoff")
                 }
                 HStack(spacing: 6) {
@@ -324,8 +324,8 @@ struct LongFormStoryboard: View {
             }
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(on ? Theme.panelRaised : Theme.panel))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(isHook ? Theme.accent : (on ? Theme.border : Theme.divider)))
+        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).fill(on ? Theme.panelRaised : Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).strokeBorder(isHook ? Theme.accent : (on ? Theme.border : Theme.divider)))
     }
 
     func trimControl(_ title: String, earlier: @escaping () -> Void, later: @escaping () -> Void) -> some View {
@@ -374,7 +374,7 @@ struct LongFormStoryboard: View {
                 let hookPayoff = chosen.first { $0.id == hook }?.payoff
                 onBuild(chosen, hookPayoff, reordered)
             } label: { Label(approving ? "Approve & Build" : "Build My Video", systemImage: "wand.and.stars") }
-                .buttonStyle(.pulseAI)
+                .buttonStyle(.pulsePrimary)
                 .keyboardShortcut(.defaultAction)
                 .disabled(selected.isEmpty || plan == nil)
         }
@@ -393,7 +393,7 @@ struct RangePreview: View {
             PlayerView(player: player)
                 .frame(width: 480, height: 270)
                 .background(Color.black)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.radius))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
             Text("\(Timecode.short(range.start)) → \(Timecode.short(range.end)) · \(Int(range.duration.rounded())) s")
                 .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
         }
@@ -461,8 +461,8 @@ struct BeforeAfterPreview: View {
             HoverLoopPreview(url: url, range: range)
                 .frame(width: 300, height: 169)
                 .background(Color.black)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.radius))
-                .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(color.opacity(0.7)))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(color.opacity(0.7)))
             Text(title).font(.pulseCaption).foregroundStyle(Theme.textPrimary)
             Text("\(Timecode.short(range.start)) → \(Timecode.short(range.end)) · \(Int(range.duration.rounded())) s")
                 .font(.pulseMicro).foregroundStyle(Theme.textTertiary)

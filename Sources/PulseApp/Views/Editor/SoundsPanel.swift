@@ -21,12 +21,7 @@ struct SoundsPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
-                Picker("", selection: $kind) {
-                    Text("Music").tag(LibrarySound.Kind.music)
-                    Text("Sound Effects").tag(LibrarySound.Kind.soundEffect)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
+                PulseSegmented(selection: $kind, segments: [PulseSegment(LibrarySound.Kind.music, "Music"), PulseSegment(LibrarySound.Kind.soundEffect, "Sound Effects")], compact: true)
                 .onChange(of: kind) { _, _ in category = nil }
                 TextField(kind == .music ? "Search moods: hype, chill, funny…" : "Search: whoosh, boom, ding…", text: $query)
                     .textFieldStyle(.roundedBorder).controlSize(.small)
@@ -112,7 +107,7 @@ struct SoundsPanel: View {
                 .disabled(session.activeTimeline == nil)
         }
         .padding(6)
-        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(playing ? Theme.panelRaised : .clear))
+        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(playing ? Theme.panelRaised : .clear))
         .contentShape(Rectangle())
     }
 }
@@ -183,7 +178,7 @@ struct SoundDropStrip: View {
                         }
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 3))
+                .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
             if let drop { Text("drop \(Timecode.short(drop))").font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize() }
         }
         .task(id: url) {

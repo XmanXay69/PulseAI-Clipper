@@ -306,7 +306,7 @@ struct ProjectNotesPopover: View {
                 .scrollContentBackground(.hidden)
                 .padding(6)
                 .frame(height: 140)
-                .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.well))
+                .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.well))
                 .padding(.horizontal, 12).padding(.bottom, 12)
                 .onAppear { draft = session.document.notes }
                 .onChange(of: session.document.notes) { _, new in if new != draft { draft = new } }
@@ -509,7 +509,7 @@ struct TrackHeader: View {
                 } label: {
                     Text(track.playsRaw ? "R" : "S").font(.system(size: 9, weight: .bold))
                         .frame(width: 16, height: 16)
-                        .background(RoundedRectangle(cornerRadius: 3).fill(track.isSolo ? (track.rawSolo ? Theme.danger : Theme.warning) : Theme.control))
+                        .background(RoundedRectangle(cornerRadius: 3, style: .continuous).fill(track.isSolo ? (track.rawSolo ? Theme.danger : Theme.warning) : Theme.control))
                         .foregroundStyle(track.isSolo ? .black : Theme.textTertiary)
                 }
                 .buttonStyle(.plain)
@@ -732,9 +732,9 @@ struct TimelineMinimap: View {
                 }
                 let visibleX = (scrollX / pps) * scale
                 let visibleW = min(width, (viewportWidth / pps) * scale)
-                RoundedRectangle(cornerRadius: 2)
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .strokeBorder(Theme.accent.opacity(0.9), lineWidth: 1)
-                    .background(RoundedRectangle(cornerRadius: 2).fill(Theme.accent.opacity(0.08)))
+                    .background(RoundedRectangle(cornerRadius: 2, style: .continuous).fill(Theme.accent.opacity(0.08)))
                     .frame(width: max(8, visibleW), height: geo.size.height)
                     .offset(x: max(0, min(width - max(8, visibleW), visibleX)))
                     .allowsHitTesting(false)
@@ -1055,10 +1055,10 @@ struct TimelineClipView: View, Equatable {
         let x = CGFloat(clip.start) * pps + moveOffset.width + trimLeading
         let w = max(CGFloat(clip.duration) * pps - trimLeading + trimTrailing, 3)
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: Theme.radiusSmall)
+            RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous)
                 .fill(color.opacity(clip.isEnabled ? 0.3 : 0.1))
             clipContent(width: w)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusSmall))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous))
             if isSelected, KeyframeLane.hasKeyframes(clip) {
                 KeyframeLane(session: session, playback: playback, clip: clip, pps: pps)
                     .frame(width: w, height: 12)
@@ -1073,7 +1073,7 @@ struct TimelineClipView: View, Equatable {
             }
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .background(RoundedRectangle(cornerRadius: 2).fill(.black.opacity(0.45)))
+            .background(RoundedRectangle(cornerRadius: 2, style: .continuous).fill(.black.opacity(0.45)))
             .padding(2)
             if isSelected { keyframeMarks(width: w) }
             transitionMarks(width: w)
@@ -1081,7 +1081,7 @@ struct TimelineClipView: View, Equatable {
                 UnevenRoundedRectangle(topLeadingRadius: Theme.radiusSmall, bottomLeadingRadius: Theme.radiusSmall, bottomTrailingRadius: 0, topTrailingRadius: 0)
                     .fill(Color(labelColor.rgba)).frame(width: 3)
             }
-            RoundedRectangle(cornerRadius: Theme.radiusSmall)
+            RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous)
                 .strokeBorder(isSelected ? Color.white.opacity(0.95) : (hovering ? color.opacity(0.9) : color.opacity(0.55)), lineWidth: isSelected ? 1.5 : 1)
             // Trim handles.
             if !trackLocked {
@@ -1267,8 +1267,8 @@ struct TimelineClipView: View, Equatable {
                 }
             }
             .padding(5)
-            .background(RoundedRectangle(cornerRadius: 6).fill(.black.opacity(0.85)))
-            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.accent.opacity(0.7)))
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(.black.opacity(0.85)))
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Theme.accent.opacity(0.7)))
             .offset(x: leading ? trimLeading - 4 : w - 160, y: -58)
             .allowsHitTesting(false)
             .transition(.opacity)
@@ -1492,7 +1492,7 @@ struct LabelFilterMenu: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(session.labelFilter.map { Color($0.rgba) } ?? Theme.textSecondary)
                 .frame(width: 26, height: 26)
-                .background(RoundedRectangle(cornerRadius: Theme.radiusSmall).fill(session.labelFilter == nil ? Color.clear : Theme.control))
+                .background(RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous).fill(session.labelFilter == nil ? Color.clear : Theme.control))
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
@@ -1686,7 +1686,7 @@ struct AssistantPopover: View {
                         ForEach(Array(log.enumerated()), id: \.offset) { _, line in
                             Text(line.you).font(.pulseCaption).foregroundStyle(Theme.textSecondary)
                             Text(line.pulse).font(.pulseBody).foregroundStyle(Theme.textPrimary).fixedSize(horizontal: false, vertical: true)
-                                .padding(8).background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+                                .padding(8).background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.panelRaised))
                         }
                     }
                 }

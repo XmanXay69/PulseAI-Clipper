@@ -299,10 +299,10 @@ struct ClipInspector: View {
                 b.slider("Rotation", \.transform.rotation, range: -180...180, format: "%.0f", unit: "°")
                 b.slider("Opacity", \.transform.opacity, range: 0...1)
                 if showCrop {
-                    Picker("Fit", selection: b.value("Fit Mode", \.transform.fit, fallback: .fit)) {
-                        ForEach(FitMode.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                    HStack(spacing: 8) {
+                        Text("Fit").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 74, alignment: .leading)
+                        PulseSegmented(selection: b.value("Fit Mode", \.transform.fit, fallback: .fit), FitMode.allCases, compact: true) { $0.displayName }
                     }
-                    .pickerStyle(.segmented)
                     HStack {
                         Toggle("Flip H", isOn: b.value("Flip", \.transform.flipHorizontal, fallback: false)).toggleStyle(.checkbox)
                         Toggle("Flip V", isOn: b.value("Flip", \.transform.flipVertical, fallback: false)).toggleStyle(.checkbox)
@@ -359,10 +359,10 @@ struct ClipInspector: View {
     @ViewBuilder
     var styleSection: some View {
         InspectorSection("Shape & Border", expanded: clip.role == .webcam) {
-            Picker("Mask", selection: b.value("Mask", \.style.mask, fallback: .rectangle)) {
-                ForEach(MaskShape.allCases, id: \.self) { Text($0.displayName).tag($0) }
+            HStack(spacing: 8) {
+                Text("Mask").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 74, alignment: .leading)
+                PulseSegmented(selection: b.value("Mask", \.style.mask, fallback: .rectangle), MaskShape.allCases, compact: true) { $0.displayName }
             }
-            .pickerStyle(.segmented)
             b.plainSlider("Corners", \.style.cornerRadius, range: 0...0.5)
             b.plainSlider("Border", \.style.borderWidth, range: 0...30, format: "%.0f", unit: "px")
             ColorRow(label: "Border color", color: b.value("Border Color", \.style.borderColor, fallback: .white))
@@ -520,7 +520,7 @@ struct TextInspector: View {
                 .font(.system(size: 12))
                 .frame(height: 64)
                 .scrollContentBackground(.hidden)
-                .background(RoundedRectangle(cornerRadius: 4).fill(Theme.well))
+                .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Theme.well))
             TextStylePreview(element: element)
             HStack(spacing: 6) {
                 Menu {
@@ -576,12 +576,10 @@ struct TextInspector: View {
             LabeledSlider(label: "Size", value: textBinding("Size", \.style.fontSize), range: 16...240, format: "%.0f", onEditingChanged: { if !$0 { session.commitCoalescing() } })
             LabeledSlider(label: "Spacing", value: textBinding("Letter Spacing", \.style.letterSpacing), range: -5...20, format: "%.1f")
             LabeledSlider(label: "Wrap width", value: textBinding("Wrap", \.maxWidth), range: 0.2...1)
-            Picker("Align", selection: textBinding("Align", \.style.alignment)) {
-                Image(systemName: "text.alignleft").tag(TextAlign.leading)
-                Image(systemName: "text.aligncenter").tag(TextAlign.center)
-                Image(systemName: "text.alignright").tag(TextAlign.trailing)
+            HStack(spacing: 8) {
+                Text("Align").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 74, alignment: .leading)
+                PulseSegmented(selection: textBinding("Align", \.style.alignment), segments: [PulseSegment(TextAlign.leading, "", symbol: "text.alignleft"), PulseSegment(TextAlign.center, "", symbol: "text.aligncenter"), PulseSegment(TextAlign.trailing, "", symbol: "text.alignright")], compact: true)
             }
-            .pickerStyle(.segmented)
         }
         InspectorSection("Look") {
             ColorRow(label: "Color", color: textBinding("Text Color", \.style.color))
@@ -617,10 +615,10 @@ struct AudioInspector: View {
             b.plainSlider("Fade in", \.audio.fadeIn, range: 0...5, format: "%.1f", unit: "s")
             b.plainSlider("Fade out", \.audio.fadeOut, range: 0...5, format: "%.1f", unit: "s")
             if clip.audio.fadeIn > 0 || clip.audio.fadeOut > 0 || clip.transitionIn != nil || clip.transitionOut != nil {
-                Picker("Fade shape", selection: b.value("Fade Shape", \.audio.fadeShape, fallback: .linear)) {
-                    ForEach(FadeShape.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                HStack(spacing: 8) {
+                    Text("Fade shape").font(.pulseCaption).foregroundStyle(Theme.textSecondary).frame(width: 74, alignment: .leading)
+                    PulseSegmented(selection: b.value("Fade Shape", \.audio.fadeShape, fallback: .linear), FadeShape.allCases, compact: true) { $0.displayName }
                 }
-                .pickerStyle(.segmented)
                 .help("Equal power keeps a crossfade at one loudness through the middle; linear dips about 3 dB there (#169)")
             }
             if abs(clip.speed - 1) > 0.001 {
@@ -661,12 +659,8 @@ struct AudioInspector: View {
                       help: "Tames harsh s and sh sounds: the band above 5 kHz comes down while it dominates")
             b.plainSlider("Noise reduction", \.audio.noiseReduction, range: 0...1)
             if clip.audio.noiseReduction > 0.001 {
-                Picker("Method", selection: Binding(get: { clip.audio.noiseMethod },
-                                                    set: { method in session.editClip(clip.id, "Noise Method") { $0.audio.noiseMethod = method } })) {
-                    ForEach(NoiseReductionMethod.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
+                PulseSegmented(selection: Binding(get: { clip.audio.noiseMethod },
+                                                    set: { method in session.editClip(clip.id, "Noise Method") { $0.audio.noiseMethod = method } }), NoiseReductionMethod.allCases, compact: true) { $0.displayName }
                 .font(.pulseCaption)
                 Text(noiseMethodHelp)
                     .font(.pulseMicro).foregroundStyle(Theme.textTertiary).fixedSize(horizontal: false, vertical: true)
@@ -847,7 +841,7 @@ struct EffectsInspector: View {
                     }
                 }
                 .padding(8)
-                .background(RoundedRectangle(cornerRadius: 4).fill(Theme.well))
+                .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Theme.well))
             }
         }
     }
@@ -966,7 +960,7 @@ struct TimelineInspector: View {
                             }
                             .frame(maxWidth: .infinity, minHeight: 50)
                             .foregroundStyle(timeline.layout == preset ? Theme.accent : Theme.textSecondary)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(timeline.layout == preset ? Theme.accentSoft : Theme.control))
+                            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(timeline.layout == preset ? Theme.accentSoft : Theme.control))
                         }
                         .buttonStyle(.plain)
                         .help(preset.displayName)
@@ -1206,12 +1200,8 @@ struct EnhancePreviewRow: View {
     var body: some View {
         HStack(spacing: 8) {
             if preview.isPlaying {
-                Picker("", selection: $preview.hearing) {
-                    Text("0 %").tag(EnhancePreview.Hearing.raw)
-                    Text("50 %").tag(EnhancePreview.Hearing.half)
-                    Text("100 %").tag(EnhancePreview.Hearing.processed)
-                }
-                .pickerStyle(.segmented).labelsHidden().frame(width: 170)
+                PulseSegmented(selection: $preview.hearing, segments: [PulseSegment(EnhancePreview.Hearing.raw, "0 %"), PulseSegment(EnhancePreview.Hearing.half, "50 %"), PulseSegment(EnhancePreview.Hearing.processed, "100 %")], compact: true)
+                .frame(width: 170)
                 .help("Voice isolation off, at half strength, and as set (#276) — the rest of the chain stays the same")
                 Button("Stop") { preview.stop() }.buttonStyle(.pulse(.ghost, compact: true))
             } else {
@@ -1248,8 +1238,8 @@ struct TextStylePreview: View {
             }
         }
         .frame(height: 64)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radius))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(Theme.border))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(Theme.border))
         .task(id: element.style.hashValue ^ element.text.hashValue ^ Int(element.maxWidth * 1000)) {
             var sample = element
             if sample.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { sample.text = "Your text" }

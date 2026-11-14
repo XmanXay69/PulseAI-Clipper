@@ -53,7 +53,7 @@ struct AIClipsView: View {
                     emptyState
                 } else {
                     ScrollView {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 270, maximum: 340), spacing: 14)], spacing: 14) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 270, maximum: 340), spacing: 16)], spacing: 16) {
                             ForEach(candidates) { candidate in
                                 ClipCandidateCard(session: session, candidate: candidate, isSelected: session.selectedCandidateIDs.contains(candidate.id))
                                     .onTapGesture {
@@ -65,7 +65,8 @@ struct AIClipsView: View {
                                     }
                             }
                         }
-                        .padding(16)
+                        .padding(.horizontal, Theme.Spacing.xxl)
+                        .padding(.bottom, Theme.Spacing.xxl)
                     }
                     // Rate from the keyboard: K = 👍, J = 👎, ← → move (only while the grid has focus, so typing a
                     // title in the panel never rates a clip).
@@ -90,76 +91,77 @@ struct AIClipsView: View {
         }
     }
 
+    /// "3 potential clips from PULSE Demo Stream · 1m 15s"
+    func headerSubtitle(dismissed: Int) -> String {
+        if showMaybeLater { return "\(dismissed) clip\(dismissed == 1 ? "" : "s") set aside instead of deleted" }
+        let count = session.document.visibleCandidates.count
+        var text = "\(count) potential clip\(count == 1 ? "" : "s")"
+        if let asset = session.document.primaryAsset { text += " from \(asset.name) · \(Timecode.duration(asset.metadata.duration))" }
+        return text
+    }
+
     var header: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                let dismissed = session.document.candidates.filter { $0.status == .dismissed }.count
-                HStack(spacing: 8) {
-                    Text(showMaybeLater ? "Maybe later — \(dismissed) set aside" : "\(session.document.visibleCandidates.count) potential clips found")
-                        .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.textPrimary)
-                    if dismissed > 0 || showMaybeLater {
-                        Button(showMaybeLater ? "Back to clips" : "Maybe later (\(dismissed))") { showMaybeLater.toggle() }
-                            .buttonStyle(.pulse(showMaybeLater ? .primary : .ghost, compact: true))
-                            .help("Clips you set aside stay here instead of being deleted (#85)")
-                    }
+        let dismissed = session.document.candidates.filter { $0.status == .dismissed }.count
+        return VStack(alignment: .leading, spacing: 14) {
+            PageHeader(showMaybeLater ? "Maybe Later" : "AI Clips", subtitle: headerSubtitle(dismissed: dismissed)) {
+                Button { app.showLongFormSheet = true } label: { Label("Edit My VOD", systemImage: "film.stack") }
+                    .buttonStyle(.pulse(.ai, compact: true))
+                    .disabled(session.document.primaryAsset == nil)
+                    .help("Turn the whole stream into a 10–20 minute YouTube video")
+                Button { app.showReferenceSheet = true } label: { Label("Like a reference", systemImage: "wand.and.stars") }
+                    .buttonStyle(.pulse(.secondary, compact: true))
+                    .disabled(session.document.primaryAsset == nil)
+                    .help("Edit your VOD the way a video you love is edited (⌥⌘R)")
+                Button { regenerateAll() } label: { Label("Find again", systemImage: "arrow.clockwise") }
+                    .buttonStyle(.pulse(.secondary, compact: true))
+                    .disabled(session.document.primaryAsset == nil)
+                    .help("Run clip finding again with the current settings")
+                Button { showBatchExport = true } label: {
+                    Label(session.selectedCandidateIDs.count > 1 ? "Export \(session.selectedCandidateIDs.count)" : "Batch export", systemImage: "square.and.arrow.up.on.square")
                 }
-                if let asset = session.document.primaryAsset {
-                    Text("from \(asset.name) · \(Timecode.duration(asset.metadata.duration))").font(.pulseCaption).foregroundStyle(Theme.textTertiary)
+                .buttonStyle(.pulse(.primary, compact: true))
+                .disabled(session.document.visibleCandidates.isEmpty)
+            }
+            HStack(spacing: 10) {
+                PulseSegmented(selection: $lengthFilter, LengthFilter.allCases) { $0.rawValue }
+                    .frame(width: 220)
+                Menu {
+                    Button("All tags") { tagFilter = nil }
+                    Divider()
+                    ForEach(ClipTag.allCases, id: \.self) { tag in
+                        Button("\(tag.emoji) \(tag.displayName)") { tagFilter = tag }
+                    }
+                } label: { Label(tagFilter?.displayName ?? "Tags", systemImage: "tag") }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                Menu {
+                    Picker("Sort by", selection: $session.candidateSort) {
+                        ForEach(CandidateSort.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                    }
+                } label: { Label(session.candidateSort.displayName, systemImage: "arrow.up.arrow.down") }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                AggressivenessControl(session: session)
+                PhoneReviewButton(session: session)
+                Spacer(minLength: 8)
+                if session.selectedCandidateIDs.count >= 2 {
+                    Button { session.mergeCandidates(session.selectedCandidateIDs) } label: { Label("Merge \(session.selectedCandidateIDs.count) into one short", systemImage: "rectangle.stack.badge.plus") }
+                        .buttonStyle(.pulse(.secondary, compact: true))
+                        .help("A callback joke, a story in two parts: the selected moments become one short, joined with a cut (#65)")
+                }
+                if dismissed > 0 || showMaybeLater {
+                    Button(showMaybeLater ? "Back to clips" : "Maybe later (\(dismissed))") { showMaybeLater.toggle() }
+                        .buttonStyle(.pulse(showMaybeLater ? .primary : .ghost, compact: true))
+                        .help("Clips you set aside stay here instead of being deleted (#85)")
                 }
                 Label(app.settings.ai.taste.summary, systemImage: "hand.thumbsup")
-                    .font(.pulseMicro).foregroundStyle(Theme.ai).lineLimit(1)
+                    .font(.system(size: 11)).foregroundStyle(Theme.textSecondary).lineLimit(1)
                     .help("Your 👍 / 👎 teach PULSE what you find entertaining. Reset in Settings → AI Features.")
             }
-            Spacer()
-            Picker("", selection: $lengthFilter) {
-                ForEach(LengthFilter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 210)
-            Menu {
-                Button("All tags") { tagFilter = nil }
-                Divider()
-                ForEach(ClipTag.allCases, id: \.self) { tag in
-                    Button("\(tag.emoji) \(tag.displayName)") { tagFilter = tag }
-                }
-            } label: { Label(tagFilter?.displayName ?? "Tags", systemImage: "tag") }
-                .menuStyle(.borderlessButton)
-                .frame(width: 110)
-            Menu {
-                Picker("Sort by", selection: $session.candidateSort) {
-                    ForEach(CandidateSort.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                }
-            } label: { Label(session.candidateSort.displayName, systemImage: "arrow.up.arrow.down") }
-                .menuStyle(.borderlessButton)
-                .frame(width: 140)
-            AggressivenessControl(session: session)
-            PhoneReviewButton(session: session)
-            if session.selectedCandidateIDs.count >= 2 {
-                Button { session.mergeCandidates(session.selectedCandidateIDs) } label: { Label("Merge \(session.selectedCandidateIDs.count) into One Short", systemImage: "rectangle.stack.badge.plus") }
-                    .buttonStyle(.pulseSecondary)
-                    .help("A callback joke, a story in two parts: the selected moments become one short, joined with a cut (#65)")
-            }
-            Button { app.showLongFormSheet = true } label: { Label("Edit My VOD", systemImage: "film.stack") }
-                .buttonStyle(.pulseAI)
-                .disabled(session.document.primaryAsset == nil)
-                .help("Turn the whole stream into a 10–20 minute YouTube video")
-            Button { app.showReferenceSheet = true } label: { Label("Like a Reference", systemImage: "wand.and.stars") }
-                .buttonStyle(.pulseSecondary)
-                .disabled(session.document.primaryAsset == nil)
-                .help("Edit your VOD the way a video you love is edited (⌥⌘R)")
-            Button { regenerateAll() } label: { Label("Find Again", systemImage: "arrow.clockwise") }
-                .buttonStyle(.pulseSecondary)
-                .disabled(session.document.primaryAsset == nil)
-            Button { showBatchExport = true } label: {
-                Label(session.selectedCandidateIDs.count > 1 ? "Export \(session.selectedCandidateIDs.count)" : "Batch Export", systemImage: "square.and.arrow.up.on.square")
-            }
-            .buttonStyle(.pulsePrimary)
-            .disabled(session.document.visibleCandidates.isEmpty)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Theme.panel)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
+        .padding(.horizontal, Theme.Spacing.xxl)
+        .padding(.top, 4)
+        .padding(.bottom, Theme.Spacing.l)
     }
 
     var emptyState: some View {
@@ -262,7 +264,7 @@ struct ClipCandidateCard: View {
                 if candidate.timelineID != nil {
                     Label("Edited", systemImage: "checkmark.circle.fill")
                         .font(.pulseMicro).padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Capsule().fill(Theme.info.opacity(0.85))).foregroundStyle(.white)
+                        .background(Capsule().fill(.black.opacity(0.6))).foregroundStyle(.white)
                         .padding(8)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
@@ -270,7 +272,7 @@ struct ClipCandidateCard: View {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(alignment: .top) {
                     Text(candidate.title)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(2)
                     Spacer(minLength: 4)
@@ -290,7 +292,7 @@ struct ClipCandidateCard: View {
                         .help("Why PULSE picked this moment")
                 }
                 if let banner = gameBanner {
-                    TagChip(text: banner.text.capitalized, color: Theme.success, symbol: banner.kind.symbolName)
+                    TagChip(text: banner.text.capitalized, symbol: banner.kind.symbolName)
                         .help("The game showed this on screen during the clip")
                 }
                 if let twin = overlappingShort {
@@ -298,17 +300,17 @@ struct ClipCandidateCard: View {
                         .help("Both shorts cover mostly the same stretch — posting both looks like a repost")
                 }
                 if let part = session.seriesLabels[candidate.id] {
-                    TagChip(text: part, color: Theme.info, symbol: "square.stack")
+                    TagChip(text: part, symbol: "square.stack")
                         .help("A running bit — this moment and another reference each other, so post them as a series")
                 }
                 if candidate.isMerged {
-                    TagChip(text: "\(1 + (candidate.extraRanges?.count ?? 0)) moments · \(Int(candidate.totalDuration.rounded()))s", color: Theme.ai, symbol: "rectangle.stack")
+                    TagChip(text: "\(1 + (candidate.extraRanges?.count ?? 0)) moments · \(Int(candidate.totalDuration.rounded()))s", symbol: "rectangle.stack")
                         .help("Built from several moments joined with cuts")
                 }
                 HStack(spacing: 4) {
-                    ForEach(candidate.tags.prefix(2), id: \.self) { tag in TagChip(text: tag.displayName, color: Theme.ai) }
+                    ForEach(candidate.tags.prefix(2), id: \.self) { tag in TagChip(text: tag.displayName) }
                     if candidate.timelineID == nil {
-                        TagChip(text: app.settings.ai.captionPresetName.isEmpty ? "TikTok captions" : "\(app.settings.ai.captionPresetName) captions", color: Theme.textTertiary, symbol: "captions.bubble")
+                        TagChip(text: app.settings.ai.captionPresetName.isEmpty ? "TikTok captions" : "\(app.settings.ai.captionPresetName) captions", symbol: "captions.bubble")
                             .help("The caption look this short gets (Settings → AI Features); change it per short in Captions (#61)")
                     }
                     Spacer(minLength: 2)
@@ -348,11 +350,12 @@ struct ClipCandidateCard: View {
                         .help("Shorten, extend, regenerate, make a thumbnail or delete")
                 }
             }
-            .padding(10)
+            .padding(12)
         }
-        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(hovering && !isSelected ? Theme.control.opacity(0.4) : Theme.panelRaised))
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLarge))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).strokeBorder(isSelected ? Theme.accent : (hovering ? Theme.borderStrong : Theme.border), lineWidth: isSelected ? 1.5 : 1))
+        .background(RoundedRectangle(cornerRadius: Theme.radiusXL, style: .continuous).fill(Theme.panelRaised))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusXL, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radiusXL, style: .continuous).strokeBorder(isSelected ? Theme.accent : (hovering ? Theme.borderStrong : Theme.border), lineWidth: isSelected ? 1.5 : 1))
+        .contentShape(Rectangle())
         .animation(Theme.motion(.easeOut(duration: 0.12)), value: hovering)
         .onHover { hovering = $0 }
         .contextMenu {
@@ -428,7 +431,7 @@ struct CandidateDetailPanel: View {
                 PlayerView(player: player)
                     .aspectRatio(16 / 9, contentMode: .fit)
                     .background(Color.black)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.radius))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
                 HStack {
                     Button { player.rate == 0 ? player.play() : player.pause() } label: { Label("Preview", systemImage: "play.fill") }
                         .buttonStyle(.pulse(.secondary, compact: true))
@@ -455,7 +458,7 @@ struct CandidateDetailPanel: View {
                 }
                 HStack(spacing: 8) {
                     Button { session.createShort(from: candidate.id) } label: { Label("Create Short", systemImage: "wand.and.stars").frame(maxWidth: .infinity) }
-                        .buttonStyle(.pulseAI)
+                        .buttonStyle(.pulsePrimary)
                     Button { session.createABShorts(from: candidate.id) } label: { Label("A/B", systemImage: "square.split.2x1") }
                         .buttonStyle(.pulseSecondary)
                         .help("Two versions: the one-click cut, and an auto-edit with the other caption look, a cold open and a speed ramp")
@@ -498,7 +501,7 @@ struct CandidateDetailPanel: View {
                 .font(.pulseMicro).foregroundStyle(Theme.textTertiary)
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.panelRaised))
     }
 
     /// "Why this moment?": the signals that scored it (#49).
@@ -522,7 +525,7 @@ struct CandidateDetailPanel: View {
                 }
             }
             .padding(10)
-            .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+            .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.panelRaised))
         }
     }
 
@@ -556,7 +559,7 @@ struct CandidateDetailPanel: View {
             }
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.panelRaised))
     }
 
     var platformCopy: some View {
@@ -694,7 +697,7 @@ struct CopyRow: View {
             Text(text).font(.pulseCaption).foregroundStyle(Theme.textSecondary).textSelection(.enabled)
         }
         .padding(8)
-        .background(RoundedRectangle(cornerRadius: Theme.radiusSmall).fill(Theme.well))
+        .background(RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous).fill(Theme.well))
     }
 }
 
@@ -712,7 +715,7 @@ struct FlowChips: View {
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
                         .padding(.horizontal, 8).padding(.vertical, 4)
-                        .background(RoundedRectangle(cornerRadius: Theme.radiusSmall).fill(Theme.control))
+                        .background(RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous).fill(Theme.control))
                 }
                 .buttonStyle(.plain)
             }

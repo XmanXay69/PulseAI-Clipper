@@ -79,7 +79,7 @@ struct ThumbnailSheet: View {
             }
             .buttonStyle(.plain)
             ZStack {
-                RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.well)
+                RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.well)
                 if let image = previews[id] {
                     Image(decorative: image, scale: 1).resizable().aspectRatio(contentMode: .fill)
                 } else {
@@ -90,7 +90,7 @@ struct ThumbnailSheet: View {
                 }
             }
             .frame(width: 160, height: 90)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radius))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
             .opacity(on ? 1 : 0.45)
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
@@ -110,7 +110,7 @@ struct ThumbnailSheet: View {
             }
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge).fill(Theme.panelRaised))
+        .background(RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous).fill(Theme.panelRaised))
     }
 
     func layoutChip(_ layout: ThumbnailLayout) -> some View {
@@ -122,8 +122,8 @@ struct ThumbnailSheet: View {
                 .font(.pulseCaption)
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .foregroundStyle(on ? Theme.textPrimary : Theme.textTertiary)
-                .background(RoundedRectangle(cornerRadius: Theme.radius).fill(on ? Theme.accentSoft : Theme.control))
-                .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(on ? Theme.accent.opacity(0.5) : Theme.border))
+                .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(on ? Theme.accentSoft : Theme.control))
+                .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(on ? Theme.accent.opacity(0.5) : Theme.border))
         }
         .buttonStyle(.plain)
     }

@@ -10,7 +10,7 @@ struct UpdateSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 Image(systemName: "arrow.down.app.fill").font(.system(size: 22)).foregroundStyle(Theme.accent)
-                    .frame(width: 44, height: 44).background(RoundedRectangle(cornerRadius: 10).fill(Theme.accentSoft))
+                    .frame(width: 44, height: 44).background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.accentSoft))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title).font(.pulseTitle).foregroundStyle(Theme.textPrimary)
                     Text("You have \(updater.current.description) (build \(updater.current.build))")

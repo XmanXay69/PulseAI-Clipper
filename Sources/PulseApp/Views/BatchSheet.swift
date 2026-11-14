@@ -79,7 +79,7 @@ struct BatchSheet: View {
             }
         }
         .padding(8)
-        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.panelRaised))
     }
 
     /// "2 of 6 done · about 40 min left", from the average so far (#435).
@@ -189,7 +189,7 @@ struct BatchSheet: View {
                 Button("Stop") { batch.cancel() }.buttonStyle(.pulse(.destructive))
             } else {
                 Button { batch.start() } label: { Label("Start Batch", systemImage: "play.fill") }
-                    .buttonStyle(.pulseAI)
+                    .buttonStyle(.pulsePrimary)
                     .keyboardShortcut(.defaultAction)
                     .disabled(!batch.items.contains { $0.status == .queued })
             }

@@ -39,7 +39,7 @@ struct AnglesPanel: View {
             .help("Moves each switch onto the nearest beat of the music (within a third of a second)")
         }
         .padding(8)
-        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.panelRaised))
     }
 
     /// The multicam clip under the playhead.
@@ -107,7 +107,7 @@ struct AnglesPanel: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 5)
-                        .background(RoundedRectangle(cornerRadius: Theme.radiusSmall).fill(Theme.control))
+                        .background(RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous).fill(Theme.control))
                         .foregroundStyle(layout.capacity == current || (layout == .single && current == 1) ? Theme.accent : Theme.textSecondary)
                     }
                     .buttonStyle(.plain)
@@ -132,7 +132,7 @@ struct AnglesPanel: View {
             }
         }
         .padding(8)
-        .background(RoundedRectangle(cornerRadius: Theme.radius).fill(Theme.panelRaised))
+        .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(Theme.panelRaised))
     }
 
     func angleTile(index: Int, angle: MulticamAngle, group: MulticamGroup, clip: TimelineClip?, sessionTime: Seconds?) -> some View {
@@ -158,11 +158,11 @@ struct AnglesPanel: View {
                         .font(.system(size: 12, weight: .heavy, design: .rounded))
                         .foregroundStyle(.white)
                         .frame(width: 22, height: 22)
-                        .background(RoundedRectangle(cornerRadius: 5).fill(active ? Theme.accent : Color.black.opacity(0.6)))
+                        .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(active ? Theme.accent : Color.black.opacity(0.6)))
                         .padding(6)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: Theme.radius))
-                .overlay(RoundedRectangle(cornerRadius: Theme.radius).strokeBorder(active ? Theme.accent : Theme.border, lineWidth: active ? 2 : 1))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(active ? Theme.accent : Theme.border, lineWidth: active ? 2 : 1))
             }
             .buttonStyle(.plain)
             .disabled(!available)

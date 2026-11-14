@@ -13,8 +13,8 @@ struct ExtraPreview: View {
             content
         }
         .frame(width: 88, height: 50)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.border))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Theme.border))
         .accessibilityHidden(true)
     }
 
@@ -39,7 +39,7 @@ struct ExtraPreview: View {
         case .broll:
             HStack(spacing: 2) {
                 ForEach(0..<3, id: \.self) { i in
-                    RoundedRectangle(cornerRadius: 2).fill(Theme.ai.opacity(0.35 + Double(i) * 0.2)).frame(width: 22, height: 30)
+                    RoundedRectangle(cornerRadius: 2, style: .continuous).fill(Theme.ai.opacity(0.35 + Double(i) * 0.2)).frame(width: 22, height: 30)
                 }
             }
             .overlay(alignment: .bottomTrailing) {
@@ -62,8 +62,8 @@ struct ExtraPreview: View {
             }
         case .punchIns:
             ZStack {
-                RoundedRectangle(cornerRadius: 3).strokeBorder(.white.opacity(0.5)).frame(width: 60, height: 34)
-                RoundedRectangle(cornerRadius: 3).strokeBorder(Theme.ai, lineWidth: 1.5).frame(width: 36, height: 20)
+                RoundedRectangle(cornerRadius: 3, style: .continuous).strokeBorder(.white.opacity(0.5)).frame(width: 60, height: 34)
+                RoundedRectangle(cornerRadius: 3, style: .continuous).strokeBorder(Theme.ai, lineWidth: 1.5).frame(width: 36, height: 20)
                 Image(systemName: "plus.magnifyingglass").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.ai)
             }
         case .speakers:
