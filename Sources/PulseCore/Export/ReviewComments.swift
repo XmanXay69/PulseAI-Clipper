@@ -209,6 +209,13 @@ public enum ReviewComments {
         /// Set when the comments were written on a different edit, or on this one at a different length.
         public var warning: String?
 
+        public init(added: Int = 0, repeated: Int = 0, pastEnd: Int = 0, warning: String? = nil) {
+            self.added = added
+            self.repeated = repeated
+            self.pastEnd = pastEnd
+            self.warning = warning
+        }
+
         /// "4 comments from Sam are on the timeline as orange markers."
         public var summary: String {
             guard added > 0 || repeated > 0 else { return "No comments with a timecode were found." }

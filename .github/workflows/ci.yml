@@ -99,7 +99,8 @@ jobs:
         run: |
           if [ ! -x .build/debug/PULSE ]; then echo "PULSE executable not built"; exit 0; fi
           mkdir -p build/ui
-          .build/debug/PULSE --ui-snapshots "$PWD/build/ui" > ui.log 2>&1 &
+          # The viewer's rendered frames are compared with the ones kept here (see docs/VIEWER-FRAMES.md).
+          PULSE_FRAME_REFERENCE="$PWD/.github/viewer-frames.json" .build/debug/PULSE --ui-snapshots "$PWD/build/ui" > ui.log 2>&1 &
           pid=$!
           for i in $(seq 1 780); do kill -0 $pid 2>/dev/null || break; sleep 1; done
           hung=0
@@ -121,6 +122,20 @@ jobs:
             echo "::error::The UI walk-through did not finish in 13 minutes ($(ls build/ui/*.png 2>/dev/null | wc -l | tr -d ' ') captures made)"
             exit 1
           fi
+          # The frames the viewer really rendered. A changed picture is a warning to look at; a black, flat or
+          # misshapen frame, or one that is nothing like the reference, fails the run.
+          grep "^UI-FRAME-CHANGED" ui.log | while read -r line; do echo "::warning::The viewer's picture changed: ${line#UI-FRAME-CHANGED }"; done || true
+          if grep -q "^UI-FRAME-FAIL" ui.log; then
+            grep "^UI-FRAME-FAIL" ui.log | while read -r line; do echo "::error::The viewer rendered the wrong picture: ${line#UI-FRAME-FAIL }"; done
+            exit 1
+          fi
+          # This runner has a GPU, so the walk-through reaches the editor: no judged frame at all means the check itself broke.
+          if [ "$EXPECT_FRAMES" = "1" ] && ! grep -q "^UI-FRAME " ui.log; then
+            echo "::error::The walk-through finished without rendering a single viewer frame"
+            exit 1
+          fi
+        env:
+          EXPECT_FRAMES: ${{ matrix.os == 'macos-26' && '1' || '0' }}
 
       - name: Build PULSE.app
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.bundle || contains(github.event.head_commit.message, '[app]') }}
@@ -143,6 +158,7 @@ jobs:
             *.log
             build/snapshots/*.png
             build/ui/*.png
+            build/ui/viewer-frames.json
           if-no-files-found: ignore
 
       - name: Print snapshots (base64 thumbnails for remote review)

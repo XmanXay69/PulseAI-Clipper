@@ -531,6 +531,7 @@ enum UISnapshotter {
                 try? await Task.sleep(nanoseconds: 500_000_000)
                 capture(app: app, name: "36-light-media-waveforms", to: directory)
             }
+            reportFrames(to: directory)
             step("done")
             app.settings.appearance = chosen
             app.applyAppearance()
@@ -571,16 +572,141 @@ enum UISnapshotter {
     /// AVPlayerLayer content isn't included in view caching, so grab the viewer's frame straight
     /// from the live player item (same composition + compositor the viewer shows).
     static func captureViewerFrame(app: AppModel, name: String, to directory: URL) async {
-        guard let playback = app.session?.playback, let item = playback.player.currentItem else { return }
+        let key = name.replacingOccurrences(of: "-viewer-frame", with: "")
+        guard let playback = app.session?.playback, let item = playback.player.currentItem else {
+            FileHandle.standardError.write(Data("UI-FRAME-FAIL \(key) there is nothing in the viewer to render\n".utf8))
+            return
+        }
         let generator = AVAssetImageGenerator(asset: item.asset)
         generator.videoComposition = item.videoComposition
         generator.requestedTimeToleranceBefore = .zero
         generator.requestedTimeToleranceAfter = .zero
         let time = CMTime(seconds: playback.currentTime, preferredTimescale: 600)
-        guard let image = try? await generator.image(at: time).image else { return }
+        guard let image = try? await generator.image(at: time).image else {
+            FileHandle.standardError.write(Data("UI-FRAME-FAIL \(key) the viewer's frame could not be rendered\n".utf8))
+            return
+        }
         let rep = NSBitmapImageRep(cgImage: image)
         if let data = rep.representation(using: .png, properties: [:]) {
             try? data.write(to: directory.appendingPathComponent(name + ".png"))
         }
+        // Is it a picture, the edit's shape, and still the picture it used to be (#1021)?
+        if let small = pixels(of: image, width: 180), var seen = FrameCheck.stats(rgba: small.pixels, width: small.width, height: small.height) {
+            seen.width = image.width
+            seen.height = image.height
+            let canvas = app.session?.activeTimeline?.canvas
+            let result = FrameCheck.judge(name: key, stats: seen, expectedAspect: canvas.map { Double($0.width) / Double(max($0.height, 1)) },
+                                          reference: frameReference)
+            frameResults.append(result)
+            FileHandle.standardError.write(Data((result.line + "\n").utf8))
+        } else {
+            FileHandle.standardError.write(Data("UI-FRAME-FAIL \(key) the viewer's frame could not be read back\n".utf8))
+        }
+        // And into the window's screenshot, where the player's picture is missing.
+        showViewerFrame(image, inScreenshot: directory.appendingPathComponent(key + ".png"))
+    }
+
+    /// The frames judged in this walk-through (#1021).
+    static var frameResults: [FrameCheck.Result] = []
+    /// The frames kept to compare against: the file CI points at, when there is one.
+    static let frameReference: FrameCheck.Reference? = {
+        guard let path = ProcessInfo.processInfo.environment["PULSE_FRAME_REFERENCE"], let data = FileManager.default.contents(atPath: path) else { return nil }
+        return FrameCheck.Reference(json: data)
+    }()
+
+    /// An image as RGBA bytes, rows from the top, `width` pixels wide.
+    static func pixels(of image: CGImage, width: Int, height fixed: Int? = nil,
+                       draw: ((CGContext) -> Void)? = nil) -> (pixels: [UInt8], width: Int, height: Int)? {
+        guard image.width > 0, image.height > 0 else { return nil }
+        let height = fixed ?? max(1, Int((Double(width) * Double(image.height) / Double(image.width)).rounded()))
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn = bytes.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                                          space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            context.interpolationQuality = .medium
+            if let draw { draw(context) } else { context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height)) }
+            return true
+        }
+        return drawn ? (bytes, width, height) : nil
+    }
+
+    /// The largest player view showing in `view`: the editor's viewer.
+    static func playerView(in view: NSView) -> PlayerLayerNSView? {
+        var best: PlayerLayerNSView?
+        func visit(_ node: NSView) {
+            if let player = node as? PlayerLayerNSView, !player.isHiddenOrHasHiddenAncestor,
+               player.bounds.width * player.bounds.height > (best.map { $0.bounds.width * $0.bounds.height } ?? 0) { best = player }
+            node.subviews.forEach(visit)
+        }
+        visit(view)
+        return best
+    }
+
+    /// Draws the viewer's real frame into a window screenshot (#1021). View caching leaves the player's
+    /// picture out, so the viewer is a black box in every capture; this puts the rendered frame where the
+    /// player shows it, and keeps whatever the views drew over it (guides, handles, labels).
+    static func showViewerFrame(_ frame: CGImage, inScreenshot file: URL) {
+        guard let main = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil && $0.frame.width > 600 }),
+              let content = main.contentView, main.attachedSheet == nil, let player = playerView(in: content),
+              let data = try? Data(contentsOf: file), let shot = NSBitmapImageRep(data: data)?.cgImage,
+              content.bounds.width > 0, player.bounds.width > 1, player.bounds.height > 1 else { return }
+        let width = shot.width, height = shot.height
+        let scale = CGFloat(width) / content.bounds.width
+        // The player view in the screenshot, measured from the bottom left as Core Graphics draws.
+        var box = player.convert(player.bounds, to: content)
+        if content.isFlipped { box.origin.y = content.bounds.height - box.maxY }
+        // The picture inside it: fitted and centred, as the player layer shows it.
+        let aspect = CGFloat(frame.width) / CGFloat(frame.height)
+        var video = box
+        if box.width / box.height > aspect {
+            video.size.width = box.height * aspect
+            video.origin.x = box.midX - video.width / 2
+        } else {
+            video.size.height = box.width / aspect
+            video.origin.y = box.midY - video.height / 2
+        }
+        let target = CGRect(x: video.minX * scale, y: video.minY * scale, width: video.width * scale, height: video.height * scale).integral
+        guard target.width >= 8, target.height >= 8,
+              var window = pixels(of: shot, width: width, height: height),
+              let picture = pixels(of: frame, width: width, height: height, draw: { context in
+                  context.interpolationQuality = .high
+                  context.draw(frame, in: target)
+              }) else { return }
+        // Where the capture is the player's black backing, the picture; anywhere the views drew, the views.
+        var filled = 0
+        let left = max(0, Int(target.minX)), right = min(width, Int(target.maxX))
+        for y in max(0, Int(target.minY))..<min(height, Int(target.maxY)) {
+            let row = height - 1 - y
+            for x in left..<right {
+                let i = (row * width + x) * 4
+                guard window.pixels[i] < 20, window.pixels[i + 1] < 20, window.pixels[i + 2] < 20, picture.pixels[i + 3] > 0 else { continue }
+                window.pixels[i] = picture.pixels[i]
+                window.pixels[i + 1] = picture.pixels[i + 1]
+                window.pixels[i + 2] = picture.pixels[i + 2]
+                window.pixels[i + 3] = 255
+                filled += 1
+            }
+        }
+        guard filled > 0, let provider = CGDataProvider(data: Data(window.pixels) as CFData),
+              let image = CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue), provider: provider,
+                                  decode: nil, shouldInterpolate: false, intent: .defaultIntent),
+              let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { return }
+        try? png.write(to: file)
+        FileHandle.standardError.write(Data("UI-FRAME-SHOWN \(file.deletingPathExtension().lastPathComponent) the frame fills \(Int(target.width))x\(Int(target.height)) of the \(width)x\(height) capture\n".utf8))
+    }
+
+    /// Says how the frames did and writes them as a reference file, to copy into the repository when the
+    /// viewer's picture has changed on purpose (#1021).
+    static func reportFrames(to directory: URL) {
+        let failed = frameResults.filter { $0.verdict == .failed }.count, changed = frameResults.filter { $0.verdict == .changed }.count
+        FileHandle.standardError.write(Data("UI-FRAMES \(frameResults.count) judged, \(failed) failed, \(changed) changed, reference \(frameReference == nil ? "none" : "\(frameReference?.frames.count ?? 0) kept")\n".utf8))
+        guard !frameResults.isEmpty else { return }
+        let fresh = FrameCheck.Reference(frames: Dictionary(frameResults.map { ($0.name, FrameCheck.hex($0.stats.signature)) }, uniquingKeysWith: { first, _ in first }))
+        try? fresh.json.write(to: directory.appendingPathComponent("viewer-frames.json"), atomically: true, encoding: .utf8)
+        let line = fresh.frames.keys.sorted().map { "\"\($0)\":\"\(fresh.frames[$0] ?? "")\"" }.joined(separator: ",")
+        FileHandle.standardError.write(Data("UI-FRAME-REFERENCE {\"frames\":{\(line)}}\n".utf8))
     }
 }

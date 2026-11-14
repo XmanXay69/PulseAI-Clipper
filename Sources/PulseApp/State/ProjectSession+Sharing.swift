@@ -101,7 +101,7 @@ extension ProjectSession {
         app.toast(report.summary)
         if report.added > 0 {
             let who = notes.reviewer.isEmpty ? "" : " from \(notes.reviewer)"
-            app.logActivity(.editing, title: "\(report.added) review comment\(report.added == 1 ? "" : "s")\(who) on “\(timeline.name)”", detail: report.warning ?? "As orange markers")
+            app.logActivity(.importMedia, title: "\(report.added) review comment\(report.added == 1 ? "" : "s")\(who) on “\(timeline.name)”", detail: report.warning ?? "As orange markers")
         }
     }
 }

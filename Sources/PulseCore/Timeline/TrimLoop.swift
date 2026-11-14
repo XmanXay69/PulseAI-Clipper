@@ -8,6 +8,11 @@ public enum TrimLoop {
     public struct Cut: Hashable, Sendable {
         public var clipID: UUID
         public var time: Seconds
+
+        public init(clipID: UUID, time: Seconds) {
+            self.clipID = clipID
+            self.time = time
+        }
     }
 
     /// The cut on the main picture track nearest `time`, when one is within `reach` seconds. A cut is where
