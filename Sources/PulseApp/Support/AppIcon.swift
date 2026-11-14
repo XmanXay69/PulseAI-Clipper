@@ -346,6 +346,20 @@ enum UISnapshotter {
                     try? await Task.sleep(nanoseconds: 2_500_000_000)
                     capture(app: app, name: "18-longform-edit", to: directory)
                     await captureViewerFrame(app: app, name: "18-longform-edit-viewer-frame", to: directory)
+                    // Posting plan (#906): the shorts and the long edit laid out over a week.
+                    let planItems = session.postingItems(includeCards: true)
+                    let weekPlan = PostingPlanner.plan(items: planItems, options: PostingPlanner.Options(start: Date()))
+                    FileHandle.standardError.write(Data("UI-PLAN \(planItems.count) pieces (\(planItems.filter(\.isLong).count) long): \(weekPlan.summary()); \(weekPlan.leftovers.count) left over; calendar file \(weekPlan.calendarFile().count) bytes\n".utf8))
+                    await captureHosted(PostingPlanSheet(session: session).environmentObject(app), size: CGSize(width: 860, height: 660),
+                                        name: "18b-posting-plan", to: directory)
+                    // Review comments (#1181): the page for this edit, and a reviewer's notes back onto a copy of it as markers.
+                    if var copy = session.activeTimeline {
+                        let page = ReviewComments.page(timeline: copy, projectName: session.document.name, videoFileName: "edit.mp4")
+                        let notes = ReviewComments.parse("Reviewer: CI\n0:02 the hook is slow\n0:08-0:12 this drags\n9:59:00 past the end")
+                        let markersBefore = copy.markers.count
+                        let report = ReviewComments.apply(notes, to: &copy)
+                        FileHandle.standardError.write(Data("UI-REVIEW page \(page.count) bytes; \(report.summary) Markers \(markersBefore) → \(copy.markers.count)\n".utf8))
+                    }
                 }
             }
             // The extras question, the "Approve the cut" review, then an edit with the extras on.

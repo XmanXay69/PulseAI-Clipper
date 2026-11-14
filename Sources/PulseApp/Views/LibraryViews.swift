@@ -627,6 +627,7 @@ struct ExportsView: View {
     /// Loudness check: measuring progress, then the question (if the mix needs a change).
     @State private var measuring: Double?
     @State private var loudnessAsk: LoudnessAsk?
+    @State private var showPostingPlan = false
 
     struct LoudnessAsk: Identifiable {
         let id = UUID()
@@ -664,6 +665,10 @@ struct ExportsView: View {
     var body: some View {
         VStack(spacing: 0) {
             PageHeader("Exports", subtitle: headerSubtitle) {
+                Button { showPostingPlan = true } label: { Label("Posting plan", systemImage: "calendar") }
+                    .buttonStyle(.pulse(.ghost, compact: true))
+                    .help("A week of posts from the shorts and videos in this project: what goes where and when (#906)")
+                    .disabled(app.session == nil)
                 Button { previewCurrent() } label: { Label("Preview 10 s", systemImage: "eye") }
                     .buttonStyle(.pulse(.secondary, compact: true))
                     .help("Encodes ten seconds from the in point with these settings and opens it, so you can judge the bitrate before the full export (#360)")
@@ -681,6 +686,9 @@ struct ExportsView: View {
             .padding(.bottom, Theme.Spacing.l)
             musicWarning
             columns
+        }
+        .sheet(isPresented: $showPostingPlan) {
+            if let session = app.session { PostingPlanSheet(session: session).environmentObject(app) }
         }
         .onAppear {
             guard !loaded else { return }

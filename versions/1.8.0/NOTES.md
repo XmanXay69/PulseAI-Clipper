@@ -113,6 +113,37 @@ This file grows as each one lands; the numbers are the list's.
   same. Picture and sound move together, the edit keeps its length, and the cut stops where a clip or the
   recording runs out. K, Esc or Return stops and says how far the cut moved. All the presses are one undo.
 
+### First clips sooner, posts planned, notes back
+- **Three clips from your own recording while the rest is analyzed (#1061).** Drop in a recording of twenty
+  minutes or more and PULSE copies out its first ten minutes (no re-encoding) and analyzes that on its own
+  first: the sound, the words and the facecam, without the slower banner, reaction and speaker passes. Its
+  best three moments appear as clip cards while the full analysis carries on, and a toast says how many
+  seconds in they arrived. A short can be built from one straight away, captions and layout included,
+  from what is known of those ten minutes. They are marked as first looks: when the full analysis lands,
+  it replaces any you haven't opened or favourited. Shorter recordings are analyzed in one go, as before,
+  and if the copy or the quick pass fails nothing is shown and the full pass carries on.
+- **Posting plan (#906).** Exports → Posting plan lays a week of posts out from what is in the project:
+  every short and long edit, and (if you leave it ticked) the favourite and 70-plus clip cards that aren't
+  shorts yet, marked "Build first". The rules are the plain ones. The strongest short goes first. One short
+  a day, or two or three if you ask, each on every short-form platform you tick, at that platform's time.
+  Fewer shorts than days are spread across the week. Two clips of the same moment are never both posted:
+  the weaker one is listed under "Not this week" with the reason. With a long video in the plan, the best
+  short goes out the day before it as its trailer, and shorts from the same recording after it are noted
+  to link back to it. Copy the plan as text, or save a calendar file with one event per post. The default
+  times are starting points, not a study of your audience: set your own, and they are remembered. PULSE
+  doesn't post anything from here.
+- **Review comments onto the timeline (#1181).** Timeline → Export Watch-and-Comment Page makes one HTML
+  file next to an exported video. Send both. The reviewer plays the video in a browser and types what
+  should change; the video pauses while they type and the comment is stamped with that moment. Their
+  comments stay in their browser until they press Copy comments (text to paste into a message) or Save
+  comments file. Back in PULSE, Timeline → Import Review Comments or Paste Review Comments puts each one on
+  the timeline as an orange marker at its timecode, with who said it in the name and the whole comment in
+  the note. Notes that never saw the page work too: any text whose lines start with a time ("0:42 the music
+  is too loud", "[1:05] cut this", "0:40-0:46 this drags") is read the same way. Importing the same
+  comments twice adds nothing. If the edit has changed length since it was sent, or the comments were
+  written on another edit, PULSE says so and places them by time anyway. This is a file you send, not a
+  hosted link: PULSE runs no server, nothing is uploaded, and the page loads nothing from the internet.
+
 ### Checked
 - Core tests for both (default style per kind, your own pick per kind, old settings read as off; the edit
   retention curve; two trials and a verdict) pass on Linux. macOS results are filled in at release.
@@ -136,6 +167,13 @@ This file grows as each one lands; the numbers are the list's.
   rebuild (only the zooms change; a new zoom lands on the same instant of the recording after a hand trim;
   each pass on its own; your own text kept) and the looping trim (the nearest cut; a frame a press with
   picture and sound together; stopping where a clip or the recording ends) pass on Linux.
+- Core tests for the head start (only long recordings; the best three moments of the head as clips of the
+  recording, none running off its end, no two of one moment; a head-start clip replacing a sound-only first
+  look of the same moment), the posting plan (strongest first on every platform; spread over the week; the
+  trailer the day before the video and links back after it; one post per moment; a full week saying what
+  waits; your own times; text and calendar-file export) and review comments (timecodes however they were
+  typed; what isn't a timecode left alone; the page's own file; markers added once; a changed or different
+  edit said; a page that an edit's name cannot break and that loads nothing) pass on Linux.
 - Not checked: the predicted retention against real audience retention. It is a rule of thumb. The loop
   and the opening lines have run on synthetic clips and the generated sample, not on real shorts. The story
   reading is keyword and position based: it has been tested on scripted transcripts, not on real streams,
@@ -146,4 +184,11 @@ This file grows as each one lands; the numbers are the list's.
   export (a position column and an absolute-retention column) and tested on tables shaped like it: no real
   export file was available here, so try one and say if it is refused. Trim while it loops has not been played by anyone: the cut
   arithmetic is tested, but how the loop feels while the picture rebuilds after each press is unknown until
-  it is tried on a Mac. The mix's target levels are common practice, not measured on your streams.
+  it is tried on a Mac. The mix's target levels are common practice, not measured on your streams. The
+  head start needs a recording of twenty minutes or more, and the sample is seconds long, so the copy of
+  the first ten minutes and the quick analysis have compiled on CI but never run: the "inside two minutes"
+  figure is the aim, not a measurement, and depends on the Mac and on transcription speed. The review page
+  has been checked as text (it is well formed, escapes the edit's name and loads nothing) but has not been
+  opened in a browser here: playing, pausing on typing, copying and saving are untested until someone
+  tries them, and a browser that blocks local files from playing will show the "choose the video" box
+  instead. The posting plan's default times of day are conventions, not data.

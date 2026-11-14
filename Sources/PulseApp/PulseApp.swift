@@ -305,6 +305,12 @@ struct PulseCommands: Commands {
                 .disabled(app.session?.activeTimeline == nil)
             Button("Export Review Page…") { app.session?.exportReviewPage() }
                 .disabled(app.session?.activeTimeline == nil)
+            Button("Export Watch-and-Comment Page…") { app.session?.exportCommentPage() }
+                .disabled(app.session?.activeTimeline == nil)
+            Button("Import Review Comments…") { app.session?.importReviewComments() }
+                .disabled(app.session?.activeTimeline == nil)
+            Button("Paste Review Comments") { app.session?.pasteReviewComments() }
+                .disabled(app.session?.activeTimeline == nil)
             Button("Export Chapter Art…") { app.session?.exportChapterArt() }
                 .disabled(app.session?.activeTimeline == nil)
             Divider()

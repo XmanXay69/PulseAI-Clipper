@@ -55,6 +55,9 @@ final class ProjectSession: ObservableObject, Identifiable {
     var lastLongFormOptions: LongFormOptions?
     /// The loop preview in progress (#541), so a second press restarts it and a new one cancels the old.
     var loopPreview: Task<Void, Never>?
+    /// What is known of a long recording's first ten minutes while the rest is analyzed (#1061): enough to
+    /// build its first clips with captions. Dropped when the full analysis arrives; never saved.
+    var headAnalyses: [UUID: MediaAnalysis] = [:]
     /// The cut being trimmed while the edit loops around it (#661); nil when not trimming.
     @Published var trimLoop: TrimLoop.Cut?
     /// Where that cut was when the trim started, and how looping was set before it.
@@ -715,6 +718,7 @@ final class ProjectSession: ObservableObject, Identifiable {
     }
 
     func setAnalysis(_ analysis: MediaAnalysis) {
+        headAnalyses[analysis.assetID] = nil
         if let old = analyses[analysis.assetID]?.transcript, old != analysis.transcript { previousTranscripts[analysis.assetID] = old }
         analyses[analysis.assetID] = analysis
         try? app.store.saveAnalysis(analysis, in: package)
@@ -961,6 +965,8 @@ final class ProjectSession: ObservableObject, Identifiable {
                                                speed: ai.analysisSpeed)
         let pipeline = AnalysisPipeline(cacheDirectory: PulseDirectories.cache("Analysis", root: app.cacheFolder))
         setAnalysisState(.running, for: assetID)
+        // A long recording shows its first clips from the first ten minutes while the rest is read (#1061).
+        if generateClips, followUp == nil, analyses[assetID] == nil { headStart(asset) }
         let job = app.jobs.start("Analyze · \(asset.name)", kind: .analysis) { [weak self] job in
             guard let self else { return }
             do {
@@ -1456,6 +1462,8 @@ final class ProjectSession: ObservableObject, Identifiable {
     func buildShort(for candidate: ClipCandidate, mode: ShortBuildOptions.Mode, style: (ReferenceStyle, ReferenceAnswers)?)
         -> (timeline: Timeline, wantsMusic: Bool, options: ShortBuildOptions, music: MediaAsset?, sfx: [MediaAsset])? {
         guard let asset = document.asset(id: candidate.assetID) else { return nil }
+        // Before the full analysis is in, a head-start clip is built from what is known of the first ten minutes (#1061).
+        let known = analyses[asset.id] ?? headAnalyses[asset.id]
         var options = ShortBuildOptions(settings: app.settings.ai, mode: mode)
         let platform = document.overrides.safeAreaPlatform ?? app.settings.safeAreaPlatform
         options.canvasPresetID = platform == .youtubeShorts ? CanvasPreset.shorts.id : (platform == .instagramReels ? CanvasPreset.reels.id : CanvasPreset.tiktok.id)
@@ -1467,7 +1475,7 @@ final class ProjectSession: ObservableObject, Identifiable {
         if let style {
             options = style.0.shortOptions(style.1, base: options)
             wantsMusic = style.0.shortWantsMusic(style.1, default: wantsMusic)
-        } else if let playbook = app.settings.ai.defaultPlaybook(for: analyses[asset.id]?.profile ?? .unknown, format: .short) {
+        } else if let playbook = app.settings.ai.defaultPlaybook(for: known?.profile ?? .unknown, format: .short) {
             var answers = ReferenceAnswers.recommended(for: playbook.style)
             answers.copyCaptions = false
             options = playbook.style.shortOptions(answers, base: options)
@@ -1475,17 +1483,17 @@ final class ProjectSession: ObservableObject, Identifiable {
         }
         let cam = webcamCompanion(for: asset)
         // The split that suits what you stream (Set up for my stream), when there's a facecam to place.
-        if options.layout == nil, let content = app.settings.streamSetup?.content, cam != nil || analyses[asset.id]?.webcam != nil {
+        if options.layout == nil, let content = app.settings.streamSetup?.content, cam != nil || known?.webcam != nil {
             options.layout = content.preferredLayout
         }
         let sfx = document.media.filter { $0.role == .soundEffect }
         let music = wantsMusic ? document.media.first { $0.role == .music } : nil
-        let input = ShortBuildInput(candidate: candidate, asset: asset, analysis: analyses[asset.id], soundEffects: sfx, music: music,
+        let input = ShortBuildInput(candidate: candidate, asset: asset, analysis: known, soundEffects: sfx, music: music,
                                     companionWebcam: cam, companionVoice: voiceCompanion(for: asset),
                                     companionFaceCenter: cam.flatMap { analyses[$0.id]?.webcam?.face.center })
         var timeline = ShortBuilder.build(input, options: options)
         if let defaultStyle { timeline.editStyle = defaultStyle.id }
-        if app.settings.ai.censorAudio != .off, let words = analyses[asset.id]?.transcript?.words {
+        if app.settings.ai.censorAudio != .off, let words = known?.transcript?.words {
             AudioCensor.apply(app.settings.ai.censorAudio, to: &timeline, words: words, assetID: asset.id, extra: app.settings.ai.normalizedExtraProfanity,
                               tone: app.settings.ai.bleepTone)
         }
