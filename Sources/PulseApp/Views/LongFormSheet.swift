@@ -379,12 +379,6 @@ struct LongFormSheet: View {
                     if let playbook { apply(playbook) }
                     if styleTouched { session.setGenre(selectedGenre) }
                 }
-                if let suggested = suggestedPlaybook, suggested.id != editStyle {
-                    Button("Use \(suggested.name)") { styleTouched = true; followsRecording = false; editStyle = suggested.id }
-                        .buttonStyle(.pulse(.ai, compact: true))
-                        .fixedSize()
-                        .help("Suggested for this recording: \(suggested.bestFor.lowercased())")
-                }
                 Button("Compare two…") { comparing = true }
                     .buttonStyle(.pulse(.ghost, compact: true))
                     .fixedSize()
