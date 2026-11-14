@@ -433,36 +433,51 @@ enum UISnapshotter {
             let lightPages: [(String, SidebarSection)] = [("22-light-home", .home), ("23-light-aiClips", .aiClips), ("24-light-editor", .editor),
                                                           ("25-light-exports", .exports), ("26-light-settings", .settings),
                                                           ("27-light-projects", .projects), ("28-light-import", .importMedia),
-                                                          ("29-light-captions", .captions), ("30-light-media", .media),
-                                                          ("31-light-templates", .templates)]
+                                                          ("29-light-captions", .captions), ("30-light-templates", .templates)]
+            // Each step is named on stderr first, so a run that stops responding says where.
+            func step(_ name: String) { FileHandle.standardError.write(Data("UI-STEP \(name)\n".utf8)) }
             for (name, section) in lightPages {
+                step(name)
                 app.section = section
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
                 capture(app: app, name: name, to: directory)
             }
             // The sheets people meet first, in the light theme too.
+            step("31-light-longform-sheet")
             app.section = .aiClips
             app.showLongFormSheet = true
             try? await Task.sleep(nanoseconds: 1_500_000_000)
-            capture(app: app, name: "32-light-longform-sheet", to: directory)
+            capture(app: app, name: "31-light-longform-sheet", to: directory)
             app.showLongFormSheet = false
             try? await Task.sleep(nanoseconds: 800_000_000)
+            step("32-light-reference-pick")
             app.reference.current = nil
             app.showReferenceSheet = true
             try? await Task.sleep(nanoseconds: 1_500_000_000)
-            capture(app: app, name: "33-light-reference-pick", to: directory)
+            capture(app: app, name: "32-light-reference-pick", to: directory)
             app.showReferenceSheet = false
             try? await Task.sleep(nanoseconds: 800_000_000)
+            step("33-light-search")
             app.showGlobalSearch = true
             try? await Task.sleep(nanoseconds: 800_000_000)
-            capture(app: app, name: "34-light-search", to: directory)
+            capture(app: app, name: "33-light-search", to: directory)
             app.showGlobalSearch = false
             try? await Task.sleep(nanoseconds: 800_000_000)
+            step("34-light-onboarding")
             app.showOnboarding = true
             try? await Task.sleep(nanoseconds: 800_000_000)
-            capture(app: app, name: "35-light-onboarding", to: directory)
+            capture(app: app, name: "34-light-onboarding", to: directory)
             app.showOnboarding = false
             try? await Task.sleep(nanoseconds: 600_000_000)
+            // Media last: by now the project holds music, sound effects and the edits' own files as well as the recording.
+            if let session = app.session {
+                step("35-light-media with " + session.document.media.map { "\($0.kind) \($0.name)" }.joined(separator: " | "))
+            }
+            app.section = .media
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            step("35-light-media shown")
+            capture(app: app, name: "35-light-media", to: directory)
+            step("done")
             app.settings.appearance = chosen
             app.applyAppearance()
             NSApp.terminate(nil)

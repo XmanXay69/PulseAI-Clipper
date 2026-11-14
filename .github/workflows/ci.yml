@@ -102,10 +102,22 @@ jobs:
           .build/debug/PULSE --ui-snapshots "$PWD/build/ui" > ui.log 2>&1 &
           pid=$!
           for i in $(seq 1 600); do kill -0 $pid 2>/dev/null || break; sleep 1; done
+          hung=0
+          if kill -0 $pid 2>/dev/null; then
+            # Still running after ten minutes: the walk-through is stuck. Record where before stopping it.
+            hung=1
+            sudo sample $pid 3 -file hang-sample.log >/dev/null 2>&1 || sample $pid 3 -file hang-sample.log >/dev/null 2>&1 || true
+          fi
           kill $pid 2>/dev/null || true
           ls -la build/ui || true
           grep "^UI-" ui.log || true
           tail -50 ui.log || true
+          if [ $hung -eq 1 ]; then
+            echo "================ MAIN THREAD WHEN THE WALK-THROUGH STOPPED RESPONDING ================"
+            awk '/Call graph:/{p=1} /Thread_[0-9]+/{n++} n>=2{exit} p{print}' hang-sample.log | cut -c1-240 | tail -160 || true
+            echo "::error::The UI walk-through did not finish in 10 minutes ($(ls build/ui/*.png 2>/dev/null | wc -l | tr -d ' ') captures made)"
+            exit 1
+          fi
 
       - name: Build PULSE.app
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.bundle || contains(github.event.head_commit.message, '[app]') }}
