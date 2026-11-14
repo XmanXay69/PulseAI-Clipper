@@ -67,15 +67,20 @@ Key files to know:
 - `Sources/PulseCore/AutoEdit/ShortBuilder.swift` — candidate → finished 9:16 short.
 - `Tests/PulseEngineTests/EngineSmokeTests.swift` — end-to-end: demo media → analysis → clips → short → rendered stills → exported MP4.
 - 1.9.0 (in progress, not released; `VERSION` still says 1.8.0): the genre button. `AutoEdit/VideoGenre.swift` maps
-  seven genres to playbooks and lists each one's sources; `EditorPlaybook.streamHighlights` and `.vlog` are new;
-  `ProjectDocument.genre` remembers the choice; `LongFormSheet.genreSection` is the buttons and
-  `ProjectSession.setGenre` / `editMyVOD` use it. `.claude/skills/watch` is the `/watch` skill (MIT, from
-  bradautomates/claude-video): it needs `pip install --user "yt-dlp[default]"` in a fresh container, and **YouTube
-  refuses video pages from cloud addresses**, so in a cloud session it finds videos but cannot open them. Do not
-  work round that (scraped transcripts were tried once and correctly refused). It works on the owner's Mac, or
-  with a `GEMINI_API_KEY` (Google watches the link itself). Until one of those happens the genre rules rest on
-  written articles only; `versions/1.9.0/NOTES.md` says so, and `docs/EDITING-STUDY.md` is the study written out as
-  a job for a session on the owner's Mac (the video list, what to extract, which files to update).
+  seven genres to playbooks, lists each one's sources (articles read, and videos watched, marked "Watched:") and has a
+  `studyNote` per genre; `EditorPlaybook.streamHighlights` and `.vlog` are new; `ProjectDocument.genre` remembers the
+  choice; `LongFormSheet.genreSection` is the buttons and `ProjectSession.setGenre` / `editMyVOD` use it.
+  **The editing study was done on the owner's Mac on 14 November 2026**: 45 videos watched with the `/watch` skill
+  (`.claude/skills/watch`, MIT, from bradautomates/claude-video) from frames and captions; nobody heard the audio.
+  `docs/EDITING-STUDY-FINDINGS.md` has every claim with its video and timestamp, what moved in the styles and what is
+  still unknown; `docs/editing-study-notes/` has one note per video. Numbers moved only where two or more videos
+  disagreed (see "What moved in PULSE" there); Stream highlights is unchanged because nothing watched showed a long
+  highlights video. Open: find and measure real stream-highlights videos and a few recent vlogs (not tutorials), and
+  anything about sound, which needs a Gemini key so the skill can hear. For the next session: `/watch` cannot open
+  YouTube from a cloud machine (YouTube refuses cloud addresses; do not work round it, scraped transcripts were tried
+  once and correctly refused), a cloud session cannot reach the Mac's folder or browser, and the Gemini key cannot go
+  through the credential form (its header is not accepted), so the watching happens in a session on the Mac
+  (`docs/EDITING-STUDY.md` is the brief; pass `--sub-lang en` to avoid auto-translated captions).
 - 1.8.0 (the "top twenty" of `docs/IDEAS-800.md`). Where each lives, all with tests in `Tests/PulseCoreTests`:
   default style per kind of recording and the two-style compare (`AISettings.defaultPlaybook`,
   `AutoEdit/StyleComparison.swift`, `Views/StyleCompareSheet.swift`); the loop, the five opening lines and
