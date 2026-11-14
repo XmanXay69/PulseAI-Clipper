@@ -13,3 +13,6 @@ DerivedData/
 *.gguf
 .env
 !Resources/Models/*.bin
+# Python caches (the /watch skill)
+__pycache__/
+*.pyc
