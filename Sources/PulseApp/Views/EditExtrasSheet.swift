@@ -123,7 +123,7 @@ struct EditExtrasSheet: View {
         }
         .frame(width: 540, height: 660)
         .background(Theme.panel)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(AppModel.current?.colorScheme)
         .onAppear {
             extras = app.settings.ai.editExtras
             phrasesText = extras.titleCardPhrases.joined(separator: ", ")

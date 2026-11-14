@@ -63,7 +63,7 @@ struct ThumbnailSheet: View {
         }
         .frame(width: 720, height: 620)
         .background(Theme.panel)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(AppModel.current?.colorScheme)
         .task { await load() }
     }
 

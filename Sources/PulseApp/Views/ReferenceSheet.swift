@@ -34,7 +34,7 @@ struct ReferenceSheet: View {
         }
         .frame(width: 780, height: 680)
         .background(Theme.panel)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(AppModel.current?.colorScheme)
         .onAppear { if let style = reference.current { answers = .recommended(for: style) } }
         .onChange(of: reference.current?.id) { _, _ in
             if let style = reference.current { answers = .recommended(for: style) }

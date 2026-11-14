@@ -426,6 +426,19 @@ enum UISnapshotter {
                     }
                 }
             }
+            // The light theme, on the pages that show the most surfaces, so both themes are reviewed.
+            let chosen = app.settings.appearance
+            app.settings.appearance = .light
+            app.applyAppearance()
+            let lightPages: [(String, SidebarSection)] = [("22-light-home", .home), ("23-light-aiClips", .aiClips), ("24-light-editor", .editor),
+                                                          ("25-light-exports", .exports), ("26-light-settings", .settings)]
+            for (name, section) in lightPages {
+                app.section = section
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                capture(app: app, name: name, to: directory)
+            }
+            app.settings.appearance = chosen
+            app.applyAppearance()
             NSApp.terminate(nil)
         }
     }

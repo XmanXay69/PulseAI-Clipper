@@ -27,7 +27,7 @@ struct BatchSheet: View {
         }
         .frame(width: 780, height: 560)
         .background(Theme.panel)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(AppModel.current?.colorScheme)
     }
 
     var queue: some View {

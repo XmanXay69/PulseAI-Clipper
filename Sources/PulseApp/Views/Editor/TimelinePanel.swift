@@ -5,7 +5,7 @@ import SwiftUI
 
 enum TimelineMetrics {
     /// Wide enough for "A1 Microphone" beside the meter and the mute, solo and lock buttons.
-    static let headerWidth: CGFloat = 204
+    static let headerWidth: CGFloat = 212
     static let rulerHeight: CGFloat = 26
     /// Tighter rows for long timelines (#182): set from Settings, or on its own past 300 clips.
     nonisolated(unsafe) static var compact = false
@@ -477,6 +477,7 @@ struct TrackHeader: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
                 .lineLimit(1)
+                .minimumScaleFactor(0.9)
                 .truncationMode(.middle)
                 .help("\(track.name) — double-click to rename")
                 .onTapGesture(count: 2) { draftName = track.name; renaming = true }

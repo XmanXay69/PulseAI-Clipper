@@ -73,6 +73,6 @@ struct ReportProblemSheet: View {
         .padding(22)
         .frame(width: 560)
         .background(Theme.panel)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(AppModel.current?.colorScheme)
     }
 }

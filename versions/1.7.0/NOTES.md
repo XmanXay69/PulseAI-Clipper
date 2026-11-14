@@ -12,8 +12,8 @@ is where it was; what changed is how it is drawn.
   fields and rows.
 - **One accent.** Blue by default (`#4C8DFF`, a deeper `#2563EB` on the light theme), with Pink, Violet,
   Lime and Amber in Settings → General → Appearance. What the AI made is marked with the accent and a
-  sparkle, not a second colour. Your earlier accent choice carries over, except that "Pulse pink" as the
-  default becomes Blue; pick Pink to get it back.
+  sparkle, not a second colour. Lime and Amber carry over as chosen. "Pulse pink" (the old default)
+  becomes Blue: pick Pink to get it back. "Electric blue" becomes Violet, since Blue is now the default.
 - **Sidebar.** 216 pt wide with the mark, the app's name and the open project; a rounded selection with the
   icon in the accent; the ⌘-number shortcut shown on hover; "Runs on this Mac" at the foot (it changes when
   a cloud model is switched on). On the working pages it still folds to an icon rail.
@@ -85,9 +85,11 @@ endorsement by the people named.
   with the twenty to do first at the top.
 
 ### Checked
-- Compiled and tested on GitHub's macOS 26 (Apple silicon) and macOS 15 (Intel) runners; 480 core tests
-  (nine new for the styles and the coach) and the engine's end-to-end tests.
+- Compiled and tested on GitHub's macOS 26 (Apple silicon) and macOS 15 (Intel) runners: 501 tests, of
+  which 480 are core tests (nine new for the styles and the coach) and 21 run the engine end to end.
 - Every page and sheet screenshotted on CI in the new look and reviewed; the README's screenshots are from
   that run.
-- Not checked: the look on a real display at other window sizes than CI's 1440 × 900, the light theme page
-  by page, and the styles on real recordings.
+- The light theme is screenshotted on CI for Home, AI Clips, the editor, Exports and Settings; sheets now
+  follow the app's theme instead of always opening dark.
+- Not checked: the look on a real display at window sizes other than CI's 1440 × 900, the remaining pages
+  in the light theme, and the styles on real recordings.

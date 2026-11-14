@@ -100,7 +100,7 @@ struct LongFormSheet: View {
                 }
                 .frame(width: 820, height: 680)
                 .background(Theme.panel)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(AppModel.current?.colorScheme)
             } else {
                 settingsPage
             }
@@ -154,7 +154,7 @@ struct LongFormSheet: View {
         }
         .frame(width: 560, height: 640)
         .background(Theme.panel)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(AppModel.current?.colorScheme)
     }
 
     var header: some View {
